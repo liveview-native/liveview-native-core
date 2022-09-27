@@ -1,0 +1,20 @@
+[workspace]
+members = [
+    "crates/core",
+]
+
+[workspace.package]
+version = "0.1.0"
+rust-version = "1.64"
+authors = ["Paul Schoenfelder <paulschoenfelder@gmail.com>"]
+description = "Provides core, cross-platform functionality for LiveView Native implementations"
+repository = "https://github.com/liveviewnative/liveview-native-core"
+homepage = "https://github.com/liveviewnative/liveview-native-core"
+documentation = "https://github.com/liveviewnative/liveview-native-core"
+categories = ["API bindings", "GUI"]
+keywords = ["liveview", "phoenix"]
+license = "Apache-2.0"
+license-file = "LICENSE.md"
+readme = "README.md"
+edition = "2021"
+publish = false
