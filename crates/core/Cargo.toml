@@ -15,6 +15,9 @@ publish.workspace = true
 
 build = "build.rs"
 
+[lib]
+crate-type = ["staticlib", "rlib"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -23,6 +26,7 @@ fixedbitset = "0.4"
 fxhash = "0.2"
 html5gum = "0.5"
 intrusive-collections = { version = "0.9", features = ["nightly"] }
+indexmap = { version = "1.7", features = ["std"] }
 lazy_static = "1.4"
 petgraph = { version = "0.6", default-features = false, features = ["graphmap"] }
 smallvec = { version = "1.9", features = ["union", "const_generics", "specialization"] }

@@ -1,0 +1,222 @@
+[config]
+skip_core_tasks = true
+skip_git_env_info = true
+init_task = "init"
+
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+CARGO_MAKE_CARGO_VERBOSE_FLAGS = { source = "${CARGO_MAKE_CI}", default_value = "", mapping = { "true" = "--verbose" } }
+CARGO_MAKE_RUST_SCRIPT_PROVIDER = "rust-script"
+CARGO_MAKE_USE_WORKSPACE_PROFILE = true
+CARGO_MAKE_CARGO_BUILD_TEST_FLAGS = "--no-fail-fast"
+CARGO_TARGET_DIR = { value = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/target", condition = { env_not_set = ["CARGO_TARGET_DIR"] } }
+CARGO_MAKE_TOOLCHAIN_DEFAULT = { source = "${CARGO_MAKE_CI}", default_value = "nightly", mapping = { "true" = "nightly-2022-08-08", "false" = "nightly" } }
+CARGO_MAKE_TOOLCHAIN = { value = "${CARGO_MAKE_TOOLCHAIN_DEFAULT}", condition = { env_not_set = ["CARGO_MAKE_TOOLCHAIN"] } }
+CARGO_BUILD_TYPE = { source = "${CARGO_MAKE_PROFILE}", default_value = "debug", mapping = { "dev" = "debug", "release" = "release" } }
+BACKTRACE_DEFAULT = { source = "${CARGO_MAKE_CI}", mapping = { "true" = "1", "false" = "0" } }
+RUST_BACKTRACE = { value = "${BACKTRACE_DEFAULT}", condition = { env_not_set = ["RUST_BACKTRACE"] } }
+
+[tasks.init]
+condition = { env_set = ["VERBOSE"] }
+run_task = "print-env"
+
+[tasks.default]
+description = "Empty Task"
+
+[tasks.print-env]
+category = "Tools"
+run_task = [{ name = ["print-build-env", "print-ci-env", "print-rust-env", "print-cargo-env"] }]
+
+[tasks.print-build-env]
+private = true
+script = [
+'''
+#!@duckscript
+echo "*************************************"
+echo "Build Environment:"
+echo "    Task: ${CARGO_MAKE_TASK}"
+echo "    Task Arguments: ${CARGO_MAKE_TASK_ARGS}"
+echo "    Command: ${CARGO_MAKE_COMMAND}"
+echo "    Working Directory: ${CARGO_MAKE_WORKING_DIRECTORY}"
+echo "    Target Directory: ${CARGO_TARGET_DIR}"
+echo "    Target Triple: ${CARGO_MAKE_RUST_TARGET_TRIPLE}"
+echo ""
+echo "    RUST_BACKTRACE: ${RUST_BACKTRACE}"
+echo "*************************************"
+'''
+]
+
+[tasks.print-ci-env]
+private = true
+condition = { env = { "CARGO_MAKE_CI" = "true" } }
+script = [
+'''
+#!@duckscript
+echo "*************************************"
+echo "CI:"
+echo "    CI: ${CARGO_MAKE_CI}"
+echo "    PR: ${CARGO_MAKE_PR}"
+echo "    Branch Name: ${CARGO_MAKE_CI_BRANCH_NAME}"
+echo "    CI Vendor: ${CARGO_MAKE_CI_VENDOR}"
+echo "*************************************"
+'''
+]
+
+[tasks.print-rust-env]
+category = "Tools"
+condition = { env_set = [ "CARGO_MAKE_RUST_CHANNEL" ] }
+script = [
+'''
+#!@duckscript
+echo "*************************************"
+echo "Rust:"
+echo "    Version: ${CARGO_MAKE_RUST_VERSION}"
+echo "    Channel: ${CARGO_MAKE_RUST_CHANNEL}"
+echo "    Toolchain: ${CARGO_MAKE_TOOLCHAIN}"
+echo "    Target Arch: ${CARGO_MAKE_RUST_TARGET_ARCH}"
+echo "    Target Env: ${CARGO_MAKE_RUST_TARGET_ENV}"
+echo "    Target OS: ${CARGO_MAKE_RUST_TARGET_OS}"
+echo "    Pointer Width: ${CARGO_MAKE_RUST_TARGET_POINTER_WIDTH}"
+echo "    Target Triple: ${CARGO_MAKE_RUST_TARGET_TRIPLE}"
+echo "*************************************"
+'''
+]
+
+[tasks.print-cargo-env]
+category = "Tools"
+condition = { env_set = [ "CARGO_MAKE_CARGO_HOME" ] }
+script = [
+'''
+#!@duckscript
+echo "*************************************"
+echo "Cargo:"
+echo "    Home: ${CARGO_MAKE_CARGO_HOME}"
+echo "    Profile: ${CARGO_MAKE_CARGO_PROFILE}"
+echo "*************************************"
+'''
+]
+
+[tasks.check]
+category = "Build"
+description = "Runs cargo check"
+command = "rustup"
+args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "check", "${@}"]
+
+[tasks.build]
+category = "Build"
+description = "Runs cargo build"
+command = "rustup"
+args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "build", "--", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "${@}"]
+
+[tasks.swift]
+workspace = false
+category = "Build"
+description = "Builds the Swift package"
+command = "swift"
+args = ["build", "--package-path", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNative", "--scratch-path", "${CARGO_TARGET_DIR}/swift/.build"]
+dependencies = ["build-xcframework"]
+
+[tasks.build-xcframework]
+workspace = false
+category = "Packaging"
+description = "Generates the LiveViewNativeCore.xcframework package"
+command = "xcodebuild"
+args = [
+    "-create-xcframework",
+    "-library", "${CARGO_TARGET_DIR}/aarch64-apple-darwin/debug/libliveview_native_core.a",
+    "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNativeCore/include",
+    "-library", "${CARGO_TARGET_DIR}/aarch64-apple-ios/debug/libliveview_native_core.a",
+    "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNativeCore/include",
+    "-library", "${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libliveview_native_core.a",
+    "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNativeCore/include",
+    "-output", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNative/LiveViewNativeCore.xcframework"
+]
+dependencies = ["build-universal-macos", "build-universal-ios", "remove-existing-xcframework"]
+
+[tasks.remove-existing-xcframework]
+workspace = false
+private = true
+script_runner = "@duckscript"
+script = "rm -r ${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNative/LiveViewNativeCore.xcframework"
+
+[tasks.build-universal-macos]
+workspace = false
+category = "Build"
+description = "Compiles for all targets needed to produce a universal library for macOS"
+command = "rustup"
+args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "build", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "--target", "aarch64-apple-darwin", "--target", "x86_64-apple-darwin", "-p", "liveview-native-core"]
+dependencies = ["install-targets"]
+
+[tasks.package-universal-macos]
+workspace = false
+category = "Packaging"
+description = "Produces a universal library for macOS"
+command = "lipo"
+args = ["${CARGO_TARGET_DIR}/aarch64-apple-darwin/debug/libliveview_native_core.a", "${CARGO_TARGET_DIR}/x86_64-apple-darwin/debug/libliveview_native_core.a", "-create", "-output", "${CARGO_TARGET_DIR}/universal-macos/debug/libliveview_native_core.a"]
+dependencies = ["build-universal-macos"]
+
+[tasks.build-universal-ios]
+workspace = false
+category = "Build"
+description = "Compiles for all targets needed to produce a universal library for iOS"
+command = "rustup"
+args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "build", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "--target", "aarch64-apple-ios", "--target", "aarch64-apple-ios-sim", "--target", "x86_64-apple-ios", "-p", "liveview-native-core"]
+dependencies = ["prepare-targets"]
+
+[tasks.package-universal-ios]
+workspace = false
+category = "Packaging"
+description = "Produces a universal library for iOS"
+command = "lipo"
+args = ["${CARGO_TARGET_DIR}/aarch64-apple-ios/debug/libliveview_native_core.a", "${CARGO_TARGET_DIR}/x86_64-apple-ios/debug/libliveview_native_core.a", "-create", "-output", "${CARGO_TARGET_DIR}/universal-ios/debug/libliveview_native_core.a"]
+dependencies = ["build-universal-ios"]
+
+[tasks.prepare-targets]
+workspace = false
+private = true
+run_task = { name = ["install-targets", "create-universal-targets"], parallel = true }
+
+[tasks.install-targets]
+workspace = false
+private = true
+description = "Installs all toolchain targets needed for packaging"
+command = "rustup"
+args = ["target", "add", "--toolchain", "${CARGO_MAKE_TOOLCHAIN}", "aarch64-apple-darwin", "x86_64-apple-darwin", "aarch64-apple-ios", "aarch64-apple-ios-sim", "x86_64-apple-ios"]
+
+[tasks.create-universal-targets]
+workspace = false
+private = true
+script_runner = "@duckscript"
+script = '''
+macos_dir = set "${CARGO_TARGET_DIR}/universal-macos/${CARGO_BUILD_TYPE}"
+ios_dir = set "${CARGO_TARGET_DIR}/universal-ios/${CARGO_BUILD_TYPE}"
+
+echo Creating ${macos_dir}
+mkdir ${macos_dir}
+
+echo "Creating ${ios_dir}"
+mkdir "${ios_dir}"
+'''
+
+[tasks.clean]
+category = "Build"
+description = "Clean build artifacts"
+command = "cargo"
+args = ["clean"]
+
+[tasks.test]
+category = "Test"
+description = "Runs all tests"
+dependencies = ["test-rust"]
+
+[tasks.test-rust]
+category = "Test"
+description = "Runs tests written in Rust"
+command = "rustup"
+args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "test", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "@@split(CARGO_MAKE_CARGO_BUILD_TEST_FLAGS, )", "${@}"]
+
+[tasks.bloat]
+category = "Development"
+description = "Run cargo-bloat"
+command = "cargo"
+args = ["bloat", "${@}"]

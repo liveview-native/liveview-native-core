@@ -64,6 +64,13 @@ impl AttributeValue {
             Self::String(s) => s.to_string(),
         }
     }
+
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Self::None => None,
+            Self::String(s) => Some(s.as_str()),
+        }
+    }
 }
 impl From<&str> for AttributeValue {
     #[inline]
