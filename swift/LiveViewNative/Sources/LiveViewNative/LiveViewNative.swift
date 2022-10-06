@@ -78,7 +78,11 @@ public class Document {
     ///   - context: A caller-provided value which should be passed to the callback when it is invoked
     ///   - callback: The callback to invoke when an event of the given type occurs
     ///
-    public func on(_ event: EventType, with context: AnyObject?, _ callback: @escaping (Document, AnyObject?) -> ()) {
+    public func on(_ event: EventType, _ callback: @escaping (Document, AnyObject?) -> ()) {
+        self.handlers[event] = Handler(context: nil, callback: callback)
+    }
+
+    public func on<T: AnyObject>(_ event: EventType, with context: T, _ callback: @escaping (Document, AnyObject?) -> ()) {
         self.handlers[event] = Handler(context: context, callback: callback)
     }
 
