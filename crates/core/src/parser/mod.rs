@@ -26,7 +26,9 @@ where
     let mut current_node = document.root();
     for token in Tokenizer::new_with_emitter(input, emitter) {
         match token? {
-            Token::Start(StartToken { mut ids, element, .. }) => {
+            Token::Start(StartToken {
+                mut ids, element, ..
+            }) => {
                 let node = document.push_node(element);
                 document.append_child(current_node, node);
                 current_node = node;
@@ -113,7 +115,9 @@ enum Token {
 impl PartialEq for Token {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Start(x), Self::Start(y)) => x.element.namespace == y.element.namespace && x.element.tag == y.element.tag,
+            (Self::Start(x), Self::Start(y)) => {
+                x.element.namespace == y.element.namespace && x.element.tag == y.element.tag
+            }
             (Self::End(x), Self::End(y)) => x == y,
             (Self::String(x), Self::String(y)) => x == y,
             (Self::Doctype(x), Self::Doctype(y)) => x == y,
@@ -171,7 +175,11 @@ impl<'a> DocumentEmitter<'a> {
     fn flush_current_attribute(&mut self) {
         if let Some((k, v)) = self.current_attribute.take() {
             match self.current_token.as_mut().unwrap() {
-                Token::Start(StartToken { ref mut ids, ref mut element, .. }) => {
+                Token::Start(StartToken {
+                    ref mut ids,
+                    ref mut element,
+                    ..
+                }) => {
                     let k = smallvec_to_smallstr(k);
                     let v = smallvec_to_smallstr(v);
                     if k.as_str() == "id" {
@@ -190,7 +198,11 @@ impl<'a> DocumentEmitter<'a> {
             return;
         }
         let s = mem::take(&mut self.current_characters);
-        self.emit_token(Token::String(smallvec_to_smallstr(s)));
+        let string = smallvec_to_smallstr_trimmed(s);
+        if string.is_empty() {
+            return;
+        }
+        self.emit_token(Token::String(string));
     }
 }
 
@@ -230,7 +242,11 @@ impl<'a> Emitter for DocumentEmitter<'a> {
 
     #[inline]
     fn init_start_tag(&mut self) {
-        self.current_token = Some(Token::Start(StartToken { ids: vec![], element: Element::new(symbols::Empty.into()), self_closing: false }));
+        self.current_token = Some(Token::Start(StartToken {
+            ids: vec![],
+            element: Element::new(symbols::Empty.into()),
+            self_closing: false,
+        }));
     }
 
     #[inline]
@@ -246,18 +262,30 @@ impl<'a> Emitter for DocumentEmitter<'a> {
     fn emit_current_tag(&mut self) -> Option<State> {
         self.flush_current_attribute();
         match self.current_token.take().unwrap() {
-            Token::Start(StartToken { ids, mut element, self_closing }) => {
+            Token::Start(StartToken {
+                ids,
+                mut element,
+                self_closing,
+            }) => {
                 assert!(!self.current_tag.is_empty());
                 let tag = smallvec_to_smallstr(mem::take(&mut self.current_tag));
                 element.tag = tag.into();
                 if self_closing {
                     let end_tag = element.tag;
-                    self.emit_token(Token::Start(StartToken { ids, element, self_closing }));
+                    self.emit_token(Token::Start(StartToken {
+                        ids,
+                        element,
+                        self_closing,
+                    }));
                     self.emit_token(Token::End(end_tag));
                     None
                 } else {
                     self.last_start_tag = element.tag;
-                    self.emit_token(Token::Start(StartToken { ids, element, self_closing }));
+                    self.emit_token(Token::Start(StartToken {
+                        ids,
+                        element,
+                        self_closing,
+                    }));
                     html5gum::naive_next_state(self.last_start_tag.as_str().as_bytes())
                 }
             }
@@ -285,10 +313,16 @@ impl<'a> Emitter for DocumentEmitter<'a> {
     #[inline(always)]
     fn set_self_closing(&mut self) {
         match self.current_token.as_mut().unwrap() {
-            Token::Start(StartToken { ref mut self_closing, .. }) => {
+            Token::Start(StartToken {
+                ref mut self_closing,
+                ..
+            }) => {
                 *self_closing = true;
             }
-            other => invalid_state("invalid state in which to mark a tag self-closing", Some(other)),
+            other => invalid_state(
+                "invalid state in which to mark a tag self-closing",
+                Some(other),
+            ),
         }
     }
 
@@ -349,6 +383,14 @@ impl<'a> Emitter for DocumentEmitter<'a> {
             Some(Token::End(tag)) => !(self.last_start_tag == "") && self.last_start_tag == tag,
             _ => false,
         }
+    }
+}
+
+#[inline]
+fn smallvec_to_smallstr_trimmed(vec: SmallVec<[u8; 16]>) -> SmallString<[u8; 16]> {
+    match String::from_utf8_lossy(vec.as_slice()) {
+        Cow::Borrowed(s) => SmallString::from_str(s.trim()),
+        Cow::Owned(s) => SmallString::from_str(s.trim()),
     }
 }
 

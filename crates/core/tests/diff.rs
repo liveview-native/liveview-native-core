@@ -67,7 +67,6 @@ fn diff_patch_new_child_test() {
     assert_eq!(prev.to_string(), next.to_string());
 }
 
-
 #[test]
 fn diff_patch_remove_child_test() {
     let result = Document::parse("<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><h1>Greetings!</h1><a href=\"about:blank\">Hello World!</a></body></html>");
@@ -79,6 +78,52 @@ fn diff_patch_remove_child_test() {
     let next = result.unwrap();
 
     let mut patches = diff::diff(&prev, &next);
+
+    let mut editor = prev.edit();
+    let mut stack = vec![];
+    for patch in patches.drain(..) {
+        patch.apply(&mut editor, &mut stack);
+    }
+
+    editor.finish();
+
+    assert_eq!(prev.to_string(), next.to_string());
+}
+
+#[test]
+fn dom_swift_integration_test() {
+    let mut prev = Document::parse(
+        r#"
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+    </head>
+    <body class="new-value" class="main">
+        some content
+    </body>
+</html>
+"#,
+    )
+    .unwrap();
+
+    let next = Document::parse(
+        r#"
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="title" content="Hello World" />
+    </head>
+    <body class="new-value" class="main">
+        new content
+    </body>
+</html>
+"#,
+    )
+    .unwrap();
+
+    let mut patches = diff::diff(&prev, &next);
+
+    dbg!(&patches);
 
     let mut editor = prev.edit();
     let mut stack = vec![];
