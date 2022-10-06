@@ -1,3 +1,4 @@
 /.elixir_ls
 /target
 /Cargo.lock
+**/.swiftpm
