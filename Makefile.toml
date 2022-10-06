@@ -12,7 +12,8 @@ CARGO_MAKE_CARGO_BUILD_TEST_FLAGS = "--no-fail-fast"
 CARGO_TARGET_DIR = { value = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/target", condition = { env_not_set = ["CARGO_TARGET_DIR"] } }
 CARGO_MAKE_TOOLCHAIN_DEFAULT = { source = "${CARGO_MAKE_CI}", default_value = "nightly", mapping = { "true" = "nightly-2022-08-08", "false" = "nightly" } }
 CARGO_MAKE_TOOLCHAIN = { value = "${CARGO_MAKE_TOOLCHAIN_DEFAULT}", condition = { env_not_set = ["CARGO_MAKE_TOOLCHAIN"] } }
-CARGO_BUILD_TYPE = { source = "${CARGO_MAKE_PROFILE}", default_value = "debug", mapping = { "dev" = "debug", "release" = "release" } }
+CARGO_BUILD_TYPE = { source = "${CARGO_MAKE_PROFILE}", default_value = "debug", mapping = { "development" = "debug", "release" = "release" } }
+SWIFT_CONFIGURATION = { source = "${CARGO_MAKE_PROFILE}", default_value = "debug", mapping = { "development" = "debug", "release" = "release" } }
 BACKTRACE_DEFAULT = { source = "${CARGO_MAKE_CI}", mapping = { "true" = "1", "false" = "0" } }
 RUST_BACKTRACE = { value = "${BACKTRACE_DEFAULT}", condition = { env_not_set = ["RUST_BACKTRACE"] } }
 
@@ -113,7 +114,7 @@ workspace = false
 category = "Build"
 description = "Builds the Swift package"
 command = "swift"
-args = ["build", "--configuration", "${CARGO_MAKE_PROFILE}", "--package-path", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNative", "--scratch-path", "${CARGO_TARGET_DIR}/swift/.build", "${@}"]
+args = ["build", "--configuration", "${SWIFT_CONFIGURATION}", "--package-path", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNative", "--scratch-path", "${CARGO_TARGET_DIR}/swift/.build", "${@}"]
 dependencies = ["build-xcframework"]
 
 [tasks.build-xcframework]
@@ -201,19 +202,44 @@ mkdir "${ios_dir}"
 [tasks.clean]
 category = "Build"
 description = "Clean build artifacts"
+dependencies = ["clean-rust", "clean-swift", "clean-artifacts"]
+
+[tasks.clean-artifacts]
+category = "Build"
+script_runner = "@duckscript"
+script = '''
+rm -r ${CARGO_TARGET_DIR}/universal-macos/${CARGO_BUILD_TYPE}
+rm -r ${CARGO_TARGET_DIR}/universal-ios/${CARGO_BUILD_TYPE}
+'''
+dependencies = ["remove-existing-xcframework"]
+
+[tasks.clean-rust]
+category = "Build"
 command = "cargo"
 args = ["clean"]
+
+[tasks.clean-swift]
+category = "Build"
+command = "swift"
+args = ["package", "clean", "--package-path", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNative", "--scratch-path", "${CARGO_TARGET_DIR}/swift/.build", "${@}"]
 
 [tasks.test]
 category = "Test"
 description = "Runs all tests"
-dependencies = ["test-rust"]
+dependencies = ["test-rust", "test-swift"]
 
 [tasks.test-rust]
 category = "Test"
 description = "Runs tests written in Rust"
 command = "rustup"
 args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "test", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "@@split(CARGO_MAKE_CARGO_BUILD_TEST_FLAGS, )", "${@}"]
+
+[tasks.test-swift]
+workspace = false
+category = "Test"
+description = "Runs the Swift package tests"
+command = "swift"
+args = ["test", "--package-path", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNative", "--scratch-path", "${CARGO_TARGET_DIR}/swift/.build", "${@}"]
 
 [tasks.bloat]
 category = "Development"
