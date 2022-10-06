@@ -102,7 +102,7 @@ pub extern "C" fn document_empty() -> *mut dom::Document {
 #[export_name = "__liveview_native_core$Document$parse"]
 pub extern "C" fn document_parse<'a>(
     text: RustStr<'a>,
-    error: *mut support::RustString,
+    error: *mut RustString,
 ) -> support::RustResult {
     match dom::Document::parse(text.to_str()) {
         Ok(doc) => {
@@ -114,7 +114,7 @@ pub extern "C" fn document_parse<'a>(
         }
         Err(err) => {
             unsafe {
-                error.write(support::RustString::from_string(err.to_string()));
+                error.write(RustString::from_string(err.to_string()));
             }
             support::RustResult {
                 is_ok: false,
@@ -122,6 +122,12 @@ pub extern "C" fn document_parse<'a>(
             }
         }
     }
+}
+
+#[export_name = "__liveview_native_core$Document$to_string"]
+pub extern "C" fn document_to_string(doc: *mut dom::Document) -> RustString {
+    let doc = unsafe { &*doc };
+    RustString::from_string(doc.to_string())
 }
 
 #[export_name = "__liveview_native_core$Document$merge"]

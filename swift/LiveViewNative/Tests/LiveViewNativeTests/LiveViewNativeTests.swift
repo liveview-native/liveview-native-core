@@ -23,6 +23,8 @@ final class LiveViewNativeTests: XCTestCase {
             XCTAssertEqual(ctx is MyContext, true)
             (ctx as! MyContext).didChange = true
         }
+        let rendered1 = doc1.toString()
+        XCTAssertEqual(input, rendered1)
 
         let updated = """
 <html lang="en">
@@ -36,9 +38,14 @@ final class LiveViewNativeTests: XCTestCase {
 </html>
 """
         let doc2 = try Document.parse(updated)
+        let rendered2 = doc2.toString()
+        XCTAssertEqual(updated, rendered2)
 
         doc1.merge(with: doc2)
 
         XCTAssertEqual(context.didChange, true)
+
+        let finalRender = doc1.toString()
+        XCTAssertEqual(finalRender, rendered2)
     }
 }

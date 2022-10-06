@@ -65,6 +65,12 @@ public class Document {
                       }).get()
     }
 
+    /// Renders this document to a `String` for display and comparison
+    public func toString() -> String {
+        let str = RustString(__liveview_native_core$Document$to_string(self.repr))
+        return str.toString()
+    }
+
     /// Register a callback to be fired when a matching event occurs on this document.
     ///
     /// The given callback receives the document to which the event applies, as well as the
