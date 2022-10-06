@@ -18,3 +18,12 @@ license-file = "LICENSE.md"
 readme = "README.md"
 edition = "2021"
 publish = false
+
+[profile.dev]
+split-debuginfo = "unpacked"
+debug = 2
+
+[profile.release]
+opt-level = 1
+split-debuginfo = "packed"
+debug = 1

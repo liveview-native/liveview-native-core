@@ -113,7 +113,7 @@ workspace = false
 category = "Build"
 description = "Builds the Swift package"
 command = "swift"
-args = ["build", "--package-path", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNative", "--scratch-path", "${CARGO_TARGET_DIR}/swift/.build"]
+args = ["build", "--configuration", "${CARGO_MAKE_PROFILE}", "--package-path", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNative", "--scratch-path", "${CARGO_TARGET_DIR}/swift/.build", "${@}"]
 dependencies = ["build-xcframework"]
 
 [tasks.build-xcframework]
