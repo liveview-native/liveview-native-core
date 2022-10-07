@@ -1,5 +1,0 @@
-module LiveViewNativeCore {
-    header "Support.h"
-    header "LiveViewNativeCore.h"
-    export *
-}

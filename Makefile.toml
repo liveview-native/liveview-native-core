@@ -14,7 +14,6 @@ CARGO_MAKE_TOOLCHAIN_DEFAULT = { source = "${CARGO_MAKE_CI}", default_value = "n
 CARGO_MAKE_TOOLCHAIN = { value = "${CARGO_MAKE_TOOLCHAIN_DEFAULT}", condition = { env_not_set = ["CARGO_MAKE_TOOLCHAIN"] } }
 CARGO_BUILD_TYPE = { source = "${CARGO_MAKE_PROFILE}", default_value = "debug", mapping = { "development" = "debug", "release" = "release" } }
 CARGO_PROFILE = { source = "${CARGO_BUILD_TYPE}", mapping = { "debug" = "dev", "release" = "release" } }
-SWIFT_CONFIGURATION = { source = "${CARGO_MAKE_PROFILE}", default_value = "debug", mapping = { "development" = "debug", "release" = "release" } }
 BACKTRACE_DEFAULT = { source = "${CARGO_MAKE_CI}", mapping = { "true" = "1", "false" = "0" } }
 RUST_BACKTRACE = { value = "${BACKTRACE_DEFAULT}", condition = { env_not_set = ["RUST_BACKTRACE"] } }
 
@@ -110,15 +109,7 @@ description = "Runs cargo build"
 command = "rustup"
 args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "build", "--profile", "${CARGO_PROFILE}", "--", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "${@}"]
 
-[tasks.swift]
-workspace = false
-category = "Build"
-description = "Builds the Swift package"
-command = "swift"
-args = ["build", "--configuration", "${SWIFT_CONFIGURATION}", "--package-path", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNative", "--scratch-path", "${CARGO_TARGET_DIR}/swift/.build", "${@}"]
-dependencies = ["build-xcframework"]
-
-[tasks.build-xcframework]
+[tasks.xcframework]
 workspace = false
 category = "Packaging"
 description = "Generates the LiveViewNativeCore.xcframework package"
@@ -126,12 +117,12 @@ command = "xcodebuild"
 args = [
     "-create-xcframework",
     "-library", "${CARGO_TARGET_DIR}/aarch64-apple-darwin/debug/libliveview_native_core.a",
-    "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNativeCore/include",
+    "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/c_src/include",
     "-library", "${CARGO_TARGET_DIR}/aarch64-apple-ios/debug/libliveview_native_core.a",
-    "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNativeCore/include",
+    "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/c_src/include",
     "-library", "${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libliveview_native_core.a",
-    "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNativeCore/include",
-    "-output", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNative/LiveViewNativeCore.xcframework"
+    "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/c_src/include",
+    "-output", "${CARGO_TARGET_DIR}/swift/liveview_native_core.xcframework"
 ]
 dependencies = ["build-macos", "build-ios", "remove-existing-xcframework"]
 
@@ -139,7 +130,7 @@ dependencies = ["build-macos", "build-ios", "remove-existing-xcframework"]
 workspace = false
 private = true
 script_runner = "@duckscript"
-script = "rm -r ${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNative/LiveViewNativeCore.xcframework"
+script = "rm -r ${CARGO_TARGET_DIR}/swift/liveview_native_core.xcframework"
 
 [tasks.build-macos]
 workspace = false
@@ -155,12 +146,7 @@ category = "Build"
 description = "Compiles for all targets needed to produce a universal library for iOS"
 command = "rustup"
 args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "build", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "--target", "aarch64-apple-ios", "--target", "aarch64-apple-ios-sim", "--target", "x86_64-apple-ios", "-p", "liveview-native-core"]
-dependencies = ["prepare-targets"]
-
-[tasks.prepare-targets]
-workspace = false
-private = true
-run_task = { name = ["install-targets", "create-universal-targets"], parallel = true }
+dependencies = ["install-targets"]
 
 [tasks.install-targets]
 workspace = false
@@ -169,44 +155,15 @@ description = "Installs all toolchain targets needed for packaging"
 command = "rustup"
 args = ["target", "add", "--toolchain", "${CARGO_MAKE_TOOLCHAIN}", "aarch64-apple-darwin", "x86_64-apple-darwin", "aarch64-apple-ios", "aarch64-apple-ios-sim", "x86_64-apple-ios"]
 
-[tasks.create-universal-targets]
-workspace = false
-private = true
-script_runner = "@duckscript"
-script = '''
-macos_dir = set "${CARGO_TARGET_DIR}/universal-macos/${CARGO_BUILD_TYPE}"
-ios_dir = set "${CARGO_TARGET_DIR}/universal-ios/${CARGO_BUILD_TYPE}"
-
-echo Creating ${macos_dir}
-mkdir ${macos_dir}
-
-echo "Creating ${ios_dir}"
-mkdir "${ios_dir}"
-'''
-
 [tasks.clean]
 category = "Build"
 description = "Clean build artifacts"
-dependencies = ["clean-rust", "clean-swift", "clean-artifacts"]
-
-[tasks.clean-artifacts]
-category = "Build"
-script_runner = "@duckscript"
-script = '''
-rm -r ${CARGO_TARGET_DIR}/universal-macos/${CARGO_BUILD_TYPE}
-rm -r ${CARGO_TARGET_DIR}/universal-ios/${CARGO_BUILD_TYPE}
-'''
-dependencies = ["remove-existing-xcframework"]
+dependencies = ["clean-rust", "clean-swift", "remove-existing-xcframework"]
 
 [tasks.clean-rust]
 category = "Build"
 command = "cargo"
 args = ["clean"]
-
-[tasks.clean-swift]
-category = "Build"
-command = "swift"
-args = ["package", "clean", "--package-path", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNative", "--scratch-path", "${CARGO_TARGET_DIR}/swift/.build", "${@}"]
 
 [tasks.test]
 category = "Test"
@@ -218,13 +175,6 @@ category = "Test"
 description = "Runs tests written in Rust"
 command = "rustup"
 args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "test", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "@@split(CARGO_MAKE_CARGO_BUILD_TEST_FLAGS, )", "${@}"]
-
-[tasks.test-swift]
-workspace = false
-category = "Test"
-description = "Runs the Swift package tests"
-command = "swift"
-args = ["test", "--package-path", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/swift/LiveViewNative", "--scratch-path", "${CARGO_TARGET_DIR}/swift/.build", "${@}"]
 
 [tasks.bloat]
 category = "Development"
