@@ -42,6 +42,8 @@ typedef struct __Node {
 
 extern _RustString __liveview_native_core$Document$to_string(__Document doc);
 
+extern _RustString __liveview_native_core$Document$node_to_string(__Document doc, NodeRef node);
+
 extern __Document __liveview_native_core$Document$empty();
 
 extern void __liveview_native_core$Document$drop(__Document doc);

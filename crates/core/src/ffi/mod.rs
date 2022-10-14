@@ -130,6 +130,15 @@ pub extern "C" fn document_to_string(doc: *mut dom::Document) -> RustString {
     RustString::from_string(doc.to_string())
 }
 
+#[export_name = "__liveview_native_core$Document$node_to_string"]
+pub extern "C" fn document_node_to_string(doc: *mut dom::Document, node: NodeRef) -> RustString {
+    let doc = unsafe { &*doc };
+    let mut buf = String::new();
+    doc.print_node(node, &mut buf, dom::PrintOptions::Pretty)
+        .expect("error printing node");
+    RustString::from_string(buf)
+}
+
 #[export_name = "__liveview_native_core$Document$merge"]
 pub extern "C" fn document_merge(doc: *mut dom::Document, other: *const dom::Document) -> bool {
     let doc = unsafe { &mut *doc };
