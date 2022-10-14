@@ -557,7 +557,17 @@ impl Document {
 
     /// Prints this document using the given writer and options
     pub fn print(&self, writer: &mut dyn fmt::Write, options: PrintOptions) -> fmt::Result {
-        let printer = Printer::new(self, self.root, options);
+        self.print_node(self.root, writer, options)
+    }
+
+    /// Prints a node in this document using the given writer and options
+    pub fn print_node(
+        &self,
+        node: NodeRef,
+        writer: &mut dyn fmt::Write,
+        options: PrintOptions,
+    ) -> fmt::Result {
+        let printer = Printer::new(self, node, options);
         printer.print(writer)
     }
 }
