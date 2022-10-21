@@ -498,6 +498,16 @@ fn diff_attributes(
             continue;
         }
 
+        // hack: handle a single changed initial value, until the todo below is done
+        if 1 == new_values.len() && old_values[0] != new_values[0] {
+            patches.push_back(Patch::UpdateAttribute {
+                node,
+                value: new_values[0].1.clone(),
+                name: diff.1,
+            });
+            continue;
+        }
+
         // Otherwise, for each value change, issue a patch to remove the old value and add the new
         todo!()
     }

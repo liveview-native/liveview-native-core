@@ -98,7 +98,7 @@ fn dom_swift_integration_test() {
     <head>
         <meta charset="utf-8" />
     </head>
-    <body class="new-value" class="main">
+    <body class="new-value" class="main" data-foo="old">
         some content
     </body>
 </html>
@@ -113,7 +113,7 @@ fn dom_swift_integration_test() {
         <meta charset="utf-8" />
         <meta name="title" content="Hello World" />
     </head>
-    <body class="new-value" class="main">
+    <body class="new-value" class="main" data-foo="new">
         new content
     </body>
 </html>
