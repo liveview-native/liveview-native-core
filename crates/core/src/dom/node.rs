@@ -1,11 +1,12 @@
+use std::fmt;
+
 use cranelift_entity::entity_impl;
 use petgraph::graph::{IndexType, NodeIndex};
 use smallstr::SmallString;
-use smallvec::SmallVec;
 
-use crate::InternedString;
+use crate::{InternedString, Symbol};
 
-use super::{AttributeList, AttributeListPool, AttributeRef};
+use super::{Attribute, AttributeName, AttributeValue};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
@@ -57,24 +58,14 @@ pub enum Node {
 impl Node {
     /// Creates a new, empty element node with the given tag name
     #[inline]
-    pub fn new<T: Into<InternedString>>(tag: T) -> Self {
+    pub fn new<T: Into<ElementName>>(tag: T) -> Self {
         Self::Element(Element::new(tag.into()))
     }
 
-    /// Creates a new, empty element node with the given tag name and namespace
-    pub fn with_namespace<T: Into<InternedString>, NS: Into<InternedString>>(
-        tag: T,
-        namespace: NS,
-    ) -> Self {
-        let mut element = Element::new(tag.into());
-        element.set_namespace(namespace.into());
-        Self::Element(element)
-    }
-
-    /// Returns a slice of AttributeRefs for this node, if applicable
-    pub fn attributes<'a>(&self, pool: &'a AttributeListPool) -> &'a [AttributeRef] {
+    /// Returns a slice of Attributes for this node, if applicable
+    pub fn attributes(&self) -> &[Attribute] {
         match self {
-            Self::Element(elem) => elem.attributes(pool),
+            Self::Element(elem) => elem.attributes(),
             _ => &[],
         }
     }
@@ -112,124 +103,119 @@ impl From<SmallString<[u8; 16]>> for Node {
     }
 }
 
+/// Represents the fully-qualified name of an element
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ElementName {
+    pub namespace: Option<InternedString>,
+    pub name: InternedString,
+}
+impl fmt::Display for ElementName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(ref ns) = self.namespace {
+            write!(f, "{}:{}", ns, &self.name)
+        } else {
+            write!(f, "{}", &self.name)
+        }
+    }
+}
+impl ElementName {
+    #[inline]
+    pub fn new<N: Into<InternedString>>(name: N) -> Self {
+        Self {
+            namespace: None,
+            name: name.into(),
+        }
+    }
+
+    #[inline]
+    pub fn new_with_namespace<NS: Into<InternedString>, N: Into<InternedString>>(
+        namespace: NS,
+        name: N,
+    ) -> Self {
+        Self {
+            namespace: Some(namespace.into()),
+            name: name.into(),
+        }
+    }
+}
+impl From<&str> for ElementName {
+    fn from(s: &str) -> Self {
+        match s.split_once(':') {
+            None => Self::new(s),
+            Some((ns, name)) => Self::new_with_namespace(ns, name),
+        }
+    }
+}
+impl From<InternedString> for ElementName {
+    #[inline]
+    fn from(s: InternedString) -> Self {
+        Self::from(s.as_str())
+    }
+}
+impl From<Symbol> for ElementName {
+    #[inline]
+    fn from(s: Symbol) -> Self {
+        Self::from(InternedString::from(s))
+    }
+}
+impl Into<InternedString> for ElementName {
+    fn into(self) -> InternedString {
+        if self.namespace.is_none() {
+            self.name
+        } else {
+            let string = self.to_string();
+            string.into()
+        }
+    }
+}
+impl PartialEq<InternedString> for ElementName {
+    fn eq(&self, other: &InternedString) -> bool {
+        let name = Self::from(other.as_str());
+        self.eq(&name)
+    }
+}
+
 /// An `Element` is a typed node in a document, with the ability to carry attributes and contain other nodes.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Element {
-    pub namespace: Option<InternedString>,
-    pub tag: InternedString,
-    pub attributes: AttributeList,
+    pub name: ElementName,
+    pub attributes: Vec<Attribute>,
 }
 impl Element {
     /// Creates a new element whose type is given by `tag`, without any attributes or children
     ///
     /// The default namespace for all elements is None.
-    pub fn new(tag: InternedString) -> Self {
+    pub fn new(name: ElementName) -> Self {
         Self {
-            namespace: None,
-            tag,
-            attributes: AttributeList::new(),
+            name,
+            attributes: Vec::new(),
         }
     }
 
-    /// Sets the namespace of this element, e.g. `http://www.w3.org/2000/svg`
-    pub fn set_namespace(&mut self, namespace: InternedString) {
-        self.namespace.replace(namespace);
-    }
-
-    /// Returns a slice of AttributeRefs for this element
+    /// Returns a slice of AttributeRefs associated to this element
     #[inline]
-    pub fn attributes<'a>(&self, pool: &'a AttributeListPool) -> &'a [AttributeRef] {
-        self.attributes.as_slice(pool)
+    pub fn attributes(&self) -> &[Attribute] {
+        self.attributes.as_slice()
     }
 
-    /// Appends the attribute represented by `attr` to this element's attribute list
-    #[inline]
-    pub fn add_attribute(&mut self, attr: AttributeRef, pool: &mut AttributeListPool) {
-        if self.attributes.as_slice(pool).contains(&attr) {
-            return;
-        }
-        self.attributes.push(attr, pool);
-    }
-
-    /// Replaces all attributes for which `predicate` returns true, with `replacement`, removing duplicates.
+    /// Sets the attribute named `name` on this element.
     ///
-    /// Preserves the relative position of the first matching attribute, but all duplicates after are removed
-    #[inline(never)]
-    pub fn replace_attribute<P>(
-        &mut self,
-        replacement: AttributeRef,
-        pool: &mut AttributeListPool,
-        predicate: P,
-    ) where
-        P: Fn(AttributeRef) -> bool,
-    {
-        // Contains all duplicate matches
-        let mut duplicates = SmallVec::<[AttributeRef; 4]>::new();
-        // Contains the index to truncate to if all duplicates are at the end of the list contiguously
-        let mut truncate_to = None;
-
-        // Find all duplicate matches, and perform the replacement on the first match
-        {
-            let attributes = self.attributes.as_mut_slice(pool);
-            if attributes.is_empty() {
+    /// If the attribute is already associated with this element, the value is replaced.
+    #[inline]
+    pub fn set_attribute(&mut self, name: AttributeName, value: AttributeValue) {
+        for attribute in self.attributes.iter_mut() {
+            if attribute.name == name {
+                attribute.value = value;
                 return;
             }
-            let mut first_duplicate = None;
-            let mut replaced = false;
-            let mut contiguous = true;
-            for (i, attr) in attributes.iter_mut().enumerate() {
-                if predicate(*attr) {
-                    if !replaced {
-                        replaced = true;
-                        *attr = replacement;
-                    } else {
-                        if first_duplicate.is_none() {
-                            first_duplicate.replace(i);
-                        }
-                        duplicates.push(*attr);
-                    }
-                } else {
-                    // If we encounter a non-matching attribute after the first duplicate, the duplicates are not contiguous
-                    if first_duplicate.is_some() {
-                        contiguous = false;
-                    }
-                }
-            }
-
-            if contiguous && first_duplicate.is_some() {
-                // If all of the duplicates are contiguous (meaning there were no non-matching attributes after the first duplicate),
-                // then we can use truncation to remove the dupes, by simply adding 1 to the first dupe index to get the new effective length
-                truncate_to = first_duplicate.map(|i| i + 1);
-            }
-        };
-
-        // If there are no duplicates, we're done
-        if duplicates.is_empty() {
-            return;
         }
-
-        // If there were duplicates but we can truncate, then prefer that
-        if let Some(new_len) = truncate_to {
-            self.attributes.truncate(new_len, pool);
-            return;
-        }
-
-        // Otherwise we need to go through and remove each duplicate individually
-        while let Some(duplicate) = duplicates.pop() {
-            self.remove_attribute(duplicate, pool);
-        }
+        self.attributes.push(Attribute { name, value });
     }
 
     /// Removes the attribute represented by `attr` from this element's attribute list
-    pub fn remove_attribute(&mut self, attr: AttributeRef, pool: &mut AttributeListPool) {
-        if let Some(pos) = self
-            .attributes
-            .as_slice(pool)
-            .iter()
-            .copied()
-            .position(|a| a == attr)
-        {
-            self.attributes.remove(pos, pool);
+    pub fn remove_attribute(&mut self, name: &AttributeName) {
+        if let Some(pos) = self.attributes.iter().position(|attr| attr.name.eq(name)) {
+            self.attributes.remove(pos);
         }
     }
 }

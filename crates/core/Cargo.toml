@@ -28,6 +28,7 @@ html5gum = "0.5"
 intrusive-collections = { version = "0.9", features = ["nightly"] }
 indexmap = { version = "1.7", features = ["std"] }
 lazy_static = "1.4"
+paste = "1.0"
 petgraph = { version = "0.6", default-features = false, features = ["graphmap"] }
 smallvec = { version = "1.9", features = ["union", "const_generics", "specialization"] }
 smallstr = { version = "0.3", features = ["union"] }

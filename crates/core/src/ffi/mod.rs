@@ -1,8 +1,8 @@
 mod support;
 
-use crate::dom::{self, AttributeRef, NodeRef};
+use crate::dom::{self, NodeRef};
 
-pub use support::{RustResult, RustSlice, RustStr, RustString};
+pub use support::{RustResult, RustSlice, RustStr, RustString, RustVec};
 
 #[repr(C)]
 pub struct Node<'a> {
@@ -22,19 +22,27 @@ impl<'a> Node<'a> {
                     leaf: RustStr::from_str(s.as_str()),
                 },
             },
-            dom::Node::Element(ref elem) => Self {
-                ty: NodeType::Element,
-                data: NodeData {
-                    element: Element {
-                        namespace: elem
-                            .namespace
-                            .map(|ns| RustStr::from_str(ns.as_str()))
-                            .unwrap_or_default(),
-                        tag: RustStr::from_str(elem.tag.as_str()),
-                        attributes: RustSlice::from_slice(doc.attributes(node)),
+            dom::Node::Element(ref elem) => {
+                let attrs = elem.attributes();
+                let mut attributes = Vec::with_capacity(attrs.len());
+                for attr in attrs {
+                    attributes.push(Attribute::from(attr));
+                }
+                Self {
+                    ty: NodeType::Element,
+                    data: NodeData {
+                        element: Element {
+                            namespace: elem
+                                .name
+                                .namespace
+                                .map(|ns| RustStr::from_str(ns.as_str()))
+                                .unwrap_or_default(),
+                            tag: RustStr::from_str(elem.name.name.as_str()),
+                            attributes: RustVec::from_vec(attributes),
+                        },
                     },
-                },
-            },
+                }
+            }
         }
     }
 }
@@ -59,7 +67,7 @@ pub union NodeData<'a> {
 pub struct Element<'a> {
     pub namespace: RustStr<'static>,
     pub tag: RustStr<'static>,
-    pub attributes: RustSlice<'a, AttributeRef>,
+    pub attributes: RustVec<Attribute<'a>>,
 }
 
 #[repr(C)]
@@ -73,10 +81,11 @@ impl<'a> Attribute<'a> {
     fn from(attr: &'a dom::Attribute) -> Self {
         Self {
             namespace: attr
+                .name
                 .namespace
                 .map(|ns| RustStr::from_str(ns.as_str()))
                 .unwrap_or_default(),
-            name: RustStr::from_str(attr.name.as_str()),
+            name: RustStr::from_str(attr.name.name.as_str()),
             value: attr
                 .value
                 .as_str()
@@ -184,16 +193,12 @@ pub extern "C" fn document_get_children<'a>(
 pub extern "C" fn document_get_attributes<'a>(
     doc: *const dom::Document,
     node: NodeRef,
-) -> RustSlice<'a, AttributeRef> {
+) -> RustVec<Attribute<'a>> {
     let doc = unsafe { &*doc };
-    RustSlice::from_slice(doc.attributes(node))
-}
-
-#[export_name = "__liveview_native_core$Document$get_attribute"]
-pub extern "C" fn document_get_attribute<'a>(
-    doc: *const dom::Document,
-    attr: AttributeRef,
-) -> Attribute<'a> {
-    let doc = unsafe { &*doc };
-    Attribute::from(doc.get_attribute(attr))
+    let attrs = doc.attributes(node);
+    let mut result = Vec::with_capacity(attrs.len());
+    for attr in attrs {
+        result.push(Attribute::from(attr));
+    }
+    RustVec::from_vec(result)
 }

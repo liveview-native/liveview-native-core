@@ -1,31 +1,62 @@
 use std::fmt::{self, Write};
 
-use cranelift_entity::{self as entity, entity_impl};
 use smallstr::SmallString;
 
 use crate::InternedString;
 
-pub type AttributeList = entity::EntityList<AttributeRef>;
-pub type AttributeListPool = entity::ListPool<AttributeRef>;
-
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(transparent)]
-pub struct AttributeRef(u32);
-entity_impl!(AttributeRef, "attr");
-impl Default for AttributeRef {
+/// Represents the fully-qualified name of an attribute
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AttributeName {
+    /// This is used by svg attributes, e.g. `xlink-href`
+    pub namespace: Option<InternedString>,
+    pub name: InternedString,
+}
+impl fmt::Display for AttributeName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(ref ns) = self.namespace {
+            write!(f, "{}:{}", ns, &self.name)
+        } else {
+            write!(f, "{}", &self.name)
+        }
+    }
+}
+impl AttributeName {
     #[inline]
-    fn default() -> Self {
-        use cranelift_entity::packed_option::ReservedValue;
+    pub fn new<N: Into<InternedString>>(name: N) -> Self {
+        Self {
+            namespace: None,
+            name: name.into(),
+        }
+    }
 
-        Self::reserved_value()
+    #[inline]
+    pub fn new_with_namespace<NS: Into<InternedString>, N: Into<InternedString>>(
+        namespace: NS,
+        name: N,
+    ) -> Self {
+        Self {
+            namespace: Some(namespace.into()),
+            name: name.into(),
+        }
+    }
+}
+impl From<&str> for AttributeName {
+    fn from(s: &str) -> Self {
+        match s.split_once(':') {
+            None => AttributeName::new(s),
+            Some((ns, name)) => AttributeName::new_with_namespace(ns, name),
+        }
+    }
+}
+impl From<InternedString> for AttributeName {
+    fn from(s: InternedString) -> Self {
+        AttributeName::new(s)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Attribute {
-    /// This is used by svg attributes, e.g. `xlink-href`
-    pub namespace: Option<InternedString>,
-    pub name: InternedString,
+    pub name: AttributeName,
     pub value: AttributeValue,
 }
 impl Attribute {
@@ -35,15 +66,9 @@ impl Attribute {
     /// namespace with `set_namespace` after creating the attribute.
     pub fn new<K: Into<InternedString>>(name: K, value: AttributeValue) -> Self {
         Self {
-            namespace: None,
-            name: name.into(),
+            name: AttributeName::new(name),
             value,
         }
-    }
-
-    #[inline]
-    pub fn set_namespace<NS: Into<InternedString>>(&mut self, namespace: NS) {
-        self.namespace.replace(namespace.into());
     }
 
     #[inline]
@@ -137,32 +162,5 @@ impl fmt::Display for AttributeValue {
                 f.write_char('"')
             }
         }
-    }
-}
-
-pub struct AttributeIter<'a> {
-    pub(super) attrs: &'a entity::PrimaryMap<AttributeRef, Attribute>,
-    pub(super) refs: &'a [AttributeRef],
-}
-impl<'a> Iterator for AttributeIter<'a> {
-    type Item = &'a Attribute;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.refs.take_first().copied() {
-            None => None,
-            Some(attr) => Some(&self.attrs[attr]),
-        }
-    }
-}
-impl<'a> core::iter::FusedIterator for AttributeIter<'a> {}
-impl<'a> core::iter::ExactSizeIterator for AttributeIter<'a> {
-    #[inline]
-    fn len(&self) -> usize {
-        self.refs.len()
-    }
-
-    #[inline]
-    fn is_empty(&self) -> bool {
-        self.refs.is_empty()
     }
 }

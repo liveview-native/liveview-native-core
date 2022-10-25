@@ -53,21 +53,11 @@ impl<'a> Printer<'a> {
                                 }
                                 indent(self.indent, writer)?;
                             }
-                            match elem.namespace.as_ref() {
-                                None => write!(writer, "<{}", &elem.tag)?,
-                                Some(ns) => write!(writer, "<{}:{}", ns, &elem.tag)?,
-                            }
-                            let attrs = elem.attributes(&self.doc.attribute_lists);
+                            write!(writer, "<{}", &elem.name)?;
+                            let attrs = elem.attributes();
                             if !attrs.is_empty() {
-                                for attr in attrs.iter().copied().map(|a| &self.doc.attrs[a]) {
-                                    match attr.namespace.as_ref() {
-                                        None => write!(writer, " {}={}", &attr.name, &attr.value)?,
-                                        Some(ns) => write!(
-                                            writer,
-                                            " {}:{}={}",
-                                            ns, &attr.name, &attr.value
-                                        )?,
-                                    }
+                                for attr in attrs.iter() {
+                                    write!(writer, " {}={}", &attr.name, &attr.value)?
                                 }
                             }
                             if self_closing {
@@ -105,10 +95,7 @@ impl<'a> Printer<'a> {
                             self.indent -= 1;
                             indent(self.indent, writer)?;
                         }
-                        match elem.namespace.as_ref() {
-                            None => write!(writer, "</{}>", &elem.tag)?,
-                            Some(ns) => write!(writer, "</{}:{}>", ns, &elem.tag)?,
-                        }
+                        write!(writer, "</{}>", &elem.name)?
                     }
                     Ok(())
                 }
@@ -126,4 +113,3 @@ fn indent(mut n: usize, writer: &mut dyn fmt::Write) -> fmt::Result {
     }
     Ok(())
 }
-

@@ -3,10 +3,8 @@ mod node;
 mod printer;
 mod select;
 
-pub use self::attribute::{
-    Attribute, AttributeIter, AttributeList, AttributeListPool, AttributeRef, AttributeValue,
-};
-pub use self::node::{Element, Node, NodeRef};
+pub use self::attribute::{Attribute, AttributeName, AttributeValue};
+pub use self::node::{Element, ElementName, Node, NodeRef};
 pub use self::printer::PrintOptions;
 pub use self::select::{SelectionIter, Selector};
 
@@ -27,7 +25,6 @@ use smallvec::SmallVec;
 
 use self::printer::Printer;
 use crate::parser;
-use crate::InternedString;
 
 /// A `Document` represents a virtual DOM, and supports common operations typically performed against them.
 ///
@@ -69,15 +66,11 @@ pub struct Document {
     parents: SecondaryMap<NodeRef, PackedOption<NodeRef>>,
     /// A map from a node to its child nodes
     children: SecondaryMap<NodeRef, SmallVec<[NodeRef; 4]>>,
-    /// A map from attribute reference to attribute data
-    pub(crate) attrs: PrimaryMap<AttributeRef, Attribute>,
     /// A map from a unique id (defined in the source document) to Node, contains an entry for every
     /// node in the document which had an "id" (or equivalent) attribute set in the source document.
     /// This allows for looking up a node directly and modifying it, rather than needing to traverse the
     /// document.
     ids: BTreeMap<SmallString<[u8; 16]>, NodeRef>,
-    /// The pool for lists of Attribute
-    pub(crate) attribute_lists: AttributeListPool,
 }
 impl fmt::Debug for Document {
     #[inline]
@@ -123,9 +116,7 @@ impl Document {
             nodes,
             parents: SecondaryMap::new(),
             children: SecondaryMap::new(),
-            attrs: PrimaryMap::new(),
             ids: Default::default(),
-            attribute_lists: AttributeListPool::new(),
         }
     }
 
@@ -156,9 +147,7 @@ impl Document {
         self.root = self.nodes.push(Node::Root);
         self.parents.clear();
         self.children.clear();
-        self.attrs.clear();
         self.ids.clear();
-        self.attribute_lists.clear();
     }
 
     /// Returns true if this document is empty (contains no nodes)
@@ -197,45 +186,23 @@ impl Document {
     }
 
     /// Returns the set of attribute refs associated with `node`
-    pub fn attributes(&self, node: NodeRef) -> &[AttributeRef] {
+    pub fn attributes(&self, node: NodeRef) -> &[Attribute] {
         match &self.nodes[node] {
-            Node::Element(ref elem) => elem.attributes(&self.attribute_lists),
+            Node::Element(ref elem) => elem.attributes(),
             _ => &[],
         }
     }
 
-    /// Returns an iterator over the attributes of `node`
-    pub fn get_attributes(&self, node: NodeRef) -> AttributeIter<'_> {
-        AttributeIter {
-            attrs: &self.attrs,
-            refs: self.attributes(node),
-        }
-    }
-
-    /// Returns the data associated with the given `AttributeRef`
-    #[inline]
-    pub fn get_attribute(&self, attr: AttributeRef) -> &Attribute {
-        &self.attrs[attr]
-    }
-
-    /// Returns the first occurrence of the attribute `name` on `node`, otherwise `None`
-    pub fn get_attribute_by_name<'a>(&'a self, node: NodeRef, name: &str) -> Option<&'a Attribute> {
-        self.get_attributes(node)
-            .find_map(|attr| if attr.name == name { Some(attr) } else { None })
-    }
-
-    /// Returns all of the occurrences of the attribute `name` on `node`
-    ///
-    /// Since it is possible to have duplicate instances of an attribute, this function exists to
-    /// make working with such attributes more straightforward.
-    pub fn get_attributes_by_name<'a>(
+    /// Returns the attribute `name` on `node`, otherwise `None`
+    pub fn get_attribute_by_name<'a, N: Into<AttributeName>>(
         &'a self,
         node: NodeRef,
-        name: &str,
-    ) -> SmallVec<[&'a Attribute; 2]> {
-        self.get_attributes(node)
-            .filter(|attr| attr.name == name)
-            .collect()
+        name: N,
+    ) -> Option<&'a Attribute> {
+        let name = name.into();
+        self.attributes(node)
+            .iter()
+            .find_map(|attr| if attr.name == name { Some(attr) } else { None })
     }
 
     /// Returns the parent of `node`, if it has one
@@ -278,19 +245,7 @@ impl Document {
 
     /// Attaches `doc` to this document, with `parent` as the parent of the new subtree.
     pub fn attach_document(&mut self, parent: NodeRef, mut doc: Document) {
-        // Copy over attributes first, since they are referenced by nodes
-        let num_attrs = doc.attrs.len();
-        let mut attr_mapping = FxHashMap::<AttributeRef, AttributeRef>::with_capacity_and_hasher(
-            num_attrs,
-            FxBuildHasher::default(),
-        );
-        self.attrs.reserve(num_attrs);
-        for (k, v) in doc.attrs.into_iter() {
-            let new_k = self.attrs.push(v);
-            attr_mapping.insert(k, new_k);
-        }
-
-        // Copy over nodes, ignoring the root element, and remapping attributes for elements
+        // Copy over nodes, ignoring the root element
         let num_nodes = doc.nodes.len();
         let mut node_mapping = FxHashMap::<NodeRef, NodeRef>::with_capacity_and_hasher(
             num_nodes,
@@ -304,13 +259,7 @@ impl Document {
                     let new_k = self.nodes.push(v);
                     node_mapping.insert(k, new_k);
                 }
-                Node::Element(mut elem) => {
-                    let old_attrs = elem.attributes.as_slice(&doc.attribute_lists);
-                    let mut new_attrs = AttributeList::new();
-                    for attr in old_attrs {
-                        new_attrs.push(attr_mapping[attr], &mut self.attribute_lists);
-                    }
-                    elem.attributes = new_attrs;
+                Node::Element(elem) => {
                     let new_k = self.nodes.push(Node::Element(elem));
                     node_mapping.insert(k, new_k);
                 }
@@ -464,37 +413,10 @@ impl Document {
         self.nodes.push(node.into())
     }
 
-    /// Appends the attribute named `name` with value `value` to the list of `node`'s attributes.
+    /// Sets the attribute `name` on `node` with `value`.
     ///
-    /// Returns true if `node` was an element and `attr` could be set, otherwise false.
-    pub fn add_attribute<K: Into<InternedString>, V: Into<AttributeValue>>(
-        &mut self,
-        node: NodeRef,
-        name: K,
-        value: V,
-    ) -> bool {
-        self.append_attribute(node, Attribute::new(name.into(), value.into()))
-    }
-
-    /// Appends the attribute corresponding to `attr` to the list of `node`'s attributes.
-    ///
-    /// Returns true if `node` was an element and `attr` could be set, otherwise false.
-    pub fn append_attribute(&mut self, node: NodeRef, attr: Attribute) -> bool {
-        if let Node::Element(ref mut elem) = &mut self.nodes[node] {
-            let attr = self.attrs.push(attr);
-            elem.add_attribute(attr, &mut self.attribute_lists);
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Replaces the value of attribute `name` with `value` on `node`.
-    ///
-    /// This has the effect of removing all previous individual instances of the specified attribute, giving it a single canonical value
-    ///
-    /// Returns true if `node` was an element and `attr` could be replaced, otherwise false.
-    pub fn update_attribute<K: Into<InternedString>, V: Into<AttributeValue>>(
+    /// Returns true if `node` was an element and the attribute could be set, otherwise false.
+    pub fn set_attribute<K: Into<AttributeName>, V: Into<AttributeValue>>(
         &mut self,
         node: NodeRef,
         name: K,
@@ -502,56 +424,29 @@ impl Document {
     ) -> bool {
         if let Node::Element(ref mut elem) = &mut self.nodes[node] {
             let name = name.into();
-            let replacement = self.attrs.push(Attribute::new(name, value.into()));
-            elem.replace_attribute(replacement, &mut self.attribute_lists, |a| {
-                let attr = &self.attrs[a];
-                attr.namespace.is_none() && attr.name == name
-            });
+            let value = value.into();
+            elem.set_attribute(name, value);
             true
         } else {
             false
         }
     }
 
-    /// Removes any instance of an attribute named `name`
-    pub fn remove_attribute<K: Into<InternedString>>(&mut self, node: NodeRef, name: K) {
-        let name = name.into();
-        self.remove_attribute_by(node, |a| a.name == name);
+    /// Removes the attribute `name` from `node`.
+    pub fn remove_attribute<K: Into<AttributeName>>(&mut self, node: NodeRef, name: K) {
+        if let Node::Element(ref mut elem) = &mut self.nodes[node] {
+            let name = name.into();
+            elem.remove_attribute(&name);
+        }
     }
 
-    /// Removes any instance of an attribute named `name`, with optional namespace
-    pub fn remove_attribute_by_full_name<K: Into<InternedString>>(
-        &mut self,
-        node: NodeRef,
-        namespace: Option<InternedString>,
-        name: K,
-    ) {
-        let name = name.into();
-        self.remove_attribute_by(node, |a| a.namespace == namespace && a.name == name);
-    }
-
-    pub fn remove_attribute_by<P>(&mut self, node: NodeRef, predicate: P)
+    /// Removes all attributes from `node` for which `predicate` returns false.
+    pub fn remove_attributes_by<P>(&mut self, node: NodeRef, predicate: P)
     where
-        P: Fn(&Attribute) -> bool,
+        P: FnMut(&Attribute) -> bool,
     {
         if let Node::Element(ref mut elem) = &mut self.nodes[node] {
-            let mut matches = elem
-                .attributes
-                .as_slice(&mut self.attribute_lists)
-                .iter()
-                .copied()
-                .filter(|a| predicate(&self.attrs[*a]))
-                .collect::<SmallVec<[AttributeRef; 2]>>();
-            for attr in matches.drain(..) {
-                let pos = elem
-                    .attributes
-                    .as_slice(&self.attribute_lists)
-                    .iter()
-                    .copied()
-                    .position(|a| a == attr)
-                    .unwrap();
-                elem.attributes.remove(pos, &mut self.attribute_lists);
-            }
+            elem.attributes.retain(predicate);
         }
     }
 
@@ -663,7 +558,7 @@ pub trait DocumentBuilder {
     /// Adds an attribute to the attribute set of the current node
     ///
     /// This function panics if `node` does not support attributes
-    fn add_attribute<K: Into<InternedString>, V: Into<AttributeValue>>(
+    fn set_attribute<K: Into<AttributeName>, V: Into<AttributeValue>>(
         &mut self,
         name: K,
         value: V,
@@ -671,46 +566,13 @@ pub trait DocumentBuilder {
         let ip = self.insertion_point();
         assert!(self
             .document_mut()
-            .add_attribute(ip, name.into(), value.into()));
-    }
-
-    /// Adds `attr` to the attribute set of the current node
-    ///
-    /// This function panics if `node` does not support attributes
-    fn append_attribute(&mut self, attr: Attribute) {
-        let ip = self.insertion_point();
-        assert!(self.document_mut().append_attribute(ip, attr));
-    }
-
-    /// Updates attribute `name` with `value` on `node`
-    ///
-    /// This has the effect of removing all previous instances of a given attribute and giving it a single canonical value
-    fn update_attribute<K: Into<InternedString>, V: Into<AttributeValue>>(
-        &mut self,
-        name: K,
-        value: V,
-    ) {
-        let ip = self.insertion_point();
-        assert!(self
-            .document_mut()
-            .update_attribute(ip, name.into(), value.into()))
+            .set_attribute(ip, name.into(), value.into()));
     }
 
     /// Removes any instance of an attribute named `name`
-    fn remove_attribute<K: Into<InternedString>>(&mut self, name: K) {
+    fn remove_attribute<K: Into<AttributeName>>(&mut self, name: K) {
         let ip = self.insertion_point();
         self.document_mut().remove_attribute(ip, name.into());
-    }
-
-    /// Removes any instance of an attribute named `name`, with optional namespace
-    fn remove_attribute_by_full_name<K: Into<InternedString>>(
-        &mut self,
-        namespace: Option<InternedString>,
-        name: K,
-    ) {
-        let ip = self.insertion_point();
-        self.document_mut()
-            .remove_attribute_by_full_name(ip, namespace, name.into());
     }
 
     /// Creates a node, returning its NodeRef, without attaching it to the element tree

@@ -40,3 +40,11 @@ typedef struct _RustString {
 } _RustString;
 
 extern void __liveview_native_core$RustString$drop(_RustString string);
+
+typedef struct _RustVec {
+  const void *start;
+  uintptr_t len;
+  uintptr_t capacity;
+} _RustVec;
+
+extern void __liveview_native_core$RustVec$Attribute$drop(_RustVec vec);

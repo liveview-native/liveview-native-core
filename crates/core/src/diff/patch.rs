@@ -1,5 +1,4 @@
 use crate::dom::*;
-use crate::InternedString;
 
 use super::traversal::MoveTo;
 
@@ -51,22 +50,23 @@ pub enum Patch {
     },
     /// Adds `attr` to the current node
     AddAttribute {
-        attr: Attribute,
+        name: AttributeName,
+        value: AttributeValue,
     },
     /// Adds `attr` to `node`
     AddAttributeTo {
         node: NodeRef,
-        attr: Attribute,
+        name: AttributeName,
+        value: AttributeValue,
     },
     UpdateAttribute {
         node: NodeRef,
-        name: InternedString,
+        name: AttributeName,
         value: AttributeValue,
     },
     RemoveAttributeByName {
         node: NodeRef,
-        namespace: Option<InternedString>,
-        name: InternedString,
+        name: AttributeName,
     },
     Move(MoveTo),
 }
@@ -120,30 +120,24 @@ impl Patch {
             Self::Remove { node } => {
                 doc.remove(node);
             }
-            Self::Replace { node, replacement } => {
-                doc.replace(node, replacement)
+            Self::Replace { node, replacement } => doc.replace(node, replacement),
+            Self::AddAttribute { name, value } => {
+                doc.set_attribute(name, value);
             }
-            Self::AddAttribute { attr } => {
-                doc.append_attribute(attr);
-            }
-            Self::AddAttributeTo { node, attr } => {
+            Self::AddAttributeTo { node, name, value } => {
                 let mut guard = doc.insert_guard();
                 guard.set_insertion_point(node);
-                guard.append_attribute(attr);
+                guard.set_attribute(name, value);
             }
             Self::UpdateAttribute { node, name, value } => {
                 let mut guard = doc.insert_guard();
                 guard.set_insertion_point(node);
-                guard.update_attribute(name, value);
+                guard.set_attribute(name, value);
             }
-            Self::RemoveAttributeByName {
-                node,
-                namespace,
-                name,
-            } => {
+            Self::RemoveAttributeByName { node, name } => {
                 let mut guard = doc.insert_guard();
                 guard.set_insertion_point(node);
-                guard.remove_attribute_by_full_name(namespace, name);
+                guard.remove_attribute(name);
             }
             Self::Move(MoveTo::Node(node)) => {
                 doc.set_insertion_point(node);

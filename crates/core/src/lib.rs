@@ -1,3 +1,4 @@
+#![feature(allocator_api)]
 #![feature(slice_take)]
 #![feature(assert_matches)]
 #![feature(once_cell)]

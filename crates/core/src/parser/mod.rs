@@ -5,7 +5,6 @@ use std::convert::Infallible;
 use std::fmt;
 use std::mem;
 
-use cranelift_entity::PrimaryMap;
 use html5gum::{Emitter, Error, Readable, Reader, State, Tokenizer};
 use smallstr::SmallString;
 use smallvec::SmallVec;
@@ -19,10 +18,8 @@ where
     R: Readable<'a>,
     ParseError: From<<<R as Readable<'a>>::Reader as Reader>::Error>,
 {
-    let mut attrs = PrimaryMap::new();
-    let mut attribute_lists = AttributeListPool::new();
     let mut document = Document::empty();
-    let emitter = DocumentEmitter::new(&mut attrs, &mut attribute_lists);
+    let emitter = DocumentEmitter::new();
     let mut current_node = document.root();
     for token in Tokenizer::new_with_emitter(input, emitter) {
         match token? {
@@ -46,9 +43,6 @@ where
             other => panic!("unexpected token: {:#?}", &other),
         }
     }
-
-    document.attrs = attrs;
-    document.attribute_lists = attribute_lists;
 
     Ok(document)
 }
@@ -103,7 +97,7 @@ enum Token {
     /// When an element is first encountered, we create its Node, and implicitly move down a level in the element tree
     Start(StartToken),
     /// When an element is closed, we know that we're moving back up the element tree
-    End(InternedString),
+    End(ElementName),
     /// Like `Start`, but for leaf nodes containing plain text
     String(SmallString<[u8; 16]>),
     /// Comments are ignored
@@ -115,9 +109,7 @@ enum Token {
 impl PartialEq for Token {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Start(x), Self::Start(y)) => {
-                x.element.namespace == y.element.namespace && x.element.tag == y.element.tag
-            }
+            (Self::Start(x), Self::Start(y)) => x.element.name == y.element.name,
             (Self::End(x), Self::End(y)) => x == y,
             (Self::String(x), Self::String(y)) => x == y,
             (Self::Doctype(x), Self::Doctype(y)) => x == y,
@@ -138,9 +130,7 @@ impl PartialEq for Token {
 /// * We allocate all nodes/attributes/etc via a Document during tokenization, then use
 /// the emitted tokens to construct the actual element tree (i.e. connect )
 /// construct the
-struct DocumentEmitter<'a> {
-    attrs: &'a mut PrimaryMap<AttributeRef, Attribute>,
-    attribute_lists: &'a mut AttributeListPool,
+struct DocumentEmitter {
     current_characters: SmallVec<[u8; 16]>,
     current_token: Option<Token>,
     current_tag: SmallVec<[u8; 16]>,
@@ -149,14 +139,9 @@ struct DocumentEmitter<'a> {
     last_start_tag: InternedString,
     emitted_tokens: VecDeque<Token>,
 }
-impl<'a> DocumentEmitter<'a> {
-    pub fn new(
-        attrs: &'a mut PrimaryMap<AttributeRef, Attribute>,
-        attribute_lists: &'a mut AttributeListPool,
-    ) -> Self {
+impl DocumentEmitter {
+    pub fn new() -> Self {
         Self {
-            attrs,
-            attribute_lists,
             current_characters: Default::default(),
             current_token: None,
             current_tag: Default::default(),
@@ -185,8 +170,7 @@ impl<'a> DocumentEmitter<'a> {
                     if k.as_str() == "id" {
                         ids.push(v.clone());
                     }
-                    let attr = self.attrs.push(Attribute::new(k.as_str(), v.into()));
-                    element.add_attribute(attr, &mut self.attribute_lists);
+                    element.set_attribute(k.as_str().into(), v.into());
                 }
                 other => invalid_state("invalid state in which to flush a token", Some(other)),
             }
@@ -206,7 +190,7 @@ impl<'a> DocumentEmitter<'a> {
     }
 }
 
-impl<'a> Emitter for DocumentEmitter<'a> {
+impl Emitter for DocumentEmitter {
     type Token = Token;
 
     fn set_last_start_tag(&mut self, last_start_tag: Option<&[u8]>) {
@@ -269,9 +253,9 @@ impl<'a> Emitter for DocumentEmitter<'a> {
             }) => {
                 assert!(!self.current_tag.is_empty());
                 let tag = smallvec_to_smallstr(mem::take(&mut self.current_tag));
-                element.tag = tag.into();
+                element.name = tag.as_str().into();
                 if self_closing {
-                    let end_tag = element.tag;
+                    let end_tag = element.name;
                     self.emit_token(Token::Start(StartToken {
                         ids,
                         element,
@@ -280,7 +264,7 @@ impl<'a> Emitter for DocumentEmitter<'a> {
                     self.emit_token(Token::End(end_tag));
                     None
                 } else {
-                    self.last_start_tag = element.tag;
+                    self.last_start_tag = element.name.into();
                     self.emit_token(Token::Start(StartToken {
                         ids,
                         element,
@@ -292,7 +276,7 @@ impl<'a> Emitter for DocumentEmitter<'a> {
             Token::End(_) => {
                 assert!(!self.current_tag.is_empty());
                 let t = smallvec_to_smallstr(mem::take(&mut self.current_tag));
-                self.emit_token(Token::End(t.into()));
+                self.emit_token(Token::End(t.as_str().into()));
                 html5gum::naive_next_state(self.last_start_tag.as_str().as_bytes())
             }
             other => invalid_state("invalid state in which to emit tag", Some(&other)),
@@ -380,7 +364,7 @@ impl<'a> Emitter for DocumentEmitter<'a> {
 
     fn current_is_appropriate_end_tag_token(&mut self) -> bool {
         match self.current_token {
-            Some(Token::End(tag)) => !(self.last_start_tag == "") && self.last_start_tag == tag,
+            Some(Token::End(tag)) => !(self.last_start_tag == "") && tag == self.last_start_tag,
             _ => false,
         }
     }

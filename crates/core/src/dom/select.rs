@@ -1,12 +1,10 @@
 use crate::dom::*;
 
-use crate::InternedString;
-
 /// Represents a selector over elements in a `Document`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Selector<'a> {
     /// Selects an element with the given tag name, e.g. `foo`
-    Tag(InternedString),
+    Tag(ElementName),
     /// Selects an element with the given unique id, e.g. `#id`
     Id(&'a str),
     /// Selects all elements, e.g. `*`
@@ -20,17 +18,17 @@ pub enum Selector<'a> {
     /// Selects elements which are direct children of the first sub-selector and match the second sub-selector, e.g. `ul.foo > li`
     Child(Box<Selector<'a>>, Box<Selector<'a>>),
     /// Selects elements which have an attribute with the given name, e.g. `a[href]`
-    Attribute(InternedString),
+    Attribute(AttributeName),
     /// Selects elements which have an attribute with the given name and value, e.g. `a[href="https://example.org]`
-    AttributeValue(InternedString, AttributeValue),
+    AttributeValue(AttributeName, AttributeValue),
     /// Selects elements which have an attribute with the given name whose value is a whitespace-separated list of values containing the given string, e.g. `[attr~=value]`
-    AttributeValueWhitespacedContains(InternedString, &'a str),
+    AttributeValueWhitespacedContains(AttributeName, &'a str),
     /// Selects elements which have an attribute with the given name whose value is prefixed by the given string, e.g. `[attr^=value]`
-    AttributeValueStartsWith(InternedString, &'a str),
+    AttributeValueStartsWith(AttributeName, &'a str),
     /// Selects elements which have an attribute with the given name whose value is suffixed by the given string, e.g. `[attr$=value]`
-    AttributeValueEndsWith(InternedString, &'a str),
+    AttributeValueEndsWith(AttributeName, &'a str),
     /// Selects elements which have an attribute with the given name whose value contains the given string, e.g. `[attr*=value]`
-    AttributeValueSubstring(InternedString, &'a str),
+    AttributeValueSubstring(AttributeName, &'a str),
 }
 impl<'a> Selector<'a> {
     /// Returns true if this selection can match at most one node, which is only true when an identified
@@ -55,7 +53,7 @@ impl<'a> Selector<'a> {
         };
 
         match self {
-            Self::Tag(t) => element.tag == t,
+            Self::Tag(t) => t == &element.name,
             Self::Id(id) => match document.get_by_id(*id) {
                 None => false,
                 Some(identified) => node == identified,
@@ -86,27 +84,24 @@ impl<'a> Selector<'a> {
                 }
             }
             Self::Attribute(name) => {
-                for attr in element.attributes(&document.attribute_lists) {
-                    let attr = &document.attrs[*attr];
-                    if attr.name == name {
+                for attr in element.attributes() {
+                    if &attr.name == name {
                         return true;
                     }
                 }
                 false
             }
             Self::AttributeValue(name, ref value) => {
-                for attr in element.attributes(&document.attribute_lists) {
-                    let attr = &document.attrs[*attr];
-                    if attr.name == name && attr.value.eq(value) {
+                for attr in element.attributes() {
+                    if &attr.name == name && attr.value.eq(value) {
                         return true;
                     }
                 }
                 false
             }
             Self::AttributeValueWhitespacedContains(name, expected) => {
-                for attr in element.attributes(&document.attribute_lists) {
-                    let attr = &document.attrs[*attr];
-                    if attr.name != name {
+                for attr in element.attributes() {
+                    if &attr.name != name {
                         continue;
                     }
                     let value = match &attr.value {
@@ -122,9 +117,8 @@ impl<'a> Selector<'a> {
                 false
             }
             Self::AttributeValueStartsWith(name, prefix) => {
-                for attr in element.attributes(&document.attribute_lists) {
-                    let attr = &document.attrs[*attr];
-                    if attr.name != name {
+                for attr in element.attributes() {
+                    if &attr.name != name {
                         continue;
                     }
                     match &attr.value {
@@ -136,9 +130,8 @@ impl<'a> Selector<'a> {
                 false
             }
             Self::AttributeValueEndsWith(name, suffix) => {
-                for attr in element.attributes(&document.attribute_lists) {
-                    let attr = &document.attrs[*attr];
-                    if attr.name != name {
+                for attr in element.attributes() {
+                    if &attr.name != name {
                         continue;
                     }
                     match &attr.value {
@@ -150,9 +143,8 @@ impl<'a> Selector<'a> {
                 false
             }
             Self::AttributeValueSubstring(name, substring) => {
-                for attr in element.attributes(&document.attribute_lists) {
-                    let attr = &document.attrs[*attr];
-                    if attr.name != name {
+                for attr in element.attributes() {
+                    if &attr.name != name {
                         continue;
                     }
                     match &attr.value {

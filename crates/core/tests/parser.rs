@@ -2,9 +2,8 @@
 
 use std::assert_matches::assert_matches;
 
-use liveview_native_core::dom::{AttributeValue, Node};
+use liveview_native_core::dom::{AttributeName, AttributeValue, Node};
 use liveview_native_core::parser;
-use liveview_native_core::InternedString;
 
 #[test]
 fn parser_simple() {
@@ -14,10 +13,11 @@ fn parser_simple() {
     let root = document.root();
     let html = document.children(root)[0];
     let attrs = document
-        .get_attributes(html)
+        .attributes(html)
+        .iter()
         .map(|a| (a.name, a.value.clone()))
         .collect::<Vec<_>>();
-    let lang: InternedString = "lang".into();
+    let lang: AttributeName = "lang".into();
     let en: AttributeValue = "en".into();
     assert_eq!(attrs, vec![(lang, en)]);
 }

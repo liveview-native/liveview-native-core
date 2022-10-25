@@ -3,7 +3,6 @@
 #include "Support.h"
 
 typedef uint32_t NodeRef;
-typedef uint32_t AttributeRef;
 
 typedef struct __Document {
   void *ptr;
@@ -12,7 +11,7 @@ typedef struct __Document {
 typedef struct __Element {
   _RustStr ns;
   _RustStr tag;
-  _RustSlice attributes;
+  _RustVec attributes;
 } __Element;
 
 typedef struct __Attribute {
@@ -42,7 +41,8 @@ typedef struct __Node {
 
 extern _RustString __liveview_native_core$Document$to_string(__Document doc);
 
-extern _RustString __liveview_native_core$Document$node_to_string(__Document doc, NodeRef node);
+extern _RustString
+__liveview_native_core$Document$node_to_string(__Document doc, NodeRef node);
 
 extern __Document __liveview_native_core$Document$empty();
 
@@ -61,9 +61,5 @@ extern __Node __liveview_native_core$Document$get(__Document doc, NodeRef node);
 extern _RustSlice __liveview_native_core$Document$children(__Document doc,
                                                            NodeRef node);
 
-extern _RustSlice __liveview_native_core$Document$attributes(__Document doc,
-                                                             NodeRef node);
-
-extern __Attribute
-__liveview_native_core$Document$get_attribute(__Document doc,
-                                              AttributeRef attr);
+extern _RustVec __liveview_native_core$Document$attributes(__Document doc,
+                                                           NodeRef node);

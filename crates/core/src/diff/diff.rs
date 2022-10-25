@@ -101,20 +101,16 @@ pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch>
                     // Both nodes are elements, compare their tag and attributes for equality, then append their children to the stack
                     (Node::Element(ref old), Node::Element(ref new)) => {
                         // If the names are different, replace the old element with the new
-                        if old.namespace != new.namespace || old.tag != new.tag {
+                        if old.name != new.name {
                             patches.push_back(Patch::Replace {
                                 node: old_cursor.node,
-                                replacement: Node::Element(Element {
-                                    namespace: new.namespace,
-                                    tag: new.tag,
-                                    attributes: old.attributes,
-                                }),
+                                replacement: Node::Element(new.clone()),
                             });
+                        } else {
+                            // Check for changes to the attributes
+                            let mut attr_changes = diff_attributes(old_cursor.node, old, new);
+                            patches.append(&mut attr_changes);
                         }
-                        // Check for changes to the attributes
-                        let mut attr_changes =
-                            diff_attributes(old_cursor.node, old, new, old_document, new_document);
-                        patches.append(&mut attr_changes);
                         // Add the children of both nodes to the worklist
                         let depth = old_cursor.depth + 1;
                         let parent = old_cursor.child;
@@ -159,23 +155,10 @@ pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch>
                     // The old node was a leaf and the new node is an element; determine if this is a simple swap, addition, or removal
                     // by looking forward in the stack to future cursors which are at the same depth.
                     (Node::Leaf(_), Node::Element(ref new)) => {
-                        let replacement = Element {
-                            namespace: new.namespace,
-                            tag: new.tag,
-                            attributes: AttributeList::new(),
-                        };
-                        let mut attr_changes = diff_attributes(
-                            old_cursor.node,
-                            &replacement,
-                            new,
-                            old_document,
-                            new_document,
-                        );
                         patches.push_back(Patch::Replace {
                             node: old_cursor.node,
-                            replacement: Node::Element(replacement),
+                            replacement: Node::Element(new.clone()),
                         });
-                        patches.append(&mut attr_changes);
                         let depth = old_cursor.depth + 1;
                         let parent = old_cursor.child;
                         let new_children = new_document.children(new_cursor.node);
@@ -407,99 +390,58 @@ pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch>
     patches
 }
 
-fn diff_attributes(
-    node: NodeRef,
-    old: &Element,
-    new: &Element,
-    old_document: &Document,
-    new_document: &Document,
-) -> VecDeque<Patch> {
-    use std::collections::hash_map::Entry;
-
+fn diff_attributes(node: NodeRef, old: &Element, new: &Element) -> VecDeque<Patch> {
     let mut patches = VecDeque::new();
+
     let mut old_attribute_names = FxHashSet::default();
     let mut new_attribute_names = FxHashSet::default();
     let mut old_attributes = FxHashMap::default();
     let mut new_attributes = FxHashMap::default();
 
-    let old_attrs = old.attributes(&old_document.attribute_lists);
-    let new_attrs = new.attributes(&new_document.attribute_lists);
+    let old_attrs = old.attributes();
+    let new_attrs = new.attributes();
 
-    for oattr in old_attrs {
-        let old_attr = &old_document.attrs[*oattr];
-        old_attribute_names.insert((old_attr.namespace, old_attr.name));
-        match old_attributes.entry((old_attr.namespace, old_attr.name)) {
-            Entry::Vacant(entry) => {
-                entry.insert(vec![(*oattr, &old_attr.value)]);
-            }
-            Entry::Occupied(mut entry) => {
-                let values = entry.get_mut();
-                if values.iter().copied().any(|(_, v)| v == &old_attr.value) {
-                    continue;
-                }
-                values.push((*oattr, &old_attr.value));
-            }
-        }
+    for attr in old_attrs {
+        old_attribute_names.insert(attr.name);
+        old_attributes.insert(attr.name, &attr.value);
     }
 
-    for nattr in new_attrs {
-        let new_attr = &new_document.attrs[*nattr];
-        new_attribute_names.insert((new_attr.namespace, new_attr.name));
-        match new_attributes.entry((new_attr.namespace, new_attr.name)) {
-            Entry::Vacant(entry) => {
-                entry.insert(vec![(*nattr, &new_attr.value)]);
-            }
-            Entry::Occupied(mut entry) => {
-                let values = entry.get_mut();
-                if values.iter().copied().any(|(_, v)| v == &new_attr.value) {
-                    continue;
-                }
-                values.push((*nattr, &new_attr.value));
-            }
-        }
+    for attr in new_attrs {
+        new_attribute_names.insert(attr.name);
+        new_attributes.insert(attr.name, &attr.value);
     }
 
     // Additions (in new, not in old)
     for diff in new_attribute_names.difference(&old_attribute_names) {
         // Issue patch to add this attribute to the old
-        patches.extend(new_attributes[&diff].iter().copied().map(|(_, value)| {
-            Patch::AddAttributeTo {
-                node,
-                attr: Attribute {
-                    namespace: diff.0,
-                    name: diff.1,
-                    value: value.clone(),
-                },
-            }
-        }));
+        let value = new_attributes[&diff];
+        patches.push_back(Patch::AddAttributeTo {
+            node,
+            name: *diff,
+            value: value.clone(),
+        });
     }
 
     // Removals (in old, not in new)
     for diff in old_attribute_names.difference(&new_attribute_names) {
         // Issue patch to remove this attribute from the old
-        patches.push_back(Patch::RemoveAttributeByName {
-            node,
-            namespace: diff.0,
-            name: diff.1,
-        });
+        patches.push_back(Patch::RemoveAttributeByName { node, name: *diff });
     }
 
     // Modifications (in both)
     for diff in old_attribute_names.intersection(&new_attribute_names) {
-        let old_values = &old_attributes[&diff];
-        let new_values = &new_attributes[&diff];
+        let old_value = old_attributes[&diff];
+        let new_value = new_attributes[&diff];
 
-        // If no values have changed, we're done
-        if old_values
-            .iter()
-            .map(|(_, v)| v)
-            .eq(new_values.iter().map(|(_, v)| v))
-        {
+        if old_value == new_value {
             continue;
         }
 
-        // Otherwise, for each value change, issue a patch to remove the old value and add the new
-        todo!()
+        patches.push_back(Patch::UpdateAttribute {
+            node,
+            name: *diff,
+            value: new_value.clone(),
+        });
     }
 
     patches
@@ -518,20 +460,9 @@ fn recursively_append(src: NodeRef, src_document: &Document) -> VecDeque<Patch> 
                         node: Node::Leaf(s.clone()),
                     }),
                     Node::Element(ref elem) => {
-                        let element = Element {
-                            namespace: elem.namespace,
-                            tag: elem.tag,
-                            attributes: AttributeList::new(),
-                        };
                         patches.push_back(Patch::CreateAndMoveTo {
-                            node: Node::Element(element),
+                            node: Node::Element(elem.clone()),
                         });
-                        for attr in elem.attributes.as_slice(&src_document.attribute_lists) {
-                            let attribute = &src_document.attrs[*attr];
-                            patches.push_back(Patch::AddAttribute {
-                                attr: attribute.clone(),
-                            });
-                        }
                     }
                     // Ignore the root
                     Node::Root => (),

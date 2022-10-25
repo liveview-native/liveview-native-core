@@ -12,7 +12,7 @@ fn dom_builder_example() {
     builder.set_insertion_point(html);
 
     // Apply an attribute to the html node
-    builder.add_attribute("lang", "en");
+    builder.set_attribute("lang", "en");
 
     // Insert a new node and move the insertion point to that node
     let head = builder.append(Node::new("head"));
@@ -23,7 +23,7 @@ fn dom_builder_example() {
         let mut guard = builder.insert_guard();
         let meta = guard.append(Node::new("meta"));
         guard.set_insertion_point(meta);
-        guard.add_attribute("charset", "utf-8");
+        guard.set_attribute("charset", "utf-8");
     }
 
     assert_eq!(builder.insertion_point(), head);
@@ -31,7 +31,7 @@ fn dom_builder_example() {
     // Insert a node after another node, regardless of where the builder is currently positioned
     let body = builder.insert_after(Node::new("body"), head);
     builder.set_insertion_point(body);
-    builder.add_attribute("class", "main");
+    builder.set_attribute("class", "main");
 
     // Move the insertion point back up a level (to "html" in this example)
     builder.set_insertion_point_to_parent();
@@ -39,10 +39,7 @@ fn dom_builder_example() {
 
     // Update an attribute of a node
     builder.set_insertion_point(body);
-    builder.update_attribute("class", "new-value");
-
-    // Set an attribute of a node, preserving previous values of that attribute
-    builder.add_attribute("class", "main");
+    builder.set_attribute("class", "new-value");
 
     // Append a leaf node to the body
     builder.append("some content");
@@ -56,7 +53,7 @@ fn dom_builder_example() {
     <head>
         <meta charset="utf-8" />
     </head>
-    <body class="new-value" class="main">
+    <body class="new-value">
         some content
     </body>
 </html>"#;

@@ -98,7 +98,7 @@ fn dom_swift_integration_test() {
     <head>
         <meta charset="utf-8" />
     </head>
-    <body class="new-value" class="main">
+    <body class="main">
         some content
     </body>
 </html>
@@ -113,7 +113,7 @@ fn dom_swift_integration_test() {
         <meta charset="utf-8" />
         <meta name="title" content="Hello World" />
     </head>
-    <body class="new-value" class="main">
+    <body class="main">
         new content
     </body>
 </html>
@@ -135,3 +135,20 @@ fn dom_swift_integration_test() {
 
     assert_eq!(prev.to_string(), next.to_string());
 }
+
+/*
+#[test]
+fn issue3_regression_test() {
+    let prev = Document::parse(
+        r#"
+"#,
+    )
+    .unwrap();
+
+    let next = Document::parse(
+        r#"
+"#,
+    )
+    .unwrap();
+}
+*/
