@@ -136,19 +136,114 @@ fn dom_swift_integration_test() {
     assert_eq!(prev.to_string(), next.to_string());
 }
 
-/*
 #[test]
 fn issue3_regression_test() {
-    let prev = Document::parse(
-        r#"
-"#,
-    )
-    .unwrap();
+    let mut prev = Document::parse(r#"
+<vstack nav-title="Cottonwood 4-5" roster-link="/room/16/roster">
+    <messages-list>
+        <vstack>
+            <vstack id="102" alignment="leading" pad-leading="8" pad-trailing="8" pad-top="4" pad-bottom="4">
+                <zstack>
+                    <hstack>
+                        <text font="body" font-weight="bold">
+                            Test Test
+                        </text>
+                        <spacer />
+                    </hstack>
+                    <hstack>
+                        <spacer />
+                        <local-time datetime="2022-10-26T17:13:08Z" />
+                    </hstack>
+                </zstack>
+                <link-text frame-alignment="leading" fix-multiline-text="">
+                    A
+                </link-text>
+            </vstack>
+        </vstack>
+    </messages-list>
+    <rectangle frame-height="1" fill-color="\#cccccc" />
+    <hstack pad-leading="8" pad-trailing="8">
+        <phx-form id="post" phx-submit="send" submit-on-enter="">
+            <hstack>
+                <textfield name="text" border-style="none" clear-button="while-editing" placeholder="Message" return-key-type="send" />
+                <phx-submit-button after-submit="clear">
+                    <text>
+                        Send
+                    </text>
+                </phx-submit-button>
+            </hstack>
+        </phx-form>
+    </hstack>
+</vstack>
+"#).unwrap();
 
-    let next = Document::parse(
-        r#"
-"#,
-    )
-    .unwrap();
+    let next = Document::parse(r#"
+<vstack nav-title="Cottonwood 4-5" roster-link="/room/16/roster">
+    <messages-list>
+        <vstack>
+            <vstack id="102" alignment="leading" pad-leading="8" pad-trailing="8" pad-top="4" pad-bottom="4">
+                <zstack>
+                    <hstack>
+                        <text font="body" font-weight="bold">
+                            Test Test
+                        </text>
+                        <spacer />
+                    </hstack>
+                    <hstack>
+                        <spacer />
+                        <local-time datetime="2022-10-26T17:13:08Z" />
+                    </hstack>
+                </zstack>
+                <link-text frame-alignment="leading" fix-multiline-text="">
+                    A
+                </link-text>
+            </vstack>
+            <vstack id="103" alignment="leading" pad-leading="8" pad-trailing="8" pad-top="4" pad-bottom="4">
+                <zstack>
+                    <hstack>
+                        <text font="body" font-weight="bold">
+                            Test Test
+                        </text>
+                        <spacer />
+                    </hstack>
+                    <hstack>
+                        <spacer />
+                        <local-time datetime="2022-10-26T17:13:17Z" />
+                    </hstack>
+                </zstack>
+                <link-text frame-alignment="leading" fix-multiline-text="">
+                    B
+                </link-text>
+            </vstack>
+        </vstack>
+    </messages-list>
+    <rectangle frame-height="1" fill-color="\#cccccc" />
+    <hstack pad-leading="8" pad-trailing="8">
+        <phx-form id="post" phx-submit="send" submit-on-enter="">
+            <hstack>
+                <textfield name="text" border-style="none" clear-button="while-editing" placeholder="Message" return-key-type="send" />
+                <phx-submit-button after-submit="clear">
+                    <text>
+                        Send
+                    </text>
+                </phx-submit-button>
+            </hstack>
+        </phx-form>
+    </hstack>
+</vstack>
+"#).unwrap();
+
+    let mut patches = diff::diff(&prev, &next);
+
+    dbg!(&patches);
+
+    let mut editor = prev.edit();
+    let mut stack = vec![];
+    for patch in patches.drain(..) {
+        patch.apply(&mut editor, &mut stack);
+    }
+
+    editor.finish();
+
+    assert_eq!(prev.to_string(), next.to_string());
 }
-*/

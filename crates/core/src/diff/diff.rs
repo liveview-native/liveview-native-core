@@ -1,89 +1,130 @@
 use std::collections::VecDeque;
 
 use fxhash::{FxHashMap, FxHashSet};
+use smallvec::{smallvec, SmallVec};
 
 use crate::dom::*;
 
 use super::patch::Patch;
 use super::traversal::MoveTo;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 struct Cursor {
-    /// The depth within the overall document at which this cursor is located
-    depth: u32,
-    /// The index of the parent node, i.e. two nodes can be at the same depth in the document,
-    /// but be pointing to different parents, e.g.:
-    ///
-    /// ```no_rust,ignore
-    /// <html> depth = 0, parent = 0, child = 0
-    ///   <head> depth = 1, parent = 0, child = 0
-    ///     <meta name="title" content="hi" /> depth = 2, parent = 0, child = 0
-    ///   </head>
-    ///   <body> depth = 1, parent = 0, child = 1
-    ///     <a href="about:blank">click</a> depth = 2, parent = 1, chid = 0
-    ///   </body>
-    /// </html>
-    /// ```
-    parent: u32,
-    child: u32,
+    path: SmallVec<[u16; 6]>,
     node: NodeRef,
 }
 impl Cursor {
-    #[inline]
-    fn pos(&self) -> (u32, u32, u32) {
-        (self.depth, self.parent, self.child)
-    }
-
     #[inline(always)]
     fn node<'a>(&self, doc: &'a Document) -> &'a Node {
         doc.get(self.node)
+    }
+
+    #[inline]
+    fn depth(&self) -> usize {
+        self.path.len()
+    }
+
+    /// Moves the cursor up the tree to its parent, if it has one
+    fn up(&mut self, doc: &Document) {
+        if let Some(node) = doc.parent(self.node) {
+            self.path.pop();
+            self.node = node;
+        } else {
+            panic!("expected parent");
+        }
+    }
+
+    /// Moves the cursor to the next sibling of the cursor's node, if possible
+    #[allow(unused)]
+    fn forward(&mut self, n: usize, doc: &Document) {
+        if let Some(node) = doc.parent(self.node) {
+            let index = self.path.last().copied().unwrap() as usize;
+            let pos = index + n;
+            let children = doc.children(node);
+            if let Some(node) = children.get(pos) {
+                self.path.pop();
+                self.path.push(pos as u16);
+                self.node = *node;
+            } else {
+                panic!("expected child");
+            }
+        } else {
+            panic!("expected parent");
+        }
+    }
+}
+impl Eq for Cursor {}
+impl PartialEq for Cursor {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.path.eq(&other.path)
+    }
+}
+impl PartialOrd for Cursor {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for Cursor {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        use std::cmp::Ordering;
+
+        let mut anext = self.path.iter();
+        let mut bnext = other.path.iter();
+
+        loop {
+            match (anext.next(), bnext.next()) {
+                (None, None) => break,
+                (None, _) => return Ordering::Less,
+                (_, None) => return Ordering::Greater,
+                (a, b) => match a.cmp(&b) {
+                    Ordering::Equal => continue,
+                    other => return other,
+                },
+            }
+        }
+
+        Ordering::Equal
     }
 }
 
 pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch> {
     let mut patches = VecDeque::new();
-    let mut old_current = Cursor {
-        depth: 0,
-        parent: 0,
-        child: 0,
+    let mut old_next = VecDeque::from([Cursor {
+        path: smallvec![],
         node: old_document.root(),
-    };
-    let mut old_next = VecDeque::from([old_current]);
+    }]);
     let mut new_next = VecDeque::from([Cursor {
-        depth: 0,
-        parent: 0,
-        child: 0,
+        path: smallvec![],
         node: new_document.root(),
     }]);
     loop {
-        match (old_next.pop_front(), new_next.pop_front()) {
+        match (dbg!(old_next.pop_front()), dbg!(new_next.pop_front())) {
             // We're at the same position in both trees, so examine the details of the node under the cursor
-            (Some(old_cursor), Some(new_cursor)) if old_cursor.pos() == new_cursor.pos() => {
-                old_current = old_cursor;
-                match (old_cursor.node(old_document), new_cursor.node(new_document)) {
+            (Some(old_cursor), Some(new_cursor)) if old_cursor == new_cursor => {
+                match (
+                    dbg!(old_cursor.node(old_document)),
+                    dbg!(new_cursor.node(new_document)),
+                ) {
                     // This was the root node, so move the cursor down a level and start walking the children
                     (Node::Root, Node::Root) => {
-                        let depth = old_cursor.depth + 1;
-                        let parent = old_cursor.child;
                         let old_children = old_document.children(old_cursor.node);
                         let new_children = new_document.children(new_cursor.node);
                         old_next.extend(old_children.iter().copied().enumerate().map(
-                            |(i, node)| Cursor {
-                                depth,
-                                parent,
-                                child: i as u32,
-                                node,
+                            |(i, node)| {
+                                let mut path = old_cursor.path.clone();
+                                path.push(i as u16);
+                                Cursor { path, node }
                             },
                         ));
                         new_next.extend(new_children.iter().copied().enumerate().map(
-                            |(i, node)| Cursor {
-                                depth,
-                                parent,
-                                child: i as u32,
-                                node,
+                            |(i, node)| {
+                                let mut path = new_cursor.path.clone();
+                                path.push(i as u16);
+                                Cursor { path, node }
                             },
                         ));
-                        continue;
                     }
                     // Both nodes are leaf nodes, compare their content for equality
                     (Node::Leaf(ref ol), Node::Leaf(ref nl)) => {
@@ -112,24 +153,20 @@ pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch>
                             patches.append(&mut attr_changes);
                         }
                         // Add the children of both nodes to the worklist
-                        let depth = old_cursor.depth + 1;
-                        let parent = old_cursor.child;
                         let old_children = old_document.children(old_cursor.node);
                         let new_children = new_document.children(new_cursor.node);
                         old_next.extend(old_children.iter().copied().enumerate().map(
-                            |(i, node)| Cursor {
-                                depth,
-                                parent,
-                                child: i as u32,
-                                node,
+                            |(i, node)| {
+                                let mut path = old_cursor.path.clone();
+                                path.push(i as u16);
+                                Cursor { path, node }
                             },
                         ));
                         new_next.extend(new_children.iter().copied().enumerate().map(
-                            |(i, node)| Cursor {
-                                depth,
-                                parent,
-                                child: i as u32,
-                                node,
+                            |(i, node)| {
+                                let mut path = new_cursor.path.clone();
+                                path.push(i as u16);
+                                Cursor { path, node }
                             },
                         ));
                     }
@@ -140,15 +177,12 @@ pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch>
                             node: old_cursor.node,
                             replacement: Node::Leaf(new.clone()),
                         });
-                        let depth = old_cursor.depth + 1;
-                        let parent = old_cursor.child;
                         let old_children = old_document.children(old_cursor.node);
                         old_next.extend(old_children.iter().copied().enumerate().map(
-                            |(i, node)| Cursor {
-                                depth,
-                                parent,
-                                child: i as u32,
-                                node,
+                            |(i, node)| {
+                                let mut path = old_cursor.path.clone();
+                                path.push(i as u16);
+                                Cursor { path, node }
                             },
                         ));
                     }
@@ -159,15 +193,12 @@ pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch>
                             node: old_cursor.node,
                             replacement: Node::Element(new.clone()),
                         });
-                        let depth = old_cursor.depth + 1;
-                        let parent = old_cursor.child;
                         let new_children = new_document.children(new_cursor.node);
                         new_next.extend(new_children.iter().copied().enumerate().map(
-                            |(i, node)| Cursor {
-                                depth,
-                                parent,
-                                child: i as u32,
-                                node,
+                            |(i, node)| {
+                                let mut path = new_cursor.path.clone();
+                                path.push(i as u16);
+                                Cursor { path, node }
                             },
                         ));
                     }
@@ -188,28 +219,20 @@ pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch>
             // in breadth-first order, this means that when we move to `d` in the old tree, we'll move to `e` in the new.
             //
             // When this occurs, it means that the old parent node (e.g. `a` in the example above) has extra nodes which need
-            // to be removed. To bring the old cursor up to par with the new cursor, we remove all nodes in the old tree for
-            // which the cursor has the same `depth` but smaller `parent` than the new cursor.
+            // to be removed. To bring the old cursor up to par with the new cursor, we remove all nodes in the old tree until
+            // we catch up to it
             (Some(old_cursor), Some(new_cursor))
-                if old_cursor.depth == new_cursor.depth
-                    && old_cursor.parent < new_cursor.parent =>
+                if old_cursor < new_cursor && old_cursor.depth() == new_cursor.depth() =>
             {
-                old_current = old_cursor;
                 patches.push_back(Patch::Remove {
                     node: old_cursor.node,
                 });
                 while let Some(old_cursor) = old_next.front() {
-                    if old_cursor.pos() == new_cursor.pos() {
-                        // We've caught up to the new tree
-                        break;
-                    }
-                    if old_cursor.depth != new_cursor.depth || old_cursor.parent > new_cursor.parent
-                    {
-                        // If the old cursor has moved further in the tree than the new cursor, we cannot proceed here
+                    if old_cursor >= &new_cursor {
+                        // We've caught up to the new cursor
                         break;
                     }
                     let old_cursor = old_next.pop_front().unwrap();
-                    old_current = old_cursor;
                     patches.push_back(Patch::Remove {
                         node: old_cursor.node,
                     });
@@ -231,35 +254,22 @@ pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch>
             // child element. This means that when we move to `d` in the old tree, we'll move to `e` in the new.
             //
             // As implied, this means that the old parent node (e.g. `a` in the example above) has nodes which need
-            // to be added to it. To bring the new cursor up to par with the old cursor, we add every node in the new tree for
-            // which the cursor has the same `depth` and `parent` as the initial new cursor.
+            // to be added to it. To bring the new cursor up to par with the old cursor, we add every node in the new tree
+            // until we've caught up to it
             (Some(old_cursor), Some(new_cursor))
-                if old_cursor.depth == new_cursor.depth
-                    && old_cursor.parent > new_cursor.parent =>
+                if old_cursor > new_cursor && old_cursor.depth() == new_cursor.depth() =>
             {
-                // We need to grab the parent of the previous position of the old cursor so we can append more children
-                let parent = old_document.parent(old_current.node).unwrap();
-                // Handle the node currently under the cursor
-                patches.push_back(Patch::Move(MoveTo::Node(parent)));
-                patches.push_back(Patch::Push(parent));
+                patches.push_back(Patch::Move(MoveTo::Node(old_document.root())));
+                // Traverse the old tree based on the new_cursor path until we get to its immediate parent
+                {
+                    let (_, parent_path) = new_cursor.path.split_last().unwrap();
+                    for index in parent_path.iter().copied() {
+                        patches.push_back(Patch::Move(MoveTo::Child(index as u32)));
+                    }
+                }
+                patches.push_back(Patch::PushCurrent);
                 let mut subtree = recursively_append(new_cursor.node, new_document);
                 patches.append(&mut subtree);
-                // Handle the rest
-                while let Some(new_cursor) = new_next.front() {
-                    if old_cursor.pos() == new_cursor.pos() {
-                        // We've caught up to the old tree
-                        break;
-                    }
-                    // It should not be possible to move past the old cursor
-                    debug_assert_eq!(new_cursor.depth, old_cursor.depth);
-                    debug_assert!(new_cursor.parent < old_cursor.parent);
-                    let new_cursor = new_next.pop_front().unwrap();
-                    patches.push_back(Patch::Move(MoveTo::Node(parent)));
-                    patches.push_back(Patch::Push(parent));
-                    let mut subtree = recursively_append(new_cursor.node, new_document);
-                    patches.append(&mut subtree);
-                }
-                // We either caught up to the old cursor, or ran out of new tree to visit, either way, we need to revisit the old cursor
                 old_next.push_front(old_cursor);
             }
             // This occurs in the following scenario (where `^` indicates the cursor location in each tree):
@@ -268,119 +278,103 @@ pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch>
             //        |        |     <- depth 0      a             a
             //       / \      / \                    b             b
             //      a   b    a   b   <- depth 1      c             c
-            //     / \      /                        d <           e <
-            //    c   d    c         <- depth 2
-            //    |   ^    |
+            //     /        /   / \                  d <           f <
+            //    c        c   f   g <- depth 2      e             g
+            //    |        |   ^                                   d
+            //    d<       d   j                                   j
+            //    |        |                                       e
             //    e        e
-            //             ^
             //
-            // In this scenario, as we move from `c` to the next position in both trees, the old tree remains at the same depth
-            // to visit `d`, while the new tree no longer has a `d` and thus moves down the tree to `e`.
             //
-            // In order to proceed, we must remove all nodes in the old tree with the same depth and parent as the initial old cursor,
-            // until we either reach the end of the old tree, implying that the new tree also has additional children, or we catch up
-            // to the new cursor.
-            (Some(old_cursor), Some(new_cursor)) if old_cursor.depth < new_cursor.depth => {
-                old_current = old_cursor;
-                patches.push_back(Patch::Remove {
-                    node: old_cursor.node,
-                });
-                while let Some(old_cursor) = old_next.front() {
-                    if old_cursor.pos() == new_cursor.pos() {
-                        // We've caught up to the new tree
-                        break;
-                    }
-                    // It should always be the case that the removals occur at the same depth
-                    debug_assert_eq!(old_cursor.depth, old_current.depth);
-                    let old_cursor = old_next.pop_front().unwrap();
-                    old_current = old_cursor;
-                    patches.push_back(Patch::Remove {
-                        node: old_cursor.node,
-                    });
-                }
-                // We either caught up to the new cursor, or ran out of old tree to visit, either way, we need to revisit the new cursor
-                new_next.push_front(new_cursor);
-            }
-            // This occurs in the following scenario (where `^` indicates the cursor location in each tree):
-            //
-            //       old      new                  old worklist  new worklist
-            //        |        |     <- depth 0      a             a
-            //       / \      / \                    b             b
-            //      a   b    a   b   <- depth 1      c             c
-            //     /        / \                      d <           e <
-            //    c        c   e     <- depth 2
-            //    |        |   ^
-            //    d        d
-            //    ^
-            //
+            // In this scenario, a new child element was added in the new tree which will be visited first before we can catch up
+            // with the old cursor. To catch up, we simply add all nodes in the new tree until we reach the old cursor.
             // This is like the previous scenario, but inverted. The new tree has been modified in such a way that when we move from
             // `c` in both trees, we'll end up at a greater depth in the old tree.
             //
             // In order to proceed, we must add all nodes from the new tree with the same depth and parent as the initial new cursor,
             // until we either reach the end of the new tree, or we catch up to the old cursor
-            (Some(old_cursor), Some(new_cursor)) => {
-                assert!(old_cursor.depth > new_cursor.depth);
-                // We need to go back up a level on the old tree, then grab the parent of _that_ node,
-                // so that we can append more children. If this returns None, it means that we're inserting
-                // multiple siblings at the root
-                let parent = old_document
-                    .parent(old_document.parent(old_cursor.node).unwrap())
-                    .unwrap();
-                // Handle the node currently under the cursor
-                patches.push_back(Patch::Move(MoveTo::Node(parent)));
-                patches.push_back(Patch::Push(parent));
-                let mut subtree = recursively_append(new_cursor.node, new_document);
-                patches.append(&mut subtree);
-                // Handle the rest
-                let expected_depth = new_cursor.depth;
-                let expected_parent = new_cursor.parent;
-                while let Some(new_cursor) = new_next.front() {
-                    if old_cursor.pos() == new_cursor.pos() {
-                        // We've caught up to the old tree
-                        break;
-                    }
-                    // It should not be possible to move past the old cursor
-                    debug_assert_eq!(new_cursor.depth, expected_depth);
-                    debug_assert_eq!(new_cursor.parent, expected_parent);
-                    let new_cursor = new_next.pop_front().unwrap();
-                    patches.push_back(Patch::Move(MoveTo::Node(parent)));
-                    patches.push_back(Patch::Push(parent));
-                    let mut subtree = recursively_append(new_cursor.node, new_document);
-                    patches.append(&mut subtree);
+            (Some(old_cursor), Some(new_cursor))
+                if new_cursor > old_cursor && old_cursor.depth() > new_cursor.depth() =>
+            {
+                // Create a cursor to traverse back up the tree to the last common parent
+                let mut tmp_cursor = old_cursor.clone();
+                let hops = old_cursor.depth() - new_cursor.depth();
+                for _ in 0..hops {
+                    tmp_cursor.up(old_document);
                 }
-                // We either caught up to the old cursor, or ran out of new tree to visit, either way, we need to revisit the old cursor
+                debug_assert_eq!(tmp_cursor.depth(), new_cursor.depth());
+                // Insert the missing node after the current node in the old tree, as it must be an immediate sibling
+                let mut subtree =
+                    recursively_append_after(tmp_cursor.node, new_cursor.node, new_document);
+                patches.append(&mut subtree);
+                // Retry with the next item in the worklist
                 old_next.push_front(old_cursor);
+            }
+            // This is the exact inverse of the scenario above, where rather than a new child being introduced, a previously
+            // existing node has been removed, resulting in the old cursor moving ahead in the tree compared to the new cursor.
+            //
+            //       old        new                  old worklist  new worklist
+            //        |          |     <- depth 0      a             a
+            //       / \        / \                    b             b
+            //      a   b      a   b   <- depth 1      c             c
+            //     /   / \    /                        f <           d <
+            //    c   f   g  c         <- depth 2      g             e
+            //    |   ^      |                         d
+            //    d   j      d<                        j
+            //    |          |                         e
+            //    e          e
+            //
+            //           //
+            (Some(old_cursor), Some(new_cursor))
+                if old_cursor > new_cursor && new_cursor.depth() > old_cursor.depth() =>
+            {
+                patches.push_back(Patch::Remove {
+                    node: old_cursor.node,
+                });
+                // Retry with the next item in the worklist
+                new_next.push_front(new_cursor);
+            }
+            (Some(old_cursor), Some(new_cursor)) => {
+                panic!(
+                    "unexpected edge case in diff calculation: {:#?} vs {:#?}",
+                    old_cursor, new_cursor
+                );
             }
             // We've reached the end of the worklist for the new tree, but not the old; this means
             // that all remaining nodes in the old tree were removed, since we can't have visited them yet,
             // so issue removals for all remaining old tree nodes
             (Some(old_cursor), None) => {
-                old_current = old_cursor;
                 patches.push_back(Patch::Remove {
                     node: old_cursor.node,
                 });
                 while let Some(old_cursor) = old_next.pop_front() {
-                    old_current = old_cursor;
                     patches.push_back(Patch::Remove {
                         node: old_cursor.node,
                     });
                 }
             }
-            // We've reached the end of the worklist for the old tree, but not the new; this means
-            // that all remaining nodes in the new tree were added, since we can't have visited them yet,
-            // so issue additions for all remaining new tree nodes. These additions should be appended
-            // to the parent of the last node of the old tree that we had a cursor to, since that necessarily
-            // will be the parent of these new nodes, as the cursors on both trees are in lock-step all the
-            // way down
+            // We've reached the end of the worklist for the old tree, which means that all remaining nodes in the
+            // new tree were added.
+            //
+            //      old          new         old worklist  new worklist
+            //       |            |            a             a
+            //      / \          / \           b             b
+            //     a   b        a   b          *<            c<
+            //                  |   |                        d
+            //                  c   d
+            //
+            // As shown above, additions must necessarily be rooted under nodes of the tree that already exist, but
+            // they might be under different parents. We use the cursor path to traverse to the appropriate node of
+            // the tree in which to append the new children.
             (None, Some(new_cursor)) => {
-                patches.push_back(Patch::Push(old_document.parent(old_current.node).unwrap()));
+                patches.push_back(Patch::Move(MoveTo::Node(old_document.root())));
+                // Traverse the old tree based on the new_cursor path until we get to its immediate parent
+                for index in new_cursor.path.iter().copied() {
+                    patches.push_back(Patch::Move(MoveTo::Child(index as u32)));
+                }
+                patches.push_back(Patch::PushCurrent);
                 let mut subtree = recursively_append(new_cursor.node, new_document);
                 patches.append(&mut subtree);
-                while let Some(new_cursor) = new_next.pop_front() {
-                    patches.push_back(Patch::Push(old_document.parent(old_current.node).unwrap()));
-                    let mut subtree = recursively_append(new_cursor.node, new_document);
-                    patches.append(&mut subtree);
-                }
             }
             // We've reached the end of the worklist, at the same time, we're done
             (None, None) => break,
@@ -443,6 +437,51 @@ fn diff_attributes(node: NodeRef, old: &Element, new: &Element) -> VecDeque<Patc
             value: new_value.clone(),
         });
     }
+
+    patches
+}
+
+fn recursively_append_after(
+    after: NodeRef,
+    src: NodeRef,
+    src_document: &Document,
+) -> VecDeque<Patch> {
+    use petgraph::visit::{depth_first_search, DfsEvent};
+
+    let mut patches = VecDeque::new();
+
+    depth_first_search(src_document, Some(src), |event| {
+        match event {
+            DfsEvent::Discover(node, _) => {
+                match src_document.get(node) {
+                    Node::Leaf(ref s) => patches.push_back(Patch::CreateAndMoveTo {
+                        node: Node::Leaf(s.clone()),
+                    }),
+                    Node::Element(ref elem) => {
+                        patches.push_back(Patch::CreateAndMoveTo {
+                            node: Node::Element(elem.clone()),
+                        });
+                    }
+                    // Ignore the root
+                    Node::Root => (),
+                };
+            }
+            DfsEvent::TreeEdge(_from, _to) => {
+                // Moving down the tree one level, ignored because Discover takes care of traversing for us
+                ()
+            }
+            DfsEvent::Finish(node, _) if node == src => {
+                // All children of `node` have been visited, and we're returning up the tree
+                patches.push_back(Patch::AppendAfter { after });
+            }
+            DfsEvent::Finish(_node, _) => {
+                // All children of `node` have been visited, and we're returning up the tree
+                patches.push_back(Patch::Attach);
+            }
+            // This is a tree, these types of edges aren't allowed
+            DfsEvent::BackEdge(_, _) | DfsEvent::CrossForwardEdge(_, _) => unreachable!(),
+        }
+    });
 
     patches
 }

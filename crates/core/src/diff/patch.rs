@@ -21,6 +21,8 @@ pub enum Patch {
     CreateAndMoveTo {
         node: Node,
     },
+    /// Pushes the currently selected NodeRef on the stack, intended for use in conjunction with other stack-based ops
+    PushCurrent,
     /// Pushes a NodeRef on the stack, intended for use in conjunction with other stack-based ops
     Push(NodeRef),
     /// Pops a NodeRef from the stack, discarding it
@@ -35,6 +37,10 @@ pub enum Patch {
     /// without modifying a Document, which is necessary when generating diffs
     Append {
         node: Node,
+    },
+    /// Pops an argument off the stack and appends it as the immediate sibling of `after`
+    AppendAfter {
+        after: NodeRef,
     },
     /// Appends `node` to `parent`
     AppendTo {
@@ -98,6 +104,9 @@ impl Patch {
                 stack.push(node);
                 doc.set_insertion_point(node);
             }
+            Self::PushCurrent => {
+                stack.push(doc.insertion_point());
+            }
             Self::Push(node) => {
                 stack.push(node);
             }
@@ -116,6 +125,11 @@ impl Patch {
             }
             Self::AppendTo { parent, node } => {
                 doc.append_child(parent, node);
+            }
+            Self::AppendAfter { after } => {
+                let node = stack.pop().unwrap();
+                let d = doc.document_mut();
+                d.insert_after(node, after);
             }
             Self::Remove { node } => {
                 doc.remove(node);
