@@ -4,6 +4,12 @@
 
 typedef uint32_t NodeRef;
 
+typedef struct _AttributeVec {
+  const void *start;
+  uintptr_t len;
+  uintptr_t capacity;
+} _AttributeVec;
+
 typedef struct __Document {
   void *ptr;
 } __Document;
@@ -11,7 +17,7 @@ typedef struct __Document {
 typedef struct __Element {
   _RustStr ns;
   _RustStr tag;
-  _RustVec attributes;
+  _AttributeVec attributes;
 } __Element;
 
 typedef struct __Attribute {
@@ -39,6 +45,8 @@ typedef struct __Node {
   __NodeData data;
 } __Node;
 
+extern void __liveview_native_core$AttributeVec$drop(_AttributeVec vec);
+
 extern _RustString __liveview_native_core$Document$to_string(__Document doc);
 
 extern _RustString
@@ -51,8 +59,12 @@ extern void __liveview_native_core$Document$drop(__Document doc);
 extern _RustResult __liveview_native_core$Document$parse(_RustStr text,
                                                          _RustString *error);
 
-extern bool __liveview_native_core$Document$merge(__Document doc,
-                                                  __Document other);
+typedef void (*OnChangeCallback)(void *context, NodeRef node);
+
+extern void __liveview_native_core$Document$merge(__Document doc,
+                                                  __Document other,
+                                                  OnChangeCallback callback,
+                                                  void *context);
 
 extern NodeRef __liveview_native_core$Document$root(__Document doc);
 
@@ -61,5 +73,5 @@ extern __Node __liveview_native_core$Document$get(__Document doc, NodeRef node);
 extern _RustSlice __liveview_native_core$Document$children(__Document doc,
                                                            NodeRef node);
 
-extern _RustVec __liveview_native_core$Document$attributes(__Document doc,
-                                                           NodeRef node);
+extern _AttributeVec __liveview_native_core$Document$attributes(__Document doc,
+                                                                NodeRef node);

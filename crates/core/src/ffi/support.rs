@@ -4,8 +4,6 @@ use std::ptr;
 use std::slice;
 use std::str;
 
-use paste::paste;
-
 use super::Attribute;
 
 #[repr(C)]
@@ -46,35 +44,27 @@ impl<'a, T> Default for RustSlice<'a, T> {
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct RustVec<T> {
-    pub ptr: *mut T,
+pub struct AttributeVec<'a> {
+    pub ptr: *mut Attribute<'a>,
     pub len: usize,
     pub capacity: usize,
 }
-impl<T> RustVec<T> {
-    pub fn from_vec(vec: Vec<T>) -> Self {
+impl<'a> AttributeVec<'a> {
+    pub fn from_vec(vec: Vec<Attribute<'a>>) -> Self {
         let (ptr, len, capacity) = Vec::into_raw_parts(vec);
         Self { ptr, len, capacity }
     }
 
-    pub fn to_vec(self) -> Vec<T> {
+    pub fn to_vec(self) -> Vec<Attribute<'a>> {
         unsafe { Vec::from_raw_parts_in(self.ptr, self.len, self.capacity, Global) }
     }
 }
 
-macro_rules! rust_vec {
-    ($ty:ident) => {
-        paste! {
-            #[allow(non_snake_case)]
-            #[export_name = concat!("__liveview_native_core$RustVec$", stringify!($ty), "$drop")]
-            pub extern "C" fn [<drop_RustVec_ $ty>](vec: RustVec<$ty>) {
-                vec.to_vec();
-            }
-        }
-    };
+#[allow(non_snake_case)]
+#[export_name = "__liveview_native_core$AttributeVec$drop"]
+pub extern "C" fn drop_AttributeVec(vec: AttributeVec) {
+    vec.to_vec();
 }
-
-rust_vec!(Attribute);
 
 #[repr(C)]
 #[derive(Copy, Clone)]

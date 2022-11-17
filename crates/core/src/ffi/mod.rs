@@ -2,7 +2,7 @@ mod support;
 
 use crate::dom::{self, NodeRef};
 
-pub use support::{RustResult, RustSlice, RustStr, RustString, RustVec};
+pub use support::{AttributeVec, RustResult, RustSlice, RustStr, RustString};
 
 #[repr(C)]
 pub struct Node<'a> {
@@ -38,7 +38,7 @@ impl<'a> Node<'a> {
                                 .map(|ns| RustStr::from_str(ns.as_str()))
                                 .unwrap_or_default(),
                             tag: RustStr::from_str(elem.name.name.as_str()),
-                            attributes: RustVec::from_vec(attributes),
+                            attributes: AttributeVec::from_vec(attributes),
                         },
                     },
                 }
@@ -67,7 +67,7 @@ pub union NodeData<'a> {
 pub struct Element<'a> {
     pub namespace: RustStr<'static>,
     pub tag: RustStr<'static>,
-    pub attributes: RustVec<Attribute<'a>>,
+    pub attributes: AttributeVec<'a>,
 }
 
 #[repr(C)]
@@ -149,21 +149,27 @@ pub extern "C" fn document_node_to_string(doc: *mut dom::Document, node: NodeRef
 }
 
 #[export_name = "__liveview_native_core$Document$merge"]
-pub extern "C" fn document_merge(doc: *mut dom::Document, other: *const dom::Document) -> bool {
+pub extern "C" fn document_merge(
+    doc: *mut dom::Document,
+    other: *const dom::Document,
+    handler: extern "C-unwind" fn(*mut (), NodeRef) -> (),
+    context: *mut (),
+) {
     let doc = unsafe { &mut *doc };
     let other = unsafe { &*other };
     let mut patches = crate::diff::diff(doc, other);
     if patches.is_empty() {
-        return false;
+        return;
     }
 
     let mut editor = doc.edit();
     let mut stack = vec![];
     for patch in patches.drain(..) {
-        patch.apply(&mut editor, &mut stack);
+        if let Some(affected) = patch.apply(&mut editor, &mut stack) {
+            handler(context, affected);
+        }
     }
     editor.finish();
-    true
 }
 
 #[export_name = "__liveview_native_core$Document$root"]
@@ -190,15 +196,15 @@ pub extern "C" fn document_get_children<'a>(
 }
 
 #[export_name = "__liveview_native_core$Document$attributes"]
-pub extern "C" fn document_get_attributes<'a>(
+pub extern "C" fn document_get_attributes(
     doc: *const dom::Document,
     node: NodeRef,
-) -> RustVec<Attribute<'a>> {
+) -> AttributeVec<'static> {
     let doc = unsafe { &*doc };
     let attrs = doc.attributes(node);
     let mut result = Vec::with_capacity(attrs.len());
     for attr in attrs {
         result.push(Attribute::from(attr));
     }
-    RustVec::from_vec(result)
+    AttributeVec::from_vec(result)
 }
