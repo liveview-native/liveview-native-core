@@ -45,6 +45,11 @@ typedef struct __Node {
   __NodeData data;
 } __Node;
 
+typedef struct __OptionNodeRef {
+	bool is_some;
+	NodeRef some_value;
+} __OptionNodeRef;
+
 extern void __liveview_native_core$AttributeVec$drop(_AttributeVec vec);
 
 extern _RustString __liveview_native_core$Document$to_string(__Document doc);
@@ -75,3 +80,5 @@ extern _RustSlice __liveview_native_core$Document$children(__Document doc,
 
 extern _AttributeVec __liveview_native_core$Document$attributes(__Document doc,
                                                                 NodeRef node);
+
+extern __OptionNodeRef __liveview_native_core$Document$get_parent(__Document doc, NodeRef node);
