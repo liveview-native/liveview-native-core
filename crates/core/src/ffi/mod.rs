@@ -63,6 +63,12 @@ pub union NodeData<'a> {
 }
 
 #[repr(C)]
+pub struct OptionNodeRef {
+    pub is_some: bool,
+    pub some_value: NodeRef,
+}
+
+#[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Element<'a> {
     pub namespace: RustStr<'static>,
@@ -207,4 +213,19 @@ pub extern "C" fn document_get_attributes(
         result.push(Attribute::from(attr));
     }
     AttributeVec::from_vec(result)
+}
+
+#[export_name = "__liveview_native_core$Document$get_parent"]
+pub extern "C" fn document_get_parent(doc: *const dom::Document, node: NodeRef) -> OptionNodeRef {
+    let doc = unsafe { &*doc };
+    match doc.parent(node) {
+        Some(parent) => OptionNodeRef {
+            is_some: true,
+            some_value: parent,
+        },
+        None => OptionNodeRef {
+            is_some: false,
+            some_value: Default::default(),
+        },
+    }
 }
