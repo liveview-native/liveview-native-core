@@ -116,15 +116,18 @@ description = "Generates the LiveViewNativeCore.xcframework package"
 command = "xcodebuild"
 args = [
     "-create-xcframework",
-    "-library", "${CARGO_TARGET_DIR}/aarch64-apple-darwin/debug/libliveview_native_core.a",
+    "-output", "${CARGO_TARGET_DIR}/swift/liveview_native_core.xcframework",
+	# Universal macOS
+    "-library", "${CARGO_TARGET_DIR}/universal-macos-libliveview_native_core.a",
     "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/c_src/include",
+	# iOS
     "-library", "${CARGO_TARGET_DIR}/aarch64-apple-ios/debug/libliveview_native_core.a",
     "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/c_src/include",
-    "-library", "${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libliveview_native_core.a",
+	# Universal iOS sim
+    "-library", "${CARGO_TARGET_DIR}/universal-ios-sim-libliveview_native_core.a",
     "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/c_src/include",
-    "-output", "${CARGO_TARGET_DIR}/swift/liveview_native_core.xcframework"
 ]
-dependencies = ["build-macos", "build-ios", "remove-existing-xcframework"]
+dependencies = ["build-macos", "build-ios", "lipo-macos", "lipo-ios-sim", "remove-existing-xcframework"]
 
 [tasks.remove-existing-xcframework]
 workspace = false
@@ -147,6 +150,35 @@ description = "Compiles for all targets needed to produce a universal library fo
 command = "rustup"
 args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "build", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "--target", "aarch64-apple-ios", "--target", "aarch64-apple-ios-sim", "--target", "x86_64-apple-ios", "-p", "liveview-native-core"]
 dependencies = ["install-targets"]
+
+# different architectures for the same platform need to be lipo'd together before going into the xcframework
+[tasks.lipo-macos]
+worksapce = false
+category = "Packaging"
+description = "Creates universal binary for macOS"
+command = "xcrun"
+args = [
+	"lipo",
+	"-create",
+	"-output",
+	"${CARGO_TARGET_DIR}/universal-macos-libliveview_native_core.a",
+	"${CARGO_TARGET_DIR}/aarch64-apple-darwin/debug/libliveview_native_core.a",
+	"${CARGO_TARGET_DIR}/x86_64-apple-darwin/debug/libliveview_native_core.a",
+]
+
+[tasks.lipo-ios-sim]
+worksapce = false
+category = "Packaging"
+description = "Creates universal binary for iOS Simulator"
+command = "xcrun"
+args = [
+	"lipo",
+	"-create",
+	"-output",
+	"${CARGO_TARGET_DIR}/universal-ios-sim-libliveview_native_core.a",
+	"${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libliveview_native_core.a",
+	"${CARGO_TARGET_DIR}/x86_64-apple-ios/debug/libliveview_native_core.a",
+]
 
 [tasks.install-targets]
 workspace = false
