@@ -77,31 +77,54 @@ pub enum Patch {
     Move(MoveTo),
 }
 
+/// The result of applying a [Patch].
+#[derive(Debug)]
+pub enum PatchResult {
+    /// The `node` has been added to the document as a child of `parent`.
+    Add { node: NodeRef, parent: NodeRef },
+    /// The `node` has been removed from the document, having formerly been a child of `parent`.
+    Remove { node: NodeRef, parent: NodeRef },
+    /// The `node` has been changed in some other way.
+    Change { node: NodeRef },
+}
+
 impl Patch {
     /// Applies this patch to `doc` using `stack`.
     ///
-    /// If this patch will result in a change to the underlying document, the affected [NodeRef] is returned, else `None`.
-    ///
-    /// For modifications, the affected node is the node to which the change applies, but for additions/removals, the affected
-    /// node is the parent to which the child was added/removed. This can be used to associate callbacks to nodes in the document
-    /// and be able to properly handle changes to them.
-    pub fn apply<B>(self, doc: &mut B, stack: &mut Vec<NodeRef>) -> Option<NodeRef>
+    /// If this patch will result in a change to the underlying document, a [PatchResult]
+    /// describing the change is returned, else `None`.
+    pub fn apply<B>(self, doc: &mut B, stack: &mut Vec<NodeRef>) -> Option<PatchResult>
     where
         B: DocumentBuilder,
     {
         match self {
-            Self::InsertBefore { before, node } => Some(doc.insert_before(node, before)),
-            Self::InsertAfter { after, node } => Some(doc.insert_after(node, after)),
+            Self::InsertBefore { before, node } => {
+                let node = doc.insert_before(node, before);
+                let parent = doc
+                    .document()
+                    .parent(node)
+                    .expect("inserted node should have parent");
+                Some(PatchResult::Add { node, parent })
+            }
+            Self::InsertAfter { after, node } => {
+                let node = doc.insert_after(node, after);
+                let parent = doc
+                    .document()
+                    .parent(node)
+                    .expect("inserted node should have parent");
+                Some(PatchResult::Add { node, parent })
+            }
             Self::Create { node } => {
                 let node = doc.push_node(node);
                 stack.push(node);
-                Some(node)
+                // another op will actually parent it, which will generate a PatchResult::Add
+                None
             }
             Self::CreateAndMoveTo { node } => {
                 let node = doc.push_node(node);
                 stack.push(node);
                 doc.set_insertion_point(node);
-                Some(node)
+                None
             }
             Self::PushCurrent => {
                 stack.push(doc.insertion_point());
@@ -121,49 +144,61 @@ impl Patch {
                 doc.set_insertion_point(parent);
                 doc.attach_node(child);
                 stack.push(parent);
-                Some(parent)
+                Some(PatchResult::Add {
+                    node: child,
+                    parent,
+                })
             }
-            Self::Append { node } => Some(doc.append(node)),
+            Self::Append { node } => {
+                let node = doc.append(node);
+                Some(PatchResult::Add {
+                    node,
+                    parent: doc.insertion_point(),
+                })
+            }
             Self::AppendTo { parent, node } => {
-                doc.append_child(parent, node);
-                Some(parent)
+                let node = doc.append_child(parent, node);
+                Some(PatchResult::Add { node, parent })
             }
             Self::AppendAfter { after } => {
                 let node = stack.pop().unwrap();
                 let d = doc.document_mut();
                 d.insert_after(node, after);
-                d.parent(after)
+                let parent = d.parent(after).expect("inserted node should have parent");
+                Some(PatchResult::Add { node, parent })
             }
             Self::Remove { node } => {
                 let parent = doc.document_mut().parent(node);
                 doc.remove(node);
-                parent
+                parent.map(|parent| PatchResult::Remove { node, parent })
             }
             Self::Replace { node, replacement } => {
                 doc.replace(node, replacement);
-                Some(node)
+                Some(PatchResult::Change { node })
             }
             Self::AddAttribute { name, value } => {
                 doc.set_attribute(name, value);
-                Some(doc.insertion_point())
+                Some(PatchResult::Change {
+                    node: doc.insertion_point(),
+                })
             }
             Self::AddAttributeTo { node, name, value } => {
                 let mut guard = doc.insert_guard();
                 guard.set_insertion_point(node);
                 guard.set_attribute(name, value);
-                Some(node)
+                Some(PatchResult::Change { node })
             }
             Self::UpdateAttribute { node, name, value } => {
                 let mut guard = doc.insert_guard();
                 guard.set_insertion_point(node);
                 guard.set_attribute(name, value);
-                Some(node)
+                Some(PatchResult::Change { node })
             }
             Self::RemoveAttributeByName { node, name } => {
                 let mut guard = doc.insert_guard();
                 guard.set_insertion_point(node);
                 guard.remove_attribute(name);
-                Some(node)
+                Some(PatchResult::Change { node })
             }
             Self::Move(MoveTo::Node(node)) => {
                 doc.set_insertion_point(node);

@@ -67,6 +67,20 @@ pub struct OptionNodeRef {
     pub is_some: bool,
     pub some_value: NodeRef,
 }
+impl OptionNodeRef {
+    fn some(value: NodeRef) -> Self {
+        Self {
+            is_some: true,
+            some_value: value,
+        }
+    }
+    fn none() -> Self {
+        Self {
+            is_some: false,
+            some_value: Default::default(),
+        }
+    }
+}
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -99,6 +113,14 @@ impl<'a> Attribute<'a> {
                 .unwrap_or_default(),
         }
     }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub enum ChangeType {
+    Change = 0,
+    Add = 1,
+    Remove = 2,
 }
 
 #[export_name = "__liveview_native_core$Document$drop"]
@@ -158,7 +180,7 @@ pub extern "C" fn document_node_to_string(doc: *mut dom::Document, node: NodeRef
 pub extern "C" fn document_merge(
     doc: *mut dom::Document,
     other: *const dom::Document,
-    handler: extern "C-unwind" fn(*mut (), NodeRef) -> (),
+    handler: extern "C-unwind" fn(*mut (), ChangeType, NodeRef, OptionNodeRef) -> (),
     context: *mut (),
 ) {
     let doc = unsafe { &mut *doc };
@@ -171,8 +193,23 @@ pub extern "C" fn document_merge(
     let mut editor = doc.edit();
     let mut stack = vec![];
     for patch in patches.drain(..) {
-        if let Some(affected) = patch.apply(&mut editor, &mut stack) {
-            handler(context, affected);
+        let patch_result = patch.apply(&mut editor, &mut stack);
+        match patch_result {
+            None => (),
+            Some(crate::diff::PatchResult::Add { node, parent }) => {
+                handler(context, ChangeType::Add, node, OptionNodeRef::some(parent));
+            }
+            Some(crate::diff::PatchResult::Remove { node, parent }) => {
+                handler(
+                    context,
+                    ChangeType::Remove,
+                    node,
+                    OptionNodeRef::some(parent),
+                );
+            }
+            Some(crate::diff::PatchResult::Change { node }) => {
+                handler(context, ChangeType::Change, node, OptionNodeRef::none());
+            }
         }
     }
     editor.finish();
@@ -219,13 +256,7 @@ pub extern "C" fn document_get_attributes(
 pub extern "C" fn document_get_parent(doc: *const dom::Document, node: NodeRef) -> OptionNodeRef {
     let doc = unsafe { &*doc };
     match doc.parent(node) {
-        Some(parent) => OptionNodeRef {
-            is_some: true,
-            some_value: parent,
-        },
-        None => OptionNodeRef {
-            is_some: false,
-            some_value: Default::default(),
-        },
+        Some(parent) => OptionNodeRef::some(parent),
+        None => OptionNodeRef::none(),
     }
 }
