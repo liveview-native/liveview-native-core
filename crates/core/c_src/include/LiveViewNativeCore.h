@@ -50,6 +50,12 @@ typedef struct __OptionNodeRef {
 	NodeRef some_value;
 } __OptionNodeRef;
 
+enum __ChangeType {
+  ChangeTypeChange = 0,
+  ChangeTypeAdd = 1,
+  ChangeTypeRemove = 2,
+} __attribute__((enum_extensibility(closed)));
+
 extern void __liveview_native_core$AttributeVec$drop(_AttributeVec vec);
 
 extern _RustString __liveview_native_core$Document$to_string(__Document doc);
@@ -64,7 +70,7 @@ extern void __liveview_native_core$Document$drop(__Document doc);
 extern _RustResult __liveview_native_core$Document$parse(_RustStr text,
                                                          _RustString *error);
 
-typedef void (*OnChangeCallback)(void *context, NodeRef node);
+typedef void (*OnChangeCallback)(void *context, __ChangeType type, NodeRef node, __OptionNodeRef parent);
 
 extern void __liveview_native_core$Document$merge(__Document doc,
                                                   __Document other,
