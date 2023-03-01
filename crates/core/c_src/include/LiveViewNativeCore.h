@@ -56,6 +56,8 @@ enum __ChangeType {
   ChangeTypeRemove = 2,
 } __attribute__((enum_extensibility(closed)));
 
+typedef enum __ChangeType __ChangeType;
+
 extern void __liveview_native_core$AttributeVec$drop(_AttributeVec vec);
 
 extern _RustString __liveview_native_core$Document$to_string(__Document doc);
