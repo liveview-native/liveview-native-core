@@ -247,3 +247,20 @@ fn issue3_regression_test() {
 
     assert_eq!(prev.to_string(), next.to_string());
 }
+
+#[test]
+fn diff_add_child_oob() {
+    let mut orig = Document::parse("<a></a>").unwrap();
+    let new = Document::parse("<a><b></b></a>").unwrap();
+
+    let mut patches = diff::diff(&orig, &new);
+
+    let mut editor = orig.edit();
+    let mut stack = vec![];
+    for patch in patches.drain(..) {
+        patch.apply(&mut editor, &mut stack);
+    }
+    editor.finish();
+
+    assert_eq!(orig.to_string(), new.to_string());
+}
