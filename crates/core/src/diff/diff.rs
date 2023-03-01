@@ -100,13 +100,10 @@ pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch>
         node: new_document.root(),
     }]);
     loop {
-        match (dbg!(old_next.pop_front()), dbg!(new_next.pop_front())) {
+        match (old_next.pop_front(), new_next.pop_front()) {
             // We're at the same position in both trees, so examine the details of the node under the cursor
             (Some(old_cursor), Some(new_cursor)) if old_cursor == new_cursor => {
-                match (
-                    dbg!(old_cursor.node(old_document)),
-                    dbg!(new_cursor.node(new_document)),
-                ) {
+                match (old_cursor.node(old_document), new_cursor.node(new_document)) {
                     // This was the root node, so move the cursor down a level and start walking the children
                     (Node::Root, Node::Root) => {
                         let old_children = old_document.children(old_cursor.node);
@@ -369,7 +366,9 @@ pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch>
             (None, Some(new_cursor)) => {
                 patches.push_back(Patch::Move(MoveTo::Node(old_document.root())));
                 // Traverse the old tree based on the new_cursor path until we get to its immediate parent
-                for index in new_cursor.path.iter().copied() {
+                // Skip the last index in the new_cursor path, because that's the index of the
+                // new_cursor node (c in the diagram above), which does not yet exist in the tree.
+                for index in new_cursor.path[..new_cursor.path.len() - 1].iter().copied() {
                     patches.push_back(Patch::Move(MoveTo::Child(index as u32)));
                 }
                 patches.push_back(Patch::PushCurrent);
