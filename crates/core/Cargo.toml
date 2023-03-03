@@ -24,7 +24,7 @@ crate-type = ["staticlib", "rlib"]
 cranelift-entity = "0.87"
 fixedbitset = "0.4"
 fxhash = "0.2"
-html5gum = "0.5"
+html5gum = { git = "https://github.com/liveviewnative/html5gum", branch = "lvn" }
 intrusive-collections = { version = "0.9", features = ["nightly"] }
 indexmap = { version = "1.7", features = ["std"] }
 lazy_static = "1.4"

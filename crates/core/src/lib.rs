@@ -2,7 +2,6 @@
 #![feature(slice_take)]
 #![feature(assert_matches)]
 #![feature(once_cell)]
-#![feature(map_first_last)]
 #![feature(exact_size_is_empty)]
 #![feature(vec_into_raw_parts)]
 #![feature(c_unwind)]
