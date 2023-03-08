@@ -1,0 +1,128 @@
+# based on https://github.com/xaynetwork/cargo_tai
+name: x86_64-linux-android
+
+on: push
+
+env:
+  ANDROID_COMMANDLINE_TOOLS_VERSION: 9477386
+  ANDROID_API: 33
+  ANDROID_NDK_VERSION: 25.2.9519653
+  ANDROID_SYSTEM_IMAGE_PACKAGE: system-images;android-33;google_apis_playstore;x86_64
+  OPENSSL_VERSION: 1.1.1s
+  TOOLCHAIN: nightly
+  CARGO_TERM_COLOR: always
+  CARGO_NDK_REV: "8478e58"
+  CARGO_TAI_REV: "90f487f"
+
+jobs:
+  integration_tests:
+    # rust cross-compilation
+    runs-on: macos-12
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust Nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: x86_64-linux-android
+          default: true
+      - name: Install cargo-lip
+        uses: baptiste0928/cargo-install@v1
+        with:
+          crate: cargo-lipo
+          version: "3.2.0"
+      - name: Cache Cargo
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/git
+            ~/.cargo/registry
+            target
+          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ env.CARGO_NDK_REV }}-${{ env.CARGO_TAI_REV }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install cargo-ndk
+        run: |
+          if ! command -v cargo-ndk &> /dev/null; then
+            cargo install --git  https://github.com/bbqsrc/cargo-ndk --rev ${CARGO_NDK_REV}
+          fi
+      - name: Install cargo-tai
+        run: |
+          if ! command -v cargo-tai &> /dev/null; then
+            cargo install --git https://github.com/liveviewnative/cargo_tai --branch liveviewnative --rev ${CARGO_TAI_REV}
+          fi
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --package liveview-native-core
+      - name: Set up JDK 17
+        uses: actions/setup-java@v1
+        with:
+          java-version: 17
+      - name: Cache android
+        id: cache-android
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-android
+        with:
+          path: ~/android
+          key: ${{ runner.os }}-android-${{ env.cache-name }}-${{ env.ANDROID_COMMANDLINE_TOOLS_VERSION }}
+          restore-keys: |
+            ${{ runner.os }}-android-${{ env.cache-name }}-${{ env.ANDROID_COMMANDLINE_TOOLS_VERSION }}
+            ${{ runner.os }}-mix-
+      - name: Download Android Command Line Tools
+        run: |
+          if [ ! -d "$HOME/android/cmdline-tools/${ANDROID_COMMANDLINE_TOOLS_VERSION}" ]; then
+            cd $HOME
+            # clear old version if it exists
+            rm -rf android
+            mkdir -p android/cmdline-tools
+            cd android/cmdline-tools
+            PACKAGE=commandlinetools-mac-${ANDROID_COMMANDLINE_TOOLS_VERSION}_latest
+            wget https://dl.google.com/android/repository/${PACKAGE}.zip
+            unzip ${PACKAGE}.zip
+            rm ${PACKAGE}.zip
+            mv cmdline-tools ${ANDROID_COMMANDLINE_TOOLS_VERSION}
+            ln -sf ${ANDROID_COMMANDLINE_TOOLS_VERSION} latest
+          fi
+      - name: Add Android home and subdirectories to environment
+        run: |
+          export ANDROID_HOME="$HOME/android"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "${ANDROID_HOME}/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "${ANDROID_HOME}/emulator" >> $GITHUB_PATH
+          echo "${ANDROID_HOME}/platform-tools" >> $GITHUB_PATH
+      - name: sdkmanager setup
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager --install "platform-tools" \
+                               "platforms;android-${ANDROID_API}" \
+                               "build-tools;${ANDROID_API}.0.2" \
+                               "emulator" \
+                               "ndk;${ANDROID_NDK_VERSION}" \
+                               "${ANDROID_SYSTEM_IMAGE_PACKAGE}"
+      # https://github.com/sfackler/rust-openssl/issues/1402
+      - name: Add NDK clang to PATH
+        run: |
+          echo "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/darwin-x86_64/bin" >> $GITHUB_PATH
+      - name: Create Android Virtual Device
+        run: |
+          echo no | \
+            avdmanager create avd --force \
+                                  --name AVD \
+                                  --abi google_apis_playstore/x86_64 \
+                                  --package "${ANDROID_SYSTEM_IMAGE_PACKAGE}"
+      - name: Test phoenix_channel_clients
+        run: |
+          echo "Starting ADB server"
+          ${ANDROID_HOME}/platform-tools/adb start-server
+          echo "Starting Emulator"
+          ${ANDROID_HOME}/emulator/emulator -avd AVD -netdelay none -netspeed full &
+          ${ANDROID_HOME}/platform-tools/adb wait-for-device
+          export RUSTFLAGS="--cfg tokio_unstable"
+          cargo-tai tests --target x86_64-linux-android \
+                          --android-api-lvl ${ANDROID_API} \
+                          --android-ndk ${ANDROID_NDK_HOME} \
+                          --android-sdk ${ANDROID_HOME} \
+                          --envs LD_LIBRARY_PATH=lib

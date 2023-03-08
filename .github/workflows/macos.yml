@@ -1,0 +1,43 @@
+name: macos
+
+on: push
+
+env:
+  CARGO_TERM_COLOR: always
+  TOOLCHAIN: stable
+
+jobs:
+  integration_tests:
+    runs-on: macos-12
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust Nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          default: true
+      - name: Install cargo-lipo
+        uses: baptiste0928/cargo-install@v1
+        with:
+          crate: cargo-lipo
+          version: "3.2.0"
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/git
+            ~/.cargo/registry
+            target
+          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --package liveview-native-core
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --package liveview-native-core
