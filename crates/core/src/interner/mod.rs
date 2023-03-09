@@ -228,7 +228,9 @@ impl PartialOrd<InternedString> for InternedString {
         if self.0 == other.0 {
             return Some(Ordering::Equal);
         }
-        self.as_str().partial_cmp(&other.as_str())
+        let first: &str = self.as_str();
+        let second: &str = other.as_str();
+        first.partial_cmp(second)
     }
 }
 impl Ord for InternedString {
@@ -424,8 +426,8 @@ impl ByteArena {
     ///  - Zero-length slices
     #[inline]
     pub fn alloc_slice<T>(&self, slice: &[T]) -> &mut [T]
-    where
-        T: Copy,
+        where
+            T: Copy,
     {
         assert!(!mem::needs_drop::<T>());
         assert!(mem::size_of::<T>() != 0);

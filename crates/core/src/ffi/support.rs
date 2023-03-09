@@ -1,3 +1,6 @@
+use jni::objects::JString;
+use jni::sys::jlong;
+use jni::JNIEnv;
 use std::alloc::Global;
 use std::marker::PhantomData;
 use std::ptr;
@@ -12,6 +15,11 @@ pub struct RustResult {
     pub ok_result: *mut std::ffi::c_void,
 }
 
+pub struct JavaResult {
+    pub val: jlong,
+    pub error_msg: String,
+}
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct RustSlice<'a, T> {
@@ -19,6 +27,7 @@ pub struct RustSlice<'a, T> {
     pub len: usize,
     _marker: PhantomData<&'a T>,
 }
+
 impl<'a, T> RustSlice<'a, T> {
     pub fn from_slice(slice: &'a [T]) -> Self {
         Self {
@@ -32,6 +41,7 @@ impl<'a, T> RustSlice<'a, T> {
         unsafe { slice::from_raw_parts(self.start, self.len) }
     }
 }
+
 impl<'a, T> Default for RustSlice<'a, T> {
     fn default() -> Self {
         Self {
@@ -49,6 +59,7 @@ pub struct AttributeVec<'a> {
     pub len: usize,
     pub capacity: usize,
 }
+
 impl<'a> AttributeVec<'a> {
     pub fn from_vec(vec: Vec<Attribute<'a>>) -> Self {
         let (ptr, len, capacity) = Vec::into_raw_parts(vec);
@@ -73,6 +84,7 @@ pub struct RustStr<'a> {
     pub len: usize,
     _marker: PhantomData<&'a str>,
 }
+
 impl<'a> RustStr<'a> {
     pub fn from_str(str: &'a str) -> Self {
         let bytes = str.as_bytes();
@@ -88,6 +100,7 @@ impl<'a> RustStr<'a> {
         unsafe { str::from_utf8_unchecked(slice) }
     }
 }
+
 impl<'a> Default for RustStr<'a> {
     fn default() -> Self {
         Self {
@@ -114,6 +127,7 @@ pub struct RustString {
     pub len: usize,
     pub capacity: usize,
 }
+
 impl RustString {
     pub fn from_string(str: String) -> Self {
         let (ptr, len, capacity) = String::into_raw_parts(str);
@@ -128,4 +142,18 @@ impl RustString {
 #[export_name = "__liveview_native_core$RustString$drop"]
 pub extern "C" fn drop_rust_string(string: RustString) {
     drop(string.to_string());
+}
+
+#[cfg(target_pointer_width = "32")]
+pub fn jlong_to_pointer<T>(val: jlong) -> *mut T {
+    (val as u32) as *mut T
+}
+
+#[cfg(target_pointer_width = "64")]
+pub fn jlong_to_pointer<T>(val: jlong) -> *mut T {
+    val as *mut T
+}
+
+pub fn from_std_string_jstring<S: AsRef< str>>(x: S, env: JNIEnv) -> JString {
+    env.new_string(x).unwrap()
 }

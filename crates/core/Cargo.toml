@@ -16,7 +16,8 @@ publish.workspace = true
 build = "build.rs"
 
 [lib]
-crate-type = ["staticlib", "rlib"]
+name = "liveview_native_core"
+crate-type = ["staticlib", "rlib", "cdylib"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -33,6 +34,10 @@ petgraph = { version = "0.6", default-features = false, features = ["graphmap"] 
 smallvec = { version = "1.9", features = ["union", "const_generics", "specialization"] }
 smallstr = { version = "0.3", features = ["union"] }
 thiserror = "1.0"
+jni = "0.21.0"
+log = "0.4.17"
+log-panics = { version = "2", features = ["with-backtrace"]}
+android_logger = "0.13.1"
 
 [build-dependencies]
 Inflector = "0.11"

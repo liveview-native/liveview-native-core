@@ -1,7 +1,7 @@
+mod android;
 mod support;
 
 use crate::dom::{self, NodeRef};
-
 pub use support::{AttributeVec, RustResult, RustSlice, RustStr, RustString};
 
 #[repr(C)]
@@ -9,6 +9,7 @@ pub struct Node<'a> {
     pub ty: NodeType,
     pub data: NodeData<'a>,
 }
+
 impl<'a> Node<'a> {
     fn from(doc: &'a dom::Document, node: NodeRef) -> Self {
         match doc.get(node) {
@@ -67,6 +68,7 @@ pub struct OptionNodeRef {
     pub is_some: bool,
     pub some_value: NodeRef,
 }
+
 impl OptionNodeRef {
     fn some(value: NodeRef) -> Self {
         Self {
@@ -97,6 +99,7 @@ pub struct Attribute<'a> {
     pub name: RustStr<'static>,
     pub value: RustStr<'a>,
 }
+
 impl<'a> Attribute<'a> {
     fn from(attr: &'a dom::Attribute) -> Self {
         Self {
@@ -137,10 +140,7 @@ pub extern "C" fn document_empty() -> *mut dom::Document {
 }
 
 #[export_name = "__liveview_native_core$Document$parse"]
-pub extern "C" fn document_parse<'a>(
-    text: RustStr<'a>,
-    error: *mut RustString,
-) -> support::RustResult {
+pub extern "C" fn document_parse(text: RustStr, error: *mut RustString) -> RustResult {
     match dom::Document::parse(text.to_str()) {
         Ok(doc) => {
             let doc = Box::new(doc);
