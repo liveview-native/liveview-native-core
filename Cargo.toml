@@ -5,7 +5,7 @@ members = [
 
 [workspace.package]
 version = "0.1.0"
-rust-version = "1.64"
+rust-version = "1.66"
 authors = ["Paul Schoenfelder <paulschoenfelder@gmail.com>"]
 description = "Provides core, cross-platform functionality for LiveView Native implementations"
 repository = "https://github.com/liveviewnative/liveview-native-core"

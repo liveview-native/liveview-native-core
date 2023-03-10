@@ -2,7 +2,7 @@ use std::fmt::{self, Write};
 
 use smallstr::SmallString;
 
-use crate::InternedString;
+use crate::{InternedString, Symbol};
 
 /// Represents the fully-qualified name of an attribute
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -51,6 +51,12 @@ impl From<&str> for AttributeName {
 impl From<InternedString> for AttributeName {
     fn from(s: InternedString) -> Self {
         AttributeName::new(s)
+    }
+}
+impl From<Symbol> for AttributeName {
+    #[inline]
+    fn from(s: Symbol) -> Self {
+        Self::from(InternedString::from(s))
     }
 }
 
@@ -133,6 +139,13 @@ impl PartialEq<str> for AttributeValue {
         }
     }
 }
+impl PartialEq<&str> for AttributeValue {
+    #[inline(always)]
+    fn eq(&self, other: &&str) -> bool {
+        self.eq(*other)
+    }
+}
+
 impl fmt::Display for AttributeValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

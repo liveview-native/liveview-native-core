@@ -9,6 +9,8 @@ pub enum Selector<'a> {
     Id(&'a str),
     /// Selects all elements, e.g. `*`
     All,
+    /// Selects elements for which the given selector does _NOT_ match
+    Not(Box<Selector<'a>>),
     /// Selects elements which match both sub-selectors, e.g. `.foo.bar`
     And(Box<Selector<'a>>, Box<Selector<'a>>),
     /// Selects elements which match either sub-selector, e.g. `.foo, .bar`
@@ -59,6 +61,7 @@ impl<'a> Selector<'a> {
                 Some(identified) => node == identified,
             },
             Self::All => true,
+            Self::Not(selector) => !selector.matches(node, document),
             Self::And(l, r) => l.matches(node, document) && r.matches(node, document),
             Self::Or(l, r) => l.matches(node, document) || r.matches(node, document),
             Self::Descendant(ancestor, selector) => {

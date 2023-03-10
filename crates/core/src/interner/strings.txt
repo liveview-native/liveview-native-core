@@ -143,8 +143,10 @@ crossorigin
 csp
 DataPhxComponent:data-phx-component
 DataPhxMain:data-phx-main
+DataPhxParentId:data-phx-parent-id
 DataPhxSession:data-phx-session
 DataPhxStatic:data-phx-static
+TrackStatic:track-static
 datetime
 decoding
 default

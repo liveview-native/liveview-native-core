@@ -243,6 +243,67 @@ impl Document {
         SelectionIter::new(self, selector, node)
     }
 
+    /// Splits out a subtree of the current `Document` whose root node is `root_node`
+    pub fn subtree(&self, root_node: NodeRef) -> Document {
+        let mut nodes = PrimaryMap::default();
+        let mut parents = SecondaryMap::new();
+        let mut children = SecondaryMap::new();
+        let mut ids = BTreeMap::default();
+
+        let root = nodes.push(Node::Root);
+        let mut node_mapping = FxHashMap::<NodeRef, NodeRef>::default();
+        let mut worklist = VecDeque::new();
+        worklist.push_back(root_node);
+        while let Some(node) = worklist.pop_front() {
+            match self.get(node) {
+                Node::Root => continue,
+                v @ Node::Leaf(_) => {
+                    let new_k = nodes.push(v.clone());
+                    node_mapping.insert(node, new_k);
+                }
+                Node::Element(elem) => {
+                    let new_k = nodes.push(Node::Element(elem.clone()));
+                    node_mapping.insert(node, new_k);
+                    worklist.extend(self.children(node).iter().copied());
+                }
+            }
+        }
+        // Remap parents/children now that all nodes are copied over
+        for (k, new_k) in node_mapping.iter() {
+            if let Some(old_parent) = self.parents[*k].expand() {
+                if old_parent == self.root {
+                    parents[*new_k] = root.into();
+                } else {
+                    if let Some(new_parent) = node_mapping.get(&old_parent) {
+                        parents[*new_k] = (*new_parent).into();
+                    }
+                }
+            }
+            let old_children = &self.children[*k];
+            let mut new_children = SmallVec::<[NodeRef; 4]>::new();
+            for old_child in old_children {
+                new_children.push(node_mapping[old_child]);
+            }
+            children[*k] = new_children;
+        }
+        // Bring over id mappings from the old document
+        let mut old_ids = self.ids.iter();
+        while let Some((id, node)) = old_ids.next() {
+            if !node_mapping.contains_key(node) {
+                continue;
+            }
+            ids.insert(id.clone(), node_mapping[node]);
+        }
+
+        Self {
+            root,
+            nodes,
+            parents,
+            children,
+            ids,
+        }
+    }
+
     /// Attaches `doc` to this document, with `parent` as the parent of the new subtree.
     pub fn attach_document(&mut self, parent: NodeRef, mut doc: Document) {
         // Copy over nodes, ignoring the root element

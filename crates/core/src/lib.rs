@@ -5,7 +5,9 @@
 #![feature(exact_size_is_empty)]
 #![feature(vec_into_raw_parts)]
 #![feature(c_unwind)]
+#![feature(iterator_try_collect)]
 
+pub mod client;
 pub mod diff;
 pub mod dom;
 pub mod ffi;
