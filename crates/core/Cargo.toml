@@ -40,3 +40,4 @@ Inflector = "0.11"
 
 [dev-dependencies]
 paste = "1.0"
+text-diff = "0.4.0"

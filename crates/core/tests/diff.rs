@@ -4,6 +4,7 @@ use liveview_native_core::diff::{self, Patch};
 use liveview_native_core::dom::*;
 use liveview_native_core::parser::ParseError;
 use paste::paste;
+use text_diff::print_diff;
 
 macro_rules! assert_transformation {
     ($from:expr, $to:expr) => {{
@@ -20,7 +21,13 @@ macro_rules! assert_transformation {
 
         editor.finish();
 
-        assert_eq!(prev.to_string(), next.to_string());
+        let prev = prev.to_string();
+        let next = next.to_string();
+
+        if prev.ne(&next) {
+            print_diff(prev.as_str(), next.as_str(), "\n");
+            panic!("Document transformation failed");
+        }
 
         Ok(())
     }};
@@ -40,7 +47,13 @@ macro_rules! assert_transformation {
 
         editor.finish();
 
-        assert_eq!(prev.to_string(), next.to_string());
+        let prev = prev.to_string();
+        let next = next.to_string();
+
+        if prev.ne(&next) {
+            print_diff(prev.as_str(), next.as_str(), "\n");
+            panic!("Document transformation failed");
+        }
 
         assert_eq!(diff, VecDeque::from($patches));
 
