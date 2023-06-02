@@ -1,144 +1,116 @@
-#![feature(assert_matches)]
-
-use std::assert_matches::assert_matches;
+use std::collections::VecDeque;
 
 use liveview_native_core::diff::{self, Patch};
 use liveview_native_core::dom::*;
+use liveview_native_core::parser::ParseError;
 
-const EMPTY: &'static [Patch] = &[];
+macro_rules! assert_transformation {
+    ($from:expr, $to:expr) => {{
+        let mut prev = Document::parse($from)?;
+        let next = Document::parse($to)?;
 
-#[test]
-fn diff_patch_empty_diff_test() {
-    let result = Document::parse("<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>");
-    assert_matches!(result, Ok(_));
-    let prev = result.unwrap();
+        let mut patches = diff::diff(&prev, &next);
 
-    let result = Document::parse("<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>");
-    assert_matches!(result, Ok(_));
-    let next = result.unwrap();
+        let mut editor = prev.edit();
+        let mut stack = vec![];
+        for patch in patches.drain(..) {
+            patch.apply(&mut editor, &mut stack);
+        }
 
-    let patches = diff::diff(&prev, &next);
-    assert_eq!(patches.as_slices(), (EMPTY, EMPTY));
+        editor.finish();
+
+        assert_eq!(prev.to_string(), next.to_string());
+
+        Ok(())
+    }};
+    ($from:expr, $to:expr, $patches:expr) => {{
+        let mut prev = Document::parse($from)?;
+        let next = Document::parse($to)?;
+
+        let diff = diff::diff(&prev, &next);
+
+        let mut patches: VecDeque<Patch> = VecDeque::from($patches);
+
+        let mut editor = prev.edit();
+        let mut stack = vec![];
+        for patch in patches.drain(..) {
+            patch.apply(&mut editor, &mut stack);
+        }
+
+        editor.finish();
+
+        assert_eq!(prev.to_string(), next.to_string());
+
+        assert_eq!(diff, VecDeque::from($patches));
+
+        Ok(())
+    }};
 }
 
 #[test]
-fn diff_patch_combined_test() {
-    let result = Document::parse("<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>");
-    assert_matches!(result, Ok(_));
-    let mut prev = result.unwrap();
-
-    let result = Document::parse("<html lang=\"en\"><head><meta title=\"Hello\" /></head><body><h1>Greetings!</h1><a href=\"https://www.example.com\">Hi World!</a></body></html>");
-    assert_matches!(result, Ok(_));
-    let next = result.unwrap();
-
-    let mut patches = diff::diff(&prev, &next);
-
-    let mut editor = prev.edit();
-    let mut stack = vec![];
-    for patch in patches.drain(..) {
-        patch.apply(&mut editor, &mut stack);
-    }
-
-    editor.finish();
-
-    assert_eq!(prev.to_string(), next.to_string());
-}
-
-#[test]
-fn diff_patch_new_child_test() {
-    let result = Document::parse("<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>");
-    assert_matches!(result, Ok(_));
-    let mut prev = result.unwrap();
-
-    let result = Document::parse("<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><h1>Greetings!</h1><a href=\"about:blank\">Hello World!</a></body></html>");
-    assert_matches!(result, Ok(_));
-    let next = result.unwrap();
-
-    let mut patches = diff::diff(&prev, &next);
-
-    let mut editor = prev.edit();
-    let mut stack = vec![];
-    for patch in patches.drain(..) {
-        patch.apply(&mut editor, &mut stack);
-    }
-
-    editor.finish();
-
-    assert_eq!(prev.to_string(), next.to_string());
-}
-
-#[test]
-fn diff_patch_remove_child_test() {
-    let result = Document::parse("<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><h1>Greetings!</h1><a href=\"about:blank\">Hello World!</a></body></html>");
-    assert_matches!(result, Ok(_));
-    let mut prev = result.unwrap();
-
-    let result = Document::parse("<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>");
-    assert_matches!(result, Ok(_));
-    let next = result.unwrap();
-
-    let mut patches = diff::diff(&prev, &next);
-
-    let mut editor = prev.edit();
-    let mut stack = vec![];
-    for patch in patches.drain(..) {
-        patch.apply(&mut editor, &mut stack);
-    }
-
-    editor.finish();
-
-    assert_eq!(prev.to_string(), next.to_string());
-}
-
-#[test]
-fn dom_swift_integration_test() {
-    let mut prev = Document::parse(
-        r#"
-<html lang="en">
-    <head>
-        <meta charset="utf-8" />
-    </head>
-    <body class="main">
-        some content
-    </body>
-</html>
-"#,
+fn diff_patch_empty_diff_test() -> Result<(), ParseError> {
+    assert_transformation!(
+        "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
+        "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
+        []
     )
-    .unwrap();
-
-    let next = Document::parse(
-        r#"
-<html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <meta name="title" content="Hello World" />
-    </head>
-    <body class="main">
-        new content
-    </body>
-</html>
-"#,
-    )
-    .unwrap();
-
-    let mut patches = diff::diff(&prev, &next);
-
-    dbg!(&patches);
-
-    let mut editor = prev.edit();
-    let mut stack = vec![];
-    for patch in patches.drain(..) {
-        patch.apply(&mut editor, &mut stack);
-    }
-
-    editor.finish();
-
-    assert_eq!(prev.to_string(), next.to_string());
 }
 
 #[test]
-fn issue3_regression_test() {
-    let mut prev = Document::parse(r#"
+fn diff_patch_combined_test() -> Result<(), ParseError> {
+    assert_transformation!(
+        "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
+        "<html lang=\"en\"><head><meta title=\"Hello\" /></head><body><h1>Greetings!</h1><a href=\"https://www.example.com\">Hi World!</a></body></html>"
+    )
+}
+
+#[test]
+fn diff_patch_new_child_test() -> Result<(), ParseError> {
+    assert_transformation!(
+        "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
+        "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><h1>Greetings!</h1><a href=\"about:blank\">Hello World!</a></body></html>"
+    )
+}
+
+#[test]
+fn diff_patch_remove_child_test() -> Result<(), ParseError> {
+    assert_transformation!(
+        "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><h1>Greetings!</h1><a href=\"about:blank\">Hello World!</a></body></html>",
+        "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>"
+    )
+}
+
+#[test]
+fn dom_swift_integration_test() -> Result<(), ParseError> {
+    assert_transformation!(
+        r#"
+        <html lang="en">
+            <head>
+                <meta charset="utf-8" />
+            </head>
+            <body class="main">
+                some content
+            </body>
+        </html>
+        "#,
+        r#"
+        <html lang="en">
+            <head>
+                <meta charset="utf-8" />
+                <meta name="title" content="Hello World" />
+            </head>
+            <body class="main">
+                new content
+            </body>
+        </html>
+        "#
+    )
+}
+
+#[test]
+fn issue3_regression_test() -> Result<(), ParseError> {
+    assert_transformation!(
+        r#"
 <vstack nav-title="Cottonwood 4-5" roster-link="/room/16/roster">
     <messages-list>
         <vstack>
@@ -175,9 +147,8 @@ fn issue3_regression_test() {
         </phx-form>
     </hstack>
 </vstack>
-"#).unwrap();
-
-    let next = Document::parse(r#"
+"#,
+        r#"
 <vstack nav-title="Cottonwood 4-5" roster-link="/room/16/roster">
     <messages-list>
         <vstack>
@@ -231,36 +202,11 @@ fn issue3_regression_test() {
         </phx-form>
     </hstack>
 </vstack>
-"#).unwrap();
-
-    let mut patches = diff::diff(&prev, &next);
-
-    dbg!(&patches);
-
-    let mut editor = prev.edit();
-    let mut stack = vec![];
-    for patch in patches.drain(..) {
-        patch.apply(&mut editor, &mut stack);
-    }
-
-    editor.finish();
-
-    assert_eq!(prev.to_string(), next.to_string());
+"#
+    )
 }
 
 #[test]
-fn diff_add_child_oob() {
-    let mut orig = Document::parse("<a></a>").unwrap();
-    let new = Document::parse("<a><b></b></a>").unwrap();
-
-    let mut patches = diff::diff(&orig, &new);
-
-    let mut editor = orig.edit();
-    let mut stack = vec![];
-    for patch in patches.drain(..) {
-        patch.apply(&mut editor, &mut stack);
-    }
-    editor.finish();
-
-    assert_eq!(orig.to_string(), new.to_string());
+fn diff_add_child_oob() -> Result<(), ParseError> {
+    assert_transformation!("<a></a>", "<a><b></b></a>")
 }
