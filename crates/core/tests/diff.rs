@@ -5,6 +5,15 @@ use liveview_native_core::dom::*;
 use liveview_native_core::parser::ParseError;
 use paste::paste;
 use text_diff::print_diff;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+enum Error {
+    #[error("Document transformed incorrectly")]
+    IncorrectTransformation,
+    #[error(transparent)]
+    ParseError(#[from] ParseError),
+}
 
 macro_rules! assert_transformation {
     ($from:expr, $to:expr) => {{
@@ -26,7 +35,7 @@ macro_rules! assert_transformation {
 
         if prev.ne(&next) {
             print_diff(prev.as_str(), next.as_str(), "\n");
-            panic!("Document transformation failed");
+            return Err(Error::IncorrectTransformation);
         }
 
         Ok(())
@@ -52,7 +61,7 @@ macro_rules! assert_transformation {
 
         if prev.ne(&next) {
             print_diff(prev.as_str(), next.as_str(), "\n");
-            panic!("Document transformation failed");
+            return Err(Error::IncorrectTransformation);
         }
 
         assert_eq!(diff, VecDeque::from($patches));
@@ -65,7 +74,7 @@ macro_rules! test_fixture {
     ($name:literal) => {
         paste! {
             #[test]
-            fn [<diff_ $name:snake>]() -> Result<(), ParseError> {
+            fn [<diff_ $name:snake>]() -> Result<(), Error> {
                 assert_transformation!(
                     include_str!(concat!("fixtures/", $name, "/from.html")),
                     include_str!(concat!("fixtures/", $name, "/to.html"))
@@ -76,7 +85,7 @@ macro_rules! test_fixture {
 }
 
 #[test]
-fn diff_patch_empty_diff_test() -> Result<(), ParseError> {
+fn diff_patch_empty_diff_test() -> Result<(), Error> {
     assert_transformation!(
         "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
         "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
@@ -85,7 +94,7 @@ fn diff_patch_empty_diff_test() -> Result<(), ParseError> {
 }
 
 #[test]
-fn diff_patch_combined_test() -> Result<(), ParseError> {
+fn diff_patch_combined_test() -> Result<(), Error> {
     assert_transformation!(
         "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
         "<html lang=\"en\"><head><meta title=\"Hello\" /></head><body><h1>Greetings!</h1><a href=\"https://www.example.com\">Hi World!</a></body></html>"
@@ -93,7 +102,7 @@ fn diff_patch_combined_test() -> Result<(), ParseError> {
 }
 
 #[test]
-fn diff_patch_new_child_test() -> Result<(), ParseError> {
+fn diff_patch_new_child_test() -> Result<(), Error> {
     assert_transformation!(
         "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
         "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><h1>Greetings!</h1><a href=\"about:blank\">Hello World!</a></body></html>"
@@ -101,7 +110,7 @@ fn diff_patch_new_child_test() -> Result<(), ParseError> {
 }
 
 #[test]
-fn diff_patch_remove_child_test() -> Result<(), ParseError> {
+fn diff_patch_remove_child_test() -> Result<(), Error> {
     assert_transformation!(
         "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><h1>Greetings!</h1><a href=\"about:blank\">Hello World!</a></body></html>",
         "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>"
@@ -109,7 +118,7 @@ fn diff_patch_remove_child_test() -> Result<(), ParseError> {
 }
 
 #[test]
-fn dom_swift_integration_test() -> Result<(), ParseError> {
+fn dom_swift_integration_test() -> Result<(), Error> {
     assert_transformation!(
         r#"
         <html lang="en">
@@ -136,7 +145,7 @@ fn dom_swift_integration_test() -> Result<(), ParseError> {
 }
 
 #[test]
-fn issue3_regression_test() -> Result<(), ParseError> {
+fn issue3_regression_test() -> Result<(), Error> {
     assert_transformation!(
         r#"
 <vstack nav-title="Cottonwood 4-5" roster-link="/room/16/roster">
@@ -235,13 +244,12 @@ fn issue3_regression_test() -> Result<(), ParseError> {
 }
 
 #[test]
-fn diff_add_child_oob() -> Result<(), ParseError> {
+fn diff_add_child_oob() -> Result<(), Error> {
     assert_transformation!("<a></a>", "<a><b></b></a>")
 }
 
-
 #[test]
-fn diff_remove_node() -> Result<(), ParseError> {
+fn diff_remove_node() -> Result<(), Error> {
     assert_transformation!(
         "<a /><b />",
         "<b />",
