@@ -40,7 +40,11 @@ where
                 let node = document.push_node(content);
                 document.append_child(current_node, node);
             }
-            other => panic!("unexpected token: {:#?}", &other),
+            Token::Error(err) => {
+                return Err(ParseError::Tokenizer(err.into()));
+            }
+            Token::Doctype(_) => {}
+            Token::Comment => {}
         }
     }
 
