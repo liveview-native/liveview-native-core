@@ -1,6 +1,6 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 
-use fxhash::{FxHashMap, FxHashSet};
+use itertools::unfold;
 use smallvec::{smallvec, SmallVec};
 
 use crate::dom::*;
@@ -146,8 +146,7 @@ pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch>
                             });
                         } else {
                             // Check for changes to the attributes
-                            let mut attr_changes = diff_attributes(old_cursor.node, old, new);
-                            patches.append(&mut attr_changes);
+                            patches.extend(diff_attributes(old_cursor.node, old, new));
                         }
                         // Add the children of both nodes to the worklist
                         let old_children = old_document.children(old_cursor.node);
@@ -383,61 +382,48 @@ pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch>
     patches
 }
 
-fn diff_attributes(node: NodeRef, old: &Element, new: &Element) -> VecDeque<Patch> {
-    let mut patches = VecDeque::new();
+pub fn diff_attributes<'a>(
+    node: NodeRef,
+    old: &'a Element,
+    new: &'a Element,
+) -> impl Iterator<Item = Patch> + 'a {
+    let current: BTreeMap<&'a AttributeName, &'a AttributeValue> = BTreeMap::from_iter(
+        old.attributes()
+            .into_iter()
+            .map(|attr| (&attr.name, &attr.value)),
+    );
 
-    let mut old_attribute_names = FxHashSet::default();
-    let mut new_attribute_names = FxHashSet::default();
-    let mut old_attributes = FxHashMap::default();
-    let mut new_attributes = FxHashMap::default();
+    unfold(
+        (current, new.attributes().into_iter()),
+        move |(current, new)| {
+            while let Some(attr) = new.next() {
+                match current.remove(&attr.name) {
+                    Some(value) if value.ne(&attr.value) => {
+                        return Some(Patch::UpdateAttribute {
+                            node,
+                            name: attr.name.to_owned(),
+                            value: attr.value.to_owned(),
+                        });
+                    }
+                    Some(_) => {}
+                    None => {
+                        return Some(Patch::AddAttributeTo {
+                            node,
+                            name: attr.name.to_owned(),
+                            value: attr.value.to_owned(),
+                        });
+                    }
+                }
+            }
 
-    let old_attrs = old.attributes();
-    let new_attrs = new.attributes();
-
-    for attr in old_attrs {
-        old_attribute_names.insert(attr.name);
-        old_attributes.insert(attr.name, &attr.value);
-    }
-
-    for attr in new_attrs {
-        new_attribute_names.insert(attr.name);
-        new_attributes.insert(attr.name, &attr.value);
-    }
-
-    // Additions (in new, not in old)
-    for diff in new_attribute_names.difference(&old_attribute_names) {
-        // Issue patch to add this attribute to the old
-        let value = new_attributes[&diff];
-        patches.push_back(Patch::AddAttributeTo {
-            node,
-            name: *diff,
-            value: value.clone(),
-        });
-    }
-
-    // Removals (in old, not in new)
-    for diff in old_attribute_names.difference(&new_attribute_names) {
-        // Issue patch to remove this attribute from the old
-        patches.push_back(Patch::RemoveAttributeByName { node, name: *diff });
-    }
-
-    // Modifications (in both)
-    for diff in old_attribute_names.intersection(&new_attribute_names) {
-        let old_value = old_attributes[&diff];
-        let new_value = new_attributes[&diff];
-
-        if old_value == new_value {
-            continue;
-        }
-
-        patches.push_back(Patch::UpdateAttribute {
-            node,
-            name: *diff,
-            value: new_value.clone(),
-        });
-    }
-
-    patches
+            current
+                .pop_first()
+                .map(|(name, _)| Patch::RemoveAttributeByName {
+                    node,
+                    name: name.to_owned(),
+                })
+        },
+    )
 }
 
 fn recursively_append_after(
