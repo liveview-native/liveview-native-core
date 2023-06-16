@@ -15,59 +15,56 @@ enum Error {
     ParseError(#[from] ParseError),
 }
 
-macro_rules! assert_transformation {
-    ($from:expr, $to:expr) => {{
-        let mut prev = Document::parse($from)?;
-        let next = Document::parse($to)?;
+fn check_transformation(from: &str, to: &str) -> Result<(), Error> {
+    let mut prev = Document::parse(from)?;
+    let next = Document::parse(to)?;
 
-        let mut patches = diff::diff(&prev, &next);
+    let mut patches = diff::diff(&prev, &next);
 
-        let mut editor = prev.edit();
-        let mut stack = vec![];
-        for patch in patches.drain(..) {
-            patch.apply(&mut editor, &mut stack);
-        }
+    let mut editor = prev.edit();
+    let mut stack = vec![];
+    for patch in patches.drain(..) {
+        patch.apply(&mut editor, &mut stack);
+    }
 
-        editor.finish();
+    editor.finish();
 
-        let prev = prev.to_string();
-        let next = next.to_string();
+    let prev = prev.to_string();
+    let next = next.to_string();
 
-        if prev.ne(&next) {
-            print_diff(prev.as_str(), next.as_str(), "\n");
-            return Err(Error::IncorrectTransformation);
-        }
+    if prev.ne(&next) {
+        print_diff(prev.as_str(), next.as_str(), "\n");
+        return Err(Error::IncorrectTransformation);
+    }
 
-        Ok(())
-    }};
-    ($from:expr, $to:expr, $patches:expr) => {{
-        let mut prev = Document::parse($from)?;
-        let next = Document::parse($to)?;
+    Ok(())
+}
 
-        let diff = diff::diff(&prev, &next);
+fn check_diff(from: &str, to: &str, mut patches: VecDeque<Patch>) -> Result<(), Error> {
+    let mut prev = Document::parse(from)?;
+    let next = Document::parse(to)?;
 
-        let mut patches: VecDeque<Patch> = VecDeque::from($patches);
+    let diff = diff::diff(&prev, &next);
 
-        let mut editor = prev.edit();
-        let mut stack = vec![];
-        for patch in patches.drain(..) {
-            patch.apply(&mut editor, &mut stack);
-        }
+    let mut editor = prev.edit();
+    let mut stack = vec![];
+    for patch in patches.drain(..) {
+        patch.apply(&mut editor, &mut stack);
+    }
 
-        editor.finish();
+    editor.finish();
 
-        let prev = prev.to_string();
-        let next = next.to_string();
+    let prev = prev.to_string();
+    let next = next.to_string();
 
-        if prev.ne(&next) {
-            print_diff(prev.as_str(), next.as_str(), "\n");
-            return Err(Error::IncorrectTransformation);
-        }
+    if prev.ne(&next) {
+        print_diff(prev.as_str(), next.as_str(), "\n");
+        return Err(Error::IncorrectTransformation);
+    }
 
-        assert_eq!(diff, VecDeque::from($patches));
+    assert_eq!(diff, VecDeque::from(patches));
 
-        Ok(())
-    }};
+    Ok(())
 }
 
 macro_rules! test_fixture {
@@ -75,7 +72,7 @@ macro_rules! test_fixture {
         paste! {
             #[test]
             fn [<diff_ $name:snake>]() -> Result<(), Error> {
-                assert_transformation!(
+                check_transformation(
                     include_str!(concat!("fixtures/", $name, "/from.html")),
                     include_str!(concat!("fixtures/", $name, "/to.html"))
                 )
@@ -86,16 +83,16 @@ macro_rules! test_fixture {
 
 #[test]
 fn diff_patch_empty_diff_test() -> Result<(), Error> {
-    assert_transformation!(
+    check_diff(
         "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
         "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
-        []
+        VecDeque::from([])
     )
 }
 
 #[test]
 fn diff_patch_combined_test() -> Result<(), Error> {
-    assert_transformation!(
+    check_transformation(
         "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
         "<html lang=\"en\"><head><meta title=\"Hello\" /></head><body><h1>Greetings!</h1><a href=\"https://www.example.com\">Hi World!</a></body></html>"
     )
@@ -103,7 +100,7 @@ fn diff_patch_combined_test() -> Result<(), Error> {
 
 #[test]
 fn diff_patch_new_child_test() -> Result<(), Error> {
-    assert_transformation!(
+    check_transformation(
         "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
         "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><h1>Greetings!</h1><a href=\"about:blank\">Hello World!</a></body></html>"
     )
@@ -111,7 +108,7 @@ fn diff_patch_new_child_test() -> Result<(), Error> {
 
 #[test]
 fn diff_patch_remove_child_test() -> Result<(), Error> {
-    assert_transformation!(
+    check_transformation(
         "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><h1>Greetings!</h1><a href=\"about:blank\">Hello World!</a></body></html>",
         "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>"
     )
@@ -119,7 +116,7 @@ fn diff_patch_remove_child_test() -> Result<(), Error> {
 
 #[test]
 fn dom_swift_integration_test() -> Result<(), Error> {
-    assert_transformation!(
+    check_transformation(
         r#"
         <html lang="en">
             <head>
@@ -140,13 +137,13 @@ fn dom_swift_integration_test() -> Result<(), Error> {
                 new content
             </body>
         </html>
-        "#
+        "#,
     )
 }
 
 #[test]
 fn issue3_regression_test() -> Result<(), Error> {
-    assert_transformation!(
+    check_transformation(
         r#"
 <vstack nav-title="Cottonwood 4-5" roster-link="/room/16/roster">
     <messages-list>
@@ -239,23 +236,23 @@ fn issue3_regression_test() -> Result<(), Error> {
         </phx-form>
     </hstack>
 </vstack>
-"#
+"#,
     )
 }
 
 #[test]
 fn diff_add_child_oob() -> Result<(), Error> {
-    assert_transformation!("<a></a>", "<a><b></b></a>")
+    check_transformation("<a></a>", "<a><b></b></a>")
 }
 
 #[test]
 fn diff_remove_node() -> Result<(), Error> {
-    assert_transformation!(
+    check_diff(
         "<a /><b />",
         "<b />",
-        [Patch::Remove {
-            node: NodeRef::from_u32(1)
-        }]
+        VecDeque::from([Patch::Remove {
+            node: NodeRef::from_u32(1),
+        }]),
     )
 }
 
