@@ -70,6 +70,13 @@ impl Node {
         }
     }
 
+    pub(crate) fn id(&self) -> Option<&SmallString<[u8; 16]>> {
+        match self {
+            Self::Element(el) => el.id(),
+            _ => None,
+        }
+    }
+
     /// Returns true if this node is a leaf node
     pub fn is_leaf(&self) -> bool {
         match self {
@@ -190,6 +197,19 @@ impl Element {
             name,
             attributes: Vec::new(),
         }
+    }
+
+    pub(crate) fn id(&self) -> Option<&SmallString<[u8; 16]>> {
+        self.attributes().iter().find_map(|attr| {
+            if attr.name.eq("id") {
+                match attr.value {
+                    AttributeValue::None => None,
+                    AttributeValue::String(ref id) => Some(id),
+                }
+            } else {
+                None
+            }
+        })
     }
 
     /// Returns a slice of AttributeRefs associated to this element
