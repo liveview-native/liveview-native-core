@@ -54,6 +54,12 @@ impl From<InternedString> for AttributeName {
     }
 }
 
+impl PartialEq<str> for AttributeName {
+    fn eq(&self, other: &str) -> bool {
+        self.name.as_str().eq(other)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Attribute {
     pub name: AttributeName,
