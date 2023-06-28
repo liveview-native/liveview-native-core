@@ -591,6 +591,12 @@ pub trait DocumentBuilder {
         doc.children[ip].push(node);
     }
 
+    /// Detaches a node from the document, but preserves the subtree
+    fn detach_node(&mut self, node: NodeRef) {
+        let doc = self.document_mut();
+        doc.detach(node);
+    }
+
     /// Merges `doc` into this document, making the current node the parent of the merged subtree
     fn attach_document(&mut self, doc: Document) {
         let ip = self.insertion_point();

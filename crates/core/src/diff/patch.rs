@@ -2,7 +2,7 @@ use crate::dom::*;
 
 use super::traversal::MoveTo;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Patch {
     InsertBefore {
         before: NodeRef,
@@ -31,6 +31,14 @@ pub enum Patch {
     ///
     /// The second argument is pushed back on the stack when done, reducing the stack overall by one
     Attach,
+    /// Detach node so that it can be re-attached later using Push and Attach or AppendAfter
+    Detach {
+        node: NodeRef,
+    },
+    /// Pops an argument off the stack and prepend it as the sibling before node
+    PrependBefore {
+        before: NodeRef,
+    },
     /// Appends `node` using the current node as parent
     ///
     /// This is used in conjunction with `Move` to construct a subtree
@@ -38,7 +46,7 @@ pub enum Patch {
     Append {
         node: Node,
     },
-    /// Pops an argument off the stack and appends it as the immediate sibling of `after`
+    /// Pops an argument off the stack and appends it as the next sibling of `after`
     AppendAfter {
         after: NodeRef,
     },
@@ -148,6 +156,17 @@ impl Patch {
                     node: child,
                     parent,
                 })
+            }
+            Self::Detach { node } => {
+                doc.detach_node(node);
+                None
+            }
+            Self::PrependBefore { before } => {
+                let node = stack.pop().unwrap();
+                let d = doc.document_mut();
+                d.insert_before(node, before);
+                let parent = d.parent(before).expect("inserted node should have parent");
+                Some(PatchResult::Add { node, parent })
             }
             Self::Append { node } => {
                 let node = doc.append(node);
