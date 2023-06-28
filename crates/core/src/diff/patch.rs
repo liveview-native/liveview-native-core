@@ -35,7 +35,7 @@ pub enum Patch {
     Detach {
         node: NodeRef,
     },
-    /// Pops an argument off the stack and prepend it as the sibling before node
+    /// Pops node off the stack and prepends relative to before
     PrependBefore {
         before: NodeRef,
     },
