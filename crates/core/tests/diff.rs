@@ -40,7 +40,7 @@ fn check_transformation(from: &str, to: &str) -> Result<(), Error> {
     Ok(())
 }
 
-fn check_diff(from: &str, to: &str, mut patches: VecDeque<Patch>) -> Result<(), Error> {
+fn check_diff(from: &str, to: &str, patches: &[Patch]) -> Result<(), Error> {
     let mut prev = Document::parse(from)?;
     let next = Document::parse(to)?;
 
@@ -48,13 +48,15 @@ fn check_diff(from: &str, to: &str, mut patches: VecDeque<Patch>) -> Result<(), 
 
     let mut editor = prev.edit();
     let mut stack = vec![];
-    for patch in patches.drain(..) {
+
+    for patch in patches.iter().cloned() {
         patch.apply(&mut editor, &mut stack);
     }
 
     editor.finish();
 
     let prev = prev.to_string();
+
     let next = next.to_string();
 
     if prev.ne(&next) {
@@ -62,7 +64,7 @@ fn check_diff(from: &str, to: &str, mut patches: VecDeque<Patch>) -> Result<(), 
         return Err(Error::IncorrectTransformation);
     }
 
-    assert_eq!(diff, VecDeque::from(patches));
+    assert_eq!(diff, VecDeque::from_iter(patches.iter().cloned()));
 
     Ok(())
 }
@@ -86,7 +88,7 @@ fn diff_patch_empty_diff_test() -> Result<(), Error> {
     check_diff(
         "<html lang=\"en\"><head><meta charset=\"utf-8\"/></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
         "<html lang=\"en\"><head><meta charset=\"utf-8\"/></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
-        VecDeque::from([])
+        &[]
     )
 }
 
@@ -250,9 +252,9 @@ fn diff_remove_node() -> Result<(), Error> {
     check_diff(
         "<a/><b/>",
         "<b/>",
-        VecDeque::from([Patch::Remove {
+        &[Patch::Remove {
             node: NodeRef::from_u32(1),
-        }]),
+        }],
     )
 }
 
