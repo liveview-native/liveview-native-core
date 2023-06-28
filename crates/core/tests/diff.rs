@@ -84,8 +84,8 @@ macro_rules! test_fixture {
 #[test]
 fn diff_patch_empty_diff_test() -> Result<(), Error> {
     check_diff(
-        "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
-        "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
+        "<html lang=\"en\"><head><meta charset=\"utf-8\"/></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
+        "<html lang=\"en\"><head><meta charset=\"utf-8\"/></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
         VecDeque::from([])
     )
 }
@@ -93,24 +93,24 @@ fn diff_patch_empty_diff_test() -> Result<(), Error> {
 #[test]
 fn diff_patch_combined_test() -> Result<(), Error> {
     check_transformation(
-        "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
-        "<html lang=\"en\"><head><meta title=\"Hello\" /></head><body><h1>Greetings!</h1><a href=\"https://www.example.com\">Hi World!</a></body></html>"
+        "<html lang=\"en\"><head><meta charset=\"utf-8\"/></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
+        "<html lang=\"en\"><head><meta title=\"Hello\"/></head><body><h1>Greetings!</h1><a href=\"https://www.example.com\">Hi World!</a></body></html>"
     )
 }
 
 #[test]
 fn diff_patch_new_child_test() -> Result<(), Error> {
     check_transformation(
-        "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
-        "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><h1>Greetings!</h1><a href=\"about:blank\">Hello World!</a></body></html>"
+        "<html lang=\"en\"><head><meta charset=\"utf-8\"/></head><body><a href=\"about:blank\">Hello World!</a></body></html>",
+        "<html lang=\"en\"><head><meta charset=\"utf-8\"/></head><body><h1>Greetings!</h1><a href=\"about:blank\">Hello World!</a></body></html>"
     )
 }
 
 #[test]
 fn diff_patch_remove_child_test() -> Result<(), Error> {
     check_transformation(
-        "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><h1>Greetings!</h1><a href=\"about:blank\">Hello World!</a></body></html>",
-        "<html lang=\"en\"><head><meta charset=\"utf-8\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>"
+        "<html lang=\"en\"><head><meta charset=\"utf-8\"/></head><body><h1>Greetings!</h1><a href=\"about:blank\">Hello World!</a></body></html>",
+        "<html lang=\"en\"><head><meta charset=\"utf-8\"/></head><body><a href=\"about:blank\">Hello World!</a></body></html>"
     )
 }
 
@@ -120,7 +120,7 @@ fn dom_swift_integration_test() -> Result<(), Error> {
         r#"
         <html lang="en">
             <head>
-                <meta charset="utf-8" />
+                <meta charset="utf-8"/>
             </head>
             <body class="main">
                 some content
@@ -130,8 +130,8 @@ fn dom_swift_integration_test() -> Result<(), Error> {
         r#"
         <html lang="en">
             <head>
-                <meta charset="utf-8" />
-                <meta name="title" content="Hello World" />
+                <meta charset="utf-8"/>
+                <meta name="title" content="Hello World"/>
             </head>
             <body class="main">
                 new content
@@ -154,11 +154,11 @@ fn issue3_regression_test() -> Result<(), Error> {
                         <text font="body" font-weight="bold">
                             Test Test
                         </text>
-                        <spacer />
+                        <spacer/>
                     </hstack>
                     <hstack>
-                        <spacer />
-                        <local-time datetime="2022-10-26T17:13:08Z" />
+                        <spacer/>
+                        <local-time datetime="2022-10-26T17:13:08Z"/>
                     </hstack>
                 </zstack>
                 <link-text frame-alignment="leading" fix-multiline-text="">
@@ -167,11 +167,11 @@ fn issue3_regression_test() -> Result<(), Error> {
             </vstack>
         </vstack>
     </messages-list>
-    <rectangle frame-height="1" fill-color="\#cccccc" />
+    <rectangle frame-height="1" fill-color="\#cccccc"/>
     <hstack pad-leading="8" pad-trailing="8">
         <phx-form id="post" phx-submit="send" submit-on-enter="">
             <hstack>
-                <textfield name="text" border-style="none" clear-button="while-editing" placeholder="Message" return-key-type="send" />
+                <textfield name="text" border-style="none" clear-button="while-editing" placeholder="Message" return-key-type="send"/>
                 <phx-submit-button after-submit="clear">
                     <text>
                         Send
@@ -192,11 +192,11 @@ fn issue3_regression_test() -> Result<(), Error> {
                         <text font="body" font-weight="bold">
                             Test Test
                         </text>
-                        <spacer />
+                        <spacer/>
                     </hstack>
                     <hstack>
-                        <spacer />
-                        <local-time datetime="2022-10-26T17:13:08Z" />
+                        <spacer/>
+                        <local-time datetime="2022-10-26T17:13:08Z"/>
                     </hstack>
                 </zstack>
                 <link-text frame-alignment="leading" fix-multiline-text="">
@@ -209,11 +209,11 @@ fn issue3_regression_test() -> Result<(), Error> {
                         <text font="body" font-weight="bold">
                             Test Test
                         </text>
-                        <spacer />
+                        <spacer/>
                     </hstack>
                     <hstack>
-                        <spacer />
-                        <local-time datetime="2022-10-26T17:13:17Z" />
+                        <spacer/>
+                        <local-time datetime="2022-10-26T17:13:17Z"/>
                     </hstack>
                 </zstack>
                 <link-text frame-alignment="leading" fix-multiline-text="">
@@ -222,11 +222,11 @@ fn issue3_regression_test() -> Result<(), Error> {
             </vstack>
         </vstack>
     </messages-list>
-    <rectangle frame-height="1" fill-color="\#cccccc" />
+    <rectangle frame-height="1" fill-color="\#cccccc"/>
     <hstack pad-leading="8" pad-trailing="8">
         <phx-form id="post" phx-submit="send" submit-on-enter="">
             <hstack>
-                <textfield name="text" border-style="none" clear-button="while-editing" placeholder="Message" return-key-type="send" />
+                <textfield name="text" border-style="none" clear-button="while-editing" placeholder="Message" return-key-type="send"/>
                 <phx-submit-button after-submit="clear">
                     <text>
                         Send
@@ -248,8 +248,8 @@ fn diff_add_child_oob() -> Result<(), Error> {
 #[test]
 fn diff_remove_node() -> Result<(), Error> {
     check_diff(
-        "<a /><b />",
-        "<b />",
+        "<a/><b/>",
+        "<b/>",
         VecDeque::from([Patch::Remove {
             node: NodeRef::from_u32(1),
         }]),

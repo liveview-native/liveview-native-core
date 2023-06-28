@@ -8,7 +8,7 @@ use liveview_native_core::InternedString;
 
 #[test]
 fn parser_simple() {
-    let result = parser::parse("<html lang=\"en\"><head><meta charset=\"utf-8\" /><meta name=\"title\" content=\"Test\" /></head><body><a href=\"about:blank\">Hello World!</a></body></html>");
+    let result = parser::parse("<html lang=\"en\"><head><meta charset=\"utf-8\"/><meta name=\"title\" content=\"Test\"/></head><body><a href=\"about:blank\">Hello World!</a></body></html>");
     assert_matches!(result, Ok(_));
     let document = result.unwrap();
     let root = document.root();
@@ -29,7 +29,7 @@ fn parser_whitespace_handling() {
         r#"
 <html lang="en">
     <head>
-        <meta charset="utf-8" />
+        <meta charset="utf-8"/>
     </head>
     <body class="new-value" class="main">
         some content
