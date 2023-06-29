@@ -1,8 +1,7 @@
 mod diff;
-mod morph;
 mod patch;
 mod traversal;
 
-pub use self::morph::diff;
-pub use self::patch::{Patch, PatchResult};
-pub use self::traversal::MoveTo;
+pub use diff::{diff, Morph};
+pub use patch::{Patch, PatchResult};
+pub use traversal::MoveTo;
