@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
@@ -251,14 +250,14 @@ enum Advance {
     From,
 }
 
-struct Morph<'a> {
+pub struct Morph<'a> {
     stack: SmallVec<[Op<'a>; 16]>,
     queue: SmallVec<[Op<'a>; 8]>,
     detached: BTreeSet<NodeRef>,
 }
 
 impl<'a> Morph<'a> {
-    fn new(from: &'a Document, to: &'a Document) -> Self {
+    pub fn new(from: &'a Document, to: &'a Document) -> Self {
         (from, to).into()
     }
 
@@ -559,35 +558,16 @@ impl<'a> Iterator for Morph<'a> {
                     }
                 }
                 Op::Morph(from, to) => {
-                    // paths are relative; a forked cursor without siblings will have a depth of 0
-                    match to.depth().cmp(&from.depth()) {
-                        // node added as child
-                        Ordering::Greater => {
-                            self.queue.extend([
-                                Op::Patch(Patch::Push(from.node)),
-                                Op::Append {
-                                    from: from.clone(),
-                                    cursor: to.fork(),
-                                },
-                                Op::Patch(Patch::Pop),
-                            ]);
+                    if to.depth().lt(&from.depth()) {
+                        self.queue.push(Op::RemoveNode {
+                            node: from.node,
+                            cursor: from.fork(),
+                            to: to.fork(),
+                            detach: true,
+                        });
 
-                            self.advance(Advance::To, true);
-                            continue;
-                        }
-                        Ordering::Equal => {}
-                        // existing node deleted
-                        Ordering::Less => {
-                            self.queue.push(Op::RemoveNode {
-                                node: from.node,
-                                cursor: from.fork(),
-                                to: to.fork(),
-                                detach: true,
-                            });
-
-                            self.advance(Advance::From, true);
-                            continue;
-                        }
+                        self.advance(Advance::From, true);
+                        continue;
                     }
 
                     match (from.node(), to.node()) {
