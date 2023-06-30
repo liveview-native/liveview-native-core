@@ -6,7 +6,7 @@ members = [
 [workspace.package]
 version = "0.1.0"
 rust-version = "1.64"
-authors = ["Paul Schoenfelder <paulschoenfelder@gmail.com>"]
+authors = ["Paul Schoenfelder <paulschoenfelder@gmail.com>", "Thomas Sieverding <Thomas@bajix.com>"]
 description = "Provides core, cross-platform functionality for LiveView Native implementations"
 repository = "https://github.com/liveviewnative/liveview-native-core"
 homepage = "https://github.com/liveviewnative/liveview-native-core"
