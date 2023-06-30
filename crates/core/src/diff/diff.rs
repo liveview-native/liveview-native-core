@@ -12,6 +12,7 @@ use crate::dom::*;
 
 use super::MoveTo;
 use super::Patch;
+
 #[derive(Clone)]
 struct Cursor<'a> {
     doc: &'a Document,
@@ -57,24 +58,26 @@ impl<'a> Cursor<'a> {
 
     // Create a cursor at `node` that iterates over descendant nodes
     fn at(&self, node: NodeRef) -> Cursor<'a> {
-        Cursor::new(&self.doc, node)
+        Cursor::new(self.doc, node)
     }
 
+    fn parent(&self) -> Option<NodeRef> {
+        self.doc.parent(self.node)
+    }
     fn children(&self) -> &'a [NodeRef] {
         self.doc.children(self.node)
     }
 
     fn next_sibling(&self) -> Option<Cursor<'a>> {
-        let index = *self.path.last()? + 1;
-        let parent = self.doc.parent(self.node)?;
-        let node = *self.doc.children(parent).get(index as usize)?;
-        let mut path = self.path.clone();
-        *path.last_mut()? = index;
+        let parent = self.parent()?;
+        let siblings = self.doc.children(parent);
+        let index = siblings.iter().position(|node| self.node.eq(node))? + 1;
+        let node = siblings.get(index)?;
 
         Some(Cursor {
             doc: self.doc,
-            path,
-            node,
+            path: smallvec![],
+            node: *node,
         })
     }
 
@@ -267,12 +270,12 @@ impl<'a> Morph<'a> {
             if let (Node::Element(old), Node::Element(new)) = (from.node(), to.node()) {
                 let mut current = BTreeMap::from_iter(
                     old.attributes()
-                        .into_iter()
+                        .iter()
                         .map(|attr| (&attr.name, &attr.value)),
                 );
 
                 self.queue
-                    .extend(new.attributes().into_iter().filter_map(|attr| {
+                    .extend(new.attributes().iter().filter_map(|attr| {
                         match current.remove(&attr.name) {
                             Some(value) if value.ne(&attr.value) => {
                                 Some(Op::Patch(Patch::UpdateAttribute {
@@ -308,6 +311,8 @@ impl<'a> Morph<'a> {
         let op = self.stack.last_mut().unwrap();
 
         if let Op::Morph(from, to) = op {
+            let mut insertion_point = from.clone();
+
             let next = match advance {
                 Advance::BothCursors => (
                     from.advance_with_skip_list(skip_children, &self.detached),
@@ -321,7 +326,26 @@ impl<'a> Morph<'a> {
             };
 
             match next {
-                (Some(_), Some(_)) => {}
+                (Some(_), Some(_)) => {
+                    if to.depth().gt(&from.depth()) {
+                        // Move cursor to parent for append
+                        while insertion_point.depth().ge(&to.depth()) {
+                            insertion_point.move_to_parent();
+                        }
+
+                        self.queue.extend([
+                            Op::Patch(Patch::Push(insertion_point.node)),
+                            Op::AppendSiblings {
+                                from: from.fork(),
+                                cursor: to.fork(),
+                            },
+                            Op::Patch(Patch::Pop),
+                        ]);
+
+                        to.move_to_parent();
+                        self.advance(Advance::To, true);
+                    }
+                }
                 (Some(_), None) => {
                     *op = Op::RemoveNodes {
                         from: from.to_owned(),
@@ -432,62 +456,37 @@ impl<'a> Iterator for Morph<'a> {
                                 Op::Morph(from.at(node), cursor.fork()),
                             ]);
 
-                            if cursor.advance(true).is_none() {
-                                *op = Op::Continue;
-                            }
+                            *op = Op::Continue;
 
                             continue;
                         }
                     }
 
                     let node = cursor.node().to_owned();
-                    let depth = cursor.depth();
-
                     if cursor.next().is_some() {
-                        match cursor.depth().cmp(&depth) {
-                            Ordering::Less => {
-                                unreachable!(
-                                    "cursor should always be forked so that it will never move up"
-                                );
-                            }
-                            // Next node is also a sibling, so leave parent unchanged and append current
-                            Ordering::Equal => {
-                                self.queue.push(Op::Patch(Patch::Append { node }));
-                                continue;
-                            }
-                            // Next node is a child node, so append and make node the new parent
-                            Ordering::Greater => {
-                                self.queue.extend([
-                                    Op::Patch(Patch::CreateAndMoveTo { node }),
-                                    // Insertion point resets to parent
-                                    Op::Patch(Patch::Attach),
-                                    // Move to newly created node relative to parent
-                                    Op::Patch(Patch::Move(MoveTo::ReverseChild(0))),
-                                    // Set created node as parent for next append
-                                    Op::Patch(Patch::PushCurrent),
-                                    Op::Append {
-                                        from: from.clone(),
-                                        cursor: cursor.fork(),
-                                    },
-                                    Op::Patch(Patch::Pop),
-                                ]);
-
-                                if cursor.advance(true).is_none() {
-                                    *op = Op::Continue;
-                                }
-                            }
-                        }
-                    } else {
-                        // self.queue.push(Op::Patch(Patch::Append { node }));
-
                         self.queue.extend([
                             Op::Patch(Patch::CreateAndMoveTo { node }),
-                            // Insertion point resets to parent
+                            // Attach relative to current parent on the stack
+                            Op::Patch(Patch::Attach),
+                            // Move to newly created node relative to parent
+                            Op::Patch(Patch::Move(MoveTo::ReverseChild(0))),
+                            // Set created node as parent for inner append
+                            Op::Patch(Patch::PushCurrent),
+                            Op::AppendSiblings {
+                                from: from.clone(),
+                                cursor: cursor.fork(),
+                            },
+                            Op::Patch(Patch::Pop),
+                        ]);
+                    } else {
+                        self.queue.extend([
+                            Op::Patch(Patch::Create { node }),
+                            // Attach relative to current parent on the stack
                             Op::Patch(Patch::Attach),
                         ]);
-
-                        *op = Op::Continue;
                     }
+
+                    *op = Op::Continue;
                 }
                 Op::AppendNodes { from, to } => {
                     // Move cursor to parent for append
@@ -654,6 +653,8 @@ impl<'a> Iterator for Morph<'a> {
                                         Op::Patch(Patch::PrependBefore { before: from.node }),
                                         Op::Morph(from.at(node), to.fork()),
                                     ]);
+
+                                    self.advance(Advance::To, true);
 
                                     continue;
                                 } else {

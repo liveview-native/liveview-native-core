@@ -51,7 +51,7 @@ fn dom_builder_example() {
     let mut buffer = String::with_capacity(4 * 1024);
     let expected = r#"<html lang="en">
     <head>
-        <meta charset="utf-8"/>
+        <meta charset="utf-8" />
     </head>
     <body class="new-value">
         some content
