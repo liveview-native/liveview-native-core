@@ -185,14 +185,14 @@ pub extern "C" fn document_merge(
 ) {
     let doc = unsafe { &mut *doc };
     let other = unsafe { &*other };
-    let mut patches = crate::diff::diff(doc, other);
+    let patches = crate::diff::diff(doc, other);
     if patches.is_empty() {
         return;
     }
 
     let mut editor = doc.edit();
     let mut stack = vec![];
-    for patch in patches.drain(..) {
+    for patch in patches.into_iter() {
         let patch_result = patch.apply(&mut editor, &mut stack);
         match patch_result {
             None => (),

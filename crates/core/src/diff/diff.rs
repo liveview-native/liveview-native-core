@@ -711,6 +711,6 @@ impl<'a> Iterator for Morph<'a> {
     }
 }
 
-pub fn diff(old_document: &Document, new_document: &Document) -> VecDeque<Patch> {
-    VecDeque::from_iter(Morph::new(old_document, new_document))
+pub fn diff(old_document: &Document, new_document: &Document) -> Vec<Patch> {
+    Vec::from_iter(Morph::new(old_document, new_document))
 }

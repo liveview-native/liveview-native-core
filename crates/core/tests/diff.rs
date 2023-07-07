@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use liveview_native_core::diff::{self, Patch};
 use liveview_native_core::dom::*;
 use liveview_native_core::parser::ParseError;
@@ -64,7 +62,7 @@ fn check_diff(from: &str, to: &str, patches: &[Patch]) -> Result<(), Error> {
         return Err(Error::IncorrectTransformation);
     }
 
-    assert_eq!(diff, VecDeque::from_iter(patches.iter().cloned()));
+    assert_eq!(diff, Vec::from_iter(patches.iter().cloned()));
 
     Ok(())
 }
