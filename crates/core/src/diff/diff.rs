@@ -1,18 +1,12 @@
-use std::cmp::Ordering;
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
-use std::collections::VecDeque;
-use std::fmt;
-use std::mem;
-
-use smallvec::{smallvec, SmallVec};
-use std::ops::Deref;
-
+use super::{MoveTo, Patch};
 use crate::dom::*;
-
-use super::MoveTo;
-use super::Patch;
-
+use smallvec::{smallvec, SmallVec};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet},
+    fmt, mem,
+    ops::Deref,
+};
 #[derive(Clone)]
 struct Cursor<'a> {
     doc: &'a Document,
