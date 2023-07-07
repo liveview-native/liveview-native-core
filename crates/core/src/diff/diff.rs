@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::VecDeque;
@@ -51,6 +52,15 @@ impl<'a> Cursor<'a> {
         Cursor {
             doc: self.doc,
             path: smallvec![],
+            node: self.node,
+        }
+    }
+
+    // Create a cursor with the current node that iterates over nodes descendant of the ancestor at `ancestor_depth`
+    fn fork_relative(&self, ancestor_depth: usize) -> Cursor<'a> {
+        Cursor {
+            doc: self.doc,
+            path: SmallVec::from_slice(&self.path.as_slice()[ancestor_depth..]),
             node: self.node,
         }
     }
@@ -126,23 +136,6 @@ impl<'a> Cursor<'a> {
             }
         }
     }
-
-    fn advance_with_skip_list(
-        &mut self,
-        skip_children: bool,
-        skip_list: &BTreeSet<NodeRef>,
-    ) -> Option<()> {
-        let mut cursor = self.clone();
-
-        while cursor.advance(skip_children).is_some() {
-            if !skip_list.contains(&cursor.node) {
-                std::mem::swap(self, &mut cursor);
-                return Some(());
-            }
-        }
-
-        None
-    }
 }
 
 impl<'a> Iterator for Cursor<'a> {
@@ -206,9 +199,9 @@ enum Op<'a> {
         from: Cursor<'a>,
         cursor: Cursor<'a>,
     },
-    /// Append `to`
+    /// Append `to` relative to `insertion_point`
     AppendNodes {
-        from: Cursor<'a>,
+        insertion_point: Cursor<'a>,
         to: Cursor<'a>,
     },
     /// Append sibling nodes relative to the parent node on the stack
@@ -310,50 +303,70 @@ impl<'a> Morph<'a> {
         let op = self.stack.last_mut().unwrap();
 
         if let Op::Morph(from, to) = op {
-            let mut insertion_point = from.clone();
+            let insertion_point = from.clone();
 
             let next = match advance {
-                Advance::BothCursors => (
-                    from.advance_with_skip_list(skip_children, &self.detached),
-                    to.advance(skip_children),
-                ),
+                Advance::BothCursors => (from.advance(skip_children), to.advance(skip_children)),
                 Advance::To => (Some(()), to.advance(skip_children)),
-                Advance::From => (
-                    from.advance_with_skip_list(skip_children, &self.detached),
-                    Some(()),
-                ),
+                Advance::From => (from.advance(skip_children), Some(())),
             };
 
             match next {
                 (Some(_), Some(_)) => {
-                    if to.depth().gt(&from.depth()) {
-                        // Move cursor to parent for append
-                        while insertion_point.depth().ge(&to.depth()) {
-                            insertion_point.move_to_parent();
+                    match to.depth().cmp(&from.depth()) {
+                        Ordering::Less => {
+                            if !self.detached.contains(&from.node) {
+                                self.queue.push(Op::RemoveNode {
+                                    node: from.node,
+                                    cursor: from.fork(),
+                                    to: to.fork(),
+                                    detach: true,
+                                });
+                            }
+
+                            self.advance(Advance::From, true);
                         }
+                        Ordering::Equal => {
+                            // If the node was detached earlier, that means it's already been reattached and can be skipped over
+                            if self.detached.contains(&from.node) {
+                                self.advance(Advance::From, true);
+                            }
+                        }
+                        // New nodes added
+                        Ordering::Greater => {
+                            let depth = from.depth();
 
-                        self.queue.extend([
-                            Op::Patch(Patch::Push(insertion_point.node)),
-                            Op::AppendSiblings {
-                                from: from.fork(),
-                                cursor: to.fork(),
-                            },
-                            Op::Patch(Patch::Pop),
-                        ]);
+                            self.queue.push(Op::AppendNodes {
+                                insertion_point: insertion_point.fork_relative(depth),
+                                to: to.fork_relative(depth),
+                            });
 
-                        to.move_to_parent();
-                        self.advance(Advance::To, true);
+                            while to.depth().gt(&depth) {
+                                to.move_to_parent();
+                            }
+
+                            if to.advance(true).is_none() {
+                                *op = Op::RemoveNodes {
+                                    from: from.to_owned(),
+                                    to: to.to_owned(),
+                                };
+                            }
+                        }
                     }
                 }
                 (Some(_), None) => {
-                    *op = Op::RemoveNodes {
-                        from: from.to_owned(),
-                        to: to.to_owned(),
-                    };
+                    if self.detached.contains(&from.node) {
+                        self.advance(Advance::From, true);
+                    } else {
+                        *op = Op::RemoveNodes {
+                            from: from.to_owned(),
+                            to: to.to_owned(),
+                        };
+                    }
                 }
                 (None, Some(_)) => {
                     *op = Op::AppendNodes {
-                        from: from.to_owned(),
+                        insertion_point,
                         to: to.to_owned(),
                     };
                 }
@@ -487,28 +500,34 @@ impl<'a> Iterator for Morph<'a> {
 
                     *op = Op::Continue;
                 }
-                Op::AppendNodes { from, to } => {
+                Op::AppendNodes {
+                    insertion_point,
+                    to,
+                } => {
                     // Move cursor to parent for append
-                    while from.depth().ge(&to.depth()) {
-                        from.move_to_parent();
+                    while insertion_point.depth().ge(&to.depth()) {
+                        insertion_point.move_to_parent();
                     }
 
                     self.queue.extend([
-                        Op::Patch(Patch::Push(from.node)),
+                        Op::Patch(Patch::Push(insertion_point.node)),
                         Op::AppendSiblings {
-                            from: from.clone(),
+                            from: insertion_point.clone(),
                             cursor: to.clone(),
                         },
                         Op::Patch(Patch::Pop),
                     ]);
 
-                    while to.move_to_parent().is_some() {
-                        if to.advance(true).is_some() {
-                            continue;
+                    loop {
+                        if to.move_to_parent().is_some() {
+                            if to.advance(true).is_some() {
+                                break;
+                            }
+                        } else {
+                            *op = Op::Continue;
+                            break;
                         }
                     }
-
-                    *op = Op::Continue;
                 }
                 Op::AppendSiblings {
                     ref from,
