@@ -277,7 +277,7 @@ test_fixture!("ids-prepend");
 test_fixture!("input-element");
 test_fixture!("input-element-disabled");
 test_fixture!("input-element-enabled");
-// test_fixture!("large");
+test_fixture!("large");
 test_fixture!("lengthen");
 test_fixture!("one");
 test_fixture!("reverse");
