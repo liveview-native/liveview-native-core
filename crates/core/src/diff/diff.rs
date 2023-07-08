@@ -308,19 +308,7 @@ impl<'a> Morph<'a> {
             match next {
                 (Some(_), Some(_)) => {
                     match to.depth().cmp(&from.depth()) {
-                        Ordering::Less => {
-                            if !self.detached.contains(&from.node) {
-                                self.queue.push(Op::RemoveNode {
-                                    node: from.node,
-                                    cursor: from.fork(),
-                                    to: to.fork(),
-                                    detach: true,
-                                });
-                            }
-
-                            self.advance(Advance::From, true);
-                        }
-                        Ordering::Equal => {
+                        Ordering::Less | Ordering::Equal => {
                             // If the node was detached earlier, that means it's already been reattached and can be skipped over
                             if self.detached.contains(&from.node) {
                                 self.advance(Advance::From, true);
