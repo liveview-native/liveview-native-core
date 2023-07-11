@@ -27,11 +27,6 @@ jobs:
           toolchain: nightly
           target: x86_64-linux-android
           default: true
-      - name: Install cargo-lip
-        uses: baptiste0928/cargo-install@v1
-        with:
-          crate: cargo-lipo
-          version: "3.2.0"
       - name: Cache Cargo
         uses: actions/cache@v3
         with:
