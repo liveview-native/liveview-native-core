@@ -130,7 +130,7 @@ args = [
     "-library", "${CARGO_TARGET_DIR}/universal-watchos-libliveview_native_core.a",
     "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/c_src/include",
 ]
-dependencies = ["build-macos", "build-ios", "build-watchos", "lipo-macos", "lipo-ios-sim", "lipo-watchos", "remove-existing-xcframework"]
+dependencies = ["build-macos", "build-ios", "build-watchos", "remove-existing-xcframework"]
 
 [tasks.remove-existing-xcframework]
 workspace = false
@@ -161,51 +161,6 @@ description = "Compiles for all targets needed to produce a universal library fo
 command = "rustup"
 args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "build", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "-Z", "build-std", "--target", "arm64_32-apple-watchos", "--target", "armv7k-apple-watchos", "--target", "aarch64-apple-watchos-sim", "--target", "x86_64-apple-watchos-sim", "-p", "liveview-native-core"]
 dependencies = ["install-targets"]
-
-# different architectures for the same platform need to be lipo'd together before going into the xcframework
-[tasks.lipo-macos]
-worksapce = false
-category = "Packaging"
-description = "Creates universal binary for macOS"
-command = "xcrun"
-args = [
-	"lipo",
-	"-create",
-	"-output",
-	"${CARGO_TARGET_DIR}/universal-macos-libliveview_native_core.a",
-	"${CARGO_TARGET_DIR}/aarch64-apple-darwin/debug/libliveview_native_core.a",
-	"${CARGO_TARGET_DIR}/x86_64-apple-darwin/debug/libliveview_native_core.a",
-]
-
-[tasks.lipo-ios-sim]
-worksapce = false
-category = "Packaging"
-description = "Creates universal binary for iOS Simulator"
-command = "xcrun"
-args = [
-	"lipo",
-	"-create",
-	"-output",
-	"${CARGO_TARGET_DIR}/universal-ios-sim-libliveview_native_core.a",
-	"${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libliveview_native_core.a",
-	"${CARGO_TARGET_DIR}/x86_64-apple-ios/debug/libliveview_native_core.a",
-]
-
-[tasks.lipo-watchos]
-worksapce = false
-category = "Packaging"
-description = "Creates universal binary for watchOS Simulator"
-command = "xcrun"
-args = [
-	"lipo",
-	"-create",
-	"-output",
-	"${CARGO_TARGET_DIR}/universal-watchos-libliveview_native_core.a",
-	"${CARGO_TARGET_DIR}/arm64_32-apple-watchos/debug/libliveview_native_core.a",
-	"${CARGO_TARGET_DIR}/armv7k-apple-watchos/debug/libliveview_native_core.a",
-	"${CARGO_TARGET_DIR}/aarch64-apple-watchos-sim/debug/libliveview_native_core.a",
-	"${CARGO_TARGET_DIR}/x86_64-apple-watchos-sim/debug/libliveview_native_core.a",
-]
 
 [tasks.install-targets]
 workspace = false
