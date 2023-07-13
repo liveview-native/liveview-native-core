@@ -44,7 +44,8 @@ jobs:
         with:
           os: 'iOS'
       - name: Copy unittests to app bundle
-        run: cp `find target/x86_64-apple-ios/debug/deps/ -perm +111 -type f -name "liveview_native_core-*"` crates/core/tests/support/app/test
+        run: |
+          cp `find target/x86_64-apple-ios/debug/deps/ -perm +111 -type f -name "liveview_native_core-*" -exec ls -l -D "%FT%T" {} \; | awk '{ print $6, $7 }' | sort -r | awk '{ print $2 }' | head -1` crates/core/tests/support/app/test
       - name: Install unittests into Simulator
         run: xcrun simctl install booted crates/core/tests/support/app
       - name: Run unittests
@@ -54,7 +55,7 @@ jobs:
       - name: Uninstall unittests from Simulator
         run: xcrun simctl uninstall booted com.rust.tests
       - name: Copy diff to app bundle
-        run: cp `find target/x86_64-apple-ios/debug/deps/ -perm +111 -type f -name "diff-*"` crates/core/tests/support/app/test
+        run: cp `find target/x86_64-apple-ios/debug/deps/ -perm +111 -type f -name "diff-*" -exec ls -l -D "%FT%T" {} \; | awk '{ print $6, $7 }' | sort -r | awk '{ print $2 }' | head -1` crates/core/tests/support/app/test
       - name: Install diff into Simulator
         run: xcrun simctl install booted crates/core/tests/support/app
       - name: Run diff
@@ -64,7 +65,7 @@ jobs:
       - name: Uninstall diff from Simulator
         run: xcrun simctl uninstall booted com.rust.tests
       - name: Copy dom to app bundle
-        run: cp `find target/x86_64-apple-ios/debug/deps/ -perm +111 -type f -name "dom-*"` crates/core/tests/support/app/test
+        run: cp `find target/x86_64-apple-ios/debug/deps/ -perm +111 -type f -name "dom-*" -exec ls -l -D "%FT%T" {} \; | awk '{ print $6, $7 }' | sort -r | awk '{ print $2 }' | head -1` crates/core/tests/support/app/test
       - name: Install dom into Simulator
         run: xcrun simctl install booted crates/core/tests/support/app
       - name: Run dom
