@@ -24,7 +24,7 @@ jobs:
       - name: Install Rust Nightly
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: ${{ env.TOOLCHAIN }}
           target: x86_64-linux-android
           default: true
       - name: Cache Cargo
