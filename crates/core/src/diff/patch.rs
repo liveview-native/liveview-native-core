@@ -1,6 +1,5 @@
-use crate::dom::*;
-
 use super::traversal::MoveTo;
+use crate::dom::*;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Patch {

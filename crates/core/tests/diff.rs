@@ -1,6 +1,8 @@
-use liveview_native_core::diff::{self, Patch};
-use liveview_native_core::dom::*;
-use liveview_native_core::parser::ParseError;
+use liveview_native_core::{
+    diff::{self, Patch},
+    dom::*,
+    parser::ParseError,
+};
 use paste::paste;
 use text_diff::print_diff;
 use thiserror::Error;

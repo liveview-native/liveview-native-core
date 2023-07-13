@@ -3,20 +3,14 @@ mod node;
 mod printer;
 mod select;
 
-pub use self::attribute::{Attribute, AttributeName, AttributeValue};
-pub use self::node::{Element, ElementName, Node, NodeRef};
-pub use self::printer::PrintOptions;
-pub use self::select::{SelectionIter, Selector};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    fmt, mem,
+    ops::{Deref, DerefMut},
+    path::Path,
+};
 
-use std::collections::BTreeMap;
-use std::collections::VecDeque;
-use std::fmt;
-use std::mem;
-use std::ops::{Deref, DerefMut};
-use std::path::Path;
-
-use cranelift_entity::packed_option::PackedOption;
-use cranelift_entity::{EntityRef, PrimaryMap, SecondaryMap};
+use cranelift_entity::{packed_option::PackedOption, EntityRef, PrimaryMap, SecondaryMap};
 use fixedbitset::FixedBitSet;
 use fxhash::{FxBuildHasher, FxHashMap};
 use petgraph::Direction;
@@ -24,6 +18,12 @@ use smallstr::SmallString;
 use smallvec::SmallVec;
 
 use self::printer::Printer;
+pub use self::{
+    attribute::{Attribute, AttributeName, AttributeValue},
+    node::{Element, ElementName, Node, NodeRef},
+    printer::PrintOptions,
+    select::{SelectionIter, Selector},
+};
 use crate::parser;
 
 /// A `Document` represents a virtual DOM, and supports common operations typically performed against them.

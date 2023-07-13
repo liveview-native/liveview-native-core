@@ -2,9 +2,10 @@
 
 use std::assert_matches::assert_matches;
 
-use liveview_native_core::dom::{AttributeName, AttributeValue, Node};
-use liveview_native_core::parser;
-use liveview_native_core::InternedString;
+use liveview_native_core::{
+    dom::{AttributeName, AttributeValue, Node},
+    parser, InternedString,
+};
 
 #[test]
 fn parser_simple() {
@@ -50,7 +51,9 @@ fn parser_whitespace_handling() {
     assert_eq!(children.len(), 1);
     let content = document.get(children[0]);
     assert_matches!(content, Node::Leaf(_));
-    let Node::Leaf(content) = content else { unreachable!() };
+    let Node::Leaf(content) = content else {
+        unreachable!()
+    };
     assert_eq!(content.as_str(), "some content");
 }
 
@@ -62,7 +65,9 @@ fn parser_preserve_upcase() {
     let root = document.root();
     let component = document.children(root)[0];
     let element = document.get(component);
-    let Node::Element(element) = element else { panic!("expected element"); };
+    let Node::Element(element) = element else {
+        panic!("expected element");
+    };
     let expected_name: InternedString = "Component".into();
     assert_eq!(element.name, expected_name);
 }

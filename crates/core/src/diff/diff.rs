@@ -1,12 +1,14 @@
-use super::{MoveTo, Patch};
-use crate::dom::*;
-use smallvec::{smallvec, SmallVec};
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
     fmt, mem,
     ops::Deref,
 };
+
+use smallvec::{smallvec, SmallVec};
+
+use super::{MoveTo, Patch};
+use crate::dom::*;
 #[derive(Clone)]
 struct Cursor<'a> {
     doc: &'a Document,

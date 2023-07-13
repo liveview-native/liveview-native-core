@@ -1,16 +1,13 @@
-use std::assert_matches::assert_matches;
-use std::borrow::Cow;
-use std::collections::VecDeque;
-use std::convert::Infallible;
-use std::fmt;
-use std::mem;
+use std::{
+    assert_matches::assert_matches, borrow::Cow, collections::VecDeque, convert::Infallible, fmt,
+    mem,
+};
 
 use html5gum::{Emitter, Error, Readable, Reader, State, Tokenizer};
 use smallstr::SmallString;
 use smallvec::SmallVec;
 
-use crate::dom::*;
-use crate::{symbols, InternedString};
+use crate::{dom::*, symbols, InternedString};
 
 /// Parses a `Document` from the given input
 pub fn parse<'a, R>(input: R) -> Result<Document, ParseError>

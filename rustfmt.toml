@@ -1,0 +1,4 @@
+group_imports = "StdExternalCrate"
+imports_granularity = "Crate"
+newline_style = "Unix"
+tab_spaces = 4
