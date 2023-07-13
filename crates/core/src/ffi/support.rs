@@ -1,8 +1,4 @@
-use std::alloc::Global;
-use std::marker::PhantomData;
-use std::ptr;
-use std::slice;
-use std::str;
+use std::{alloc::Global, marker::PhantomData, ptr, slice, str};
 
 use super::Attribute;
 

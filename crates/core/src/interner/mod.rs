@@ -1,14 +1,13 @@
-use core::cell::{Cell, RefCell};
-use core::cmp::{self, Ordering};
-use core::convert::AsRef;
-use core::fmt;
-use core::hash::{Hash, Hasher};
-use core::mem;
-use core::ops::Deref;
-use core::ptr;
-use core::slice;
-use core::str;
-
+use core::{
+    cell::{Cell, RefCell},
+    cmp::{self, Ordering},
+    convert::AsRef,
+    fmt,
+    hash::{Hash, Hasher},
+    mem,
+    ops::Deref,
+    ptr, slice, str,
+};
 use std::sync::{OnceLock, RwLock};
 
 use fxhash::FxHashMap;

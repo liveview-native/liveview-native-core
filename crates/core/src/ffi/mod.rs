@@ -1,8 +1,8 @@
 mod support;
 
-use crate::dom::{self, NodeRef};
-
 pub use support::{AttributeVec, RustResult, RustSlice, RustStr, RustString};
+
+use crate::dom::{self, NodeRef};
 
 #[repr(C)]
 pub struct Node<'a> {

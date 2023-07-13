@@ -4,9 +4,8 @@ use cranelift_entity::entity_impl;
 use petgraph::graph::{IndexType, NodeIndex};
 use smallstr::SmallString;
 
-use crate::{InternedString, Symbol};
-
 use super::{Attribute, AttributeName, AttributeValue};
+use crate::{InternedString, Symbol};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
