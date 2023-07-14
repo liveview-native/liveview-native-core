@@ -9,6 +9,7 @@ use smallvec::{smallvec, SmallVec};
 
 use super::{MoveTo, Patch};
 use crate::dom::*;
+
 #[derive(Clone)]
 struct Cursor<'a> {
     doc: &'a Document,
