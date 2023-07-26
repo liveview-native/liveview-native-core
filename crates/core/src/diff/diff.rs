@@ -184,7 +184,6 @@ enum Op<'a> {
         /// A forked cursor of the node to be removed that iterates over descendant nodes
         cursor: Cursor<'a>,
         to: Cursor<'a>,
-        detach: bool,
     },
     /// Remove all `from` nodes
     RemoveNodes {
@@ -397,19 +396,7 @@ impl<'a> Iterator for Morph<'a> {
                     ref node,
                     cursor,
                     ref to,
-                    detach,
                 } => {
-                    let node = *node;
-
-                    if *detach {
-                        *detach = false;
-
-                        if !cursor.children().is_empty() {
-                            self.queue.push(Op::Patch(Patch::Detach { node }));
-                            continue;
-                        }
-                    }
-
                     if cursor.next().is_some() {
                         if let Node::Element(el) = cursor.node() {
                             if let Some(id) = el.id() {
@@ -425,7 +412,7 @@ impl<'a> Iterator for Morph<'a> {
                         }
                     }
 
-                    *op = Op::Patch(Patch::Remove { node });
+                    *op = Op::Patch(Patch::Remove { node: *node });
                 }
                 Op::RemoveNodes { from, to } => {
                     if !self.detached.contains(&from.node) {
@@ -433,7 +420,6 @@ impl<'a> Iterator for Morph<'a> {
                             node: from.node,
                             cursor: from.fork(),
                             to: to.fork(),
-                            detach: true,
                         });
                     }
 
@@ -567,7 +553,6 @@ impl<'a> Iterator for Morph<'a> {
                             node: from.node,
                             cursor: from.fork(),
                             to: to.fork(),
-                            detach: true,
                         });
 
                         self.advance(Advance::From, true);
@@ -620,7 +605,6 @@ impl<'a> Iterator for Morph<'a> {
                                         node: from.node,
                                         cursor: from.fork(),
                                         to: to.fork(),
-                                        detach: true,
                                     });
                                 }
 
@@ -659,7 +643,6 @@ impl<'a> Iterator for Morph<'a> {
                                         node: from.node,
                                         cursor: from.fork(),
                                         to: to.fork(),
-                                        detach: true,
                                     });
 
                                     self.advance(Advance::From, true);
