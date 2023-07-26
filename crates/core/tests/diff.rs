@@ -258,6 +258,29 @@ fn diff_remove_node() -> Result<(), Error> {
     )
 }
 
+#[test]
+fn diff_live_form() -> Result<(), Error> {
+    check_transformation(
+        r#"<VStack modifiers="">
+        <VStack>
+          <LiveForm id="login" phx-submit="login">
+            <TextField name="email" modifiers="">
+              Email
+            </TextField>
+            <LiveSubmitButton modifiers="">
+              <Text>Enter</Text>
+            </LiveSubmitButton>
+          </LiveForm>
+        </VStack>
+    </VStack>"#,
+        r#"<VStack modifiers="">
+        <VStack>
+          <Text>Success! Check your email for magic link</Text>
+        </VStack>
+    </VStack>"#,
+    )
+}
+
 test_fixture!("attr-value-empty-string");
 test_fixture!("change-tagname");
 test_fixture!("change-tagname-ids");
