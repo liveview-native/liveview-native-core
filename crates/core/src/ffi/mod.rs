@@ -2,7 +2,10 @@ mod support;
 
 pub use support::{AttributeVec, RustResult, RustSlice, RustStr, RustString};
 
-use crate::dom::{self, NodeRef};
+use crate::{
+    diff::PatchResult,
+    dom::{self, NodeRef},
+};
 
 #[repr(C)]
 pub struct Node<'a> {
@@ -121,6 +124,7 @@ pub enum ChangeType {
     Change = 0,
     Add = 1,
     Remove = 2,
+    Replace = 3,
 }
 
 #[export_name = "__liveview_native_core$Document$drop"]
@@ -196,10 +200,10 @@ pub extern "C" fn document_merge(
         let patch_result = patch.apply(&mut editor, &mut stack);
         match patch_result {
             None => (),
-            Some(crate::diff::PatchResult::Add { node, parent }) => {
+            Some(PatchResult::Add { node, parent }) => {
                 handler(context, ChangeType::Add, node, OptionNodeRef::some(parent));
             }
-            Some(crate::diff::PatchResult::Remove { node, parent }) => {
+            Some(PatchResult::Remove { node, parent }) => {
                 handler(
                     context,
                     ChangeType::Remove,
@@ -207,8 +211,16 @@ pub extern "C" fn document_merge(
                     OptionNodeRef::some(parent),
                 );
             }
-            Some(crate::diff::PatchResult::Change { node }) => {
+            Some(PatchResult::Change { node }) => {
                 handler(context, ChangeType::Change, node, OptionNodeRef::none());
+            }
+            Some(PatchResult::Replace { node, parent }) => {
+                handler(
+                    context,
+                    ChangeType::Replace,
+                    node,
+                    OptionNodeRef::some(parent),
+                );
             }
         }
     }

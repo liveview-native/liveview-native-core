@@ -93,6 +93,8 @@ pub enum PatchResult {
     Remove { node: NodeRef, parent: NodeRef },
     /// The `node` has been changed in some other way.
     Change { node: NodeRef },
+    /// The `node` has been replaced
+    Replace { node: NodeRef, parent: NodeRef },
 }
 
 impl Patch {
@@ -191,8 +193,9 @@ impl Patch {
                 parent.map(|parent| PatchResult::Remove { node, parent })
             }
             Self::Replace { node, replacement } => {
+                let parent = doc.document_mut().parent(node)?;
                 doc.replace(node, replacement);
-                Some(PatchResult::Change { node })
+                Some(PatchResult::Replace { node, parent })
             }
             Self::AddAttribute { name, value } => {
                 doc.set_attribute(name, value);
