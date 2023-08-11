@@ -54,6 +54,7 @@ enum __ChangeType {
   ChangeTypeChange = 0,
   ChangeTypeAdd = 1,
   ChangeTypeRemove = 2,
+  ChangeTypeReplace = 3
 } __attribute__((enum_extensibility(closed)));
 
 typedef enum __ChangeType __ChangeType;
