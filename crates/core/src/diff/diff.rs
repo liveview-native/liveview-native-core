@@ -1,9 +1,4 @@
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, BTreeSet},
-    fmt, mem,
-    ops::Deref,
-};
+use std::{cmp::Ordering, collections::BTreeSet, fmt, mem, ops::Deref};
 
 use smallvec::{smallvec, SmallVec};
 
@@ -248,51 +243,6 @@ pub struct Morph<'a> {
 impl<'a> Morph<'a> {
     pub fn new(from: &'a Document, to: &'a Document) -> Self {
         (from, to).into()
-    }
-
-    // enqueue patches to morph attributes
-    fn morph_current_attr(&mut self) {
-        if let Some(Op::Morph(from, to)) = self.stack.last_mut() {
-            let node = from.node;
-
-            if let (Node::Element(old), Node::Element(new)) = (from.node(), to.node()) {
-                let mut current = BTreeMap::from_iter(
-                    old.attributes()
-                        .iter()
-                        .map(|attr| (&attr.name, &attr.value)),
-                );
-
-                self.queue
-                    .extend(new.attributes().iter().filter_map(|attr| {
-                        match current.remove(&attr.name) {
-                            Some(value) if value.ne(&attr.value) => {
-                                Some(Op::Patch(Patch::UpdateAttribute {
-                                    node,
-                                    name: attr.name.to_owned(),
-                                    value: attr.value.to_owned(),
-                                }))
-                            }
-                            Some(_) => None,
-                            None => Some(Op::Patch(Patch::AddAttributeTo {
-                                node,
-                                name: attr.name.to_owned(),
-                                value: attr.value.to_owned(),
-                            })),
-                        }
-                    }));
-
-                while let Some(patch) =
-                    current
-                        .pop_first()
-                        .map(|(name, _)| Patch::RemoveAttributeByName {
-                            node,
-                            name: name.to_owned(),
-                        })
-                {
-                    self.queue.push(Op::Patch(patch));
-                }
-            }
-        }
     }
 
     fn advance(&mut self, advance: Advance, skip_children: bool) {
@@ -590,7 +540,12 @@ impl<'a> Iterator for Morph<'a> {
                         (Node::Element(from_el), Node::Element(to_el)) => {
                             // nodes are compatible; morph attribute changes and continue
                             if to_el.name.eq(&from_el.name) && to_el.id().eq(&from_el.id()) {
-                                self.morph_current_attr();
+                                if from_el.attributes().ne(to_el.attributes()) {
+                                    self.queue.push(Op::Patch(Patch::UpdateAttributes {
+                                        node: from.node,
+                                        attributes: to.attributes().to_vec(),
+                                    }));
+                                }
 
                                 self.advance(Advance::BothCursors, false);
                                 continue;
