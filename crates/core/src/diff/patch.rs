@@ -81,6 +81,11 @@ pub enum Patch {
         node: NodeRef,
         name: AttributeName,
     },
+    /// Set attributes on node
+    UpdateAttributes {
+        node: NodeRef,
+        attributes: Vec<Attribute>,
+    },
     Move(MoveTo),
 }
 
@@ -219,6 +224,12 @@ impl Patch {
                 let mut guard = doc.insert_guard();
                 guard.set_insertion_point(node);
                 guard.remove_attribute(name);
+                Some(PatchResult::Change { node })
+            }
+            Self::UpdateAttributes { node, attributes } => {
+                let mut guard = doc.insert_guard();
+                guard.set_insertion_point(node);
+                guard.replace_attributes(attributes);
                 Some(PatchResult::Change { node })
             }
             Self::Move(MoveTo::Node(node)) => {

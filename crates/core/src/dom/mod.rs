@@ -440,6 +440,19 @@ impl Document {
         }
     }
 
+    /// If node is an element, replace attributes and return previous
+    pub fn replace_attributes(
+        &mut self,
+        node: NodeRef,
+        attributes: Vec<Attribute>,
+    ) -> Option<Vec<Attribute>> {
+        if let Node::Element(ref mut elem) = &mut self.nodes[node] {
+            Some(mem::replace(&mut elem.attributes, attributes))
+        } else {
+            None
+        }
+    }
+
     /// Removes all attributes from `node` for which `predicate` returns false.
     pub fn remove_attributes_by<P>(&mut self, node: NodeRef, predicate: P)
     where
@@ -567,6 +580,12 @@ pub trait DocumentBuilder {
         assert!(self
             .document_mut()
             .set_attribute(ip, name.into(), value.into()));
+    }
+
+    /// Replace attributes
+    fn replace_attributes(&mut self, attributes: Vec<Attribute>) {
+        let ip = self.insertion_point();
+        self.document_mut().replace_attributes(ip, attributes);
     }
 
     /// Removes any instance of an attribute named `name`
