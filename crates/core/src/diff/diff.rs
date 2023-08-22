@@ -541,7 +541,7 @@ impl<'a> Iterator for Morph<'a> {
                             // nodes are compatible; morph attribute changes and continue
                             if to_el.name.eq(&from_el.name) && to_el.id().eq(&from_el.id()) {
                                 if from_el.attributes().ne(to_el.attributes()) {
-                                    self.queue.push(Op::Patch(Patch::UpdateAttributes {
+                                    self.queue.push(Op::Patch(Patch::SetAttributes {
                                         node: from.node,
                                         attributes: to.attributes().to_vec(),
                                     }));
