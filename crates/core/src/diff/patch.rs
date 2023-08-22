@@ -82,7 +82,7 @@ pub enum Patch {
         name: AttributeName,
     },
     /// Set attributes on node
-    UpdateAttributes {
+    SetAttributes {
         node: NodeRef,
         attributes: Vec<Attribute>,
     },
@@ -226,7 +226,7 @@ impl Patch {
                 guard.remove_attribute(name);
                 Some(PatchResult::Change { node })
             }
-            Self::UpdateAttributes { node, attributes } => {
+            Self::SetAttributes { node, attributes } => {
                 let mut guard = doc.insert_guard();
                 guard.set_insertion_point(node);
                 guard.replace_attributes(attributes);
