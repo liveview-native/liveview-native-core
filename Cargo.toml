@@ -5,7 +5,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 rust-version = "1.64"
 authors = ["Paul Schoenfelder <paulschoenfelder@gmail.com>", "Thomas Sieverding <Thomas@bajix.com>"]
 description = "Provides core, cross-platform functionality for LiveView Native implementations"
