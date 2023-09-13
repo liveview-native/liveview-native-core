@@ -30,6 +30,8 @@ petgraph = { version = "0.6", default-features = false, features = ["graphmap"] 
 smallstr = { version = "0.3", features = ["union"] }
 smallvec = { version = "1.10", features = ["union", "const_generics", "specialization"] }
 thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [build-dependencies]
 Inflector = "0.11"

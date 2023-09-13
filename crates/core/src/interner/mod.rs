@@ -227,7 +227,7 @@ impl PartialOrd<InternedString> for InternedString {
         if self.0 == other.0 {
             return Some(Ordering::Equal);
         }
-        self.as_str().partial_cmp(&other.as_str())
+        self.as_str().partial_cmp(other.as_str())
     }
 }
 impl Ord for InternedString {
