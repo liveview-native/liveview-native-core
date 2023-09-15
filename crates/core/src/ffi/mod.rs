@@ -226,6 +226,15 @@ pub extern "C" fn document_merge(
     }
     editor.finish();
 }
+#[export_name = "__liveview_native_core$Document$merge_fragment_json"]
+pub extern "C" fn document_merge_fragment_json<'a>(
+    doc: *mut dom::Document,
+    other_json: RustStr<'a>,
+    handler: extern "C-unwind" fn(*mut (), ChangeType, NodeRef, OptionNodeRef) -> (),
+    context: *mut (),
+) {
+    todo!();
+}
 
 #[export_name = "__liveview_native_core$Document$root"]
 pub extern "C" fn document_root(doc: *const dom::Document) -> NodeRef {
