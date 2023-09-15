@@ -151,7 +151,6 @@ script = "rm -r ${CARGO_TARGET_DIR}/swift/liveview_native_core.xcframework"
 [tasks.create-lipo-universal-directories]
 workspace = false
 private = true
-script_runner = "@duckscript"
 script = "mkdir -p ${CARGO_TARGET_DIR}/universal/macos/ ${CARGO_TARGET_DIR}/universal/ios-sim/ ${CARGO_TARGET_DIR}/universal/watchos-sim/"
 
 [tasks.build-macos]
