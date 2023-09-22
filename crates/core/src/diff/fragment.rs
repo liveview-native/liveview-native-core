@@ -79,7 +79,16 @@ impl TryFrom<FragmentDiff> for Fragment {
     type Error = MergeError;
     fn try_from(value: FragmentDiff) -> Result<Self, MergeError> {
         match value {
-            FragmentDiff::UpdateRegular { children } => todo!(), //Ok(Self::Regular(regular.try_into()?)),
+            FragmentDiff::UpdateRegular { children } => {
+                let mut new_children : HashMap<String, Child> = HashMap::new();
+                for (key, cdiff) in children.into_iter() {
+                    new_children.insert(key, cdiff.try_into()?);
+                }
+                Ok(Self::Regular {
+                    children: new_children,
+                    statics: None,
+                })
+            }, //Ok(Self::Regular(regular.try_into()?)),
             FragmentDiff::ReplaceCurrent(fragment) => Ok(fragment),
             FragmentDiff::UpdateComprehension {
                 dynamics,
@@ -244,6 +253,7 @@ impl Component {
         }
     }
 }
+
 impl TryFrom<ComponentDiff> for Component {
     type Error = MergeError;
     fn try_from(value: ComponentDiff) -> Result<Self, MergeError> {
@@ -251,10 +261,15 @@ impl TryFrom<ComponentDiff> for Component {
             ComponentDiff::UpdateRegular{..} => {
                 Err(MergeError::CreateComponentFromUpdate)
             }
-            ComponentDiff::ReplaceCurrent{
+            ComponentDiff::ReplaceCurrent {
                 children,
                 statics
-            } => todo!(),
+            } => {
+                Ok(Self {
+                    children,
+                    statics,
+                })
+            }
         }
     }
 }
