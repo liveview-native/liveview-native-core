@@ -109,58 +109,6 @@ impl TryFrom<FragmentDiff> for Fragment {
     }
 }
 
-/*
-#[derive(Debug, PartialEq, Deserialize)]
-pub struct UpdateRegularFragment {
-    #[serde(flatten)]
-    children: HashMap<String, ChildDiff>,
-    /*
-    #[serde(rename = "s")]
-    statics: Option<Statics>,
-    */
-}
-
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-pub struct RegularFragment {
-    #[serde(flatten)]
-    children: HashMap<String, Child>,
-    #[serde(rename = "s")]
-    statics: Option<Statics>,
-}
-impl TryFrom<UpdateRegularFragment> for RegularFragment {
-    type Error = MergeError;
-    fn try_from(value: UpdateRegularFragment) -> Result<Self, MergeError> {
-        let mut children : HashMap<String, Child> = HashMap::new();
-        for (key, cdiff) in value.children.into_iter() {
-            children.insert(key, cdiff.try_into()?);
-        }
-        Ok(Self {
-            children,
-            statics: None,
-        })
-    }
-}
-*/
-
-/*
-#[derive(Debug, PartialEq, Deserialize)]
-pub struct UpdateComprehension {
-    #[serde(rename = "d")]
-    dynamics: DynamicsDiff,
-    #[serde(rename = "p")]
-    templates: Option<Templates>,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq)]
-pub struct Comprehension {
-    #[serde(rename = "d")]
-    dynamics: Dynamics,
-    #[serde(rename = "s")]
-    statics: Option<Statics>,
-    #[serde(rename = "p")]
-    templates: Option<Templates>,
-}
-*/
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Templates {
@@ -215,9 +163,17 @@ impl TryFrom<ChildDiff> for Child {
                     templates,
                     dynamics
                 } => {
-                    let mut dynamics : Dynamics = Vec::new();
+                    let mut new_dynamics : Dynamics = Vec::new();
+                    for i in dynamics {
+                        let mut inner_vec : Vec<Child> = Vec::new();
+                        for j in i {
+                            inner_vec.push(j.try_into()?);
+                        }
+                        new_dynamics.push(inner_vec);
+                    }
+
                     Ok(Child::Fragment(Fragment::Comprehension {
-                        dynamics,
+                        dynamics: new_dynamics,
                         statics: None,
                         templates: templates,
                     }))
@@ -604,7 +560,6 @@ let expected = r#"<div class="thermostat">
   </div>
 </div>"#;
         let root : RootDiff = serde_json::from_str(simple_diff1).expect("Failed to deserialize fragment");
-        println!("{root:#?}");
         let root : Root = root.try_into().expect("Failed to convert RootDiff to Root");
         println!("root diff: {root:#?}");
         let out = root.to_string();
