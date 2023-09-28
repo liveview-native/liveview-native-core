@@ -40,7 +40,7 @@ impl TryInto<String> for Root {
 
     fn try_into(self) -> Result<String, Self::Error> {
         let mut out = String::new();
-        let inner = self.fragment.to_string_with_components(&self.components)?;
+        let inner = self.fragment.render(&self.components, None)?;
         out.push_str(&inner);
         Ok(out)
     }
@@ -49,12 +49,14 @@ impl TryInto<String> for Root {
 #[derive(Debug)]
 pub enum RenderError {
     NoComponents,
+    NoTemplates,
+    TemplateNotFound(i32),
     ComponentNotFound(i32),
     ComponentHasTheWrongStatics(i32),
 }
 
 impl Fragment {
-    pub fn to_string_with_components(&self, components: &Option<HashMap<String, Component>>) -> Result<String, RenderError> {
+    pub fn render(&self, components: &Option<HashMap<String, Component>>, cousin_statics: Option<Vec<String>>) -> Result<String, RenderError> {
         let mut out = String::new();
         match &self {
             Fragment::Regular { children, statics } => {
@@ -64,7 +66,7 @@ impl Fragment {
                         out.push_str(&statics[0]);
                         for i in 1..statics.len() {
                             let child = children.get(&(i - 1).to_string()).expect("Failed to get child");
-                            let val = child.to_string_with_components(components)?;
+                            let val = child.render(components, cousin_statics.clone())?;
                             out.push_str(&val);
                             out.push_str(&statics[i]);
                         }
@@ -75,16 +77,28 @@ impl Fragment {
                 }
             }
             Fragment::Comprehension { dynamics, statics, templates } => {
-                match (statics, templates) {
+                match (statics, cousin_statics) {
                     (None, None) => {
-                        for inner in dynamics.into_iter() {
-                            for child in inner.into_iter() {
-                                let val = child.to_string_with_components(components)?;
+                        for children in dynamics.into_iter() {
+                            for child in children.into_iter() {
+                                let val = child.render(components, None)?;
                                 out.push_str(&val);
                             }
                         }
                     }
-                    (None, Some(_)) => todo!(),
+                    (None, Some(statics)) => {
+                        for children in dynamics.into_iter() {
+                            assert!(statics.len() == children.len() + 1);
+                            out.push_str(&statics[0]);
+                            for i in 1..statics.len() {
+                                let child = &children[i - 1];
+
+                                let val = child.render(components, None)?;
+                                out.push_str(&val);
+                                out.push_str(&statics[i]);
+                            }
+                        }
+                    }
                     (Some(statics), None) => {
                         match statics {
                             Statics::Statics(statics) => {
@@ -94,16 +108,27 @@ impl Fragment {
                                     for i in 1..statics.len() {
                                         let child = &children[i - 1];
 
-                                        let val = child.to_string_with_components(components)?;
+                                        let val = child.render(components, None)?;
                                         out.push_str(&val);
                                         out.push_str(&statics[i]);
                                     }
                                 }
                             }
-                            Statics::TemplateRef(_) => todo!(),
+                            Statics::TemplateRef(template_id) => {
+                                if let Some(templates) = templates {
+                                    if let Some(template) = templates.templates.get(&template_id.to_string()) {
+                                    } else {
+                                        return Err(RenderError::TemplateNotFound(*template_id));
+                                    }
+                                } else {
+                                    return Err(RenderError::NoTemplates);
+                                }
+                            }
                         }
                     }
-                    (Some(_), Some(_)) => todo!(),
+                    (Some(statics), Some(cousin_templates)) => {
+                        panic!("Either statics or cousin statics but not both");
+                    }
                 }
             }
         }
@@ -111,9 +136,9 @@ impl Fragment {
     }
 }
 impl Child {
-    pub fn to_string_with_components(&self, components: &Option<HashMap<String, Component>>) -> Result<String, RenderError> {
+    pub fn render(&self, components: &Option<HashMap<String, Component>>, statics: Option<Vec<String>>) -> Result<String, RenderError> {
         match self {
-            Child::Fragment(fragment) => fragment.to_string_with_components(components),
+            Child::Fragment(fragment) => fragment.render(components, statics),
             Child::ComponentID(cid) => {
                 if let Some(inner_components) = components {
                     if let Some(component) = inner_components.get(&cid.to_string()) {
@@ -148,7 +173,7 @@ impl Component {
                 out.push_str(&statics[0]);
                 for i in 1..statics.len() {
                     let inner = self.children.get(&(i - 1).to_string()).expect("Failed to get child");
-                    let val = inner.to_string_with_components(components)?;
+                    let val = inner.render(components, None)?;
                     out.push_str(&val);
                     out.push_str(&statics[i]);
                 }
@@ -168,7 +193,7 @@ impl Component {
                                 let child = self.children.get(&(i - 1).to_string()).expect("Failed to get child");
                                 let cousin = component.children.get(&(i - 1).to_string()).expect("Failed to get cousin child for statics");
 
-                                let val = child.to_string_with_components(components)?;
+                                let val = child.render(components, cousin.statics())?;
                                 out.push_str(&val);
                                 out.push_str(&outer_statics[i]);
                             }
@@ -291,6 +316,27 @@ pub enum Child {
     ComponentID(i32),
     String(String),
 }
+impl Child {
+    pub fn statics(&self) -> Option<Vec<String>> {
+        match self {
+            Self::Fragment(Fragment::Regular{statics, ..}) => {
+                match statics {
+                    Statics::Statics(statics) => Some(statics.clone()),
+                    _ => None,
+                }
+            }
+            Self::Fragment(Fragment::Comprehension { statics, ..}) => {
+                if let Some(Statics::Statics(statics)) = statics {
+                    Some(statics.clone())
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum ChildDiff {
