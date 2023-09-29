@@ -40,7 +40,7 @@ impl TryInto<String> for Root {
 
     fn try_into(self) -> Result<String, Self::Error> {
         let mut out = String::new();
-        let inner = self.fragment.render(&self.components, None)?;
+        let inner = self.fragment.render(&self.components, None, None)?;
         out.push_str(&inner);
         Ok(out)
     }
@@ -53,10 +53,16 @@ pub enum RenderError {
     TemplateNotFound(i32),
     ComponentNotFound(i32),
     ComponentHasTheWrongStatics(i32),
+    MergeError(MergeError),
+}
+impl From<MergeError> for RenderError {
+    fn from(value: MergeError) -> Self {
+        Self::MergeError(value)
+    }
 }
 
 impl Fragment {
-    pub fn render(&self, components: &Option<HashMap<String, Component>>, cousin_statics: Option<Vec<String>>) -> Result<String, RenderError> {
+    pub fn render(&self, components: &Option<HashMap<String, Component>>, cousin_statics: Option<Vec<String>>, parent_templates: Templates) -> Result<String, RenderError> {
         let mut out = String::new();
         match &self {
             Fragment::Regular { children, statics } => {
@@ -66,7 +72,7 @@ impl Fragment {
                         out.push_str(&statics[0]);
                         for i in 1..statics.len() {
                             let child = children.get(&(i - 1).to_string()).expect("Failed to get child");
-                            let val = child.render(components, cousin_statics.clone())?;
+                            let val = child.render(components, cousin_statics.clone(), parent_templates.clone())?;
                             out.push_str(&val);
                             out.push_str(&statics[i]);
                         }
@@ -77,11 +83,19 @@ impl Fragment {
                 }
             }
             Fragment::Comprehension { dynamics, statics, templates } => {
+                let templates : Templates = match (parent_templates, templates) {
+                    (None, None) => None,
+                    (None, Some(t)) => Some(t.clone()),
+                    (Some(t), None) => Some(t),
+                    (Some(parent), Some(child)) => {
+                        Some(parent).merge(Some(child.clone()))?
+                    }
+                };
                 match (statics, cousin_statics) {
                     (None, None) => {
                         for children in dynamics.into_iter() {
                             for child in children.into_iter() {
-                                let val = child.render(components, None)?;
+                                let val = child.render(components, None, templates.clone())?;
                                 out.push_str(&val);
                             }
                         }
@@ -93,7 +107,7 @@ impl Fragment {
                             for i in 1..statics.len() {
                                 let child = &children[i - 1];
 
-                                let val = child.render(components, None)?;
+                                let val = child.render(components, None, templates.clone())?;
                                 out.push_str(&val);
                                 out.push_str(&statics[i]);
                             }
@@ -108,15 +122,26 @@ impl Fragment {
                                     for i in 1..statics.len() {
                                         let child = &children[i - 1];
 
-                                        let val = child.render(components, None)?;
+                                        let val = child.render(components, None, templates.clone())?;
                                         out.push_str(&val);
                                         out.push_str(&statics[i]);
                                     }
                                 }
                             }
                             Statics::TemplateRef(template_id) => {
-                                if let Some(templates) = templates {
-                                    if let Some(template) = templates.templates.get(&template_id.to_string()) {
+                                if let Some(ref this_template) = templates {
+                                    if let Some(ref template_statics) = this_template.get(&template_id.to_string()) {
+                                        for children in dynamics.into_iter() {
+                                            out.push_str(&template_statics[0]);
+                                            for i in 1..template_statics.len() {
+                                                let child = &children[i - 1];
+
+                                                let val = child.render(components, None, templates.clone())?;
+                                                out.push_str(&val);
+                                                out.push_str(&template_statics[i]);
+                                            }
+                                        }
+
                                     } else {
                                         return Err(RenderError::TemplateNotFound(*template_id));
                                     }
@@ -126,7 +151,7 @@ impl Fragment {
                             }
                         }
                     }
-                    (Some(statics), Some(cousin_templates)) => {
+                    (Some(_statics), Some(_cousin_templates)) => {
                         panic!("Either statics or cousin statics but not both");
                     }
                 }
@@ -136,9 +161,9 @@ impl Fragment {
     }
 }
 impl Child {
-    pub fn render(&self, components: &Option<HashMap<String, Component>>, statics: Option<Vec<String>>) -> Result<String, RenderError> {
+    pub fn render(&self, components: &Option<HashMap<String, Component>>, statics: Option<Vec<String>>, templates: Templates) -> Result<String, RenderError> {
         match self {
-            Child::Fragment(fragment) => fragment.render(components, statics),
+            Child::Fragment(fragment) => fragment.render(components, statics, templates),
             Child::ComponentID(cid) => {
                 if let Some(inner_components) = components {
                     if let Some(component) = inner_components.get(&cid.to_string()) {
@@ -173,42 +198,50 @@ impl Component {
                 out.push_str(&statics[0]);
                 for i in 1..statics.len() {
                     let inner = self.children.get(&(i - 1).to_string()).expect("Failed to get child");
-                    let val = inner.render(components, None)?;
+                    let val = inner.render(components, None, None)?;
                     out.push_str(&val);
                     out.push_str(&statics[i]);
                 }
                 Ok(out)
             }
 
-            ComponentStatics::ComponentRef(cid) => {
-                if let Some(inner_components) = components {
-                    if let Some(component) = inner_components.get(&cid.to_string()) {
+            ComponentStatics::ComponentRef(mut cid) => {
+                let outer_statics : Vec<String> ;
+                let cousin_component: Component;
+                loop {
+                    if let Some(inner_components) = components {
+                        if let Some(component) = inner_components.get(&cid.to_string()) {
+                            match &component.statics {
 
-                        if let ComponentStatics::Statics(outer_statics) = &component.statics {
-                            let mut out = String::new();
-                            assert!(outer_statics.len() == self.children.len() + 1);
-
-                            out.push_str(&outer_statics[0]);
-                            for i in 1..outer_statics.len() {
-                                let child = self.children.get(&(i - 1).to_string()).expect("Failed to get child");
-                                let cousin = component.children.get(&(i - 1).to_string()).expect("Failed to get cousin child for statics");
-
-                                let val = child.render(components, cousin.statics())?;
-                                out.push_str(&val);
-                                out.push_str(&outer_statics[i]);
+                                ComponentStatics::Statics(s) => {
+                                    outer_statics = s.to_vec();
+                                    cousin_component = component.clone();
+                                    break;
+                                }
+                                ComponentStatics::ComponentRef(bread_crumb_cid) => {
+                                    cid = *bread_crumb_cid;
+                                }
                             }
-                            Ok(out)
                         } else {
-                            Err(RenderError::ComponentHasTheWrongStatics(*cid))
+                            return Err(RenderError::ComponentNotFound(cid));
                         }
-
                     } else {
-                        Err(RenderError::ComponentNotFound(*cid))
+                        return Err(RenderError::NoComponents);
                     }
-                } else {
-                    Err(RenderError::NoComponents)
                 }
+                let mut out = String::new();
+                assert!(outer_statics.len() == self.children.len() + 1);
 
+                out.push_str(&outer_statics[0]);
+                for i in 1..outer_statics.len() {
+                    let child = self.children.get(&(i - 1).to_string()).expect("Failed to get child");
+                    let cousin = cousin_component.children.get(&(i - 1).to_string()).expect("Failed to get cousin child for statics");
+
+                    let val = child.render(components, cousin.statics(), None)?;
+                    out.push_str(&val);
+                    out.push_str(&outer_statics[i]);
+                }
+                Ok(out)
             }
         }
     }
@@ -236,13 +269,14 @@ pub enum FragmentDiff {
         #[serde(rename = "d")]
         dynamics: DynamicsDiff,
         #[serde(rename = "p")]
-        templates: Option<Templates>,
+        templates: Templates,
         #[serde(rename = "s")]
         statics: Option<Statics>,
     },
     ReplaceCurrent(Fragment),
 }
 
+type Templates = Option<HashMap<String, Vec<String>>>;
 type DynamicsDiff = Vec<Vec<ChildDiff>>;
 type Dynamics = Vec<Vec<Child>>;
 
@@ -261,7 +295,7 @@ pub enum Fragment {
         #[serde(rename = "s")]
         statics: Option<Statics>,
         #[serde(rename = "p")]
-        templates: Option<Templates>,
+        templates: Templates,
     }
 }
 
@@ -296,11 +330,7 @@ impl TryFrom<FragmentDiff> for Fragment {
 }
 
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-pub struct Templates {
-    #[serde(flatten)]
-    templates: HashMap<String, Vec<String>>,
-}
+
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
@@ -567,8 +597,8 @@ impl FragmentMerge for Component {
     }
 }
 
-impl FragmentMerge for Option<Templates> {
-    type DiffItem = Option<Templates>;
+impl FragmentMerge for Option<HashMap<String, Vec<String>>> {
+    type DiffItem = Option<HashMap<String, Vec<String>>>;
 
     fn merge(self, diff: Self::DiffItem) -> Result<Self, MergeError> {
         match (self, diff) {
@@ -576,11 +606,11 @@ impl FragmentMerge for Option<Templates> {
             (None, Some(template)) => Ok(Some(template)),
             (Some(template), None) => Ok(Some(template)),
             (Some(mut current), Some(new)) => {
-                for (key, val) in new.templates.into_iter() {
-                    if let Some(curr) = current.templates.get_mut(&key) {
+                for (key, val) in new.into_iter() {
+                    if let Some(curr) = current.get_mut(&key) {
                         curr.extend(val);
                     } else {
-                        current.templates.insert(key, val);
+                        current.insert(key, val);
                     }
                 }
                 Ok(Some(current))
@@ -755,15 +785,15 @@ let expected = r#"<div class="thermostat">
         println!("root diff: {root:#?}");
         let out : String = root.try_into().expect("Failed to convert Root into string");
 
-        let expected = r#"<div>
+let expected = r#"<div>
   <p>
     foo
-    <span>0: <b data-phx-component="1" id="123-1-0">FROM index_1 world</b></span><span>1: <b data-phx-component="2" id="123-2-0">FROM index_2 world</b></span>
+    <span>0: <b>FROM index_1 world</b></span><span>1: <b>FROM index_2 world</b></span>
   </p>
 
   <p>
     bar
-    <span>0: <b data-phx-component="3" id="123-3-0">FROM index_1 world</b></span><span>1: <b data-phx-component="4" id="123-4-0">FROM index_2 world</b></span>
+    <span>0: <b>FROM index_1 world</b></span><span>1: <b>FROM index_2 world</b></span>
   </p>
 </div>"#;
         assert_eq!(out, expected);
@@ -1057,12 +1087,11 @@ mod test_json_decoding {
                 vec![ChildDiff::String("bar".into()), ChildDiff::ComponentID(1)],
             ],
             statics: None,
-            templates: Some(Templates {
-                templates: HashMap::from([(
+            templates: Some(HashMap::from([(
                     "0".into(),
                     vec!["\\n    bar ".into(), "\\n  ".into()],
                 )]),
-            }),
+            ),
         };
         assert_eq!(out, expected);
     }
@@ -1272,6 +1301,7 @@ mod test_json_decoding {
                 ""
             ]
         }"#;
+        let root : RootDiff = serde_json::from_str(input).expect("Failed to deserialize fragment");
 
     }
 }
