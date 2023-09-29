@@ -10,9 +10,11 @@ pub struct RootDiff {
     components: Option<HashMap<String, ComponentDiff>>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Deserialize)]
 pub struct Root {
+    #[serde(flatten)]
     fragment: Fragment,
+    #[serde(rename = "c")]
     components: Option<HashMap<String, Component>>,
 }
 
@@ -52,7 +54,6 @@ pub enum RenderError {
     NoTemplates,
     TemplateNotFound(i32),
     ComponentNotFound(i32),
-    ComponentHasTheWrongStatics(i32),
     MergeError(MergeError),
 }
 impl From<MergeError> for RenderError {
@@ -77,7 +78,7 @@ impl Fragment {
                             out.push_str(&statics[i]);
                         }
                     }
-                    Statics::TemplateRef(template_ref) => {
+                    Statics::TemplateRef(_template_ref) => {
                         todo!();
                     }
                 }
@@ -308,7 +309,11 @@ impl TryFrom<FragmentDiff> for Fragment {
                 for (key, cdiff) in children.into_iter() {
                     new_children.insert(key, cdiff.try_into()?);
                 }
-                Err(MergeError::FragmentMissingStatics)
+                let statics = Statics::Statics(vec!["".into(); new_children.len()]);
+                Ok(Self::Regular {
+                    children: new_children,
+                    statics
+                })
             },
             FragmentDiff::ReplaceCurrent(fragment) => Ok(fragment),
             FragmentDiff::UpdateComprehension {
@@ -337,6 +342,22 @@ impl TryFrom<FragmentDiff> for Fragment {
 pub enum Statics {
     Statics(Vec<String>),
     TemplateRef(i32),
+}
+
+impl FragmentMerge for Option<Statics> {
+    type DiffItem = Option<Statics>;
+
+    fn merge(self, diff: Self::DiffItem) -> Result<Self, MergeError> {
+        match (self, diff) {
+            (None, None) => Ok(None),
+            (None, Some(s)) => Ok(Some(s)),
+            (Some(s), None) => Ok(Some(s)),
+            // Do we merge the vec of statics?
+            (Some(_current), Some(new)) => {
+                Ok(Some(new))
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -409,7 +430,7 @@ impl TryFrom<ChildDiff> for Child {
                     Ok(Child::Fragment(Fragment::Comprehension {
                         dynamics: new_dynamics,
                         statics,
-                        templates: templates,
+                        templates,
                     }))
                 }
             },
@@ -546,9 +567,10 @@ impl FragmentMerge for Fragment {
                             .collect::<Result<Vec<Child>, MergeError>>()
                     })
                     .collect::<Result<Vec<Vec<Child>>, MergeError>>()?;
+                let statics = current_statics.merge(new_statics)?;
                 Ok(Self::Comprehension {
                     dynamics: new_dynamics,
-                    statics: new_statics,
+                    statics,
                     templates,
                 })
             }
@@ -592,7 +614,12 @@ impl FragmentMerge for Component {
             ComponentDiff::ReplaceCurrent {
                 statics,
                 children,
-            } => todo!() //Ok(component.fix_statics()),
+            } => {
+                Ok(Self {
+                    children,
+                    statics,
+                }.fix_statics())
+            }
         }
     }
 }
@@ -658,7 +685,6 @@ pub enum MergeError {
     CreateComponentFromUpdate,
     CreateChildFromUpdateFragment,
     AddChildToExisting,
-    FragmentMissingStatics,
 }
 
 #[cfg(test)]
@@ -678,64 +704,40 @@ mod test_merging {
         let merge = current.merge(diff).expect("Failed to merge diff");
         assert_eq!(merge, new);
     }
-
-    #[test]
-    fn simple_diffing() {
-        let simple_diff1 = r#"
-{
-  "0": "cooling",
-  "1": "cooling",
-  "2": "07:15:03 PM",
-  "s": [
-    "<div class=\"thermostat\">\n  <div class=\"bar ",
-    "\">\n    <a href=\"\#\" phx-click=\"toggle-mode\">",
-    "</a>\n    <span>",
-    "</span>\n  </div>\n</div>\n",
-  ]
-  }
-  "#;
-    let simple_diff2 = r#"
-{
-  "2": "07:15:04 PM",
-}"#;
-
-    }
 }
 #[cfg(test)]
 mod test_stringify {
-    use pretty_assertions::{assert_eq, assert_ne};
+    use pretty_assertions::assert_eq;
     use super::*;
-    use crate::dom::Document;
     #[test]
     fn fragment_render_parse() {
-        let expected = Root {
+        let root = Root {
             fragment: Fragment::Regular{
                 children: HashMap::from([
-                    ("1".into(), Child::String("foo".into())),
-                    ("2".into(), Child::ComponentID(1)),
+                    ("0".into(), Child::String("foo".into())),
+                    ("1".into(), Child::ComponentID(1)),
                 ]),
                 statics: Statics::Statics(vec!["1".into(), "2".into(), "3".into()]),
             },
             components: Some(HashMap::from([(
                 "1".into(),
                 Component {
-                    children: HashMap::from([("1".into(), Child::String("bar".into()))]),
+                    children: HashMap::from([("0".into(), Child::String("bar".into()))]),
                     statics: ComponentStatics::Statics(vec!["4".into(), "5".into()]),
                 },
             )])),
         };
-        let input = "1foo24bar53";
-        let document = Document::parse(input);
-        println!("DOCUMENT: {document:?}");
-        let document = document.expect("Failed to parse document");
-        //println!("DOCUMENT: {}", document.);
+        let expected = "1foo24bar53";
+        let out : String = root.try_into().expect("Failed to render root");
+        assert_eq!(out, expected);
     }
+
     #[test]
     fn simple_diff_render() {
         let simple_diff1= r#"{
   "0": "cooling",
   "1": "cooling",
-  "2": "07:15:04 PM",
+  "2": "07:15:03 PM",
   "s": [
     "<div class=\"thermostat\">\n  <div class=\"bar ",
     "\">\n    <a href=\"\\#\" phx-click=\"toggle-mode\">",
@@ -746,7 +748,7 @@ mod test_stringify {
 let expected = r#"<div class="thermostat">
   <div class="bar cooling">
     <a href="\#" phx-click="toggle-mode">cooling</a>
-    <span>07:15:04 PM</span>
+    <span>07:15:03 PM</span>
   </div>
 </div>
 "#;
@@ -755,6 +757,37 @@ let expected = r#"<div class="thermostat">
         let root : Root = root.try_into().expect("Failed to convert RootDiff to Root");
         println!("root diff: {root:#?}");
         let out : String = root.try_into().expect("Failed to convert Root into string");
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn simple_diff_merge_and_render() {
+        let simple_diff1= r#"{
+  "0": "cooling",
+  "1": "cooling",
+  "2": "07:15:03 PM",
+  "s": [
+    "<div class=\"thermostat\">\n  <div class=\"bar ",
+    "\">\n    <a href=\"\\#\" phx-click=\"toggle-mode\">",
+    "</a>\n    <span>",
+    "</span>\n  </div>\n</div>\n"
+  ]
+}"#;
+        let root : RootDiff = serde_json::from_str(simple_diff1).expect("Failed to deserialize fragment");
+        println!("root diff: {root:#?}");
+        let root : Root = root.try_into().expect("Failed to convert RootDiff to Root");
+        let simple_diff2 = r#"{"2": "07:15:04 PM"}"#;
+        let root_diff : RootDiff = serde_json::from_str(simple_diff2).expect("Failed to deserialize fragment");
+        let root = root.merge(root_diff).expect("Failed to merge diff into root");
+        println!("root diff: {root:#?}");
+        let out : String = root.try_into().expect("Failed to convert Root into string");
+        let expected = r#"<div class="thermostat">
+  <div class="bar cooling">
+    <a href="\#" phx-click="toggle-mode">cooling</a>
+    <span>07:15:04 PM</span>
+  </div>
+</div>
+"#;
         assert_eq!(out, expected);
     }
 
@@ -997,6 +1030,92 @@ let expected = r#"<div>
 </div>"#;
         assert_eq!(out, expected);
     }
+    #[test]
+    fn deep_diff_merging() {
+        let deep_diff1 = r#"{
+  "0": {
+    "0": {
+      "d": [["user1058", "1"], ["user99", "1"]],
+      "s": ["        <tr>\n          <td>", " (", ")</td>\n        </tr>\n"]
+    },
+    "s": [
+      "  <table>\n    <thead>\n      <tr>\n        <th>Username</th>\n        <th></th>\n      </tr>\n    </thead>\n    <tbody>\n",
+      "    </tbody>\n  </table>\n"
+    ]
+  },
+  "1": {
+    "d": [
+      [
+        "asdf_asdf",
+        "asdf@asdf.com",
+        "123-456-7890",
+        "<a href=\"/users/1\">Show</a>",
+        "<a href=\"/users/1/edit\">Edit</a>",
+        "<a href=\"\\#\" phx-click=\"delete_user\" phx-value=\"1\">Delete</a>"
+      ]
+    ],
+    "s": [
+      "    <tr>\n      <td>",
+      "</td>\n      <td>",
+      "</td>\n      <td>",
+      "</td>\n\n      <td>\n",
+      "        ",
+      "\n",
+      "      </td>\n    </tr>\n"
+    ]
+  }
+}"#;
+    let root : RootDiff = serde_json::from_str(deep_diff1).expect("Failed to deserialize fragment");
+    println!("root - {root:#?}");
+    let root : Root = root.try_into().expect("Failed to convert RootDiff to Root");
+
+let deep_diff2 = r#"{
+  "0": {
+    "0": {
+      "d": [["user1058", "2"]]
+    }
+  }
+}"#;
+    let root_diff: RootDiff = serde_json::from_str(deep_diff2).expect("Failed to deserialize fragment");
+    let root = root.merge(root_diff).expect("Failed to merge root");
+    let deep_diff_result = r#" {
+  "0": {
+    "0": {
+      "d": [["user1058", "2"]],
+      "s": ["        <tr>\n          <td>", " (", ")</td>\n        </tr>\n"]
+    },
+    "s": [
+      "  <table>\n    <thead>\n      <tr>\n        <th>Username</th>\n        <th></th>\n      </tr>\n    </thead>\n    <tbody>\n",
+      "    </tbody>\n  </table>\n"
+    ]
+  },
+  "1": {
+    "d": [
+      [
+        "asdf_asdf",
+        "asdf@asdf.com",
+        "123-456-7890",
+        "<a href=\"/users/1\">Show</a>",
+        "<a href=\"/users/1/edit\">Edit</a>",
+        "<a href=\"\\#\" phx-click=\"delete_user\" phx-value=\"1\">Delete</a>"
+      ]
+    ],
+    "s": [
+      "    <tr>\n      <td>",
+      "</td>\n      <td>",
+      "</td>\n      <td>",
+      "</td>\n\n      <td>\n",
+      "        ",
+      "\n",
+      "      </td>\n    </tr>\n"
+    ]
+  }
+}"#;
+    let expected_root : RootDiff = serde_json::from_str(deep_diff_result).expect("Failed to deserialize fragment");
+    let expected_root : Root = expected_root.try_into().expect("Failed to convert RootDiff to Root");
+    assert_eq!(root, expected_root);
+
+    }
 }
 #[cfg(test)]
 mod test_json_decoding {
@@ -1010,7 +1129,6 @@ mod test_json_decoding {
         }
         "#;
         let out: Result<FragmentDiff, _> = serde_json::from_str(data);
-        println!("{out:?}");
         assert!(out.is_ok());
         let out = out.expect("Failed to deserialize");
         let expected = FragmentDiff::UpdateRegular {
@@ -1028,9 +1146,7 @@ mod test_json_decoding {
         ];
         for data in &diffs {
             let out: Result<ComponentDiff, _> = serde_json::from_str(data);
-            println!("{data}, {out:?}");
             assert!(out.is_ok());
-            let out = out.expect("Failed to deserialize");
         }
     }
 
@@ -1048,7 +1164,6 @@ mod test_json_decoding {
         }
         "#;
         let out: Result<FragmentDiff, _> = serde_json::from_str(data);
-        println!("{out:?}");
         assert!(out.is_ok());
         let out = out.expect("Failed to deserialize");
         let expected = FragmentDiff::ReplaceCurrent(Fragment::Regular {
@@ -1107,7 +1222,6 @@ mod test_json_decoding {
         }
         "#;
         let out: Result<FragmentDiff, _> = serde_json::from_str(data);
-        println!("{out:?}");
         assert!(out.is_ok());
         let out = out.expect("Failed to deserialize");
         let expected = FragmentDiff::UpdateComprehension {
@@ -1301,7 +1415,7 @@ mod test_json_decoding {
                 ""
             ]
         }"#;
-        let root : RootDiff = serde_json::from_str(input).expect("Failed to deserialize fragment");
+        let _root : RootDiff = serde_json::from_str(input).expect("Failed to deserialize fragment");
 
     }
 }
