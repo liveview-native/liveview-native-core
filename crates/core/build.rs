@@ -8,6 +8,7 @@ use std::{
 use inflector::Inflector;
 
 fn main() {
+    uniffi::generate_scaffolding("src/lib.udl").unwrap();
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/interner/strings.txt");
 
