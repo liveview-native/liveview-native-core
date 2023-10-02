@@ -65,11 +65,11 @@ impl From<MergeError> for RenderError {
 impl ToString for RenderError {
     fn to_string(&self) -> String {
         match self {
-            RenderError::NoComponents => todo!(),
-            RenderError::NoTemplates => todo!(),
-            RenderError::TemplateNotFound(_) => todo!(),
-            RenderError::ComponentNotFound(_) => todo!(),
-            RenderError::MergeError(_) => todo!(),
+            RenderError::NoComponents => "No components found when needed".into(),
+            RenderError::NoTemplates => "No templates found when needed".into(),
+            RenderError::TemplateNotFound(tid) => format!("Templated ID {} not found in templates", tid),
+            RenderError::ComponentNotFound(cid) => format!("Component ID {} not found in components", cid),
+            RenderError::MergeError(e) => e.to_string(),
         }
     }
 }
@@ -91,7 +91,7 @@ impl Fragment {
                         }
                     }
                     Statics::TemplateRef(_template_ref) => {
-                        todo!();
+                        unimplemented!("Template id's in regular fragments have not been implement yet");
                     }
                 }
             }
