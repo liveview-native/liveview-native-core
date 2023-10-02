@@ -5,6 +5,9 @@ pub use support::{AttributeVec, RustResult, RustSlice, RustStr, RustString};
 use crate::{
     diff::PatchResult,
     dom::{self, NodeRef},
+    diff::fragment::{
+        RootDiff, Root,
+    },
 };
 
 #[repr(C)]
@@ -232,8 +235,65 @@ pub extern "C" fn document_merge_fragment_json<'a>(
     other_json: RustStr<'a>,
     handler: extern "C-unwind" fn(*mut (), ChangeType, NodeRef, OptionNodeRef) -> (),
     context: *mut (),
-) {
-    todo!();
+    error: *mut RustString,
+) -> support::RustResult {
+    let other_json = other_json.to_str();
+    let other_fragment : Result<RootDiff, _> = serde_json::from_str(other_json);
+    let other_fragment = match other_fragment {
+        Ok(fragment) => fragment,
+
+        Err(err) => {
+            unsafe {
+                error.write(RustString::from_string(err.to_string()));
+            }
+            return support::RustResult {
+                is_ok: false,
+                ok_result: std::ptr::null_mut(),
+            };
+        }
+    };
+    let root : Root = match other_fragment.try_into() {
+        Ok(root) => root,
+        Err(err) => {
+            unsafe {
+                error.write(RustString::from_string(err.to_string()));
+            }
+            return support::RustResult {
+                is_ok: false,
+                ok_result: std::ptr::null_mut(),
+            };
+        }
+    };
+    let other_doc : String = match root.try_into() {
+        Ok(rendered) => rendered,
+        Err(err) => {
+            unsafe {
+                error.write(RustString::from_string(err.to_string()));
+            }
+            return support::RustResult {
+                is_ok: false,
+                ok_result: std::ptr::null_mut(),
+            };
+        }
+    };
+    let other_doc = match dom::Document::parse(other_doc) {
+        Ok(doc) => doc,
+        Err(err) => {
+            unsafe {
+                error.write(RustString::from_string(err.to_string()));
+            }
+            return support::RustResult {
+                is_ok: false,
+                ok_result: std::ptr::null_mut(),
+            };
+        }
+    };
+    let other_doc = Box::new(other_doc);
+    document_merge(doc, Box::into_raw(other_doc), handler, context);
+    support::RustResult {
+        is_ok: true,
+        ok_result: std::ptr::null_mut(),
+    }
 }
 
 #[export_name = "__liveview_native_core$Document$root"]

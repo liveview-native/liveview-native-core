@@ -61,6 +61,17 @@ impl From<MergeError> for RenderError {
         Self::MergeError(value)
     }
 }
+impl ToString for RenderError {
+    fn to_string(&self) -> String {
+        match self {
+            RenderError::NoComponents => todo!(),
+            RenderError::NoTemplates => todo!(),
+            RenderError::TemplateNotFound(_) => todo!(),
+            RenderError::ComponentNotFound(_) => todo!(),
+            RenderError::MergeError(_) => todo!(),
+        }
+    }
+}
 
 impl Fragment {
     pub fn render(&self, components: &Option<HashMap<String, Component>>, cousin_statics: Option<Vec<String>>, parent_templates: Templates) -> Result<String, RenderError> {
@@ -685,6 +696,16 @@ pub enum MergeError {
     CreateComponentFromUpdate,
     CreateChildFromUpdateFragment,
     AddChildToExisting,
+}
+impl ToString  for MergeError {
+    fn to_string(&self) -> String {
+        match self {
+            MergeError::FragmentTypeMismatch => "Fragment type mismatch".into(),
+            MergeError::CreateComponentFromUpdate => "Create component from update".into(),
+            MergeError::CreateChildFromUpdateFragment => "Create child from update fragment".into(),
+            MergeError::AddChildToExisting => "Add child to existing".into(),
+        }
+    }
 }
 
 #[cfg(test)]
