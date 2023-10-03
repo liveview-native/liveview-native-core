@@ -17,8 +17,8 @@ pub use self::interner::{symbols, InternedString, Symbol};
 uniffi::include_scaffolding!("lib");
 use crate::ffi::ChangeType;
 use crate::dom::Document;
+use crate::parser::ParseError;
 
-//#[uniffi::export]
 fn zoom(a: ChangeType) -> ChangeType{
     ChangeType::Remove
 }

@@ -7,4 +7,14 @@ enum ChangeType {
     "Remove",
     "Replace",
 };
+[Error]
+enum ParseError {
+      "Reader",
+      "Tokenizer",
+};
 
+interface Document {
+    [Throws=ParseError, Name=parse]
+    constructor(string input);
+    string to_string();
+};
