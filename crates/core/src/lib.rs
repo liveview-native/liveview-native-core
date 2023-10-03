@@ -12,9 +12,13 @@ mod interner;
 pub mod parser;
 
 pub use self::interner::{symbols, InternedString, Symbol};
-uniffi::include_scaffolding!("lib");
 
-#[uniffi::export]
-fn add(a: u32, b: u32) -> u32 {
-    a + b
+
+uniffi::include_scaffolding!("lib");
+use crate::ffi::ChangeType;
+use crate::dom::Document;
+
+//#[uniffi::export]
+fn zoom(a: ChangeType) -> ChangeType{
+    ChangeType::Remove
 }

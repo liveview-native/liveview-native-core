@@ -260,3 +260,79 @@ category = "Development"
 description = "Run cargo-bloat"
 command = "cargo"
 args = ["bloat", "${@}"]
+
+[tasks.uniffi-swift]
+workspace = false
+category = "Packaging"
+description = ""
+command = "cargo"
+args = [
+    "run",
+    "--bin",
+    "uniffi-bindgen",
+    "--",
+    "generate",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/src/lib.udl",
+    "--language=swift",
+    "--out-dir=${CARGO_TARGET_DIR}/uniffi/swift/generated",
+]
+
+[tasks.uniffi-swift-package]
+workspace = false
+category = "Packaging"
+description = "Generates the LiveViewNativeCore.xcframework package"
+command = "cp"
+args = [
+    "-r",
+    "${CARGO_TARGET_DIR}/uniffi/swift/generated/LiveViewNativeCore.swift",
+    #"${CARGO_TARGET_DIR}/uniffi/swift/RustFramework.xcframework",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/Sources/LiveViewNativeCore/",
+]
+dependencies = ["uniffi-xcframework"]
+
+[tasks.uniffi-xcframework]
+workspace = false
+category = "Packaging"
+description = "Generates the LiveViewNativeCore.xcframework package"
+command = "xcodebuild"
+args = [
+    "-create-xcframework",
+    #"-output", "${CARGO_TARGET_DIR}/uniffi/swift/RustFramework.xcframework",
+    "-output", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/RustFramework.xcframework",
+
+	# macOS
+    "-library", "${CARGO_TARGET_DIR}/universal-macos-libliveview_native_core.a",
+    "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
+
+	# iOS
+    "-library", "${CARGO_TARGET_DIR}/aarch64-apple-ios/debug/libliveview_native_core.a",
+    "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
+
+	# iOS sim
+    "-library", "${CARGO_TARGET_DIR}/universal-ios-sim-libliveview_native_core.a",
+    "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
+
+	# watchOS
+    # "-library", "${CARGO_TARGET_DIR}/arm64_32-apple-watchos/debug/libliveview_native_core.a",
+    # "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/c_src/include",
+    # "-library", "${CARGO_TARGET_DIR}/armv7k-apple-watchos/debug/libliveview_native_core.a",
+    # "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/c_src/include",
+	# watchOS sim
+    "-library", "${CARGO_TARGET_DIR}/universal-watchos-sim-libliveview_native_core.a",
+    "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
+
+	# tvOS
+    "-library", "${CARGO_TARGET_DIR}/aarch64-apple-tvos/debug/libliveview_native_core.a",
+    "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
+
+    "-library", "${CARGO_TARGET_DIR}/x86_64-apple-tvos/debug/libliveview_native_core.a",
+    "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
+]
+dependencies = ["build-macos", "build-ios", "build-watchos", "build-tvos", "lipo-macos", "lipo-ios-sim", "lipo-watchos-sim", "remove-existing-uniffi-xcframework", "uniffi-swift"]
+
+[tasks.remove-existing-uniffi-xcframework]
+workspace = false
+private = true
+script_runner = "@duckscript"
+script = "rm -r ${CARGO_TARGET_DIR}/uniffi/swift/liveview_native_core.xcframework"
+

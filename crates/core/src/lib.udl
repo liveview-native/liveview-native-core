@@ -1,3 +1,10 @@
-namespace Math {
-      u32 add(u32 a, u32 b);
+namespace LiveViewNativeCore {
+      ChangeType zoom(ChangeType a);
 };
+enum ChangeType {
+    "Change",
+    "Add",
+    "Remove",
+    "Replace",
+};
+
