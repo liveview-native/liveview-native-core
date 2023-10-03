@@ -192,7 +192,7 @@ fn fragment_with_components_with_static_component_refs() {
                     },
                     "s": [
                         "<Group>\n",
-                        "\n</Group>"
+                        "\n  </Group>"
                     ]
                 },
                 "2": {
@@ -248,7 +248,7 @@ fn fragment_with_components_with_static_component_refs() {
 
     <Text>Item 5</Text>
 
-</Group>
+  </Group>
 
   <Group>
 
@@ -258,7 +258,7 @@ fn fragment_with_components_with_static_component_refs() {
 
     <Text>Item 8</Text>
 
-</Group>
+  </Group>
 
   <Group>
 
@@ -268,7 +268,7 @@ fn fragment_with_components_with_static_component_refs() {
 
     <Text>Item 11</Text>
 
-</Group>
+  </Group>
 </div>"#;
     assert_eq!(out, expected);
 }
@@ -315,7 +315,7 @@ fn fragment_with_dynamic_component() {
                     },
                     "s": [
                         "<Group>\n",
-                        "\n</Group>"
+                        "\n  </Group>"
                     ]
                 }
             },
@@ -339,7 +339,7 @@ fn fragment_with_dynamic_component() {
 
     <Text>Item 5</Text>
 
-</Group>
+  </Group>
 </div>"#;
     assert_eq!(out, expected);
 }
