@@ -80,6 +80,13 @@ extern void __liveview_native_core$Document$merge(__Document doc,
                                                   OnChangeCallback callback,
                                                   void *context);
 
+extern _RustResult __liveview_native_core$Document$merge_fragment_json(__Document doc,
+                                                  _RustStr json,
+                                                  OnChangeCallback callback,
+                                                  void *context,
+                                                  _RustString *error
+                                                  );
+
 extern NodeRef __liveview_native_core$Document$root(__Document doc);
 
 extern __Node __liveview_native_core$Document$get(__Document doc, NodeRef node);
