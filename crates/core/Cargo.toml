@@ -16,7 +16,8 @@ publish.workspace = true
 build = "build.rs"
 
 [lib]
-crate-type = ["staticlib", "rlib"]
+crate-type = ["staticlib", "rlib", "cdylib"]
+name = "liveview_native_core"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
