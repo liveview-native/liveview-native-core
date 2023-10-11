@@ -94,8 +94,16 @@ impl Fragment {
                             out.push_str(&statics[i]);
                         }
                     }
-                    Statics::TemplateRef(_template_ref) => {
-                        unimplemented!("Template id's in regular fragments have not been implement yet");
+                    Statics::TemplateRef(template_id) => {
+                        let templates = parent_templates.ok_or(RenderError::NoTemplates)?;
+                        let template = templates.get(&(template_id.to_string())).ok_or(RenderError::TemplateNotFound(*template_id))?;
+                        out.push_str(&template[0]);
+                        for i in 1..templates.len() {
+                            let child = children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFound((i - 1) as i32))?;
+                            let val = child.render(components, cousin_statics.clone(), Some(templates.clone()))?;
+                            out.push_str(&val);
+                            out.push_str(&template[i]);
+                        }
                     }
                 }
             }
@@ -418,38 +426,7 @@ impl TryFrom<ChildDiff> for Child {
         match value {
             ChildDiff::String(s) => Ok(Child::String(s)),
             ChildDiff::ComponentID(cid) => Ok(Child::ComponentID(cid)),
-            ChildDiff::Fragment(fragment_diff) => match fragment_diff {
-                FragmentDiff::ReplaceCurrent(fragment) => Ok(Child::Fragment(fragment)),
-                FragmentDiff::UpdateRegular {
-                    children
-                }=> {
-                    let mut new_children : HashMap<String, Child> = HashMap::new();
-                    for (key, cdiff) in children.into_iter() {
-                        new_children.insert(key, cdiff.try_into()?);
-                    }
-                    Err(MergeError::FragmentTypeMismatch)
-                },
-                FragmentDiff::UpdateComprehension {
-                    templates,
-                    dynamics,
-                    statics,
-                } => {
-                    let mut new_dynamics : Dynamics = Vec::new();
-                    for i in dynamics {
-                        let mut inner_vec : Vec<Child> = Vec::new();
-                        for j in i {
-                            inner_vec.push(j.try_into()?);
-                        }
-                        new_dynamics.push(inner_vec);
-                    }
-
-                    Ok(Child::Fragment(Fragment::Comprehension {
-                        dynamics: new_dynamics,
-                        statics,
-                        templates,
-                    }))
-                }
-            },
+            ChildDiff::Fragment(fragment_diff) => Ok(Self::Fragment(fragment_diff.try_into()?)),
         }
     }
 }
@@ -712,4 +689,3 @@ impl ToString  for MergeError {
         }
     }
 }
-

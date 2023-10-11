@@ -3,7 +3,121 @@ use pretty_assertions::assert_eq;
 use super::*;
 
 #[test]
-fn test_from_jetpack_ui() {
+fn jetpack_complex() {
+let initial = r#"{
+    "0":"0",
+    "1":"0",
+    "2":"",
+    "s":[
+        "\u003cColumn\u003e\n  \u003cButton phx-click\u003d\"inc\"\u003e\n    \u003cText\u003eButton\u003c/Text\u003e\n  \u003c/Button\u003e\n  \u003cText\u003eStatic Text \u003c/Text\u003e\n  \u003cText\u003eCounter 1: ",
+        " \u003c/Text\u003e\n  \u003cText\u003eCounter 2: "," \u003c/Text\u003e\n  ","\n\u003c/Column\u003e"
+    ]
+}"#;
+    let root: RootDiff = serde_json::from_str(initial).expect("Failed to deserialize fragment");
+    let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
+let incremental = r#"
+{
+  "0": "1",
+  "1": "1",
+  "2": {
+    "0": {
+      "s": [
+        "\n      \u003cText\u003eItem + 1 ",
+        " | Item + 2 ",
+        "!!!\u003c/Text\u003e\n      ",
+        "\n      ",
+        "\n    "
+      ],
+      "p": {
+        "0": [
+          "\n        \u003cText\u003eNumber + 3 \u003d ",
+          " is even\u003c/Text\u003e\n      "
+        ],
+        "1": [
+          "\n        \u003cText\u003eNumber + 4 ",
+          " is odd\u003c/Text\u003e\n      "
+        ]
+      },
+      "d": [
+        [
+          "2",
+          "3",
+          {
+            "0": "4",
+            "s": 0
+          },
+          {
+            "0": "5",
+            "s": 1
+          }
+        ]
+      ]
+    },
+    "1": "101",
+    "s": [
+      "\n    ",
+      "\n    \u003cText\u003eNumber + 100 is ",
+      "\u003c/Text\u003e\n  "
+    ]
+  }
+}"#;
+    let other_root : RootDiff = serde_json::from_str(incremental).expect("Failed to deserialize diff fragment");
+    let new_root = root.merge(other_root).expect("Failed to merge new root in");
+    //let out : String = new_root.try_into().expect("Failed to convert root to string");
+    //println!("diff: {out}");
+
+    let second_update = r#"{
+    "0":"2",
+    "1":"2",
+    "2":{
+        "0":{
+            "p":{
+              "0":[
+                  "\n        \u003cText\u003eNumber + 3 \u003d ",
+                  " is odd\u003c/Text\u003e\n      "
+              ],
+              "1":[
+                  "\n        \u003cText\u003eNumber + 4 ",
+                  " is even\u003c/Text\u003e\n      "
+              ]
+            },
+            "d": [
+                [
+                  "2",
+                  "3",
+                  {
+                    "0":"4",
+                    "s":0
+                  },
+                  {
+                    "0":"5",
+                    "s":1
+                  }
+                ],[
+                  "3",
+                  "4",
+                  {
+                    "0":"5",
+                    "s":0
+                  },{
+                    "0":"6",
+                    "s":1
+                  }
+                ]
+            ]
+        },
+        "1":"102"
+    }
+}"#;
+    let other_root : RootDiff = serde_json::from_str(second_update).expect("Failed to deserialize diff fragment");
+    println!("Otherroot: {other_root:#?}");
+    let new_root = new_root.merge(other_root).expect("Failed to merge new root in");
+    let out : String = new_root.try_into().expect("Failed to convert root to string");
+    println!("diff: {out}");
+
+}
+#[test]
+fn jetpack_simple_counter() {
     let initial_json = r#"{
         "0":"0",
         "s":["\u003cScaffold\u003e\n  \u003cTopAppBar\u003e\n    \u003cTitle\u003e\u003cText\u003eHello\u003c/Text\u003e\u003c/Title\u003e\n  \u003c/TopAppBar\u003e\n  \u003cColumn width\u003d\"fill\" verticalArrangement\u003d\"center\" horizontalAlignment\u003d\"center\"\u003e\n    \u003cText style\u003d\"headlineLarge\"\u003eTitle\u003c/Text\u003e\n    \u003cCard shape\u003d\"8\" padding\u003d\"16\" width\u003d\"140\" height\u003d\"120\" elevation\u003d\"{\u0027defaultElevation\u0027: \u002710\u0027, \u0027pressedElevation\u0027: \u00272\u0027}\" phx-click\u003d\"dec\"\u003e\n      \u003cText padding\u003d\"16\"\u003eHello Jetpack!\u003c/Text\u003e\n    \u003c/Card\u003e\n    \u003cSpacer height\u003d\"8\"\u003e\u003c/Spacer\u003e\n    \u003cCard padding\u003d\"16\"\u003e\n      \u003cText padding\u003d\"16\"\u003eSimple card\u003c/Text\u003e\n    \u003c/Card\u003e\n    \u003cButton phx-click\u003d\"navigate\" contentPadding\u003d\"50\" elevation\u003d\"{\u0027defaultElevation\u0027: \u002720\u0027, \u0027pressedElevation\u0027: \u002710\u0027}\"\u003e\n      \u003cText\u003eNavigate to counter\u003c/Text\u003e\n    \u003c/Button\u003e\n    \u003cButton phx-click\u003d\"redirect\"\u003e\u003cText\u003eRedirect to counter\u003c/Text\u003e\u003c/Button\u003e\n    \u003cIconButton phx-click\u003d\"inc\" colors\u003d\"{\u0027containerColor\u0027: \u0027#FFFF0000\u0027, \u0027contentColor\u0027: \u0027#FFFFFFFF\u0027}\"\u003e\n      \u003cIcon imageVector\u003d\"filled:Add\"\u003e\u003c/Icon\u003e\n    \u003c/IconButton\u003e\n    \u003cRow verticalAlignment\u003d\"center\"\u003e\n      \u003cButton phx-click\u003d\"dec\" shape\u003d\"circle\" size\u003d\"60\"\u003e\n        \u003cText\u003e-\u003c/Text\u003e\n      \u003c/Button\u003e\n      \u003cText\u003eThis counter: ","\u003c/Text\u003e\n      \u003cButton phx-click\u003d\"inc\" shape\u003d\"circle\" size\u003d\"60\"\u003e\u003cText\u003e+\u003c/Text\u003e\u003c/Button\u003e\n    \u003c/Row\u003e\n  \u003c/Column\u003e\n\u003c/Scaffold\u003e"]}"#;
