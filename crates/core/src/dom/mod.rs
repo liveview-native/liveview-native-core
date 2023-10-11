@@ -25,6 +25,12 @@ pub use self::{
     select::{SelectionIter, Selector},
 };
 use crate::parser;
+use crate::diff::fragment::{
+    Root,
+    RootDiff,
+    MergeError,
+    FragmentMerge,
+};
 
 /// A `Document` represents a virtual DOM, and supports common operations typically performed against them.
 ///
@@ -60,6 +66,7 @@ use crate::parser;
 #[derive(Clone)]
 pub struct Document {
     root: NodeRef,
+    diff: Option<Root>,
     /// A map from node reference to node data
     nodes: PrimaryMap<NodeRef, Node>,
     /// A map from a node to its parent node, if it currently has one
@@ -117,6 +124,7 @@ impl Document {
             parents: SecondaryMap::new(),
             children: SecondaryMap::new(),
             ids: Default::default(),
+            diff: None,
         }
     }
 
@@ -139,6 +147,17 @@ impl Document {
     #[inline]
     pub fn edit(&mut self) -> Editor<'_> {
         Editor::new(self)
+    }
+    pub fn merge_fragment(&mut self, root_diff: RootDiff) -> Result<Root, MergeError> {
+        let root = if let Some(root) = self.diff.as_mut() {
+            *root = root.clone().merge(root_diff)?;
+            root.clone()
+        } else {
+            let new_root : Root = root_diff.try_into()?;
+            self.diff = Some(new_root.clone());
+            new_root
+        };
+        Ok(root)
     }
 
     /// Clears all data from this document, but keeps the allocated capacity, for more efficient reuse

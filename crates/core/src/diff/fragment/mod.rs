@@ -3,7 +3,7 @@ use serde::Deserialize;
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct RootDiff {
     #[serde(flatten)]
     fragment: FragmentDiff,
@@ -11,7 +11,7 @@ pub struct RootDiff {
     components: Option<HashMap<String, ComponentDiff>>,
 }
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Root {
     #[serde(flatten)]
     fragment: Fragment,
@@ -56,6 +56,8 @@ pub enum RenderError {
     TemplateNotFound(i32),
     ComponentNotFound(i32),
     MergeError(MergeError),
+    ChildNotFound(i32),
+    CousinNotFound(i32),
 }
 impl From<MergeError> for RenderError {
     fn from(value: MergeError) -> Self {
@@ -70,6 +72,8 @@ impl ToString for RenderError {
             RenderError::TemplateNotFound(tid) => format!("Templated ID {} not found in templates", tid),
             RenderError::ComponentNotFound(cid) => format!("Component ID {} not found in components", cid),
             RenderError::MergeError(e) => e.to_string(),
+            RenderError::ChildNotFound(child_id) => format!("Child not found for {child_id}"),
+            RenderError::CousinNotFound(cousin_id) => format!("Cousin not found for {cousin_id}"),
         }
     }
 }
@@ -81,10 +85,10 @@ impl Fragment {
             Fragment::Regular { children, statics } => {
                 match statics {
                     Statics::Statics(statics) => {
-                        assert!(statics.len() == children.len() + 1);
+                        //assert!(statics.len() == children.len() + 1);
                         out.push_str(&statics[0]);
                         for i in 1..statics.len() {
-                            let child = children.get(&(i - 1).to_string()).expect("Failed to get child");
+                            let child = children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFound((i - 1) as i32))?;
                             let val = child.render(components, cousin_statics.clone(), parent_templates.clone())?;
                             out.push_str(&val);
                             out.push_str(&statics[i]);
@@ -115,7 +119,7 @@ impl Fragment {
                     }
                     (None, Some(statics)) => {
                         for children in dynamics.into_iter() {
-                            assert!(statics.len() == children.len() + 1);
+                            //assert!(statics.len() == children.len() + 1);
                             out.push_str(&statics[0]);
                             for i in 1..statics.len() {
                                 let child = &children[i - 1];
@@ -130,7 +134,7 @@ impl Fragment {
                         match statics {
                             Statics::Statics(statics) => {
                                 for children in dynamics.into_iter() {
-                                    assert!(statics.len() == children.len() + 1);
+                                    //assert!(statics.len() == children.len() + 1);
                                     out.push_str(&statics[0]);
                                     for i in 1..statics.len() {
                                         let child = &children[i - 1];
@@ -206,11 +210,11 @@ impl Component {
         match &self.statics {
             ComponentStatics::Statics(statics) => {
                 let mut out = String::new();
-                assert!(statics.len() == self.children.len() + 1);
+                //assert!(statics.len() == self.children.len() + 1);
 
                 out.push_str(&statics[0]);
                 for i in 1..statics.len() {
-                    let inner = self.children.get(&(i - 1).to_string()).expect("Failed to get child");
+                    let inner = self.children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFound((i - 1) as i32))?;
                     let val = inner.render(components, None, None)?;
                     out.push_str(&val);
                     out.push_str(&statics[i]);
@@ -243,12 +247,12 @@ impl Component {
                     }
                 }
                 let mut out = String::new();
-                assert!(outer_statics.len() == self.children.len() + 1);
+                //assert!(outer_statics.len() == self.children.len() + 1);
 
                 out.push_str(&outer_statics[0]);
                 for i in 1..outer_statics.len() {
-                    let child = self.children.get(&(i - 1).to_string()).expect("Failed to get child");
-                    let cousin = cousin_component.children.get(&(i - 1).to_string()).expect("Failed to get cousin child for statics");
+                    let child = self.children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFound((i - 1) as i32))?;
+                    let cousin = cousin_component.children.get(&(i - 1).to_string()).ok_or(RenderError::CousinNotFound((i - 1) as i32))?;
 
                     let val = child.render(components, cousin.statics(), None)?;
                     out.push_str(&val);
@@ -271,7 +275,7 @@ impl Component {
 
 
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum FragmentDiff {
     UpdateRegular {
@@ -400,7 +404,7 @@ impl Child {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum ChildDiff {
     Fragment(FragmentDiff),
@@ -476,7 +480,7 @@ impl TryFrom<ComponentDiff> for Component {
     }
 }
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]
 pub enum ComponentDiff {
     ReplaceCurrent {
