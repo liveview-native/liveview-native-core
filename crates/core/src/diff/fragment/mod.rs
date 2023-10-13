@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use serde::Deserialize;
+
 #[cfg(test)]
 mod tests;
 
@@ -142,6 +143,7 @@ impl Fragment {
                         match statics {
                             Statics::Statics(statics) => {
                                 for children in dynamics.into_iter() {
+                                    // TODO Return an error if the statics don't match
                                     //assert!(statics.len() == children.len() + 1);
                                     out.push_str(&statics[0]);
                                     for i in 1..statics.len() {
@@ -185,6 +187,7 @@ impl Fragment {
         Ok(out)
     }
 }
+
 impl Child {
     pub fn render(&self, components: &Option<HashMap<String, Component>>, statics: Option<Vec<String>>, templates: Templates) -> Result<String, RenderError> {
         match self {
@@ -192,7 +195,7 @@ impl Child {
             Child::ComponentID(cid) => {
                 if let Some(inner_components) = components {
                     if let Some(component) = inner_components.get(&cid.to_string()) {
-                        component.to_string_with_components(components)
+                        component.render(components)
                     } else {
                         Err(RenderError::ComponentNotFound(*cid))
                     }
@@ -214,7 +217,7 @@ pub struct Component {
 }
 
 impl Component {
-    pub fn to_string_with_components(&self, components: &Option<HashMap<String, Component>>) -> Result<String, RenderError> {
+    pub fn render(&self, components: &Option<HashMap<String, Component>>) -> Result<String, RenderError> {
         match &self.statics {
             ComponentStatics::Statics(statics) => {
                 let mut out = String::new();
@@ -289,6 +292,8 @@ pub enum FragmentDiff {
     UpdateRegular {
         #[serde(flatten)]
         children: HashMap<String, ChildDiff>,
+        #[serde(rename = "s")]
+        statics: Option<Statics>,
     },
     UpdateComprehension {
         #[serde(rename = "d")]
@@ -309,10 +314,10 @@ type Dynamics = Vec<Vec<Child>>;
 #[serde(untagged)]
 pub enum Fragment {
     Regular {
-        #[serde(flatten)]
-        children: HashMap<String, Child>,
         #[serde(rename = "s")]
         statics: Statics,
+        #[serde(flatten)]
+        children: HashMap<String, Child>,
     },
     Comprehension {
         #[serde(rename = "d")]
@@ -328,12 +333,16 @@ impl TryFrom<FragmentDiff> for Fragment {
     type Error = MergeError;
     fn try_from(value: FragmentDiff) -> Result<Self, MergeError> {
         match value {
-            FragmentDiff::UpdateRegular { children } => {
+            FragmentDiff::UpdateRegular { children, statics } => {
                 let mut new_children : HashMap<String, Child> = HashMap::new();
                 for (key, cdiff) in children.into_iter() {
                     new_children.insert(key, cdiff.try_into()?);
                 }
-                let statics = Statics::Statics(vec!["".into(); new_children.len()]);
+                let statics = if let Some(statics) = statics {
+                    statics
+                } else {
+                        Statics::Statics(vec!["".into(); new_children.len()])
+                };
                 Ok(Self::Regular {
                     children: new_children,
                     statics
@@ -391,6 +400,14 @@ pub enum Child {
     ComponentID(i32),
     String(String),
 }
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(untagged)]
+pub enum ChildDiff {
+    Fragment(FragmentDiff),
+    ComponentID(i32),
+    String(String),
+}
 impl Child {
     pub fn statics(&self) -> Option<Vec<String>> {
         match self {
@@ -412,13 +429,7 @@ impl Child {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(untagged)]
-pub enum ChildDiff {
-    Fragment(FragmentDiff),
-    ComponentID(i32),
-    String(String),
-}
+
 impl TryFrom<ChildDiff> for Child {
     type Error = MergeError;
 
@@ -648,9 +659,8 @@ impl FragmentMerge for Child {
             }
             (_, ChildDiff::String(s)) => Ok(Self::String(s)),
             (_, ChildDiff::ComponentID(id)) => Ok(Self::ComponentID(id)),
-            (_, ChildDiff::Fragment(fragment_diff)) => match fragment_diff {
-                FragmentDiff::ReplaceCurrent(fragment) => Ok(Self::Fragment(fragment)),
-                _ => Err(MergeError::CreateChildFromUpdateFragment),
+            (_, ChildDiff::Fragment(fragment_diff)) => {
+                Ok(Self::Fragment(fragment_diff.try_into()?))
             },
         }
     }

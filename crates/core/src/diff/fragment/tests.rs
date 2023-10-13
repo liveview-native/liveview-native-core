@@ -10,12 +10,18 @@ let initial = r#"{
     "2":"",
     "s":[
         "\u003cColumn\u003e\n  \u003cButton phx-click\u003d\"inc\"\u003e\n    \u003cText\u003eButton\u003c/Text\u003e\n  \u003c/Button\u003e\n  \u003cText\u003eStatic Text \u003c/Text\u003e\n  \u003cText\u003eCounter 1: ",
-        " \u003c/Text\u003e\n  \u003cText\u003eCounter 2: "," \u003c/Text\u003e\n  ","\n\u003c/Column\u003e"
+        " \u003c/Text\u003e\n  \u003cText\u003eCounter 2: ",
+        " \u003c/Text\u003e\n",
+        "\n\u003c/Column\u003e"
     ]
 }"#;
     let root: RootDiff = serde_json::from_str(initial).expect("Failed to deserialize fragment");
+    println!("Rootdiff: {root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
-let incremental = r#"
+    println!("root: {root:#?}");
+    let out : String = root.clone().try_into().expect("Failed to convert root to string");
+    println!("rendering: {out}");
+let increment = r#"
 {
   "0": "1",
   "1": "1",
@@ -24,18 +30,18 @@ let incremental = r#"
       "s": [
         "\n      \u003cText\u003eItem + 1 ",
         " | Item + 2 ",
-        "!!!\u003c/Text\u003e\n      ",
-        "\n      ",
-        "\n    "
+        "!!!\u003c/Text\u003e\n",
+        "\n",
+        "\n"
       ],
       "p": {
         "0": [
           "\n        \u003cText\u003eNumber + 3 \u003d ",
-          " is even\u003c/Text\u003e\n      "
+          " is even\u003c/Text\u003e\n"
         ],
         "1": [
           "\n        \u003cText\u003eNumber + 4 ",
-          " is odd\u003c/Text\u003e\n      "
+          " is odd\u003c/Text\u003e\n"
         ]
       },
       "d": [
@@ -55,18 +61,18 @@ let incremental = r#"
     },
     "1": "101",
     "s": [
-      "\n    ",
+      "\n",
       "\n    \u003cText\u003eNumber + 100 is ",
-      "\u003c/Text\u003e\n  "
+      "\u003c/Text\u003e\n"
     ]
   }
 }"#;
-    let other_root : RootDiff = serde_json::from_str(incremental).expect("Failed to deserialize diff fragment");
-    let new_root = root.merge(other_root).expect("Failed to merge new root in");
-    //let out : String = new_root.try_into().expect("Failed to convert root to string");
-    //println!("diff: {out}");
-
-    let second_update = r#"{
+    let new_diff : RootDiff = serde_json::from_str(increment).expect("Failed to deserialize diff fragment");
+    println!("new diff: {new_diff:#?}");
+    let root = root.merge(new_diff).expect("Failed to merge new root in");
+    let out : String = root.clone().try_into().expect("Failed to convert root to string");
+    println!("rendering: {out}");
+    let increment = r#"{
     "0":"2",
     "1":"2",
     "2":{
@@ -74,11 +80,11 @@ let incremental = r#"
             "p":{
               "0":[
                   "\n        \u003cText\u003eNumber + 3 \u003d ",
-                  " is odd\u003c/Text\u003e\n      "
+                  " is odd\u003c/Text\u003e\n"
               ],
               "1":[
                   "\n        \u003cText\u003eNumber + 4 ",
-                  " is even\u003c/Text\u003e\n      "
+                  " is even\u003c/Text\u003e\n"
               ]
             },
             "d": [
@@ -109,11 +115,41 @@ let incremental = r#"
         "1":"102"
     }
 }"#;
-    let other_root : RootDiff = serde_json::from_str(second_update).expect("Failed to deserialize diff fragment");
-    println!("Otherroot: {other_root:#?}");
-    let new_root = new_root.merge(other_root).expect("Failed to merge new root in");
-    let out : String = new_root.try_into().expect("Failed to convert root to string");
-    println!("diff: {out}");
+    let new_diff : RootDiff = serde_json::from_str(increment).expect("Failed to deserialize diff fragment");
+    println!("NEW_ROOT: {new_diff:#?}");
+    let root = root.merge(new_diff).expect("Failed to merge new root in");
+    println!("ROOT: {root:#?}");
+    let out : String = root.try_into().expect("Failed to convert root to string");
+    println!("rendering: {out}");
+    let expected = r#"<Column>
+  <Button phx-click="inc">
+    <Text>Button</Text>
+  </Button>
+  <Text>Static Text </Text>
+  <Text>Counter 1: 2 </Text>
+  <Text>Counter 2: 2 </Text>
+
+
+      <Text>Item + 1 2 | Item + 2 3!!!</Text>
+
+        <Text>Number + 3 = 4 is even</Text>
+
+
+        <Text>Number + 4 5 is odd</Text>
+
+
+      <Text>Item + 1 3 | Item + 2 4!!!</Text>
+
+        <Text>Number + 3 = 5 is even</Text>
+
+
+        <Text>Number + 4 6 is odd</Text>
+
+
+    <Text>Number + 100 is 102</Text>
+
+</Column>"#;
+    assert_eq!(out, expected);
 
 }
 #[test]
@@ -580,6 +616,7 @@ fn simple() {
     let out = out.expect("Failed to deserialize");
     let expected = FragmentDiff::UpdateRegular {
         children: HashMap::from([(1.to_string(), ChildDiff::String("baz".into()))]),
+        statics: None,
     };
     assert_eq!(out, expected);
 }
@@ -612,13 +649,13 @@ fn test_decode_simple() {
     let out: Result<FragmentDiff, _> = serde_json::from_str(data);
     assert!(out.is_ok());
     let out = out.expect("Failed to deserialize");
-    let expected = FragmentDiff::ReplaceCurrent(Fragment::Regular {
+    let expected = FragmentDiff::UpdateRegular {
         children: HashMap::from([
-            ("0".into(), Child::String("foo".into())),
-            ("1".into(), Child::String("bar".into())),
+            ("0".into(), ChildDiff::String("foo".into())),
+            ("1".into(), ChildDiff::String("bar".into())),
         ]),
-        statics: Statics::Statics(vec!["a".into(), "b".into()]),
-    });
+        statics: Some(Statics::Statics(vec!["a".into(), "b".into()])),
+    };
     assert_eq!(out, expected);
 }
 
@@ -715,8 +752,10 @@ fn test_decode_component_diff() {
                 "0".into(),
                 ChildDiff::Fragment(FragmentDiff::UpdateRegular {
                     children: HashMap::from([("0".into(), ChildDiff::ComponentID(1))]),
+                    statics: None,
                 }),
             )]),
+            statics: None,
         },
         components: Some(HashMap::from([(
             "1".into(),
@@ -763,8 +802,10 @@ fn test_decode_root_diff() {
                 "0".into(),
                 ChildDiff::Fragment(FragmentDiff::UpdateRegular {
                     children: HashMap::from([("0".into(), ChildDiff::ComponentID(1))]),
+                    statics: None,
                 }),
             )]),
+            statics: None,
         },
         components: None,
     };
