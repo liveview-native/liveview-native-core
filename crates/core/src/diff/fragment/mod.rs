@@ -57,7 +57,8 @@ pub enum RenderError {
     TemplateNotFound(i32),
     ComponentNotFound(i32),
     MergeError(MergeError),
-    ChildNotFound(i32),
+    ChildNotFoundForTemplate(i32),
+    ChildNotFoundForStatic(i32),
     CousinNotFound(i32),
 }
 impl From<MergeError> for RenderError {
@@ -73,7 +74,8 @@ impl ToString for RenderError {
             RenderError::TemplateNotFound(tid) => format!("Templated ID {} not found in templates", tid),
             RenderError::ComponentNotFound(cid) => format!("Component ID {} not found in components", cid),
             RenderError::MergeError(e) => e.to_string(),
-            RenderError::ChildNotFound(child_id) => format!("Child not found for {child_id}"),
+            RenderError::ChildNotFoundForTemplate(child_id) => format!("Child {child_id} for template"),
+            RenderError::ChildNotFoundForStatic(child_id) => format!("Child {child_id} not found for static"),
             RenderError::CousinNotFound(cousin_id) => format!("Cousin not found for {cousin_id}"),
         }
     }
@@ -89,7 +91,7 @@ impl Fragment {
                         //assert!(statics.len() == children.len() + 1);
                         out.push_str(&statics[0]);
                         for i in 1..statics.len() {
-                            let child = children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFound((i - 1) as i32))?;
+                            let child = children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFoundForStatic((i - 1) as i32))?;
                             let val = child.render(components, cousin_statics.clone(), parent_templates.clone())?;
                             out.push_str(&val);
                             out.push_str(&statics[i]);
@@ -98,9 +100,11 @@ impl Fragment {
                     Statics::TemplateRef(template_id) => {
                         let templates = parent_templates.ok_or(RenderError::NoTemplates)?;
                         let template = templates.get(&(template_id.to_string())).ok_or(RenderError::TemplateNotFound(*template_id))?;
+                        //assert!(template.len() == children.len() + 1);
                         out.push_str(&template[0]);
-                        for i in 1..templates.len() {
-                            let child = children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFound((i - 1) as i32))?;
+                        for i in 1..template.len() {
+                            let child_id = i - 1;
+                            let child = children.get(&child_id.to_string()).ok_or(RenderError::ChildNotFoundForTemplate(child_id as i32))?;
                             let val = child.render(components, cousin_statics.clone(), Some(templates.clone()))?;
                             out.push_str(&val);
                             out.push_str(&template[i]);
@@ -225,7 +229,7 @@ impl Component {
 
                 out.push_str(&statics[0]);
                 for i in 1..statics.len() {
-                    let inner = self.children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFound((i - 1) as i32))?;
+                    let inner = self.children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFoundForStatic((i - 1) as i32))?;
                     let val = inner.render(components, None, None)?;
                     out.push_str(&val);
                     out.push_str(&statics[i]);
@@ -262,7 +266,7 @@ impl Component {
 
                 out.push_str(&outer_statics[0]);
                 for i in 1..outer_statics.len() {
-                    let child = self.children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFound((i - 1) as i32))?;
+                    let child = self.children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFoundForStatic((i - 1) as i32))?;
                     let cousin = cousin_component.children.get(&(i - 1).to_string()).ok_or(RenderError::CousinNotFound((i - 1) as i32))?;
 
                     let val = child.render(components, cousin.statics(), None)?;
@@ -628,8 +632,8 @@ impl FragmentMerge for Component {
     }
 }
 
-impl FragmentMerge for Option<HashMap<String, Vec<String>>> {
-    type DiffItem = Option<HashMap<String, Vec<String>>>;
+impl FragmentMerge for Templates {
+    type DiffItem = Templates;
 
     fn merge(self, diff: Self::DiffItem) -> Result<Self, MergeError> {
         match (self, diff) {
@@ -638,11 +642,14 @@ impl FragmentMerge for Option<HashMap<String, Vec<String>>> {
             (Some(template), None) => Ok(Some(template)),
             (Some(mut current), Some(new)) => {
                 for (key, val) in new.into_iter() {
+                    current.insert(key, val);
+                    /*
                     if let Some(curr) = current.get_mut(&key) {
                         curr.extend(val);
                     } else {
                         current.insert(key, val);
                     }
+                    */
                 }
                 Ok(Some(current))
             }
