@@ -50,35 +50,28 @@ impl TryInto<String> for Root {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum RenderError {
+    #[error("No components found when needed")]
     NoComponents,
+    #[error("No templates found when needed")]
     NoTemplates,
+    #[error("Templated ID {0} not found in templates")]
     TemplateNotFound(i32),
+    #[error("Component ID {0} not found in components")]
     ComponentNotFound(i32),
-    MergeError(MergeError),
+    #[error("Merge Error {0}")]
+    MergeError(#[from] MergeError),
+    #[error("Child {0} for template")]
     ChildNotFoundForTemplate(i32),
+    #[error("Child {0} not found for static")]
     ChildNotFoundForStatic(i32),
+    #[error("Cousin not found for {0}")]
     CousinNotFound(i32),
-}
-impl From<MergeError> for RenderError {
-    fn from(value: MergeError) -> Self {
-        Self::MergeError(value)
-    }
-}
-impl ToString for RenderError {
-    fn to_string(&self) -> String {
-        match self {
-            RenderError::NoComponents => "No components found when needed".into(),
-            RenderError::NoTemplates => "No templates found when needed".into(),
-            RenderError::TemplateNotFound(tid) => format!("Templated ID {} not found in templates", tid),
-            RenderError::ComponentNotFound(cid) => format!("Component ID {} not found in components", cid),
-            RenderError::MergeError(e) => e.to_string(),
-            RenderError::ChildNotFoundForTemplate(child_id) => format!("Child {child_id} for template"),
-            RenderError::ChildNotFoundForStatic(child_id) => format!("Child {child_id} not found for static"),
-            RenderError::CousinNotFound(cousin_id) => format!("Cousin not found for {cousin_id}"),
-        }
-    }
+    #[error("Serde Error {0}")]
+    SerdeError(#[from] serde_json::Error),
+    #[error("Parse Error {0}")]
+    ParseError(#[from] crate::parser::ParseError),
 }
 
 impl Fragment {
@@ -689,13 +682,18 @@ impl FragmentMerge for HashMap<String, Child> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum MergeError {
+    #[error("Fragment type mismatch")]
     FragmentTypeMismatch,
+    #[error("Create component from update")]
     CreateComponentFromUpdate,
+    #[error("Create child from update fragment")]
     CreateChildFromUpdateFragment,
+    #[error("Add child to existing")]
     AddChildToExisting,
 }
+/*
 impl ToString  for MergeError {
     fn to_string(&self) -> String {
         match self {
@@ -706,3 +704,4 @@ impl ToString  for MergeError {
         }
     }
 }
+*/

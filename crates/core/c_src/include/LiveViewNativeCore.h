@@ -72,6 +72,8 @@ extern void __liveview_native_core$Document$drop(__Document doc);
 
 extern _RustResult __liveview_native_core$Document$parse(_RustStr text,
                                                          _RustString *error);
+extern _RustResult __liveview_native_core$Document$parse_fragment_json(_RustStr text,
+                                                         _RustString *error);
 
 typedef void (*OnChangeCallback)(void *context, __ChangeType type, NodeRef node, __OptionNodeRef parent);
 

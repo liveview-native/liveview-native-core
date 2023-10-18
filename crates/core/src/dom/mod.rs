@@ -29,6 +29,7 @@ use crate::diff::fragment::{
     Root,
     RootDiff,
     MergeError,
+    RenderError,
     FragmentMerge,
 };
 
@@ -131,6 +132,16 @@ impl Document {
     /// Parses a `Document` from a string
     pub fn parse<S: AsRef<str>>(input: S) -> Result<Self, parser::ParseError> {
         parser::parse(input.as_ref())
+    }
+
+    /// Parses a `RootDiff` and returns a `Document`
+    pub fn parse_fragment_json<S: AsRef<str>>(input: S) -> Result<Self, RenderError> {
+        let fragment: RootDiff = serde_json::from_str(input.as_ref()).map_err(|e| RenderError::from(e))?;
+        let root : Root = fragment.try_into()?;
+        let rendered : String = root.clone().try_into()?;
+        let mut document = parser::parse(&rendered)?;
+        document.diff = Some(root);
+        Ok(document)
     }
 
     /// Parses a `Document` from raw bytes
