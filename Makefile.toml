@@ -345,3 +345,73 @@ private = true
 script_runner = "@duckscript"
 script = "rm -r ${CARGO_TARGET_DIR}/uniffi/swift/RustFramework.xcframework"
 
+[tasks.uniffi-swift-test]
+dependencies = [
+    "uniffi-swift-test-tvos",
+    "uniffi-swift-test-ios",
+    "uniffi-swift-test-macos",
+    "uniffi-swift-test-watchos",
+]
+[tasks.uniffi-swift-test-tvos]
+workspace = false
+category = "Packaging"
+description = "Generates the LiveViewNativeCore.xcframework package"
+command = "xcodebuild"
+args = [
+    "-scheme",
+    "LiveViewNativeCore",
+    "-destination",
+    "platform=tvOS Simulator",
+    "-workspace",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/",
+    "test"
+]
+dependencies = ["uniffi-swift-package"]
+
+[tasks.uniffi-swift-test-ios]
+workspace = false
+category = "Packaging"
+description = "Generates the LiveViewNativeCore.xcframework package"
+command = "xcodebuild"
+args = [
+    "-scheme",
+    "LiveViewNativeCore",
+    "-destination",
+    "platform=iOS Simulator",
+    "-workspace",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/",
+    "test"
+]
+dependencies = ["uniffi-swift-package"]
+
+[tasks.uniffi-swift-test-watchos]
+workspace = false
+category = "Packaging"
+description = "Generates the LiveViewNativeCore.xcframework package"
+command = "xcodebuild"
+args = [
+    "-scheme",
+    "LiveViewNativeCore",
+    "-destination",
+    "platform=watchOS Simulator",
+    "-workspace",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/",
+    "test"
+]
+dependencies = ["uniffi-swift-package"]
+
+[tasks.uniffi-swift-test-macos]
+workspace = false
+category = "Packaging"
+description = "Generates the LiveViewNativeCore.xcframework package"
+command = "xcodebuild"
+args = [
+    "-scheme",
+    "LiveViewNativeCore",
+    "-destination",
+    "platform=macOS",
+    "-workspace",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/",
+    "test"
+]
+dependencies = ["uniffi-swift-package"]

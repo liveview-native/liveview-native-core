@@ -11,7 +11,7 @@ let package = Package(
             targets: ["LiveViewNativeCore"]),
     ],
     dependencies: [
-        //.package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
         // Dependencies declare other packages that this package depends on.
         // .package(url: /* package url */, from: "1.0.0"),
     ],
