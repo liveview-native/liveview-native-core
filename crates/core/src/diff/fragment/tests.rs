@@ -102,121 +102,94 @@ fn jetpack_more_edge_cases() {
     let root = root.merge(diff).expect("Failed to merge diff into root");
     println!("ROOT: {root:#?}");
     let out : String = root.clone().try_into().expect("Failed to convert root to string");
-    println!("rendered: {out:#?}");
 }
 
 #[test]
 fn jetpack_complex() {
 let initial = r#"{
-    "0":"0",
-    "1":"0",
-    "2":"",
-    "s":[
-        "\u003cColumn\u003e\n  \u003cButton phx-click\u003d\"inc\"\u003e\n    \u003cText\u003eButton\u003c/Text\u003e\n  \u003c/Button\u003e\n  \u003cText\u003eStatic Text \u003c/Text\u003e\n  \u003cText\u003eCounter 1: ",
-        " \u003c/Text\u003e\n  \u003cText\u003eCounter 2: ",
-        " \u003c/Text\u003e\n",
-        "\n\u003c/Column\u003e"
-    ]
-}"#;
+  "0":"0",
+  "1":"0",
+  "2":"",
+  "s":[
+    "\u003cColumn\u003e\n  \u003cButton phx-click\u003d\"inc\"\u003e\n    \u003cText\u003eIncrement\u003c/Text\u003e\n  \u003c/Button\u003e\n  \u003cButton phx-click\u003d\"dec\"\u003e\n    \u003cText\u003eDecrement\u003c/Text\u003e\n  \u003c/Button\u003e\n  \u003cText\u003eStatic Text \u003c/Text\u003e\n  \u003cText\u003eCounter 1: ",
+    " \u003c/Text\u003e\n  \u003cText\u003eCounter 2: ",
+    " \u003c/Text\u003e\n",
+    "\n\u003c/Column\u003e"
+  ]
+}
+"#;
     let root: RootDiff = serde_json::from_str(initial).expect("Failed to deserialize fragment");
     println!("Rootdiff: {root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
     println!("root: {root:#?}");
     let out : String = root.clone().try_into().expect("Failed to convert root to string");
     println!("rendering: {out}");
-let increment = r#"
-{
-  "0": "1",
-  "1": "1",
-  "2": {
-    "0": {
-      "s": [
-        "\n      \u003cText\u003eItem + 1 ",
-        " | Item + 2 ",
+    let increment = r#"{
+  "0":"1",
+  "1":"1",
+  "2":{
+    "0":{
+      "s":[
+        "\n      \u003cText fontWeight\u003d\"W600\" fontSize\u003d\"24\"\u003eItem ",
         "!!!\u003c/Text\u003e\n",
         "\n",
         "\n"
       ],
-      "p": {
-        "0": [
-          "\n        \u003cText\u003eNumber + 3 \u003d ",
-          " is even\u003c/Text\u003e\n"
-        ],
-        "1": [
-          "\n        \u003cText\u003eNumber + 4 ",
-          " is odd\u003c/Text\u003e\n"
-        ]
+      "p":{
+         "0":[
+           "\n        \u003cText color\u003d\" #FFFF0000\"\u003eNumber \u003d ",
+           " + 3 is even\u003c/Text\u003e\n"
+         ],
+         "1":[
+           "\n        \u003cText\u003eNumber + 4 \u003d ",
+           " is odd\u003c/Text\u003e\n"
+           ]
       },
-      "d": [
-        [
-          "2",
-          "3",
-          {
-            "0": "4",
-            "s": 0
-          },
-          {
-            "0": "5",
-            "s": 1
-          }
-        ]
-      ]
+      "d":[["1",{"0":"1","s":0},{"0":"5","s":1}]]
     },
-    "1": "101",
-    "s": [
+    "1":"101",
+    "s":[
       "\n",
-      "\n    \u003cText\u003eNumber + 100 is ",
-      "\u003c/Text\u003e\n"
+      "\n    \u003cText\u003eNumber + 100 is ","\u003c/Text\u003e\n"
     ]
   }
-}"#;
+}
+    "#;
     let new_diff : RootDiff = serde_json::from_str(increment).expect("Failed to deserialize diff fragment");
     println!("new diff: {new_diff:#?}");
     let root = root.merge(new_diff).expect("Failed to merge new root in");
     let out : String = root.clone().try_into().expect("Failed to convert root to string");
     println!("rendering: {out}");
-    let increment = r#"{
-    "0":"2",
-    "1":"2",
-    "2":{
-        "0":{
-            "p":{
-              "0":[
-                  "\n        \u003cText\u003eNumber + 3 \u003d ",
-                  " is odd\u003c/Text\u003e\n"
-              ],
-              "1":[
-                  "\n        \u003cText\u003eNumber + 4 ",
-                  " is even\u003c/Text\u003e\n"
-              ]
-            },
-            "d": [
-                [
-                  "2",
-                  "3",
-                  {
-                    "0":"4",
-                    "s":0
-                  },
-                  {
-                    "0":"5",
-                    "s":1
-                  }
-                ],[
-                  "3",
-                  "4",
-                  {
-                    "0":"5",
-                    "s":0
-                  },{
-                    "0":"6",
-                    "s":1
-                  }
-                ]
-            ]
-        },
-        "1":"102"
-    }
+let increment = r#"{
+  "0":"2",
+  "1":"2",
+  "2":{
+    "0":{
+      "p":{
+        "0":[
+          "\n        \u003cText color\u003d\" #FFFF0000\"\u003eNumber \u003d ",
+          " + 3 is even\u003c/Text\u003e\n"
+        ],
+        "1":[
+          "\n        \u003cText\u003eNumber + 4 \u003d ",
+          " is odd\u003c/Text\u003e\n"
+        ],
+        "2":[
+          "\n        \u003cText color\u003d\" #FF0000FF\"\u003eNumber \u003d ",
+          " + 3 is odd\u003c/Text\u003e\n"
+        ],
+        "3":[
+          "\n        \u003cText\u003eNumber + 4 \u003d ",
+          " is even\u003c/Text\u003e\n"
+        ]
+      },
+      "d":[
+        ["1",{"0":"1","s":0},{"0":"5","s":1}],
+        ["2",{"0":"2","s":2},{"0":"6","s":3}]
+      ]
+    },
+    "1":"102"
+  }
 }"#;
     let new_diff : RootDiff = serde_json::from_str(increment).expect("Failed to deserialize diff fragment");
     println!("NEW_ROOT: {new_diff:#?}");
@@ -226,27 +199,30 @@ let increment = r#"
     println!("rendering: {out}");
     let expected = r#"<Column>
   <Button phx-click="inc">
-    <Text>Button</Text>
+    <Text>Increment</Text>
+  </Button>
+  <Button phx-click="dec">
+    <Text>Decrement</Text>
   </Button>
   <Text>Static Text </Text>
   <Text>Counter 1: 2 </Text>
   <Text>Counter 2: 2 </Text>
 
 
-      <Text>Item + 1 2 | Item + 2 3!!!</Text>
+      <Text fontWeight="W600" fontSize="24">Item 1!!!</Text>
 
-        <Text>Number + 3 = 4 is even</Text>
-
-
-        <Text>Number + 4 5 is odd</Text>
+        <Text color=" #FFFF0000">Number = 1 + 3 is even</Text>
 
 
-      <Text>Item + 1 3 | Item + 2 4!!!</Text>
-
-        <Text>Number + 3 = 5 is even</Text>
+        <Text>Number + 4 = 5 is odd</Text>
 
 
-        <Text>Number + 4 6 is odd</Text>
+      <Text fontWeight="W600" fontSize="24">Item 2!!!</Text>
+
+        <Text color=" #FF0000FF">Number = 2 + 3 is odd</Text>
+
+
+        <Text>Number + 4 = 6 is even</Text>
 
 
     <Text>Number + 100 is 102</Text>
