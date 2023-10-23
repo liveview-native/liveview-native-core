@@ -1,5 +1,5 @@
 namespace LiveViewNativeCore {
-      ChangeType zoom(ChangeType a);
+      //ChangeType zoom(ChangeType a);
 };
 enum ChangeType {
     "Change",
@@ -7,14 +7,49 @@ enum ChangeType {
     "Remove",
     "Replace",
 };
+
 [Error]
 enum ParseError {
-      "Reader",
-      "Tokenizer",
+    "Reader",
+    "Tokenizer",
+};
+
+[Error]
+enum RenderError {
+    "NoComponents",
+    "NoTemplates",
+    "TemplateNotFound",
+    "ComponentNotFound",
+    "MergeError",
+    "ChildNotFoundForTemplate",
+    "ChildNotFoundForStatic",
+    "CousinNotFound",
+    "SerdeError",
+    "ParseError",
 };
 
 interface Document {
     [Throws=ParseError, Name=parse]
     constructor(string input);
     string to_string();
+    [Throws=RenderError, Name=parse_fragment_json]
+    constructor(string input);
+
+    [Throws=RenderError]
+    void merge_fragment_json(
+        string json,
+        DocumentChangeHandler handler
+    );
+
+};
+
+[Trait]
+interface DocumentChangeHandler {
+    //string answer();
+    void handle(
+        string context,
+        ChangeType change_type,
+        u32 node_ref,
+        u32? option_node_ref
+    );
 };

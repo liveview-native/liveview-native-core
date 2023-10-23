@@ -67,8 +67,13 @@ use crate::diff::fragment::{
 #[derive(Clone)]
 pub struct Document {
     root: NodeRef,
+<<<<<<< HEAD
     /// The fragment template.
     pub fragment_template: Option<Root>,
+=======
+    pub(crate) diff: Option<Root>,
+    pub(crate) event_handler: Option<Arc<dyn DocumentChangeHandler>>,
+>>>>>>> 9fe873e (More work for document change handler)
     /// A map from node reference to node data
     nodes: PrimaryMap<NodeRef, Node>,
     /// A map from a node to its parent node, if it currently has one
@@ -126,23 +131,13 @@ impl Document {
             parents: SecondaryMap::new(),
             children: SecondaryMap::new(),
             ids: Default::default(),
-            fragment_template: None,
+            ..Default::default()
         }
     }
 
     /// Parses a `Document` from a string
     pub fn parse<S: AsRef<str>>(input: S) -> Result<Self, parser::ParseError> {
         parser::parse(input.as_ref())
-    }
-
-    /// Parses a `RootDiff` and returns a `Document`
-    pub fn parse_fragment_json<S: AsRef<str>>(input: S) -> Result<Self, RenderError> {
-        let fragment: RootDiff = serde_json::from_str(input.as_ref()).map_err(|e| RenderError::from(e))?;
-        let root : Root = fragment.try_into()?;
-        let rendered : String = root.clone().try_into()?;
-        let mut document = parser::parse(&rendered)?;
-        document.fragment_template = Some(root);
-        Ok(document)
     }
 
     /// Parses a `Document` from raw bytes
@@ -159,15 +154,6 @@ impl Document {
     #[inline]
     pub fn edit(&mut self) -> Editor<'_> {
         Editor::new(self)
-    }
-    pub fn merge_fragment(&mut self, root_diff: RootDiff) -> Result<(), MergeError> {
-        if let Some(root) = self.fragment_template.as_mut() {
-            *root = root.clone().merge(root_diff)?;
-        } else {
-            let new_root : Root = root_diff.try_into()?;
-            self.fragment_template = Some(new_root);
-        };
-        Ok(())
     }
 
     /// Clears all data from this document, but keeps the allocated capacity, for more efficient reuse
@@ -507,7 +493,73 @@ impl Document {
         let printer = Printer::new(self, node, options);
         printer.print(writer)
     }
+
+    pub fn merge_fragment(&mut self, root_diff: RootDiff) -> Result<Root, MergeError> {
+        let root = if let Some(root) = self.diff.as_mut() {
+            *root = root.clone().merge(root_diff)?;
+            root.clone()
+        } else {
+            let new_root : Root = root_diff.try_into()?;
+            self.diff = Some(new_root.clone());
+            new_root
+        };
+        Ok(root)
+    }
 }
+use std::sync::Arc;
+//#[uniffi::export]
+impl Document {
+    #[uniffi::constructor]
+    /// Parses a `RootDiff` and returns a `Document`
+    pub fn parse_fragment_json(input: String) -> Result<Self, RenderError> {
+        use crate::diff::fragment::{
+            Root,
+            RootDiff,
+        };
+        let fragment: RootDiff = serde_json::from_str(&input).map_err(|e| RenderError::from(e))?;
+        let root : Root = fragment.try_into()?;
+        let rendered : String = root.clone().try_into()?;
+        let mut document = crate::parser::parse(&rendered)?;
+        document.diff = Some(root);
+        Ok(document)
+    }
+
+    pub fn merge_fragment_json(
+        &self,
+        json: String,
+        handler: Arc<dyn DocumentChangeHandler>
+    ) -> Result<(), RenderError> {
+        let fragment: RootDiff = serde_json::from_str(&json).map_err(|e| RenderError::from(e))?;
+        let root : Root = fragment.try_into()?;
+
+        /*
+        let root = if let Some(root) = self.diff.as_mut() {
+            *root = root.clone().merge(fragment)?;
+            root.clone()
+        } else {
+            let new_root : Root = fragment.try_into()?;
+            self.diff = Some(new_root.clone());
+            new_root
+        };
+
+        let rendered : String = root.clone().try_into()?;
+        */
+        Ok(())
+    }
+}
+
+use crate::ffi::ChangeType;
+pub trait DocumentChangeHandler : Send + Sync + fmt::Debug {
+    //fn answer() -> String;
+    fn handle(
+        &self,
+        context: String,
+        change_type: ChangeType,
+        node_ref: u32,
+        parent: Option<u32>,
+    );
+}
+
 
 /// This trait is used to provide functionality common to construction/mutating documents
 pub trait DocumentBuilder {

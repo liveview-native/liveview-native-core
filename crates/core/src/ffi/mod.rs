@@ -232,7 +232,7 @@ pub extern "C" fn document_parse_fragment_json<'a>(
     text: RustStr<'a>,
     error: *mut RustString,
 ) -> support::RustResult {
-    match dom::Document::parse_fragment_json(text.to_str()) {
+    match dom::Document::parse_fragment_json(text.to_str().to_string()) {
         Ok(doc) => {
             let doc = Box::new(doc);
             support::RustResult {

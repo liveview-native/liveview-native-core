@@ -358,10 +358,12 @@ category = "Packaging"
 description = "Generates the LiveViewNativeCore.xcframework package"
 command = "xcodebuild"
 args = [
+    "ARCHS=x86_64",
+    "ONLY_ACTIVE_ARCH=NO",
     "-scheme",
     "LiveViewNativeCore",
     "-destination",
-    "platform=tvOS Simulator",
+    "name=Apple TV 4K (3rd generation),arch=x86_64",
     "-workspace",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/",
     "test"
@@ -377,7 +379,7 @@ args = [
     "-scheme",
     "LiveViewNativeCore",
     "-destination",
-    "platform=iOS Simulator",
+    "name=iPhone 15",
     "-workspace",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/",
     "test"
@@ -393,7 +395,7 @@ args = [
     "-scheme",
     "LiveViewNativeCore",
     "-destination",
-    "platform=watchOS Simulator",
+    "name=Apple Watch Series 9 (45mm)",
     "-workspace",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/",
     "test"
@@ -415,3 +417,19 @@ args = [
     "test"
 ]
 dependencies = ["uniffi-swift-package"]
+
+[tasks.uniffi-kotlin-generate]
+workspace = false
+category = "Packaging"
+description = ""
+command = "cargo"
+args = [
+    "run",
+    "--bin",
+    "uniffi-bindgen",
+    "--",
+    "generate",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/src/lib.udl",
+    "--language=kotlin",
+    "--out-dir=${CARGO_TARGET_DIR}/uniffi/kotlin/generated",
+]
