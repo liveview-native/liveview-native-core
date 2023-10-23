@@ -81,7 +81,6 @@ impl Fragment {
             Fragment::Regular { children, statics } => {
                 match statics {
                     Statics::Statics(statics) => {
-                        //assert!(statics.len() == children.len() + 1);
                         out.push_str(&statics[0]);
                         for i in 1..statics.len() {
                             let child = children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFoundForStatic((i - 1) as i32))?;
@@ -93,7 +92,6 @@ impl Fragment {
                     Statics::TemplateRef(template_id) => {
                         let templates = parent_templates.ok_or(RenderError::NoTemplates)?;
                         let template = templates.get(&(template_id.to_string())).ok_or(RenderError::TemplateNotFound(*template_id))?;
-                        //assert!(template.len() == children.len() + 1);
                         out.push_str(&template[0]);
                         for i in 1..template.len() {
                             let child_id = i - 1;
@@ -125,7 +123,6 @@ impl Fragment {
                     }
                     (None, Some(statics)) => {
                         for children in dynamics.into_iter() {
-                            //assert!(statics.len() == children.len() + 1);
                             out.push_str(&statics[0]);
                             for i in 1..statics.len() {
                                 let child = &children[i - 1];
@@ -140,8 +137,6 @@ impl Fragment {
                         match statics {
                             Statics::Statics(statics) => {
                                 for children in dynamics.into_iter() {
-                                    // TODO Return an error if the statics don't match
-                                    //assert!(statics.len() == children.len() + 1);
                                     out.push_str(&statics[0]);
                                     for i in 1..statics.len() {
                                         let child = &children[i - 1];
@@ -218,7 +213,6 @@ impl Component {
         match &self.statics {
             ComponentStatics::Statics(statics) => {
                 let mut out = String::new();
-                //assert!(statics.len() == self.children.len() + 1);
 
                 out.push_str(&statics[0]);
                 for i in 1..statics.len() {
@@ -255,7 +249,6 @@ impl Component {
                     }
                 }
                 let mut out = String::new();
-                //assert!(outer_statics.len() == self.children.len() + 1);
 
                 out.push_str(&outer_statics[0]);
                 for i in 1..outer_statics.len() {
