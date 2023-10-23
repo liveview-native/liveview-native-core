@@ -33,12 +33,14 @@ interface Document {
     constructor(string input);
     string to_string();
     [Throws=RenderError, Name=parse_fragment_json]
-    constructor(string input);
+    constructor(
+        string input,
+        DocumentChangeHandler handler
+    );
 
     [Throws=RenderError]
     void merge_fragment_json(
-        string json,
-        DocumentChangeHandler handler
+        string json
     );
 
 };

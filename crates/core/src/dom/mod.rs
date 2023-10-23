@@ -67,13 +67,9 @@ use crate::diff::fragment::{
 #[derive(Clone)]
 pub struct Document {
     root: NodeRef,
-<<<<<<< HEAD
     /// The fragment template.
     pub fragment_template: Option<Root>,
-=======
-    pub(crate) diff: Option<Root>,
     pub(crate) event_handler: Option<Arc<dyn DocumentChangeHandler>>,
->>>>>>> 9fe873e (More work for document change handler)
     /// A map from node reference to node data
     nodes: PrimaryMap<NodeRef, Node>,
     /// A map from a node to its parent node, if it currently has one
@@ -495,12 +491,12 @@ impl Document {
     }
 
     pub fn merge_fragment(&mut self, root_diff: RootDiff) -> Result<Root, MergeError> {
-        let root = if let Some(root) = self.diff.as_mut() {
+        let root = if let Some(root) = self.fragment_template.as_mut() {
             *root = root.clone().merge(root_diff)?;
             root.clone()
         } else {
             let new_root : Root = root_diff.try_into()?;
-            self.diff = Some(new_root.clone());
+            self.fragment_template = Some(new_root.clone());
             new_root
         };
         Ok(root)
@@ -511,7 +507,10 @@ use std::sync::Arc;
 impl Document {
     #[uniffi::constructor]
     /// Parses a `RootDiff` and returns a `Document`
-    pub fn parse_fragment_json(input: String) -> Result<Self, RenderError> {
+    pub fn parse_fragment_json(
+        input: String,
+        handler: Arc<dyn DocumentChangeHandler>
+    ) -> Result<Self, RenderError> {
         use crate::diff::fragment::{
             Root,
             RootDiff,
@@ -520,14 +519,14 @@ impl Document {
         let root : Root = fragment.try_into()?;
         let rendered : String = root.clone().try_into()?;
         let mut document = crate::parser::parse(&rendered)?;
-        document.diff = Some(root);
+        document.fragment_template = Some(root);
+        document.event_handler = Some(handler);
         Ok(document)
     }
 
     pub fn merge_fragment_json(
         &self,
         json: String,
-        handler: Arc<dyn DocumentChangeHandler>
     ) -> Result<(), RenderError> {
         let fragment: RootDiff = serde_json::from_str(&json).map_err(|e| RenderError::from(e))?;
         let root : Root = fragment.try_into()?;

@@ -227,6 +227,7 @@ pub extern "C" fn document_merge(
     }
     editor.finish();
 }
+/*
 #[export_name = "__liveview_native_core$Document$parse_fragment_json"]
 pub extern "C" fn document_parse_fragment_json<'a>(
     text: RustStr<'a>,
@@ -251,6 +252,7 @@ pub extern "C" fn document_parse_fragment_json<'a>(
         }
     }
 }
+*/
 #[export_name = "__liveview_native_core$Document$merge_fragment_json"]
 pub extern "C" fn document_merge_fragment_json<'a>(
     doc: *mut dom::Document,
