@@ -13,12 +13,9 @@ fn jetpack_more_edge_cases() {
     " \u003c/Text\u003e\n  ",
     "\n\u003c/Column\u003e"
     ]
-}
-        "#;
+}"#;
     let root: RootDiff = serde_json::from_str(initial).expect("Failed to deserialize fragment");
-    println!("Rootdiff: {root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
-    println!("root: {root:#?}");
     let increment = r#"{
   "0":"1",
   "1":"1",
@@ -51,12 +48,10 @@ fn jetpack_more_edge_cases() {
           "\u003c/Text\u003e\n  "
         ]
   }
-    }
-    "#;
+}"#;
     let diff: RootDiff = serde_json::from_str(increment).expect("Failed to deserialize fragment");
     let root = root.merge(diff).expect("Failed to merge diff into root");
-    let out : String = root.clone().try_into().expect("Failed to convert root to string");
-    println!("rendering: {out}");
+    let _out : String = root.clone().try_into().expect("Failed to convert root to string");
     let increment = r#"{
   "0":"2",
   "1":"2",
@@ -94,14 +89,10 @@ fn jetpack_more_edge_cases() {
     },
     "1":"102"
   }
-}
-    "#;
-    println!("ROOT: {root:#?}");
+}"#;
     let diff: RootDiff = serde_json::from_str(increment).expect("Failed to deserialize fragment");
-    println!("diff: {diff:#?}");
     let root = root.merge(diff).expect("Failed to merge diff into root");
-    println!("ROOT: {root:#?}");
-    let out : String = root.clone().try_into().expect("Failed to convert root to string");
+    let _out : String = root.clone().try_into().expect("Failed to convert root to string");
 }
 
 #[test]
@@ -119,11 +110,8 @@ let initial = r#"{
 }
 "#;
     let root: RootDiff = serde_json::from_str(initial).expect("Failed to deserialize fragment");
-    println!("Rootdiff: {root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
-    println!("root: {root:#?}");
-    let out : String = root.clone().try_into().expect("Failed to convert root to string");
-    println!("rendering: {out}");
+    let _out : String = root.clone().try_into().expect("Failed to convert root to string");
     let increment = r#"{
   "0":"1",
   "1":"1",
@@ -156,10 +144,8 @@ let initial = r#"{
 }
     "#;
     let new_diff : RootDiff = serde_json::from_str(increment).expect("Failed to deserialize diff fragment");
-    println!("new diff: {new_diff:#?}");
     let root = root.merge(new_diff).expect("Failed to merge new root in");
-    let out : String = root.clone().try_into().expect("Failed to convert root to string");
-    println!("rendering: {out}");
+    let _out : String = root.clone().try_into().expect("Failed to convert root to string");
 let increment = r#"{
   "0":"2",
   "1":"2",
@@ -192,11 +178,8 @@ let increment = r#"{
   }
 }"#;
     let new_diff : RootDiff = serde_json::from_str(increment).expect("Failed to deserialize diff fragment");
-    println!("NEW_ROOT: {new_diff:#?}");
     let root = root.merge(new_diff).expect("Failed to merge new root in");
-    println!("ROOT: {root:#?}");
     let out : String = root.try_into().expect("Failed to convert root to string");
-    println!("rendering: {out}");
     let expected = r#"<Column>
   <Button phx-click="inc">
     <Text>Increment</Text>
@@ -248,8 +231,7 @@ fn jetpack_simple_counter() {
     let expected_root: Root = expected_root.try_into().expect("Failed to convert RootDiff to Root");
     assert_eq!(expected_root, new_root);
 
-    let out : String = new_root.try_into().expect("Failed to convert root to string");
-    println!("diff: {out}");
+    let _out : String = new_root.try_into().expect("Failed to convert root to string");
 
     }
 #[test]
@@ -311,9 +293,7 @@ fn simple_diff_render() {
 "#;
     let root: RootDiff =
         serde_json::from_str(simple_diff1).expect("Failed to deserialize fragment");
-    println!("root diff: {root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
-    println!("root diff: {root:#?}");
     let out: String = root.try_into().expect("Failed to convert Root into string");
     assert_eq!(out, expected);
 }
@@ -333,7 +313,6 @@ fn simple_diff_merge_and_render() {
 }"#;
     let root: RootDiff =
         serde_json::from_str(simple_diff1).expect("Failed to deserialize fragment");
-    println!("root diff: {root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
     let simple_diff2 = r#"{"2": "07:15:04 PM"}"#;
     let root_diff: RootDiff =
@@ -341,7 +320,6 @@ fn simple_diff_merge_and_render() {
     let root = root
         .merge(root_diff)
         .expect("Failed to merge diff into root");
-    println!("root diff: {root:#?}");
     let out: String = root.try_into().expect("Failed to convert Root into string");
     let expected = r#"<div class="thermostat">
   <div class="bar cooling">
@@ -376,9 +354,7 @@ fn json_to_fragment_to_string() {
 "#;
     let root: RootDiff =
         serde_json::from_str(fragment_json).expect("Failed to deserialize fragment");
-    println!("{root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
-    println!("root diff: {root:#?}");
     let out: String = root.try_into().expect("Failed to convert Root into string");
 
     let expected = r#"<div>
@@ -484,11 +460,8 @@ fn fragment_with_components_with_static_component_refs() {
             ]
         }"#;
     let root: RootDiff = serde_json::from_str(input_json).expect("Failed to deserialize fragment");
-    //println!("{root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
-    println!("root diff: {root:#?}");
     let out: String = root.try_into().expect("Failed to convert Root into string");
-    println!("out: {out}");
     let expected = r#"<div>
   <Group>
 
@@ -575,11 +548,8 @@ fn fragment_with_dynamic_component() {
             ]
         }"#;
     let root: RootDiff = serde_json::from_str(input_json).expect("Failed to deserialize fragment");
-    //println!("{root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
-    println!("root diff: {root:#?}");
     let out: String = root.try_into().expect("Failed to convert Root into string");
-    println!("out: {out}");
     let expected = r#"<div>
   <Group>
 
@@ -629,7 +599,6 @@ fn deep_diff_merging() {
   }
 }"#;
     let root: RootDiff = serde_json::from_str(deep_diff1).expect("Failed to deserialize fragment");
-    println!("root - {root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
 
     let deep_diff2 = r#"{
@@ -755,7 +724,6 @@ fn test_decode_comprehension_with_templates() {
         }
         "#;
     let out: Result<FragmentDiff, _> = serde_json::from_str(data);
-    println!("{out:#?}");
     assert!(out.is_ok());
     let out = out.expect("Failed to deserialize");
     let expected = FragmentDiff::UpdateComprehension {
@@ -822,7 +790,6 @@ fn test_decode_component_diff() {
         }
         "#;
     let out: Result<RootDiff, _> = serde_json::from_str(data);
-    println!("{out:?}");
     assert!(out.is_ok());
     let out = out.expect("Failed to deserialize");
     let expected = RootDiff {
@@ -872,7 +839,6 @@ fn test_decode_root_diff() {
         }
         "#;
     let out: Result<RootDiff, _> = serde_json::from_str(data);
-    println!("{out:?}");
     assert!(out.is_ok());
     let out = out.expect("Failed to deserialize");
     let expected = RootDiff {

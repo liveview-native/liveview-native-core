@@ -5,9 +5,7 @@ pub use support::{AttributeVec, RustResult, RustSlice, RustStr, RustString};
 use crate::{
     diff::PatchResult,
     dom::{self, NodeRef},
-    diff::fragment::{
-        RootDiff, Root,
-    },
+    diff::fragment::RootDiff,
 };
 
 #[repr(C)]
