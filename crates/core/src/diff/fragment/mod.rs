@@ -331,7 +331,7 @@ impl TryFrom<FragmentDiff> for Fragment {
                 let statics = if let Some(statics) = statics {
                     statics
                 } else {
-                        Statics::Statics(vec!["".into(); new_children.len()])
+                    Statics::Statics(vec!["".into(); new_children.len()])
                 };
                 Ok(Self::Regular {
                     children: new_children,
