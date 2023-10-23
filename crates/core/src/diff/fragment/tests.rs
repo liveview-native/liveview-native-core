@@ -97,7 +97,43 @@ fn jetpack_more_edge_cases() {
 
 #[test]
 fn jetpack_complex() {
-let initial = r#"{
+    /*
+
+  The incremental diffs for this test came from this template:
+  @impl true
+  def render(%{platform_id: :jetpack} = assigns) do
+    ~JETPACK"""
+    <Column>
+      <Button phx-click="inc">
+        <Text>Increment</Text>
+      </Button>
+      <Button phx-click="dec">
+        <Text>Decrement</Text>
+      </Button>
+      <Text>Static Text </Text>
+      <Text>Counter 1: <%= @val %> </Text>
+      <Text>Counter 2: <%= @val %> </Text>
+      <%= if @val > 0 do %>
+        <%= for x <- 1..@val do %>
+          <Text fontWeight="W600" fontSize="24">Item <%= x %>!!!</Text>
+          <%= if rem(x+3,2) == 0 do %>
+            <Text color="#FFFF0000">Number = <%= x %> + 3 is even</Text>
+          <% else %>
+            <Text color="#FF0000FF">Number = <%= x %> + 3 is odd</Text>
+          <% end %>
+          <%= if rem(x+4,2) == 0 do %>
+            <Text>Number + 4 = <%= x+4 %> is even</Text>
+          <% else %>
+            <Text>Number + 4 = <%= x+4 %> is odd</Text>
+          <% end %>
+        <% end %>
+        <Text>Number + 100 is <%= @val+100 %></Text>
+      <% end %>
+    </Column>
+    """
+  end
+     */
+    let initial = r#"{
   "0":"0",
   "1":"0",
   "2":"",
