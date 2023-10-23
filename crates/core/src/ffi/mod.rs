@@ -275,17 +275,25 @@ pub extern "C" fn document_merge_fragment_json<'a>(
         }
     };
     let doc = unsafe { &mut *doc };
-    let new_root = match doc.merge_fragment(root_diff) {
-        Ok(root) => root,
-        Err(err) => {
-            unsafe {
-                error.write(RustString::from_string(err.to_string()));
-            }
-            return support::RustResult {
-                is_ok: false,
-                ok_result: std::ptr::null_mut(),
-            };
+    if let Err(err) = doc.merge_fragment(root_diff) {
+        unsafe {
+            error.write(RustString::from_string(err.to_string()));
         }
+        return support::RustResult {
+            is_ok: false,
+            ok_result: std::ptr::null_mut(),
+        };
+    }
+    let new_root = if let Some(fragment) = doc.fragment_template.clone() {
+        fragment
+    } else {
+        unsafe {
+            error.write(RustString::from_string("Fragment template is None!".to_string()));
+        }
+        return support::RustResult {
+            is_ok: false,
+            ok_result: std::ptr::null_mut(),
+        };
     };
 
     let other_doc : String = match new_root.try_into() {

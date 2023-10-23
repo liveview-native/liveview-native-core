@@ -67,7 +67,8 @@ use crate::diff::fragment::{
 #[derive(Clone)]
 pub struct Document {
     root: NodeRef,
-    diff: Option<Root>,
+    /// The fragment template.
+    pub fragment_template: Option<Root>,
     /// A map from node reference to node data
     nodes: PrimaryMap<NodeRef, Node>,
     /// A map from a node to its parent node, if it currently has one
@@ -125,7 +126,7 @@ impl Document {
             parents: SecondaryMap::new(),
             children: SecondaryMap::new(),
             ids: Default::default(),
-            diff: None,
+            fragment_template: None,
         }
     }
 
@@ -140,7 +141,7 @@ impl Document {
         let root : Root = fragment.try_into()?;
         let rendered : String = root.clone().try_into()?;
         let mut document = parser::parse(&rendered)?;
-        document.diff = Some(root);
+        document.fragment_template = Some(root);
         Ok(document)
     }
 
@@ -159,16 +160,14 @@ impl Document {
     pub fn edit(&mut self) -> Editor<'_> {
         Editor::new(self)
     }
-    pub fn merge_fragment(&mut self, root_diff: RootDiff) -> Result<Root, MergeError> {
-        let root = if let Some(root) = self.diff.as_mut() {
+    pub fn merge_fragment(&mut self, root_diff: RootDiff) -> Result<(), MergeError> {
+        if let Some(root) = self.fragment_template.as_mut() {
             *root = root.clone().merge(root_diff)?;
-            root.clone()
         } else {
             let new_root : Root = root_diff.try_into()?;
-            self.diff = Some(new_root.clone());
-            new_root
+            self.fragment_template = Some(new_root);
         };
-        Ok(root)
+        Ok(())
     }
 
     /// Clears all data from this document, but keeps the allocated capacity, for more efficient reuse

@@ -82,6 +82,9 @@ impl Fragment {
                 match statics {
                     Statics::Statics(statics) => {
                         out.push_str(&statics[0]);
+                        // We start at index 1 rather than zero here because
+                        // templates and statics are suppose to wrap the inner
+                        // contents of the children.
                         for i in 1..statics.len() {
                             let child = children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFoundForStatic((i - 1) as i32))?;
                             let val = child.render(components, cousin_statics.clone(), parent_templates.clone())?;
@@ -93,6 +96,9 @@ impl Fragment {
                         let templates = parent_templates.ok_or(RenderError::NoTemplates)?;
                         let template = templates.get(&(template_id.to_string())).ok_or(RenderError::TemplateNotFound(*template_id))?;
                         out.push_str(&template[0]);
+                        // We start at index 1 rather than zero here because
+                        // templates and statics are suppose to wrap the inner
+                        // contents of the children.
                         for i in 1..template.len() {
                             let child_id = i - 1;
                             let child = children.get(&child_id.to_string()).ok_or(RenderError::ChildNotFoundForTemplate(child_id as i32))?;
@@ -124,6 +130,9 @@ impl Fragment {
                     (None, Some(statics)) => {
                         for children in dynamics.into_iter() {
                             out.push_str(&statics[0]);
+                            // We start at index 1 rather than zero here because
+                            // templates and statics are suppose to wrap the inner
+                            // contents of the children.
                             for i in 1..statics.len() {
                                 let child = &children[i - 1];
 
@@ -138,6 +147,9 @@ impl Fragment {
                             Statics::Statics(statics) => {
                                 for children in dynamics.into_iter() {
                                     out.push_str(&statics[0]);
+                                    // We start at index 1 rather than zero here because
+                                    // templates and statics are suppose to wrap the inner
+                                    // contents of the children.
                                     for i in 1..statics.len() {
                                         let child = &children[i - 1];
 
@@ -152,6 +164,10 @@ impl Fragment {
                                     if let Some(ref template_statics) = this_template.get(&template_id.to_string()) {
                                         for children in dynamics.into_iter() {
                                             out.push_str(&template_statics[0]);
+
+                                            // We start at index 1 rather than zero here because
+                                            // templates and statics are suppose to wrap the inner
+                                            // contents of the children.
                                             for i in 1..template_statics.len() {
                                                 let child = &children[i - 1];
 
@@ -215,6 +231,9 @@ impl Component {
                 let mut out = String::new();
 
                 out.push_str(&statics[0]);
+                // We start at index 1 rather than zero here because
+                // templates and statics are suppose to wrap the inner
+                // contents of the children.
                 for i in 1..statics.len() {
                     let inner = self.children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFoundForStatic((i - 1) as i32))?;
                     let val = inner.render(components, None, None)?;
@@ -251,6 +270,9 @@ impl Component {
                 let mut out = String::new();
 
                 out.push_str(&outer_statics[0]);
+                // We start at index 1 rather than zero here because
+                // templates and statics are suppose to wrap the inner
+                // contents of the children.
                 for i in 1..outer_statics.len() {
                     let child = self.children.get(&(i - 1).to_string()).ok_or(RenderError::ChildNotFoundForStatic((i - 1) as i32))?;
                     let cousin = cousin_component.children.get(&(i - 1).to_string()).ok_or(RenderError::CousinNotFound((i - 1) as i32))?;
