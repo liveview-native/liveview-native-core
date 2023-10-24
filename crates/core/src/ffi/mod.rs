@@ -5,9 +5,7 @@ pub use support::{AttributeVec, RustResult, RustSlice, RustStr, RustString};
 use crate::{
     diff::PatchResult,
     dom::{self, NodeRef},
-    diff::fragment::{
-        RootDiff, Root,
-    },
+    diff::fragment::RootDiff,
 };
 
 #[repr(C)]
@@ -229,6 +227,30 @@ pub extern "C" fn document_merge(
     }
     editor.finish();
 }
+#[export_name = "__liveview_native_core$Document$parse_fragment_json"]
+pub extern "C" fn document_parse_fragment_json<'a>(
+    text: RustStr<'a>,
+    error: *mut RustString,
+) -> support::RustResult {
+    match dom::Document::parse_fragment_json(text.to_str()) {
+        Ok(doc) => {
+            let doc = Box::new(doc);
+            support::RustResult {
+                is_ok: true,
+                ok_result: Box::into_raw(doc) as *mut std::ffi::c_void,
+            }
+        }
+        Err(err) => {
+            unsafe {
+                error.write(RustString::from_string(err.to_string()));
+            }
+            support::RustResult {
+                is_ok: false,
+                ok_result: std::ptr::null_mut(),
+            }
+        }
+    }
+}
 #[export_name = "__liveview_native_core$Document$merge_fragment_json"]
 pub extern "C" fn document_merge_fragment_json<'a>(
     doc: *mut dom::Document,
@@ -238,8 +260,8 @@ pub extern "C" fn document_merge_fragment_json<'a>(
     error: *mut RustString,
 ) -> support::RustResult {
     let other_json = other_json.to_str();
-    let other_fragment : Result<RootDiff, _> = serde_json::from_str(other_json);
-    let other_fragment = match other_fragment {
+    let root_diff : Result<RootDiff, _> = serde_json::from_str(other_json);
+    let root_diff = match root_diff {
         Ok(fragment) => fragment,
 
         Err(err) => {
@@ -252,19 +274,29 @@ pub extern "C" fn document_merge_fragment_json<'a>(
             };
         }
     };
-    let root : Root = match other_fragment.try_into() {
-        Ok(root) => root,
-        Err(err) => {
-            unsafe {
-                error.write(RustString::from_string(err.to_string()));
-            }
-            return support::RustResult {
-                is_ok: false,
-                ok_result: std::ptr::null_mut(),
-            };
+    let doc = unsafe { &mut *doc };
+    if let Err(err) = doc.merge_fragment(root_diff) {
+        unsafe {
+            error.write(RustString::from_string(err.to_string()));
         }
+        return support::RustResult {
+            is_ok: false,
+            ok_result: std::ptr::null_mut(),
+        };
+    }
+    let new_root = if let Some(fragment) = doc.fragment_template.clone() {
+        fragment
+    } else {
+        unsafe {
+            error.write(RustString::from_string("Fragment template is None!".to_string()));
+        }
+        return support::RustResult {
+            is_ok: false,
+            ok_result: std::ptr::null_mut(),
+        };
     };
-    let other_doc : String = match root.try_into() {
+
+    let other_doc : String = match new_root.try_into() {
         Ok(rendered) => rendered,
         Err(err) => {
             unsafe {

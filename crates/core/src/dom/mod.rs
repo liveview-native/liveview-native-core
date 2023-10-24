@@ -25,6 +25,13 @@ pub use self::{
     select::{SelectionIter, Selector},
 };
 use crate::parser;
+use crate::diff::fragment::{
+    Root,
+    RootDiff,
+    MergeError,
+    RenderError,
+    FragmentMerge,
+};
 
 /// A `Document` represents a virtual DOM, and supports common operations typically performed against them.
 ///
@@ -60,6 +67,8 @@ use crate::parser;
 #[derive(Clone)]
 pub struct Document {
     root: NodeRef,
+    /// The fragment template.
+    pub fragment_template: Option<Root>,
     /// A map from node reference to node data
     nodes: PrimaryMap<NodeRef, Node>,
     /// A map from a node to its parent node, if it currently has one
@@ -117,12 +126,23 @@ impl Document {
             parents: SecondaryMap::new(),
             children: SecondaryMap::new(),
             ids: Default::default(),
+            fragment_template: None,
         }
     }
 
     /// Parses a `Document` from a string
     pub fn parse<S: AsRef<str>>(input: S) -> Result<Self, parser::ParseError> {
         parser::parse(input.as_ref())
+    }
+
+    /// Parses a `RootDiff` and returns a `Document`
+    pub fn parse_fragment_json<S: AsRef<str>>(input: S) -> Result<Self, RenderError> {
+        let fragment: RootDiff = serde_json::from_str(input.as_ref()).map_err(|e| RenderError::from(e))?;
+        let root : Root = fragment.try_into()?;
+        let rendered : String = root.clone().try_into()?;
+        let mut document = parser::parse(&rendered)?;
+        document.fragment_template = Some(root);
+        Ok(document)
     }
 
     /// Parses a `Document` from raw bytes
@@ -139,6 +159,15 @@ impl Document {
     #[inline]
     pub fn edit(&mut self) -> Editor<'_> {
         Editor::new(self)
+    }
+    pub fn merge_fragment(&mut self, root_diff: RootDiff) -> Result<(), MergeError> {
+        if let Some(root) = self.fragment_template.as_mut() {
+            *root = root.clone().merge(root_diff)?;
+        } else {
+            let new_root : Root = root_diff.try_into()?;
+            self.fragment_template = Some(new_root);
+        };
+        Ok(())
     }
 
     /// Clears all data from this document, but keeps the allocated capacity, for more efficient reuse

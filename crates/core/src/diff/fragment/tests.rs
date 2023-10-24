@@ -1,7 +1,275 @@
 use pretty_assertions::assert_eq;
 
 use super::*;
+#[test]
+fn jetpack_more_edge_cases() {
+    let initial = r#"{
+  "0":"0",
+  "1":"0",
+  "2":"",
+  "s":[
+    "<Column>\n  <Button phx-click=\"inc\">\n    <Text>Button</Text>\n  </Button>\n  <Text>Static Text </Text>\n  <Text>Counter 1: ",
+    " </Text>\n  <Text>Counter 2: ",
+    " </Text>\n  ",
+    "\n</Column>"
+    ]
+}"#;
+    let root: RootDiff = serde_json::from_str(initial).expect("Failed to deserialize fragment");
+    let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
+    let increment = r#"{
+  "0":"1",
+  "1":"1",
+  "2":{
+      "0":{
+          "s":[
+              "\n      <Text fontWeight=\"W600\" fontSize=\"24\">Item ",
+              "!!!</Text>\n      ","\n      ",
+              "\n    "
+          ],
+          "p":{
+              "0":[
+                  "\n        <Text color=\" #FFFF0000\">Number = ",
+                  " + 3 is even</Text>\n      "
+              ],
+              "1":[
+                  "\n        <Text>Number + 4 = ",
+                  " is odd</Text>\n      "
+              ]
+          },
+          "d":[[
+            "1",
+            {"0":"1","s":0},
+            {"0":"5","s":1}]]
+        },
+        "1":"101",
+        "s":[
+          "\n    ",
+          "\n    <Text>Number + 100 is ",
+          "</Text>\n  "
+        ]
+  }
+}"#;
+    let diff: RootDiff = serde_json::from_str(increment).expect("Failed to deserialize fragment");
+    let root = root.merge(diff).expect("Failed to merge diff into root");
+    let _out : String = root.clone().try_into().expect("Failed to convert root to string");
+    let increment = r#"{
+  "0":"2",
+  "1":"2",
+  "2":{
+    "0":{
+      "p":{
+        "0":[
+          "\n        <Text color=\" #FFFF0000\">Number = ",
+          " + 3 is even</Text>\n      "
+        ],
+        "1":[
+          "\n        <Text>Number + 4 = ",
+          " is odd</Text>\n      "
+        ],
+        "2":[
+          "\n        <Text color=\" #FF0000FF\">Number = ",
+          " + 3 is odd</Text>\n      "
+        ],
+        "3":[
+          "\n        <Text>Number + 4 = ",
+          " is even</Text>\n      "
+        ]
+      },
+      "d":[
+        [
+          "1",
+          {"0":"1","s":0},
+          {"0":"5","s":1}
+        ],[
+          "2",
+          {"0":"2","s":2},
+          {"0":"6","s":3}
+        ]
+      ]
+    },
+    "1":"102"
+  }
+}"#;
+    let diff: RootDiff = serde_json::from_str(increment).expect("Failed to deserialize fragment");
+    let root = root.merge(diff).expect("Failed to merge diff into root");
+    let _out : String = root.clone().try_into().expect("Failed to convert root to string");
+}
 
+#[test]
+fn jetpack_complex() {
+    /*
+
+  The incremental diffs for this test came from this template:
+  @impl true
+  def render(%{platform_id: :jetpack} = assigns) do
+    ~JETPACK"""
+    <Column>
+      <Button phx-click="inc">
+        <Text>Increment</Text>
+      </Button>
+      <Button phx-click="dec">
+        <Text>Decrement</Text>
+      </Button>
+      <Text>Static Text </Text>
+      <Text>Counter 1: <%= @val %> </Text>
+      <Text>Counter 2: <%= @val %> </Text>
+      <%= if @val > 0 do %>
+        <%= for x <- 1..@val do %>
+          <Text fontWeight="W600" fontSize="24">Item <%= x %>!!!</Text>
+          <%= if rem(x+3,2) == 0 do %>
+            <Text color="#FFFF0000">Number = <%= x %> + 3 is even</Text>
+          <% else %>
+            <Text color="#FF0000FF">Number = <%= x %> + 3 is odd</Text>
+          <% end %>
+          <%= if rem(x+4,2) == 0 do %>
+            <Text>Number + 4 = <%= x+4 %> is even</Text>
+          <% else %>
+            <Text>Number + 4 = <%= x+4 %> is odd</Text>
+          <% end %>
+        <% end %>
+        <Text>Number + 100 is <%= @val+100 %></Text>
+      <% end %>
+    </Column>
+    """
+  end
+     */
+    let initial = r#"{
+  "0":"0",
+  "1":"0",
+  "2":"",
+  "s":[
+    "<Column>\n  <Button phx-click=\"inc\">\n    <Text>Increment</Text>\n  </Button>\n  <Button phx-click=\"dec\">\n    <Text>Decrement</Text>\n  </Button>\n  <Text>Static Text </Text>\n  <Text>Counter 1: ",
+    " </Text>\n  <Text>Counter 2: ",
+    " </Text>\n",
+    "\n</Column>"
+  ]
+}
+"#;
+    let root: RootDiff = serde_json::from_str(initial).expect("Failed to deserialize fragment");
+    let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
+    let _out : String = root.clone().try_into().expect("Failed to convert root to string");
+    let increment = r#"{
+  "0":"1",
+  "1":"1",
+  "2":{
+    "0":{
+      "s":[
+        "\n      <Text fontWeight=\"W600\" fontSize=\"24\">Item ",
+        "!!!</Text>\n",
+        "\n",
+        "\n"
+      ],
+      "p":{
+         "0":[
+           "\n        <Text color=\" #FFFF0000\">Number = ",
+           " + 3 is even</Text>\n"
+         ],
+         "1":[
+           "\n        <Text>Number + 4 = ",
+           " is odd</Text>\n"
+           ]
+      },
+      "d":[["1",{"0":"1","s":0},{"0":"5","s":1}]]
+    },
+    "1":"101",
+    "s":[
+      "\n",
+      "\n    <Text>Number + 100 is ","</Text>\n"
+    ]
+  }
+}
+    "#;
+    let new_diff : RootDiff = serde_json::from_str(increment).expect("Failed to deserialize diff fragment");
+    let root = root.merge(new_diff).expect("Failed to merge new root in");
+    let _out : String = root.clone().try_into().expect("Failed to convert root to string");
+let increment = r#"{
+  "0":"2",
+  "1":"2",
+  "2":{
+    "0":{
+      "p":{
+        "0":[
+          "\n        <Text color=\" #FFFF0000\">Number = ",
+          " + 3 is even</Text>\n"
+        ],
+        "1":[
+          "\n        <Text>Number + 4 = ",
+          " is odd</Text>\n"
+        ],
+        "2":[
+          "\n        <Text color=\" #FF0000FF\">Number = ",
+          " + 3 is odd</Text>\n"
+        ],
+        "3":[
+          "\n        <Text>Number + 4 = ",
+          " is even</Text>\n"
+        ]
+      },
+      "d":[
+        ["1",{"0":"1","s":0},{"0":"5","s":1}],
+        ["2",{"0":"2","s":2},{"0":"6","s":3}]
+      ]
+    },
+    "1":"102"
+  }
+}"#;
+    let new_diff : RootDiff = serde_json::from_str(increment).expect("Failed to deserialize diff fragment");
+    let root = root.merge(new_diff).expect("Failed to merge new root in");
+    let out : String = root.try_into().expect("Failed to convert root to string");
+    let expected = r#"<Column>
+  <Button phx-click="inc">
+    <Text>Increment</Text>
+  </Button>
+  <Button phx-click="dec">
+    <Text>Decrement</Text>
+  </Button>
+  <Text>Static Text </Text>
+  <Text>Counter 1: 2 </Text>
+  <Text>Counter 2: 2 </Text>
+
+
+      <Text fontWeight="W600" fontSize="24">Item 1!!!</Text>
+
+        <Text color=" #FFFF0000">Number = 1 + 3 is even</Text>
+
+
+        <Text>Number + 4 = 5 is odd</Text>
+
+
+      <Text fontWeight="W600" fontSize="24">Item 2!!!</Text>
+
+        <Text color=" #FF0000FF">Number = 2 + 3 is odd</Text>
+
+
+        <Text>Number + 4 = 6 is even</Text>
+
+
+    <Text>Number + 100 is 102</Text>
+
+</Column>"#;
+    assert_eq!(out, expected);
+
+}
+#[test]
+fn jetpack_simple_counter() {
+    let initial_json = r#"{
+        "0":"0",
+        "s":["<Scaffold>\n  <TopAppBar>\n    <Title><Text>Hello</Text></Title>\n  </TopAppBar>\n  <Column width=\"fill\" verticalArrangement=\"center\" horizontalAlignment=\"center\">\n    <Text style=\"headlineLarge\">Title</Text>\n    <Card shape=\"8\" padding=\"16\" width=\"140\" height=\"120\" elevation=\"{'defaultElevation': '10', 'pressedElevation': '2'}\" phx-click=\"dec\">\n      <Text padding=\"16\">Hello Jetpack!</Text>\n    </Card>\n    <Spacer height=\"8\"></Spacer>\n    <Card padding=\"16\">\n      <Text padding=\"16\">Simple card</Text>\n    </Card>\n    <Button phx-click=\"navigate\" contentPadding=\"50\" elevation=\"{'defaultElevation': '20', 'pressedElevation': '10'}\">\n      <Text>Navigate to counter</Text>\n    </Button>\n    <Button phx-click=\"redirect\"><Text>Redirect to counter</Text></Button>\n    <IconButton phx-click=\"inc\" colors=\"{'containerColor': '#FFFF0000', 'contentColor': '#FFFFFFFF'}\">\n      <Icon imageVector=\"filled:Add\"></Icon>\n    </IconButton>\n    <Row verticalAlignment=\"center\">\n      <Button phx-click=\"dec\" shape=\"circle\" size=\"60\">\n        <Text>-</Text>\n      </Button>\n      <Text>This counter: ","</Text>\n      <Button phx-click=\"inc\" shape=\"circle\" size=\"60\"><Text>+</Text></Button>\n    </Row>\n  </Column>\n</Scaffold>"]}"#;
+    let root: RootDiff = serde_json::from_str(initial_json).expect("Failed to deserialize fragment");
+    let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
+    let increment_diff = r#"{"0": "1"}"#;
+    let other_root : RootDiff = serde_json::from_str(increment_diff).expect("Failed to deserialize diff fragment");
+    let new_root = root.merge(other_root).expect("Failed to merge new root in");
+    let expected_root = r#"{
+        "0":"1",
+        "s":["<Scaffold>\n  <TopAppBar>\n    <Title><Text>Hello</Text></Title>\n  </TopAppBar>\n  <Column width=\"fill\" verticalArrangement=\"center\" horizontalAlignment=\"center\">\n    <Text style=\"headlineLarge\">Title</Text>\n    <Card shape=\"8\" padding=\"16\" width=\"140\" height=\"120\" elevation=\"{'defaultElevation': '10', 'pressedElevation': '2'}\" phx-click=\"dec\">\n      <Text padding=\"16\">Hello Jetpack!</Text>\n    </Card>\n    <Spacer height=\"8\"></Spacer>\n    <Card padding=\"16\">\n      <Text padding=\"16\">Simple card</Text>\n    </Card>\n    <Button phx-click=\"navigate\" contentPadding=\"50\" elevation=\"{'defaultElevation': '20', 'pressedElevation': '10'}\">\n      <Text>Navigate to counter</Text>\n    </Button>\n    <Button phx-click=\"redirect\"><Text>Redirect to counter</Text></Button>\n    <IconButton phx-click=\"inc\" colors=\"{'containerColor': '#FFFF0000', 'contentColor': '#FFFFFFFF'}\">\n      <Icon imageVector=\"filled:Add\"></Icon>\n    </IconButton>\n    <Row verticalAlignment=\"center\">\n      <Button phx-click=\"dec\" shape=\"circle\" size=\"60\">\n        <Text>-</Text>\n      </Button>\n      <Text>This counter: ","</Text>\n      <Button phx-click=\"inc\" shape=\"circle\" size=\"60\"><Text>+</Text></Button>\n    </Row>\n  </Column>\n</Scaffold>"]}"#;
+    let expected_root: RootDiff = serde_json::from_str(expected_root).expect("Failed to deserialize fragment");
+    let expected_root: Root = expected_root.try_into().expect("Failed to convert RootDiff to Root");
+    assert_eq!(expected_root, new_root);
+
+    let _out : String = new_root.try_into().expect("Failed to convert root to string");
+
+    }
 #[test]
 fn test_replace() {
     let current = Fragment::Regular {
@@ -61,9 +329,7 @@ fn simple_diff_render() {
 "#;
     let root: RootDiff =
         serde_json::from_str(simple_diff1).expect("Failed to deserialize fragment");
-    println!("root diff: {root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
-    println!("root diff: {root:#?}");
     let out: String = root.try_into().expect("Failed to convert Root into string");
     assert_eq!(out, expected);
 }
@@ -83,7 +349,6 @@ fn simple_diff_merge_and_render() {
 }"#;
     let root: RootDiff =
         serde_json::from_str(simple_diff1).expect("Failed to deserialize fragment");
-    println!("root diff: {root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
     let simple_diff2 = r#"{"2": "07:15:04 PM"}"#;
     let root_diff: RootDiff =
@@ -91,7 +356,6 @@ fn simple_diff_merge_and_render() {
     let root = root
         .merge(root_diff)
         .expect("Failed to merge diff into root");
-    println!("root diff: {root:#?}");
     let out: String = root.try_into().expect("Failed to convert Root into string");
     let expected = r#"<div class="thermostat">
   <div class="bar cooling">
@@ -126,9 +390,7 @@ fn json_to_fragment_to_string() {
 "#;
     let root: RootDiff =
         serde_json::from_str(fragment_json).expect("Failed to deserialize fragment");
-    println!("{root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
-    println!("root diff: {root:#?}");
     let out: String = root.try_into().expect("Failed to convert Root into string");
 
     let expected = r#"<div>
@@ -234,11 +496,8 @@ fn fragment_with_components_with_static_component_refs() {
             ]
         }"#;
     let root: RootDiff = serde_json::from_str(input_json).expect("Failed to deserialize fragment");
-    //println!("{root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
-    println!("root diff: {root:#?}");
     let out: String = root.try_into().expect("Failed to convert Root into string");
-    println!("out: {out}");
     let expected = r#"<div>
   <Group>
 
@@ -325,11 +584,8 @@ fn fragment_with_dynamic_component() {
             ]
         }"#;
     let root: RootDiff = serde_json::from_str(input_json).expect("Failed to deserialize fragment");
-    //println!("{root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
-    println!("root diff: {root:#?}");
     let out: String = root.try_into().expect("Failed to convert Root into string");
-    println!("out: {out}");
     let expected = r#"<div>
   <Group>
 
@@ -379,7 +635,6 @@ fn deep_diff_merging() {
   }
 }"#;
     let root: RootDiff = serde_json::from_str(deep_diff1).expect("Failed to deserialize fragment");
-    println!("root - {root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
 
     let deep_diff2 = r#"{
@@ -445,6 +700,7 @@ fn simple() {
     let out = out.expect("Failed to deserialize");
     let expected = FragmentDiff::UpdateRegular {
         children: HashMap::from([(1.to_string(), ChildDiff::String("baz".into()))]),
+        statics: None,
     };
     assert_eq!(out, expected);
 }
@@ -477,13 +733,13 @@ fn test_decode_simple() {
     let out: Result<FragmentDiff, _> = serde_json::from_str(data);
     assert!(out.is_ok());
     let out = out.expect("Failed to deserialize");
-    let expected = FragmentDiff::ReplaceCurrent(Fragment::Regular {
+    let expected = FragmentDiff::UpdateRegular {
         children: HashMap::from([
-            ("0".into(), Child::String("foo".into())),
-            ("1".into(), Child::String("bar".into())),
+            ("0".into(), ChildDiff::String("foo".into())),
+            ("1".into(), ChildDiff::String("bar".into())),
         ]),
-        statics: Statics::Statics(vec!["a".into(), "b".into()]),
-    });
+        statics: Some(Statics::Statics(vec!["a".into(), "b".into()])),
+    };
     assert_eq!(out, expected);
 }
 
@@ -504,7 +760,6 @@ fn test_decode_comprehension_with_templates() {
         }
         "#;
     let out: Result<FragmentDiff, _> = serde_json::from_str(data);
-    println!("{out:#?}");
     assert!(out.is_ok());
     let out = out.expect("Failed to deserialize");
     let expected = FragmentDiff::UpdateComprehension {
@@ -571,7 +826,6 @@ fn test_decode_component_diff() {
         }
         "#;
     let out: Result<RootDiff, _> = serde_json::from_str(data);
-    println!("{out:?}");
     assert!(out.is_ok());
     let out = out.expect("Failed to deserialize");
     let expected = RootDiff {
@@ -580,8 +834,10 @@ fn test_decode_component_diff() {
                 "0".into(),
                 ChildDiff::Fragment(FragmentDiff::UpdateRegular {
                     children: HashMap::from([("0".into(), ChildDiff::ComponentID(1))]),
+                    statics: None,
                 }),
             )]),
+            statics: None,
         },
         components: Some(HashMap::from([(
             "1".into(),
@@ -619,7 +875,6 @@ fn test_decode_root_diff() {
         }
         "#;
     let out: Result<RootDiff, _> = serde_json::from_str(data);
-    println!("{out:?}");
     assert!(out.is_ok());
     let out = out.expect("Failed to deserialize");
     let expected = RootDiff {
@@ -628,8 +883,10 @@ fn test_decode_root_diff() {
                 "0".into(),
                 ChildDiff::Fragment(FragmentDiff::UpdateRegular {
                     children: HashMap::from([("0".into(), ChildDiff::ComponentID(1))]),
+                    statics: None,
                 }),
             )]),
+            statics: None,
         },
         components: None,
     };
