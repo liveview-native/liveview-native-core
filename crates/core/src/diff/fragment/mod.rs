@@ -651,13 +651,6 @@ impl FragmentMerge for Templates {
             (Some(mut current), Some(new)) => {
                 for (key, val) in new.into_iter() {
                     current.insert(key, val);
-                    /*
-                    if let Some(curr) = current.get_mut(&key) {
-                        curr.extend(val);
-                    } else {
-                        current.insert(key, val);
-                    }
-                    */
                 }
                 Ok(Some(current))
             }
