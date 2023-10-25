@@ -8,10 +8,10 @@ fn jetpack_more_edge_cases() {
   "1":"0",
   "2":"",
   "s":[
-    "\u003cColumn\u003e\n  \u003cButton phx-click\u003d\"inc\"\u003e\n    \u003cText\u003eButton\u003c/Text\u003e\n  \u003c/Button\u003e\n  \u003cText\u003eStatic Text \u003c/Text\u003e\n  \u003cText\u003eCounter 1: ",
-    " \u003c/Text\u003e\n  \u003cText\u003eCounter 2: ",
-    " \u003c/Text\u003e\n  ",
-    "\n\u003c/Column\u003e"
+    "<Column>\n  <Button phx-click=\"inc\">\n    <Text>Button</Text>\n  </Button>\n  <Text>Static Text </Text>\n  <Text>Counter 1: ",
+    " </Text>\n  <Text>Counter 2: ",
+    " </Text>\n  ",
+    "\n</Column>"
     ]
 }"#;
     let root: RootDiff = serde_json::from_str(initial).expect("Failed to deserialize fragment");
@@ -22,18 +22,18 @@ fn jetpack_more_edge_cases() {
   "2":{
       "0":{
           "s":[
-              "\n      \u003cText fontWeight\u003d\"W600\" fontSize\u003d\"24\"\u003eItem ",
-              "!!!\u003c/Text\u003e\n      ","\n      ",
+              "\n      <Text fontWeight=\"W600\" fontSize=\"24\">Item ",
+              "!!!</Text>\n      ","\n      ",
               "\n    "
           ],
           "p":{
               "0":[
-                  "\n        \u003cText color\u003d\" #FFFF0000\"\u003eNumber \u003d ",
-                  " + 3 is even\u003c/Text\u003e\n      "
+                  "\n        <Text color=\" #FFFF0000\">Number = ",
+                  " + 3 is even</Text>\n      "
               ],
               "1":[
-                  "\n        \u003cText\u003eNumber + 4 \u003d ",
-                  " is odd\u003c/Text\u003e\n      "
+                  "\n        <Text>Number + 4 = ",
+                  " is odd</Text>\n      "
               ]
           },
           "d":[[
@@ -44,8 +44,8 @@ fn jetpack_more_edge_cases() {
         "1":"101",
         "s":[
           "\n    ",
-          "\n    \u003cText\u003eNumber + 100 is ",
-          "\u003c/Text\u003e\n  "
+          "\n    <Text>Number + 100 is ",
+          "</Text>\n  "
         ]
   }
 }"#;
@@ -59,20 +59,20 @@ fn jetpack_more_edge_cases() {
     "0":{
       "p":{
         "0":[
-          "\n        \u003cText color\u003d\" #FFFF0000\"\u003eNumber \u003d ",
-          " + 3 is even\u003c/Text\u003e\n      "
+          "\n        <Text color=\" #FFFF0000\">Number = ",
+          " + 3 is even</Text>\n      "
         ],
         "1":[
-          "\n        \u003cText\u003eNumber + 4 \u003d ",
-          " is odd\u003c/Text\u003e\n      "
+          "\n        <Text>Number + 4 = ",
+          " is odd</Text>\n      "
         ],
         "2":[
-          "\n        \u003cText color\u003d\" #FF0000FF\"\u003eNumber \u003d ",
-          " + 3 is odd\u003c/Text\u003e\n      "
+          "\n        <Text color=\" #FF0000FF\">Number = ",
+          " + 3 is odd</Text>\n      "
         ],
         "3":[
-          "\n        \u003cText\u003eNumber + 4 \u003d ",
-          " is even\u003c/Text\u003e\n      "
+          "\n        <Text>Number + 4 = ",
+          " is even</Text>\n      "
         ]
       },
       "d":[
@@ -138,10 +138,10 @@ fn jetpack_complex() {
   "1":"0",
   "2":"",
   "s":[
-    "\u003cColumn\u003e\n  \u003cButton phx-click\u003d\"inc\"\u003e\n    \u003cText\u003eIncrement\u003c/Text\u003e\n  \u003c/Button\u003e\n  \u003cButton phx-click\u003d\"dec\"\u003e\n    \u003cText\u003eDecrement\u003c/Text\u003e\n  \u003c/Button\u003e\n  \u003cText\u003eStatic Text \u003c/Text\u003e\n  \u003cText\u003eCounter 1: ",
-    " \u003c/Text\u003e\n  \u003cText\u003eCounter 2: ",
-    " \u003c/Text\u003e\n",
-    "\n\u003c/Column\u003e"
+    "<Column>\n  <Button phx-click=\"inc\">\n    <Text>Increment</Text>\n  </Button>\n  <Button phx-click=\"dec\">\n    <Text>Decrement</Text>\n  </Button>\n  <Text>Static Text </Text>\n  <Text>Counter 1: ",
+    " </Text>\n  <Text>Counter 2: ",
+    " </Text>\n",
+    "\n</Column>"
   ]
 }
 "#;
@@ -154,19 +154,19 @@ fn jetpack_complex() {
   "2":{
     "0":{
       "s":[
-        "\n      \u003cText fontWeight\u003d\"W600\" fontSize\u003d\"24\"\u003eItem ",
-        "!!!\u003c/Text\u003e\n",
+        "\n      <Text fontWeight=\"W600\" fontSize=\"24\">Item ",
+        "!!!</Text>\n",
         "\n",
         "\n"
       ],
       "p":{
          "0":[
-           "\n        \u003cText color\u003d\" #FFFF0000\"\u003eNumber \u003d ",
-           " + 3 is even\u003c/Text\u003e\n"
+           "\n        <Text color=\" #FFFF0000\">Number = ",
+           " + 3 is even</Text>\n"
          ],
          "1":[
-           "\n        \u003cText\u003eNumber + 4 \u003d ",
-           " is odd\u003c/Text\u003e\n"
+           "\n        <Text>Number + 4 = ",
+           " is odd</Text>\n"
            ]
       },
       "d":[["1",{"0":"1","s":0},{"0":"5","s":1}]]
@@ -174,7 +174,7 @@ fn jetpack_complex() {
     "1":"101",
     "s":[
       "\n",
-      "\n    \u003cText\u003eNumber + 100 is ","\u003c/Text\u003e\n"
+      "\n    <Text>Number + 100 is ","</Text>\n"
     ]
   }
 }
@@ -189,20 +189,20 @@ let increment = r#"{
     "0":{
       "p":{
         "0":[
-          "\n        \u003cText color\u003d\" #FFFF0000\"\u003eNumber \u003d ",
-          " + 3 is even\u003c/Text\u003e\n"
+          "\n        <Text color=\" #FFFF0000\">Number = ",
+          " + 3 is even</Text>\n"
         ],
         "1":[
-          "\n        \u003cText\u003eNumber + 4 \u003d ",
-          " is odd\u003c/Text\u003e\n"
+          "\n        <Text>Number + 4 = ",
+          " is odd</Text>\n"
         ],
         "2":[
-          "\n        \u003cText color\u003d\" #FF0000FF\"\u003eNumber \u003d ",
-          " + 3 is odd\u003c/Text\u003e\n"
+          "\n        <Text color=\" #FF0000FF\">Number = ",
+          " + 3 is odd</Text>\n"
         ],
         "3":[
-          "\n        \u003cText\u003eNumber + 4 \u003d ",
-          " is even\u003c/Text\u003e\n"
+          "\n        <Text>Number + 4 = ",
+          " is even</Text>\n"
         ]
       },
       "d":[
@@ -254,7 +254,7 @@ let increment = r#"{
 fn jetpack_simple_counter() {
     let initial_json = r#"{
         "0":"0",
-        "s":["\u003cScaffold\u003e\n  \u003cTopAppBar\u003e\n    \u003cTitle\u003e\u003cText\u003eHello\u003c/Text\u003e\u003c/Title\u003e\n  \u003c/TopAppBar\u003e\n  \u003cColumn width\u003d\"fill\" verticalArrangement\u003d\"center\" horizontalAlignment\u003d\"center\"\u003e\n    \u003cText style\u003d\"headlineLarge\"\u003eTitle\u003c/Text\u003e\n    \u003cCard shape\u003d\"8\" padding\u003d\"16\" width\u003d\"140\" height\u003d\"120\" elevation\u003d\"{\u0027defaultElevation\u0027: \u002710\u0027, \u0027pressedElevation\u0027: \u00272\u0027}\" phx-click\u003d\"dec\"\u003e\n      \u003cText padding\u003d\"16\"\u003eHello Jetpack!\u003c/Text\u003e\n    \u003c/Card\u003e\n    \u003cSpacer height\u003d\"8\"\u003e\u003c/Spacer\u003e\n    \u003cCard padding\u003d\"16\"\u003e\n      \u003cText padding\u003d\"16\"\u003eSimple card\u003c/Text\u003e\n    \u003c/Card\u003e\n    \u003cButton phx-click\u003d\"navigate\" contentPadding\u003d\"50\" elevation\u003d\"{\u0027defaultElevation\u0027: \u002720\u0027, \u0027pressedElevation\u0027: \u002710\u0027}\"\u003e\n      \u003cText\u003eNavigate to counter\u003c/Text\u003e\n    \u003c/Button\u003e\n    \u003cButton phx-click\u003d\"redirect\"\u003e\u003cText\u003eRedirect to counter\u003c/Text\u003e\u003c/Button\u003e\n    \u003cIconButton phx-click\u003d\"inc\" colors\u003d\"{\u0027containerColor\u0027: \u0027#FFFF0000\u0027, \u0027contentColor\u0027: \u0027#FFFFFFFF\u0027}\"\u003e\n      \u003cIcon imageVector\u003d\"filled:Add\"\u003e\u003c/Icon\u003e\n    \u003c/IconButton\u003e\n    \u003cRow verticalAlignment\u003d\"center\"\u003e\n      \u003cButton phx-click\u003d\"dec\" shape\u003d\"circle\" size\u003d\"60\"\u003e\n        \u003cText\u003e-\u003c/Text\u003e\n      \u003c/Button\u003e\n      \u003cText\u003eThis counter: ","\u003c/Text\u003e\n      \u003cButton phx-click\u003d\"inc\" shape\u003d\"circle\" size\u003d\"60\"\u003e\u003cText\u003e+\u003c/Text\u003e\u003c/Button\u003e\n    \u003c/Row\u003e\n  \u003c/Column\u003e\n\u003c/Scaffold\u003e"]}"#;
+        "s":["<Scaffold>\n  <TopAppBar>\n    <Title><Text>Hello</Text></Title>\n  </TopAppBar>\n  <Column width=\"fill\" verticalArrangement=\"center\" horizontalAlignment=\"center\">\n    <Text style=\"headlineLarge\">Title</Text>\n    <Card shape=\"8\" padding=\"16\" width=\"140\" height=\"120\" elevation=\"{'defaultElevation': '10', 'pressedElevation': '2'}\" phx-click=\"dec\">\n      <Text padding=\"16\">Hello Jetpack!</Text>\n    </Card>\n    <Spacer height=\"8\"></Spacer>\n    <Card padding=\"16\">\n      <Text padding=\"16\">Simple card</Text>\n    </Card>\n    <Button phx-click=\"navigate\" contentPadding=\"50\" elevation=\"{'defaultElevation': '20', 'pressedElevation': '10'}\">\n      <Text>Navigate to counter</Text>\n    </Button>\n    <Button phx-click=\"redirect\"><Text>Redirect to counter</Text></Button>\n    <IconButton phx-click=\"inc\" colors=\"{'containerColor': '#FFFF0000', 'contentColor': '#FFFFFFFF'}\">\n      <Icon imageVector=\"filled:Add\"></Icon>\n    </IconButton>\n    <Row verticalAlignment=\"center\">\n      <Button phx-click=\"dec\" shape=\"circle\" size=\"60\">\n        <Text>-</Text>\n      </Button>\n      <Text>This counter: ","</Text>\n      <Button phx-click=\"inc\" shape=\"circle\" size=\"60\"><Text>+</Text></Button>\n    </Row>\n  </Column>\n</Scaffold>"]}"#;
     let root: RootDiff = serde_json::from_str(initial_json).expect("Failed to deserialize fragment");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
     let increment_diff = r#"{"0": "1"}"#;
@@ -262,7 +262,7 @@ fn jetpack_simple_counter() {
     let new_root = root.merge(other_root).expect("Failed to merge new root in");
     let expected_root = r#"{
         "0":"1",
-        "s":["\u003cScaffold\u003e\n  \u003cTopAppBar\u003e\n    \u003cTitle\u003e\u003cText\u003eHello\u003c/Text\u003e\u003c/Title\u003e\n  \u003c/TopAppBar\u003e\n  \u003cColumn width\u003d\"fill\" verticalArrangement\u003d\"center\" horizontalAlignment\u003d\"center\"\u003e\n    \u003cText style\u003d\"headlineLarge\"\u003eTitle\u003c/Text\u003e\n    \u003cCard shape\u003d\"8\" padding\u003d\"16\" width\u003d\"140\" height\u003d\"120\" elevation\u003d\"{\u0027defaultElevation\u0027: \u002710\u0027, \u0027pressedElevation\u0027: \u00272\u0027}\" phx-click\u003d\"dec\"\u003e\n      \u003cText padding\u003d\"16\"\u003eHello Jetpack!\u003c/Text\u003e\n    \u003c/Card\u003e\n    \u003cSpacer height\u003d\"8\"\u003e\u003c/Spacer\u003e\n    \u003cCard padding\u003d\"16\"\u003e\n      \u003cText padding\u003d\"16\"\u003eSimple card\u003c/Text\u003e\n    \u003c/Card\u003e\n    \u003cButton phx-click\u003d\"navigate\" contentPadding\u003d\"50\" elevation\u003d\"{\u0027defaultElevation\u0027: \u002720\u0027, \u0027pressedElevation\u0027: \u002710\u0027}\"\u003e\n      \u003cText\u003eNavigate to counter\u003c/Text\u003e\n    \u003c/Button\u003e\n    \u003cButton phx-click\u003d\"redirect\"\u003e\u003cText\u003eRedirect to counter\u003c/Text\u003e\u003c/Button\u003e\n    \u003cIconButton phx-click\u003d\"inc\" colors\u003d\"{\u0027containerColor\u0027: \u0027#FFFF0000\u0027, \u0027contentColor\u0027: \u0027#FFFFFFFF\u0027}\"\u003e\n      \u003cIcon imageVector\u003d\"filled:Add\"\u003e\u003c/Icon\u003e\n    \u003c/IconButton\u003e\n    \u003cRow verticalAlignment\u003d\"center\"\u003e\n      \u003cButton phx-click\u003d\"dec\" shape\u003d\"circle\" size\u003d\"60\"\u003e\n        \u003cText\u003e-\u003c/Text\u003e\n      \u003c/Button\u003e\n      \u003cText\u003eThis counter: ","\u003c/Text\u003e\n      \u003cButton phx-click\u003d\"inc\" shape\u003d\"circle\" size\u003d\"60\"\u003e\u003cText\u003e+\u003c/Text\u003e\u003c/Button\u003e\n    \u003c/Row\u003e\n  \u003c/Column\u003e\n\u003c/Scaffold\u003e"]}"#;
+        "s":["<Scaffold>\n  <TopAppBar>\n    <Title><Text>Hello</Text></Title>\n  </TopAppBar>\n  <Column width=\"fill\" verticalArrangement=\"center\" horizontalAlignment=\"center\">\n    <Text style=\"headlineLarge\">Title</Text>\n    <Card shape=\"8\" padding=\"16\" width=\"140\" height=\"120\" elevation=\"{'defaultElevation': '10', 'pressedElevation': '2'}\" phx-click=\"dec\">\n      <Text padding=\"16\">Hello Jetpack!</Text>\n    </Card>\n    <Spacer height=\"8\"></Spacer>\n    <Card padding=\"16\">\n      <Text padding=\"16\">Simple card</Text>\n    </Card>\n    <Button phx-click=\"navigate\" contentPadding=\"50\" elevation=\"{'defaultElevation': '20', 'pressedElevation': '10'}\">\n      <Text>Navigate to counter</Text>\n    </Button>\n    <Button phx-click=\"redirect\"><Text>Redirect to counter</Text></Button>\n    <IconButton phx-click=\"inc\" colors=\"{'containerColor': '#FFFF0000', 'contentColor': '#FFFFFFFF'}\">\n      <Icon imageVector=\"filled:Add\"></Icon>\n    </IconButton>\n    <Row verticalAlignment=\"center\">\n      <Button phx-click=\"dec\" shape=\"circle\" size=\"60\">\n        <Text>-</Text>\n      </Button>\n      <Text>This counter: ","</Text>\n      <Button phx-click=\"inc\" shape=\"circle\" size=\"60\"><Text>+</Text></Button>\n    </Row>\n  </Column>\n</Scaffold>"]}"#;
     let expected_root: RootDiff = serde_json::from_str(expected_root).expect("Failed to deserialize fragment");
     let expected_root: Root = expected_root.try_into().expect("Failed to convert RootDiff to Root");
     assert_eq!(expected_root, new_root);

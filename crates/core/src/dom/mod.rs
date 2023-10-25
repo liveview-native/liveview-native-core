@@ -136,6 +136,7 @@ impl Document {
         parser::parse(input.as_ref())
     }
 
+
     /// Parses a `Document` from raw bytes
     pub fn parse_bytes<B: AsRef<[u8]>>(input: B) -> Result<Self, parser::ParseError> {
         parser::parse(input.as_ref())
