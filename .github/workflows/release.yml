@@ -1,0 +1,92 @@
+name: xcframework-release
+
+on:
+  - workflow_dispatch
+  - push
+
+env:
+  CARGO_TERM_COLOR: always
+  TOOLCHAIN: nightly
+  CARGO_MAKE_PROFILE: dev
+
+jobs:
+  release-xcframework:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust Nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          default: true
+
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/git
+            ~/.cargo/registry
+            target
+          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-make
+
+      - name: set profile
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          echo "CARGO_MAKE_PROFILE=release" >> $GITHUB_ENV
+
+      - name: Build XCFramework
+        uses: actions-rs/cargo@v1
+        with:
+          command: make
+          args: xcframework
+
+      - uses: actions/upload-artifact@v3
+        with:
+          retention-days: 5
+          name: liveview_native_core.xcframework
+          path: target/swift/liveview_native_core.xcframework
+
+      - uses: actions/github-script@v6
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            let release
+            try {
+              release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: 'nightly'
+              })
+            } catch(e) {
+              console.error(e)
+              return
+            }
+
+            await github.rest.repos.deleteRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.data.id
+            })
+
+            await github.rest.git.deleteRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'tags/nightly'
+            })
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: github.ref == 'refs/heads/main'
+        with:
+          files: liveview_native_core.xcframework
+          name: nightly
+          tag_name: nightly
