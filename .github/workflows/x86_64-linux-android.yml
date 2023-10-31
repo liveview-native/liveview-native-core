@@ -116,7 +116,8 @@ jobs:
           ${ANDROID_HOME}/platform-tools/adb start-server
           echo "Starting Emulator"
           ${ANDROID_HOME}/emulator/emulator -avd AVD -netdelay none -netspeed full -no-boot-anim -no-window -noaudio -accel auto -verbose &
-          ${ANDROID_HOME}/platform-tools/adb wait-for-device
+          ${ANDROID_HOME}/platform-tools/adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed | tr -d '\r') ]]; do sleep 1; done; input keyevent 82'
+          ${ANDROID_HOME}/platform-tools/adb devices
 
       - name: Test phoenix_channel_clients with cargo-tai
         run: |
