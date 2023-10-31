@@ -16,8 +16,10 @@ pub use self::interner::{symbols, InternedString, Symbol};
 
 uniffi::include_scaffolding!("lib");
 use crate::ffi::ChangeType;
+
 use crate::dom::DocumentChangeHandler;
-use crate::dom::Document;
+use crate::dom::FFiDocument as Document;
+
 use crate::parser::ParseError;
 use crate::diff::fragment::RenderError;
 

@@ -5,7 +5,10 @@ pub use support::{AttributeVec, RustResult, RustSlice, RustStr, RustString};
 use crate::{
     diff::PatchResult,
     dom::{self, NodeRef},
-    diff::fragment::RootDiff,
+    diff::fragment::{
+        RootDiff,
+        Root,
+    },
 };
 
 #[repr(C)]
@@ -227,6 +230,7 @@ pub extern "C" fn document_merge(
     }
     editor.finish();
 }
+/*
 #[export_name = "__liveview_native_core$Document$parse_fragment_json"]
 pub extern "C" fn document_parse_fragment_json<'a>(
     text: RustStr<'a>,
@@ -251,6 +255,7 @@ pub extern "C" fn document_parse_fragment_json<'a>(
         }
     }
 }
+*/
 #[export_name = "__liveview_native_core$Document$merge_fragment_json"]
 pub extern "C" fn document_merge_fragment_json<'a>(
     doc: *mut dom::Document,
@@ -295,7 +300,7 @@ pub extern "C" fn document_merge_fragment_json<'a>(
             ok_result: std::ptr::null_mut(),
         };
     };
-
+    let new_root : Root = new_root.lock().expect("Failed to get lock").clone();
     let other_doc : String = match new_root.try_into() {
         Ok(rendered) => rendered,
         Err(err) => {

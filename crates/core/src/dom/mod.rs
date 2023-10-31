@@ -32,6 +32,11 @@ use crate::diff::fragment::{
     RenderError,
     FragmentMerge,
 };
+use std::sync::{
+    Arc,
+    RwLock,
+    Mutex,
+};
 
 /// A `Document` represents a virtual DOM, and supports common operations typically performed against them.
 ///
@@ -68,8 +73,7 @@ use crate::diff::fragment::{
 pub struct Document {
     root: NodeRef,
     /// The fragment template.
-    pub fragment_template: Option<Root>,
-    pub(crate) event_handler: Option<Arc<dyn DocumentChangeHandler>>,
+    pub fragment_template: Option<Arc<Mutex<Root>>>,
     /// A map from node reference to node data
     nodes: PrimaryMap<NodeRef, Node>,
     /// A map from a node to its parent node, if it currently has one
@@ -127,7 +131,7 @@ impl Document {
             parents: SecondaryMap::new(),
             children: SecondaryMap::new(),
             ids: Default::default(),
-            ..Default::default()
+            fragment_template: None,
         }
     }
 
@@ -492,59 +496,139 @@ impl Document {
     }
 
     pub fn merge_fragment(&mut self, root_diff: RootDiff) -> Result<Root, MergeError> {
-        let root = if let Some(root) = self.fragment_template.as_mut() {
+        let root = if let Some(root) = &self.fragment_template {
+            let mut root = root.as_ref().lock().unwrap();
             *root = root.clone().merge(root_diff)?;
             root.clone()
         } else {
             let new_root : Root = root_diff.try_into()?;
-            self.fragment_template = Some(new_root.clone());
+            self.fragment_template = Some(Arc::new(Mutex::new(new_root.clone())));
             new_root
         };
         Ok(root)
     }
 }
-use std::sync::Arc;
+use crate::diff::PatchResult;
 //#[uniffi::export]
 impl Document {
-    #[uniffi::constructor]
+    //#[uniffi::constructor]
     /// Parses a `RootDiff` and returns a `Document`
     pub fn parse_fragment_json(
         input: String,
-        handler: Arc<dyn DocumentChangeHandler>
     ) -> Result<Self, RenderError> {
-        use crate::diff::fragment::{
-            Root,
-            RootDiff,
-        };
         let fragment: RootDiff = serde_json::from_str(&input).map_err(|e| RenderError::from(e))?;
         let root : Root = fragment.try_into()?;
         let rendered : String = root.clone().try_into()?;
         let mut document = crate::parser::parse(&rendered)?;
-        document.fragment_template = Some(root);
-        document.event_handler = Some(handler);
+        document.fragment_template = Some(Arc::new(Mutex::new(root)));
+        //document.event_handler = Some(handler);
         Ok(document)
     }
 
     pub fn merge_fragment_json(
-        &self,
+        &mut self,
         json: String,
+        handler: Arc<dyn DocumentChangeHandler>
     ) -> Result<(), RenderError> {
         let fragment: RootDiff = serde_json::from_str(&json).map_err(|e| RenderError::from(e))?;
-        let root : Root = fragment.try_into()?;
 
-        /*
-        let root = if let Some(root) = self.diff.as_mut() {
+        let root = if let Some(root) = &self.fragment_template {
+            let mut root = root.as_ref().lock().unwrap();
             *root = root.clone().merge(fragment)?;
             root.clone()
         } else {
-            let new_root : Root = fragment.try_into()?;
-            self.diff = Some(new_root.clone());
-            new_root
+            return Err(RenderError::NoTemplates);
         };
 
-        let rendered : String = root.clone().try_into()?;
-        */
+        let rendered_root : String = root.clone().try_into()?;
+        let new_doc = Self::parse(rendered_root)?;
+
+        let patches = crate::diff::diff(self, &new_doc);
+        if patches.is_empty() {
+            return Ok(());
+        }
+
+
+        let mut editor = self.edit();
+        let mut stack = vec![];
+        for patch in patches.into_iter() {
+            let patch_result = patch.apply(&mut editor, &mut stack);
+            // TODO: Use the actual context
+            let context = String::new();
+
+            match patch_result {
+                None => (),
+                Some(PatchResult::Add { node, parent }) => {
+                    handler.handle(context, ChangeType::Add, node.0, Some(parent.0));
+                }
+                Some(PatchResult::Remove { node, parent }) => {
+                    handler.handle(
+                        context,
+                        ChangeType::Remove,
+                        node.0,
+                        Some(parent.0),
+                    );
+                }
+                Some(PatchResult::Change { node }) => {
+                    handler.handle(context, ChangeType::Change, node.0, None);
+                }
+                Some(PatchResult::Replace { node, parent }) => {
+                    handler.handle(
+                        context,
+                        ChangeType::Replace,
+                        node.0,
+                        Some(parent.0),
+                    );
+                }
+            }
+        }
+        editor.finish();
         Ok(())
+    }
+}
+
+pub struct FFiDocument {
+    inner: Arc<RwLock<Document>>,
+}
+impl FFiDocument {
+    pub fn parse(
+        input: String,
+    ) -> Result<Self, parser::ParseError> {
+        Ok(Self {
+            inner: Arc::new(RwLock::new(Document::parse(input)?)),
+        })
+    }
+
+    pub fn parse_fragment_json(
+        input: String,
+    ) -> Result<Self, RenderError> {
+        let inner = Arc::new(RwLock::new(Document::parse_fragment_json(input)?));
+        Ok(Self {
+            inner
+        })
+    }
+    pub fn merge_fragment_json(
+        &self,
+        json: String,
+        handler: Arc<dyn DocumentChangeHandler>
+    ) -> Result<(), RenderError> {
+        if let Ok(mut inner) = self.inner.write() {
+            Ok(inner.merge_fragment_json(json, handler)?)
+        } else {
+            unimplemented!("The error case for when we cannot get the lock for the Document has not been finished yet");
+        }
+    }
+
+}
+
+impl fmt::Display for FFiDocument {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Ok(inner) = self.inner.read() {
+            inner.print(f, PrintOptions::Pretty)
+        } else {
+            todo!()
+        }
     }
 }
 

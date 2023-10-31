@@ -1,5 +1,4 @@
 namespace LiveViewNativeCore {
-      //ChangeType zoom(ChangeType a);
 };
 enum ChangeType {
     "Change",
@@ -28,26 +27,8 @@ enum RenderError {
     "ParseError",
 };
 
-interface Document {
-    [Throws=ParseError, Name=parse]
-    constructor(string input);
-    string to_string();
-    [Throws=RenderError, Name=parse_fragment_json]
-    constructor(
-        string input,
-        DocumentChangeHandler handler
-    );
-
-    [Throws=RenderError]
-    void merge_fragment_json(
-        string json
-    );
-
-};
-
 [Trait]
 interface DocumentChangeHandler {
-    //string answer();
     void handle(
         string context,
         ChangeType change_type,
@@ -55,3 +36,23 @@ interface DocumentChangeHandler {
         u32? option_node_ref
     );
 };
+
+interface Document {
+    [Throws=ParseError, Name=parse]
+    constructor(string input);
+
+    string to_string();
+
+    [Throws=RenderError, Name=parse_fragment_json]
+    constructor(
+        string input
+    );
+
+    [Throws=RenderError]
+    void merge_fragment_json(
+        string json,
+        DocumentChangeHandler handler
+    );
+};
+/*
+*/

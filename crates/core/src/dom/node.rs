@@ -9,7 +9,7 @@ use crate::{InternedString, Symbol};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct NodeRef(u32);
+pub struct NodeRef(pub(crate) u32);
 entity_impl!(NodeRef, "node");
 impl Default for NodeRef {
     #[inline]

@@ -4,6 +4,10 @@ import XCTest
 class MyContext {
     var didChange = false
 }
+class SimpleHandler: DocumentChangeHandlerProtocol {
+     func handle(context: String, changeType: ChangeType, nodeRef: UInt32, optionNodeRef: UInt32?) {
+     }
+}
 
 final class LiveViewNativeCoreTests: XCTestCase {
     func testIntegration() throws {
@@ -50,6 +54,43 @@ final class LiveViewNativeCoreTests: XCTestCase {
         let finalRender = doc1.toString()
         XCTAssertEqual(finalRender, rendered2)
 */
+    }
+    func testJsonIntegration() throws {
+        let context = MyContext()
+        let initial_json = """
+{
+  "0":"0",
+  "1":"0",
+  "2":"",
+  "s":[
+    "<Column>\\n  <Button phx-click=\\"inc\\">\\n    <Text>Button</Text>\\n  </Button>\\n  <Text>Static Text </Text>\\n  <Text>Counter 1: ",
+    " </Text>\\n  <Text>Counter 2: ",
+    " </Text>\\n  ",
+    "\\n</Column>"
+    ]
+}
+"""
+        let initial = try Document.parseFragmentJson(input: initial_json)
+        let initial_rendered = initial.toString()
+        let expected = """
+        <Column>
+            <Button phx-click="inc">
+                <Text>
+                    Button
+                </Text>
+            </Button>
+            <Text>
+                Static Text
+            </Text>
+            <Text>
+                Counter 1: 0
+            </Text>
+            <Text>
+                Counter 2: 0
+            </Text>
+        </Column>aoeu
+        """
+        XCTAssertEqual(expected, initial_rendered)
     }
 
     /*
