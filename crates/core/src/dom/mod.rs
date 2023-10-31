@@ -634,7 +634,6 @@ impl fmt::Display for FFiDocument {
 
 use crate::ffi::ChangeType;
 pub trait DocumentChangeHandler : Send + Sync + fmt::Debug {
-    //fn answer() -> String;
     fn handle(
         &self,
         context: String,

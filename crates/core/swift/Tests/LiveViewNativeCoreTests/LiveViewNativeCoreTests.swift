@@ -70,8 +70,8 @@ final class LiveViewNativeCoreTests: XCTestCase {
     ]
 }
 """
-        let initial = try Document.parseFragmentJson(input: initial_json)
-        let initial_rendered = initial.toString()
+        let initial_document = try Document.parseFragmentJson(input: initial_json)
+        let initial_rendered = initial_document.toString()
         let expected = """
         <Column>
             <Button phx-click="inc">
@@ -88,9 +88,43 @@ final class LiveViewNativeCoreTests: XCTestCase {
             <Text>
                 Counter 2: 0
             </Text>
-        </Column>aoeu
+        </Column>
         """
         XCTAssertEqual(expected, initial_rendered)
+        let incremental = """
+        {
+          "0":"1",
+          "1":"1",
+          "2":{
+            "0":{
+              "s":[
+                "\n      <Text fontWeight=\"W600\" fontSize=\"24\">Item ",
+                "!!!</Text>\n",
+                "\n",
+                "\n"
+              ],
+              "p":{
+                 "0":[
+                   "\n        <Text color=\" #FFFF0000\">Number = ",
+                   " + 3 is even</Text>\n"
+                 ],
+                 "1":[
+                   "\n        <Text>Number + 4 = ",
+                   " is odd</Text>\n"
+                   ]
+              },
+              "d":[["1",{"0":"1","s":0},{"0":"5","s":1}]]
+            },
+            "1":"101",
+            "s":[
+              "\n",
+              "\n    <Text>Number + 100 is ","</Text>\n"
+            ]
+          }
+        }
+        """
+        let simple = SimpleHandler()
+        try initial_document.mergeFragmentJson(json: incremental, handler: simple)
     }
 
     /*

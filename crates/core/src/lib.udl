@@ -54,5 +54,3 @@ interface Document {
         DocumentChangeHandler handler
     );
 };
-/*
-*/
