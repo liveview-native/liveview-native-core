@@ -20,7 +20,7 @@ jobs:
     runs-on: macos-12
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Install Rust Nightly
         uses: actions-rs/toolchain@v1
         with:
@@ -52,9 +52,10 @@ jobs:
           command: build
           args: --package liveview-native-core
       - name: Set up JDK 17
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v3
         with:
           java-version: 17
+          distribution: 'temurin'
       - name: Cache android
         id: cache-android
         uses: actions/cache@v3
@@ -108,13 +109,16 @@ jobs:
                                   --name AVD \
                                   --abi google_apis_playstore/x86_64 \
                                   --package "${ANDROID_SYSTEM_IMAGE_PACKAGE}"
-      - name: Test phoenix_channel_clients
+      - name: Start Android Emulator
         run: |
           echo "Starting ADB server"
           ${ANDROID_HOME}/platform-tools/adb start-server
           echo "Starting Emulator"
           ${ANDROID_HOME}/emulator/emulator -avd AVD -netdelay none -netspeed full &
           ${ANDROID_HOME}/platform-tools/adb wait-for-device
+
+      - name: Test phoenix_channel_clients with cargo-tai
+        run: |
           export RUSTFLAGS="--cfg tokio_unstable"
           cargo-tai tests --target x86_64-linux-android \
                           --android-api-lvl ${ANDROID_API} \
