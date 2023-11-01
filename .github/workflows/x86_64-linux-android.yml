@@ -44,7 +44,7 @@ jobs:
       - name: Install cargo-tai
         run: |
           if ! command -v cargo-tai &> /dev/null; then
-            cargo install --git https://github.com/liveviewnative/cargo_tai --branch liveviewnative --rev ${CARGO_TAI_REV}
+            cargo install --git https://github.com/liveview-native/cargo_tai --branch liveviewnative --rev ${CARGO_TAI_REV}
           fi
       - name: Build
         uses: actions-rs/cargo@v1

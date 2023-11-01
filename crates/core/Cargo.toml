@@ -24,7 +24,7 @@ crate-type = ["staticlib", "rlib"]
 cranelift-entity = { version = "0.96" }
 fixedbitset = { version = "0.4" }
 fxhash = { version = "0.2" }
-html5gum = { git = "https://github.com/liveviewnative/html5gum", branch = "lvn" }
+html5gum = { git = "https://github.com/liveview-native/html5gum", branch = "lvn" }
 indexmap = { version = "1.7", features = ["std"] }
 petgraph = { version = "0.6", default-features = false, features = ["graphmap"] }
 serde = { version = "1.0", features = ["derive"] }
