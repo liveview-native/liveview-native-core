@@ -4,9 +4,9 @@ import XCTest
 class MyContext {
     var didChange = false
 }
-class SimpleHandler: DocumentChangeHandlerProtocol {
-     func handle(context: String, changeType: ChangeType, nodeRef: UInt32, optionNodeRef: UInt32?) {
-     }
+class SimpleHandler: DocumentChangeHandler {
+    func handle(context: String, changeType: ChangeType, nodeRef: UInt32, optionNodeRef: UInt32?) {
+    }
 }
 
 final class LiveViewNativeCoreTests: XCTestCase {
@@ -98,27 +98,29 @@ final class LiveViewNativeCoreTests: XCTestCase {
           "2":{
             "0":{
               "s":[
-                "\n      <Text fontWeight=\"W600\" fontSize=\"24\">Item ",
-                "!!!</Text>\n",
-                "\n",
-                "\n"
+                "\\n      <Text fontWeight=\\"W600\\" fontSize=\\"24\\">Item ",
+                "!!!</Text>\\n",
+                "\\n",
+                "\\n"
               ],
               "p":{
                  "0":[
-                   "\n        <Text color=\" #FFFF0000\">Number = ",
-                   " + 3 is even</Text>\n"
+
+                   "\\n        <Text color=\\" #FFFF0000\\">Number = ",
+
+                   " + 3 is even</Text>\\n"
                  ],
                  "1":[
-                   "\n        <Text>Number + 4 = ",
-                   " is odd</Text>\n"
+                   "\\n        <Text>Number + 4 = ",
+                   " is odd</Text>\\n"
                    ]
               },
               "d":[["1",{"0":"1","s":0},{"0":"5","s":1}]]
             },
             "1":"101",
             "s":[
-              "\n",
-              "\n    <Text>Number + 100 is ","</Text>\n"
+              "\\n",
+              "\\n    <Text>Number + 100 is ","</Text>\\n"
             ]
           }
         }

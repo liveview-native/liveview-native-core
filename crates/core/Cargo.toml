@@ -16,7 +16,11 @@ publish.workspace = true
 build = "build.rs"
 
 [lib]
-crate-type = ["staticlib", "rlib", "cdylib"]
+crate-type = [
+    "staticlib",
+    "rlib",
+    "cdylib"
+]
 name = "liveview_native_core"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -33,11 +37,11 @@ serde_json = { version = "1.0" }
 smallstr = { version = "0.3", features = ["union"] }
 smallvec = { version = "1.10", features = ["union", "const_generics", "specialization"] }
 thiserror = "1.0"
-uniffi = { version = "0.24.3", features = ["cli"] }
+uniffi = { version = "0.25", features = ["cli"] }
 
 [build-dependencies]
 Inflector = "0.11"
-uniffi = { version = "0.24.3", features = [ "build" ] }
+uniffi = { version = "0.25", features = [ "build" ] }
 
 [dev-dependencies]
 paste = { version = "1.0" }
