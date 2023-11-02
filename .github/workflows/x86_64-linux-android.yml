@@ -1,7 +1,7 @@
 # based on https://github.com/xaynetwork/cargo_tai
 name: x86_64-linux-android
 
-on: push
+on: pull_request
 
 env:
   ANDROID_COMMANDLINE_TOOLS_VERSION: 9477386
