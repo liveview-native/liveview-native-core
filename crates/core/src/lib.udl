@@ -27,13 +27,23 @@ enum RenderError {
     "ParseError",
 };
 
+interface NodeRef {
+};
+interface Attribute {
+    // Todo: Allow access to name, value and namespace
+    /*
+    string name;
+    string value;
+    */
+};
+
 [Trait]
 interface DocumentChangeHandler {
     void handle(
         string context,
         ChangeType change_type,
-        u32 node_ref,
-        u32? option_node_ref
+        NodeRef node_ref,
+        NodeRef? option_node_ref
     );
 };
 
@@ -42,6 +52,11 @@ interface Document {
     constructor(string input);
 
     string to_string();
+
+    NodeRef root();
+    NodeRef? get_parent(NodeRef ref);
+    sequence<NodeRef> children(NodeRef ref);
+    sequence<Attribute> attributes(NodeRef ref);
 
     [Throws=RenderError, Name=parse_fragment_json]
     constructor(
@@ -54,3 +69,4 @@ interface Document {
         DocumentChangeHandler handler
     );
 };
+

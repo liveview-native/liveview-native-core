@@ -509,9 +509,7 @@ impl Document {
     }
 }
 use crate::diff::PatchResult;
-//#[uniffi::export]
 impl Document {
-    //#[uniffi::constructor]
     /// Parses a `RootDiff` and returns a `Document`
     pub fn parse_fragment_json(
         input: String,
@@ -559,25 +557,25 @@ impl Document {
             match patch_result {
                 None => (),
                 Some(PatchResult::Add { node, parent }) => {
-                    handler.handle(context, ChangeType::Add, node.0, Some(parent.0));
+                    handler.handle(context, ChangeType::Add, node.into(), Some(parent.into()));
                 }
                 Some(PatchResult::Remove { node, parent }) => {
                     handler.handle(
                         context,
                         ChangeType::Remove,
-                        node.0,
-                        Some(parent.0),
+                        node.into(),
+                        Some(parent.into()),
                     );
                 }
                 Some(PatchResult::Change { node }) => {
-                    handler.handle(context, ChangeType::Change, node.0, None);
+                    handler.handle(context, ChangeType::Change, node.into(), None);
                 }
                 Some(PatchResult::Replace { node, parent }) => {
                     handler.handle(
                         context,
                         ChangeType::Replace,
-                        node.0,
-                        Some(parent.0),
+                        node.into(),
+                        Some(parent.into()),
                     );
                 }
             }
@@ -590,6 +588,7 @@ impl Document {
 pub struct FFiDocument {
     inner: Arc<RwLock<Document>>,
 }
+
 impl FFiDocument {
     pub fn parse(
         input: String,
@@ -607,6 +606,7 @@ impl FFiDocument {
             inner
         })
     }
+
     pub fn merge_fragment_json(
         &self,
         json: String,
@@ -617,6 +617,22 @@ impl FFiDocument {
         } else {
             unimplemented!("The error case for when we cannot get the lock for the Document has not been finished yet");
         }
+    }
+
+    pub fn root(&self) -> Arc<NodeRef> {
+        self.inner.read().expect("Failed to get lock").root().into()
+    }
+
+    pub fn get_parent(&self, node_ref: Arc<NodeRef>) -> Option<Arc<NodeRef>> {
+        self.inner.read().expect("Failed to get lock").parent(*node_ref).map(|node_ref| node_ref.into())
+    }
+
+    pub fn children(&self, node_ref: Arc<NodeRef>) -> Vec<Arc<NodeRef>> {
+        self.inner.read().expect("Failed to get lock").children(*node_ref).iter().map(|node| Arc::new(*node)).collect()
+    }
+
+    pub fn attributes(&self, node_ref: Arc<NodeRef>) -> Vec<Arc<Attribute>> {
+        self.inner.read().expect("Failed to get lock").attributes(*node_ref).iter().map(|attr| Arc::new(attr.clone())).collect()
     }
 
 }
@@ -638,8 +654,8 @@ pub trait DocumentChangeHandler : Send + Sync + fmt::Debug {
         &self,
         context: String,
         change_type: ChangeType,
-        node_ref: u32,
-        parent: Option<u32>,
+        node_ref: Arc<NodeRef>,
+        parent: Option<Arc<NodeRef>>,
     );
 }
 
