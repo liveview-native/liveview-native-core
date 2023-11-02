@@ -40,7 +40,7 @@ jobs:
       - name: Build tests
         run: cargo test --package liveview-native-core --no-run --target=x86_64-apple-ios
       - name: Start Simulator
-        uses: futureware-tech/simulator-action@v2
+        uses: futureware-tech/simulator-action@v3
         with:
           os: 'iOS'
       - name: Copy unittests to app bundle
