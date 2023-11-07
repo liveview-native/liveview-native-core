@@ -211,11 +211,12 @@ fn jetpack_show_dialog() {
                 Show Dialog
             </Text>
         </OutlinedButton>
-
         <AlertDialog phx-click="hideDialog">
             <ConfirmButton>
                 <TextButton phx-click="hideDialog">
-                  <Text>Confirm</Text>
+                    <Text>
+                        Confirm
+                    </Text>
                 </TextButton>
             </ConfirmButton>
             <DismissButton>
