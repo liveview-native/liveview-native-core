@@ -46,6 +46,56 @@ fn stream_parsing() {
 
 #[test]
 fn jetpack_show_dialog() {
+    /*
+     * Diffs coming from this template:
+  @impl true
+  @spec render(any) :: Phoenix.LiveView.Rendered.t()
+  def render(%{platform_id: :jetpack} = assigns) do
+    ~JETPACK"""
+    <Scaffold>
+      <TopAppBar>
+        <Title><Text>Hello</Text></Title>
+      </TopAppBar>
+      <FloatingActionButton phx-click="inc">
+        <Icon imageVector="filled:Add" />
+      </FloatingActionButton>
+      <Column width="fill" verticalArrangement="center" horizontalAlignment="center" scroll="vertical">
+        <OutlinedButton phx-click="showDialog"><Text>Show Dialog</Text></OutlinedButton>
+        <%= if @showDialog do %>
+        <AlertDialog phx-click="hideDialog">
+          <ConfirmButton>
+              <TextButton  phx-click="hideDialog">
+                <Text>Confirm</Text>
+              </TextButton>
+          </ConfirmButton>
+          <DismissButton>
+            <OutlinedButton phx-click="hideDialog">
+              <Text>Dismiss</Text>
+            </OutlinedButton>
+          </DismissButton>
+          <Icon imageVector="filled:Add" />
+          <Title>Alert Title</Title>
+          <Content>
+              <Text>Alert message</Text>
+          </Content>
+        </AlertDialog>
+        <% end %>
+        <Box size="100" contentAlignment="center">
+          <BadgeBox containerColor="#FF0000FF" contentColor="#FFFF0000">
+            <Badge><Text>+99</Text></Badge>
+            <Icon imageVector="filled:Add" />
+          </BadgeBox>
+        </Box>
+        <ElevatedButton phx-click="showDialog"><Text>ElevatedButton</Text></ElevatedButton>
+        <FilledTonalButton phx-click="showDialog"><Text>FilledTonalButton</Text></FilledTonalButton>
+        <TextButton phx-click="showDialog"><Text>TextButton</Text></TextButton>
+
+      </Column>
+    </Scaffold>
+    """
+  end
+
+    */
     let initial = r#"{
     "0":"",
     "s":[
