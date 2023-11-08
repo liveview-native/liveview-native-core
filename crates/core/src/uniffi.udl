@@ -29,19 +29,27 @@ enum RenderError {
 
 interface NodeRef {
 };
-interface Attribute {
-    // Todo: Allow access to name, value and namespace
-    //string name;
-    //string? value;
+
+dictionary AttributeName {
+    string? namespace;
+    string name;
 };
 
-/*
-interface Element {
-    string namespace;
-    string string;
-    sequenc<Attribute> attributes;
+dictionary Attribute {
+    // Todo: Allow access to name, value and namespace
+    AttributeName name;
+    string? value;
 };
-*/
+
+dictionary ElementName {
+    string? namespace;
+    string name;
+};
+
+dictionary Element {
+    ElementName name;
+    sequence<Attribute> attributes;
+};
 
 /*
 [Enum]

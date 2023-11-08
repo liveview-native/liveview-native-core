@@ -69,7 +69,7 @@ impl Node {
         }
     }
 
-    pub(crate) fn id(&self) -> Option<&SmallString<[u8; 16]>> {
+    pub(crate) fn id(&self) -> Option<SmallString<[u8; 16]>> {
         match self {
             Self::Element(el) => el.id(),
             _ => None,
@@ -110,10 +110,10 @@ impl From<SmallString<[u8; 16]>> for Node {
 }
 
 /// Represents the fully-qualified name of an element
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ElementName {
-    pub namespace: Option<InternedString>,
-    pub name: InternedString,
+    pub namespace: Option<String>,
+    pub name: String,
 }
 impl fmt::Display for ElementName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -126,7 +126,7 @@ impl fmt::Display for ElementName {
 }
 impl ElementName {
     #[inline]
-    pub fn new<N: Into<InternedString>>(name: N) -> Self {
+    pub fn new<N: Into<String>>(name: N) -> Self {
         Self {
             namespace: None,
             name: name.into(),
@@ -134,7 +134,7 @@ impl ElementName {
     }
 
     #[inline]
-    pub fn new_with_namespace<NS: Into<InternedString>, N: Into<InternedString>>(
+    pub fn new_with_namespace<NS: Into<String>, N: Into<String>>(
         namespace: NS,
         name: N,
     ) -> Self {
@@ -167,7 +167,7 @@ impl From<Symbol> for ElementName {
 impl Into<InternedString> for ElementName {
     fn into(self) -> InternedString {
         if self.namespace.is_none() {
-            self.name
+            self.name.into()
         } else {
             let string = self.to_string();
             string.into()
@@ -198,17 +198,16 @@ impl Element {
         }
     }
 
-    pub(crate) fn id(&self) -> Option<&SmallString<[u8; 16]>> {
-        self.attributes().iter().find_map(|attr| {
+    pub(crate) fn id(&self) -> Option<SmallString<[u8; 16]>> {
+        for attr in &self.attributes {
             if attr.name.eq("id") {
-                match attr.value {
-                    AttributeValue::None => None,
-                    AttributeValue::String(ref id) => Some(id),
+                if let Some(value) = &attr.value {
+                    let value = SmallString::<[u8; 16]>::from_string(value.clone());
+                    return Some(value);
                 }
-            } else {
-                None
             }
-        })
+        }
+        None
     }
 
     /// Returns a slice of AttributeRefs associated to this element
@@ -221,7 +220,7 @@ impl Element {
     ///
     /// If the attribute is already associated with this element, the value is replaced.
     #[inline]
-    pub fn set_attribute(&mut self, name: AttributeName, value: AttributeValue) {
+    pub fn set_attribute(&mut self, name: AttributeName, value: Option<String>) {
         for attribute in self.attributes.iter_mut() {
             if attribute.name == name {
                 attribute.value = value;

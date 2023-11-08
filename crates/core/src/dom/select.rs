@@ -93,9 +93,12 @@ impl<'a> Selector<'a> {
             }
             Self::AttributeValue(name, ref value) => {
                 for attr in element.attributes() {
+                    todo!();
+                    /*
                     if &attr.name == name && attr.value.eq(value) {
                         return true;
                     }
+                    */
                 }
                 false
             }
@@ -105,8 +108,8 @@ impl<'a> Selector<'a> {
                         continue;
                     }
                     let value = match &attr.value {
-                        AttributeValue::String(s) => s.as_str(),
-                        AttributeValue::None => "",
+                        Some(s) => s.as_str(),
+                        None => "",
                     };
                     for split in value.split_whitespace() {
                         if split == *expected {
@@ -122,8 +125,8 @@ impl<'a> Selector<'a> {
                         continue;
                     }
                     match &attr.value {
-                        AttributeValue::String(s) if s.starts_with(prefix) => return true,
-                        AttributeValue::None if prefix.is_empty() => return true,
+                        Some(s) if s.starts_with(prefix) => return true,
+                        None if prefix.is_empty() => return true,
                         _ => continue,
                     }
                 }
@@ -135,8 +138,8 @@ impl<'a> Selector<'a> {
                         continue;
                     }
                     match &attr.value {
-                        AttributeValue::String(s) if s.ends_with(suffix) => return true,
-                        AttributeValue::None if suffix.is_empty() => return true,
+                        Some(s) if s.ends_with(suffix) => return true,
+                        None if suffix.is_empty() => return true,
                         _ => continue,
                     }
                 }
@@ -148,8 +151,8 @@ impl<'a> Selector<'a> {
                         continue;
                     }
                     match &attr.value {
-                        AttributeValue::String(s) if s.contains(substring) => return true,
-                        AttributeValue::None if substring.is_empty() => return true,
+                        Some(s) if s.contains(substring) => return true,
+                        None if substring.is_empty() => return true,
                         _ => continue,
                     }
                 }

@@ -25,10 +25,11 @@ use crate::dom::{
     FFiDocument as Document,
     NodeRef,
     Attribute,
+    AttributeName,
     Element,
+    ElementName,
     Node,
 };
 
 use crate::parser::ParseError;
 use crate::diff::fragment::RenderError;
-

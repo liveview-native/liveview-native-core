@@ -35,6 +35,8 @@ impl<'a> Node<'a> {
                 for attr in attrs {
                     attributes.push(Attribute::from(attr));
                 }
+                todo!();
+                /*
                 Self {
                     ty: NodeType::Element,
                     data: NodeData {
@@ -49,6 +51,7 @@ impl<'a> Node<'a> {
                         },
                     },
                 }
+                */
             }
         }
     }
@@ -106,6 +109,8 @@ pub struct Attribute<'a> {
 }
 impl<'a> Attribute<'a> {
     fn from(attr: &'a dom::Attribute) -> Self {
+        todo!();
+        /*
         Self {
             namespace: attr
                 .name
@@ -115,10 +120,10 @@ impl<'a> Attribute<'a> {
             name: RustStr::from_str(attr.name.name.as_str()),
             value: attr
                 .value
-                .as_str()
-                .map(|v| RustStr::from_str(v))
+                .map(|v| RustStr::from_str(v.as_str()))
                 .unwrap_or_default(),
         }
+        */
     }
 }
 

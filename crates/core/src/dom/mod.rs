@@ -432,7 +432,7 @@ impl Document {
     /// Sets the attribute `name` on `node` with `value`.
     ///
     /// Returns true if `node` was an element and the attribute could be set, otherwise false.
-    pub fn set_attribute<K: Into<AttributeName>, V: Into<AttributeValue>>(
+    pub fn set_attribute<K: Into<AttributeName>, V: Into<Option<String>>>(
         &mut self,
         node: NodeRef,
         name: K,
@@ -631,8 +631,8 @@ impl FFiDocument {
         self.inner.read().expect("Failed to get lock").children(*node_ref).iter().map(|node| Arc::new(*node)).collect()
     }
 
-    pub fn attributes(&self, node_ref: Arc<NodeRef>) -> Vec<Arc<Attribute>> {
-        self.inner.read().expect("Failed to get lock").attributes(*node_ref).iter().map(|attr| Arc::new(attr.clone())).collect()
+    pub fn attributes(&self, node_ref: Arc<NodeRef>) -> Vec<Attribute> {
+        self.inner.read().expect("Failed to get lock").attributes(*node_ref).to_vec()
     }
 
 }
@@ -751,7 +751,7 @@ pub trait DocumentBuilder {
     /// Adds an attribute to the attribute set of the current node
     ///
     /// This function panics if `node` does not support attributes
-    fn set_attribute<K: Into<AttributeName>, V: Into<AttributeValue>>(
+    fn set_attribute<K: Into<AttributeName>, V: Into<Option<String>>>(
         &mut self,
         name: K,
         value: V,

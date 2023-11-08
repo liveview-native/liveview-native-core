@@ -64,18 +64,18 @@ pub enum Patch {
     /// Adds `attr` to the current node
     AddAttribute {
         name: AttributeName,
-        value: AttributeValue,
+        value: Option<String>,
     },
     /// Adds `attr` to `node`
     AddAttributeTo {
         node: NodeRef,
         name: AttributeName,
-        value: AttributeValue,
+        value: Option<String>,
     },
     UpdateAttribute {
         node: NodeRef,
         name: AttributeName,
-        value: AttributeValue,
+        value: Option<String>,
     },
     RemoveAttributeByName {
         node: NodeRef,
