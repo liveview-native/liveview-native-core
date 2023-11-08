@@ -23,13 +23,13 @@ impl<'a> Node<'a> {
                 ty: NodeType::Root,
                 data: NodeData { root: () },
             },
-            dom::Node::Leaf(ref s) => Self {
+            dom::Node::Leaf { leaf: ref s } => Self {
                 ty: NodeType::Leaf,
                 data: NodeData {
                     leaf: RustStr::from_str(s.as_str()),
                 },
             },
-            dom::Node::Element(ref elem) => {
+            dom::Node::Element { element: ref elem } => {
                 let attrs = elem.attributes();
                 let mut attributes = Vec::with_capacity(attrs.len());
                 for attr in attrs {

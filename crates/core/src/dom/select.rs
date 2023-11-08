@@ -48,8 +48,8 @@ impl<'a> Selector<'a> {
     /// Checks if the given node matches this selector
     pub fn matches(&self, node: NodeRef, document: &Document) -> bool {
         let element = match &document.nodes[node] {
-            Node::Element(ref elem) => elem,
-            Node::Leaf(_) | Node::Root => return false,
+            Node::Element { element: ref elem } => elem,
+            Node::Leaf { leaf: _ } | Node::Root => return false,
         };
 
         match self {

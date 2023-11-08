@@ -50,28 +50,28 @@ pub enum Node {
     /// A document may only have a single root, and it has no attributes
     Root,
     /// A typed node that can carry attributes and may contain other nodes
-    Element(Element),
+    Element { element: Element },
     /// A leaf node is an untyped node, typically text, and does not have any attributes or children
-    Leaf(SmallString<[u8; 16]>),
+    Leaf { leaf: SmallString<[u8; 16]> },
 }
 impl Node {
     /// Creates a new, empty element node with the given tag name
     #[inline]
     pub fn new<T: Into<ElementName>>(tag: T) -> Self {
-        Self::Element(Element::new(tag.into()))
+        Self::Element { element: Element::new(tag.into()) }
     }
 
     /// Returns a slice of Attributes for this node, if applicable
     pub fn attributes(&self) -> &[Attribute] {
         match self {
-            Self::Element(elem) => elem.attributes(),
+            Self::Element { element: elem } => elem.attributes(),
             _ => &[],
         }
     }
 
     pub(crate) fn id(&self) -> Option<SmallString<[u8; 16]>> {
         match self {
-            Self::Element(el) => el.id(),
+            Self::Element { element: el } => el.id(),
             _ => None,
         }
     }
@@ -79,7 +79,7 @@ impl Node {
     /// Returns true if this node is a leaf node
     pub fn is_leaf(&self) -> bool {
         match self {
-            Self::Leaf(_) => true,
+            Self::Leaf { leaf: _ } => true,
             _ => false,
         }
     }
@@ -87,25 +87,25 @@ impl Node {
 impl From<Element> for Node {
     #[inline(always)]
     fn from(elem: Element) -> Self {
-        Self::Element(elem)
+        Self::Element { element: elem }
     }
 }
 impl From<&str> for Node {
     #[inline(always)]
     fn from(string: &str) -> Self {
-        Self::Leaf(SmallString::from_str(string))
+        Self::Leaf { leaf: SmallString::from_str(string) }
     }
 }
 impl From<String> for Node {
     #[inline(always)]
     fn from(string: String) -> Self {
-        Self::Leaf(SmallString::from_string(string))
+        Self::Leaf { leaf: SmallString::from_string(string) }
     }
 }
 impl From<SmallString<[u8; 16]>> for Node {
     #[inline(always)]
     fn from(string: SmallString<[u8; 16]>) -> Self {
-        Self::Leaf(string)
+        Self::Leaf { leaf: string }
     }
 }
 

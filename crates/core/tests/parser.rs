@@ -17,10 +17,10 @@ fn parser_simple() {
     let attrs = document
         .attributes(html)
         .iter()
-        .map(|a| (a.name, a.value.clone()))
+        .map(|a| (a.name.clone(), a.value.clone()))
         .collect::<Vec<_>>();
     let lang: AttributeName = "lang".into();
-    let en: AttributeValue = "en".into();
+    let en = Some("en".to_string());
     assert_eq!(attrs, vec![(lang, en)]);
 }
 
@@ -50,8 +50,8 @@ fn parser_whitespace_handling() {
     let children = document.children(body);
     assert_eq!(children.len(), 1);
     let content = document.get(children[0]);
-    assert_matches!(content, Node::Leaf(_));
-    let Node::Leaf(content) = content else {
+    assert_matches!(content, Node::Leaf {..});
+    let Node::Leaf { leaf: content } = content else {
         unreachable!()
     };
     assert_eq!(content.as_str(), "some content");
@@ -65,7 +65,7 @@ fn parser_preserve_upcase() {
     let root = document.root();
     let component = document.children(root)[0];
     let element = document.get(component);
-    let Node::Element(element) = element else {
+    let Node::Element { element } = element else {
         panic!("expected element");
     };
     let expected_name: InternedString = "Component".into();
