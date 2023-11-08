@@ -631,8 +631,11 @@ impl FFiDocument {
         self.inner.read().expect("Failed to get lock").children(*node_ref).iter().map(|node| Arc::new(*node)).collect()
     }
 
-    pub fn attributes(&self, node_ref: Arc<NodeRef>) -> Vec<Attribute> {
+    pub fn get_attributes(&self, node_ref: Arc<NodeRef>) -> Vec<Attribute> {
         self.inner.read().expect("Failed to get lock").attributes(*node_ref).to_vec()
+    }
+    pub fn get(&self, node_ref: Arc<NodeRef>) -> Node {
+        self.inner.read().expect("Failed to get lock").get(*node_ref).clone()
     }
 
 }

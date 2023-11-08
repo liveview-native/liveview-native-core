@@ -36,7 +36,6 @@ dictionary AttributeName {
 };
 
 dictionary Attribute {
-    // Todo: Allow access to name, value and namespace
     AttributeName name;
     string? value;
 };
@@ -58,24 +57,6 @@ interface Node {
     Leaf(string leaf);
 };
 
-/*
-[Enum]
-interface NodeType {
-    "Root",
-    "Element",
-    "Leaf"
-};
-*/
-
-
-/*
-dictionary Node {
-    NodeType ty;
-    NodeData data;
-};
-*/
-
-
 [Trait]
 interface DocumentChangeHandler {
     void handle(
@@ -93,10 +74,11 @@ interface Document {
     string to_string();
 
     NodeRef root();
+    Node get(NodeRef ref);
     NodeRef? get_parent(NodeRef ref);
 
     sequence<NodeRef> children(NodeRef ref);
-    sequence<Attribute> attributes(NodeRef ref);
+    sequence<Attribute> get_attributes(NodeRef ref);
 
     [Throws=RenderError, Name=parse_fragment_json]
     constructor(

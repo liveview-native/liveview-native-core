@@ -52,7 +52,7 @@ pub enum Node {
     /// A typed node that can carry attributes and may contain other nodes
     Element { element: Element },
     /// A leaf node is an untyped node, typically text, and does not have any attributes or children
-    Leaf { leaf: SmallString<[u8; 16]> },
+    Leaf { leaf: String },
 }
 impl Node {
     /// Creates a new, empty element node with the given tag name
@@ -93,19 +93,19 @@ impl From<Element> for Node {
 impl From<&str> for Node {
     #[inline(always)]
     fn from(string: &str) -> Self {
-        Self::Leaf { leaf: SmallString::from_str(string) }
+        Self::Leaf { leaf: string.to_string() }
     }
 }
 impl From<String> for Node {
     #[inline(always)]
     fn from(string: String) -> Self {
-        Self::Leaf { leaf: SmallString::from_string(string) }
+        Self::Leaf { leaf: string }
     }
 }
 impl From<SmallString<[u8; 16]>> for Node {
     #[inline(always)]
     fn from(string: SmallString<[u8; 16]>) -> Self {
-        Self::Leaf { leaf: string }
+        Self::Leaf { leaf: string.to_string() }
     }
 }
 
