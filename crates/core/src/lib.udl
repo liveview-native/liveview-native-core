@@ -31,11 +31,43 @@ interface NodeRef {
 };
 interface Attribute {
     // Todo: Allow access to name, value and namespace
-    /*
-    string name;
-    string value;
-    */
+    //string name;
+    //string? value;
 };
+
+/*
+interface Element {
+    string namespace;
+    string string;
+    sequenc<Attribute> attributes;
+};
+*/
+
+/*
+[Enum]
+interface NodeType {
+    "Root",
+    "Element",
+    "Leaf"
+};
+*/
+
+/*
+[Enum]
+interface Node {
+    "Root",
+    //Element(Element),
+    Leaf(string data),
+}
+*/
+
+/*
+dictionary Node {
+    NodeType ty;
+    NodeData data;
+};
+*/
+
 
 [Trait]
 interface DocumentChangeHandler {
@@ -55,6 +87,7 @@ interface Document {
 
     NodeRef root();
     NodeRef? get_parent(NodeRef ref);
+
     sequence<NodeRef> children(NodeRef ref);
     sequence<Attribute> attributes(NodeRef ref);
 

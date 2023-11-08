@@ -13,15 +13,20 @@ pub mod parser;
 
 pub use self::interner::{symbols, InternedString, Symbol};
 
-
 uniffi::include_scaffolding!("lib");
-use crate::ffi::ChangeType;
+
+use crate::ffi::{
+    ChangeType,
+    NodeType,
+};
 
 use crate::dom::{
     DocumentChangeHandler,
     FFiDocument as Document,
     NodeRef,
     Attribute,
+    Element,
+    Node,
 };
 
 use crate::parser::ParseError;
