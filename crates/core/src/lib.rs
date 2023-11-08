@@ -13,7 +13,7 @@ pub mod parser;
 
 pub use self::interner::{symbols, InternedString, Symbol};
 
-uniffi::include_scaffolding!("lib");
+uniffi::include_scaffolding!("uniffi");
 
 use crate::ffi::{
     ChangeType,

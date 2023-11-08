@@ -272,7 +272,7 @@ args = [
     "uniffi-bindgen",
     "--",
     "generate",
-    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/src/lib.udl",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/src/uniffi.udl",
     "--language=swift",
     "--out-dir=${CARGO_TARGET_DIR}/uniffi/swift/generated",
 ]
@@ -295,7 +295,7 @@ command = "cp"
 args = [
     "-r",
     "${CARGO_TARGET_DIR}/uniffi/swift/generated/LiveViewNativeCore.swift",
-    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/Sources/LiveViewNativeCore/",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/",
 ]
 dependencies = ["uniffi-xcframework"]
 
@@ -365,7 +365,7 @@ args = [
     "-destination",
     "name=Apple TV 4K (3rd generation),arch=x86_64",
     "-workspace",
-    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/",
     "test"
 ]
 dependencies = ["uniffi-swift-package"]
@@ -381,7 +381,7 @@ args = [
     "-destination",
     "name=iPhone 15",
     "-workspace",
-    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/",
     "test"
 ]
 dependencies = ["uniffi-swift-package"]
@@ -397,7 +397,7 @@ args = [
     "-destination",
     "name=Apple Watch Series 9 (45mm)",
     "-workspace",
-    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/",
     "test"
 ]
 dependencies = ["uniffi-swift-package"]
@@ -413,7 +413,7 @@ args = [
     "-destination",
     "platform=macOS",
     "-workspace",
-    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/",
     "test"
 ]
 dependencies = ["uniffi-swift-package"]
@@ -429,7 +429,7 @@ args = [
     "uniffi-bindgen",
     "--",
     "generate",
-    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/src/lib.udl",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/src/uniffi.udl",
     "--language=kotlin",
     "--out-dir=${CARGO_TARGET_DIR}/uniffi/kotlin/generated",
 ]
