@@ -1,0 +1,24 @@
+jdk:
+  - openjdk17
+before_install:
+  # Add execution permission to the preparation script
+  - chmod +x ./scripts/prepareJitpackEnvironment.sh
+  # Running preparation script
+  - ./scripts/prepareJitpackEnvironment.sh
+  # Installing Java 8 because Android SDK manager needs XML Binds which not exists in JDK 17
+  - sdk install java 8.0.265-open
+  - sdk use java 8.0.265-open
+  # Installing the necessary Android SDK packages (accepting licenses, NDK, CMake)
+  - yes | sdkmanager --licenses
+  - yes | sdkmanager --update
+  - yes | sdkmanager --uninstall "ndk-bundle"
+  - yes | sdkmanager --install "ndk;25.1.8937393"
+  - yes | sdkmanager --install "cmake;3.22.1"
+  # Install JDK 17 and using it for the rest of the build
+  - sdk install java 17.0.3-tem
+  - sdk use java 17.0.3-tem
+env:
+  # These environment variables are used by the Rust/Gradle plugin
+  RUST_ANDROID_GRADLE_RUSTC_COMMAND: "/home/jitpack/.cargo/bin/rustc"
+  RUST_ANDROID_GRADLE_CARGO_COMMAND: "/home/jitpack/.cargo/bin/cargo"
+  RUST_ANDROID_GRADLE_RUSTUP_CHANNEL: "nightly"
