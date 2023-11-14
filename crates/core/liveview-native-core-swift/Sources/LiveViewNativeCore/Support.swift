@@ -21,6 +21,7 @@ extension AttributeName: ExpressibleByStringLiteral {
         self.init(rawValue: value)!
     }
 }
+
 extension AttributeName {
     /// Creates a name by parsing a string, extracting a namespace if present.
     ///
@@ -39,6 +40,7 @@ extension AttributeName {
     }
 }
 
+/*
 /// A sequence representing the direct children of a node.
 public struct NodeChildrenSequence: Sequence, Collection, RandomAccessCollection {
     public typealias Element = Node
@@ -90,3 +92,4 @@ public struct NodeDepthFirstChildrenSequence: Sequence {
         }
     }
 }
+*/

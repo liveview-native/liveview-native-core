@@ -4,8 +4,10 @@ plugins {
     id("maven-publish")
     id("org.mozilla.rust-android-gradle.rust-android")
     id("idea")
+    id("org.jetbrains.dokka") version "1.9.10"
 }
 
+val uniffiPath = "${buildDir}/generated/source/uniffi/java"
 android {
     namespace = "org.phoenixframework.liveview_native_core"
     compileSdk = 33
@@ -34,6 +36,11 @@ android {
         }
     }
     ndkVersion = "25.1.8937393"
+    sourceSets {
+        getByName("main") {
+            java.srcDir(uniffiPath)
+        }
+    }
     libraryVariants.all {
         val t = tasks.register<Exec>("generate${name.capitalize()}UniFFIBindings") {
             workingDir("${project.projectDir}")
@@ -49,33 +56,37 @@ android {
                 "--language",
                 "kotlin",
                 // TODO: Try out different config options for kotlin with uniffi
-                //"--config",
-                //rootProject.file("./uniffi.toml"),
+                "--config",
+                rootProject.file("../uniffi.toml"),
                 "--out-dir",
-                "${buildDir}/generated/source/uniffi/${this.name}/java"
+                uniffiPath
             )
         }
         javaCompileProvider.get().dependsOn(t)
-        val sourceSet = sourceSets.find { it.name == this.name }
-/*
-        java.sourceSets.getByName(this.name) {
-            java.srcDir(File(buildDir, "generated/source/uniffi/${this.name}/java"))
-        }
-*/
-
-
-        //java.sourceSets["main"].java.srcDir(File(buildDir, "generated/source/uniffi/${this.name}/java"))
+        //val sourceSet = sourceSets.find { it.name == this.name }
+        //sourceSet.java.srcDir(uniffiPath)
+        //java.sourceSets.java.srcDir(File(uniffiPath))
         // XXX: I've been trying to make this work but I can't, so the compiled bindings will show as "regular sources" in Android Studio.
-        //idea.module.generatedSourceDirs.add(file("$buildDir/generated/source/uniffi/${this.name}/java"))
+        //idea.module.generatedSourceDirs.add(file("${uniffiPath}/uniffi"))
     }
-
 }
+
+/*
+kotlin {
+    sourceSets {
+        main {
+            kotlin.srcDir(uniffiPath)
+        }
+    }
+}
+*/
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     implementation("net.java.dev.jna:jna:5.7.0@aar")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
+    implementation("net.java.dev.jna:jna:5.7.0@aar")
 }
 
 // Configuring Rust Cargo build
@@ -85,8 +96,8 @@ cargo {
     module = "../../../../"
     libname = "liveview_native_core"
     // In case you need to run the unit tests, install the respective toolchain and add the target below.
-    targets = listOf("arm", "arm64", "x86", "x86_64", "darwin-aarch64")
-    //targets = listOf("darwin-aarch64")
+    //targets = listOf("arm", "arm64", "x86", "x86_64", "darwin-aarch64")
+    targets = listOf("darwin-aarch64")
 }
 
 // Running cargo command before build

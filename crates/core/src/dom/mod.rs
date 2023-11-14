@@ -637,7 +637,9 @@ impl FFiDocument {
     pub fn get(&self, node_ref: Arc<NodeRef>) -> Node {
         self.inner.read().expect("Failed to get lock").get(*node_ref).clone()
     }
-
+    pub fn render(&self) -> String {
+        self.to_string()
+    }
 }
 
 impl fmt::Display for FFiDocument {

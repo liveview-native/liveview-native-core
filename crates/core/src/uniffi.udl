@@ -71,7 +71,7 @@ interface Document {
     [Throws=ParseError, Name=parse]
     constructor(string input);
 
-    string to_string();
+    string render();
 
     NodeRef root();
     Node get(NodeRef ref);

@@ -28,7 +28,7 @@ final class LiveViewNativeCoreTests: XCTestCase {
             context.didChange = true
         }
         */
-        let rendered1 = doc1.toString()
+        let rendered1 = doc1.render()
         XCTAssertEqual(input, rendered1)
 
         let updated = """
@@ -43,7 +43,7 @@ final class LiveViewNativeCoreTests: XCTestCase {
         </html>
         """
         let doc2 = try Document.parse(input: updated)
-        let rendered2 = doc2.toString()
+        let rendered2 = doc2.render()
         XCTAssertEqual(updated, rendered2)
         /*
 
@@ -51,7 +51,7 @@ final class LiveViewNativeCoreTests: XCTestCase {
 
         XCTAssertEqual(context.didChange, true)
 
-        let finalRender = doc1.toString()
+        let finalRender = doc1.render()
         XCTAssertEqual(finalRender, rendered2)
 */
     }
@@ -71,7 +71,7 @@ final class LiveViewNativeCoreTests: XCTestCase {
         }
         """
         let initial_document = try Document.parseFragmentJson(input: initial_json)
-        let initial_rendered = initial_document.toString()
+        let initial_rendered = initial_document.render()
         var expected = """
         <Column>
             <Button phx-click="inc">
@@ -132,7 +132,7 @@ final class LiveViewNativeCoreTests: XCTestCase {
         """
         let simple = SimpleHandler()
         try initial_document.mergeFragmentJson(json: first_increment, handler: simple)
-        let second_render = initial_document.toString()
+        let second_render = initial_document.render()
         expected = """
         <Column>
             <Button phx-click="inc">
@@ -203,7 +203,7 @@ final class LiveViewNativeCoreTests: XCTestCase {
         }
         """
         try initial_document.mergeFragmentJson(json: second_increment, handler: simple)
-        let third_render = initial_document.toString()
+        let third_render = initial_document.render()
         expected = """
         <Column>
             <Button phx-click="inc">
@@ -271,7 +271,7 @@ final class LiveViewNativeCoreTests: XCTestCase {
         let doc = try Document.parse(input)
         let a = doc[doc.root()].children().first!
         let b = a.children().first!
-        XCTAssertEqual(b.toString(), "<b>\n    hello\n</b>")
+        XCTAssertEqual(b.render(), "<b>\n    hello\n</b>")
     }
 
     func testUppercaseTags() throws {

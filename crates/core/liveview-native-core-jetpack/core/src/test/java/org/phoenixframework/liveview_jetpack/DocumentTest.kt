@@ -2,8 +2,7 @@
 
 import org.junit.Test
 import org.junit.Assert.*
-//import org.phoenixframework.liveview.lib.Document
-import org.phoenixframework.liveview_native_core.LiveViewNativeCore.Doument
+import org.phoenixframework.liveview_native_core.Document;
 
 class DocumentTest {
     /*
@@ -15,7 +14,6 @@ class DocumentTest {
 
     @Test
     fun it_morphs_live_form() {
-        /*
         var doc = Document.parse("""
         <VStack modifiers="">
             <VStack>
@@ -30,6 +28,7 @@ class DocumentTest {
             </VStack>
         </VStack>
         """);
+        /*
 
         var to = Document.parse("""
         <VStack modifiers="">
