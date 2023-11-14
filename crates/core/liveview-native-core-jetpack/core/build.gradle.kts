@@ -3,13 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("maven-publish")
     id("org.mozilla.rust-android-gradle.rust-android")
-    id("idea")
+    //id("idea")
     id("org.jetbrains.dokka") version "1.9.10"
 }
 
 val uniffiPath = "${buildDir}/generated/source/uniffi/java"
 android {
-    namespace = "org.phoenixframework.liveview_native_core"
+    namespace = "org.phoenixframework.liveview_native_core_jetpack"
     compileSdk = 33
 
     defaultConfig {
@@ -71,33 +71,24 @@ android {
     }
 }
 
-/*
-kotlin {
-    sourceSets {
-        main {
-            kotlin.srcDir(uniffiPath)
-        }
-    }
-}
-*/
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.4.0")
     implementation("net.java.dev.jna:jna:5.7.0@aar")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-    implementation("net.java.dev.jna:jna:5.7.0@aar")
 }
 
 // Configuring Rust Cargo build
 // https://github.com/mozilla/rust-android-gradle
 cargo {
     verbose = true
-    module = "../../../../"
+    module = "../../"
     libname = "liveview_native_core"
     // In case you need to run the unit tests, install the respective toolchain and add the target below.
-    //targets = listOf("arm", "arm64", "x86", "x86_64", "darwin-aarch64")
-    targets = listOf("darwin-aarch64")
+    targets = listOf("arm", "arm64", "x86", "x86_64", "darwin-aarch64")
+    //targets = listOf("darwin-aarch64")
 }
 
 // Running cargo command before build

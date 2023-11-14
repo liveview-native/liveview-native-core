@@ -1,4 +1,4 @@
-namespace LiveViewNativeCore {
+namespace live_view_native_core {
 };
 enum ChangeType {
     "Change",
