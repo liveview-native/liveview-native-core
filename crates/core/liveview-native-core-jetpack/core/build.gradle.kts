@@ -36,11 +36,13 @@ android {
         }
     }
     ndkVersion = "25.1.8937393"
+
     sourceSets {
         getByName("main") {
             java.srcDir(uniffiPath)
         }
     }
+
     libraryVariants.all {
         val t = tasks.register<Exec>("generate${name.capitalize()}UniFFIBindings") {
             workingDir("${project.projectDir}")
@@ -63,6 +65,7 @@ android {
             )
         }
         javaCompileProvider.get().dependsOn(t)
+
         //val sourceSet = sourceSets.find { it.name == this.name }
         //sourceSet.java.srcDir(uniffiPath)
         //java.sourceSets.java.srcDir(File(uniffiPath))
@@ -76,19 +79,24 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.4.0")
-    implementation("net.java.dev.jna:jna:5.7.0@aar")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
+
+    implementation("net.java.dev.jna:jna:5.13.0@aar")
+
+    //implementation(files("/Users/sebastian.imlay/projects/jna"))
 }
 
 // Configuring Rust Cargo build
 // https://github.com/mozilla/rust-android-gradle
 cargo {
     verbose = true
-    module = "../../"
+
+    module = "../../../../"
+
     libname = "liveview_native_core"
     // In case you need to run the unit tests, install the respective toolchain and add the target below.
-    targets = listOf("arm", "arm64", "x86", "x86_64", "darwin-aarch64")
-    //targets = listOf("darwin-aarch64")
+    //targets = listOf("arm", "arm64", "x86", "x86_64", "darwin-aarch64")
+    targets = listOf("darwin-aarch64")
 }
 
 // Running cargo command before build
