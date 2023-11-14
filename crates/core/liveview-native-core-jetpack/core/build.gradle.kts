@@ -65,12 +65,6 @@ android {
             )
         }
         javaCompileProvider.get().dependsOn(t)
-
-        //val sourceSet = sourceSets.find { it.name == this.name }
-        //sourceSet.java.srcDir(uniffiPath)
-        //java.sourceSets.java.srcDir(File(uniffiPath))
-        // XXX: I've been trying to make this work but I can't, so the compiled bindings will show as "regular sources" in Android Studio.
-        //idea.module.generatedSourceDirs.add(file("${uniffiPath}/uniffi"))
     }
 }
 
@@ -81,9 +75,7 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.4.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
 
-    implementation("net.java.dev.jna:jna:5.13.0@aar")
-
-    //implementation(files("/Users/sebastian.imlay/projects/jna"))
+    implementation("net.java.dev.jna:jna:5.13.0")
 }
 
 // Configuring Rust Cargo build

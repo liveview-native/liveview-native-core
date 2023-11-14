@@ -14,20 +14,25 @@ class DocumentTest {
 
     @Test
     fun it_morphs_live_form() {
-        var doc = Document.parse("""
-        <VStack modifiers="">
-            <VStack>
-                <LiveForm id="login" phx-submit="login">
-                    <TextField name="email" modifiers="">
-                        Email
-                    </TextField>
-                    <LiveSubmitButton modifiers="">
-                        <Text>Enter</Text>
-                    </LiveSubmitButton>
-                </LiveForm>
-            </VStack>
-        </VStack>
-        """);
+        // The formatting of this multi line string is very specific such that it matches the expected output.
+        var input = """<VStack modifiers="">
+    <VStack>
+        <LiveForm id="login" phx-submit="login">
+            <TextField name="email" modifiers="">
+                Email
+            </TextField>
+            <LiveSubmitButton modifiers="">
+                <Text>
+                    Enter
+                </Text>
+            </LiveSubmitButton>
+        </LiveForm>
+    </VStack>
+</VStack>"""
+        var doc = Document.parse(input);
+        var rendered = doc.render();
+        assertEquals(input, rendered)
+
         /*
 
         var to = Document.parse("""
