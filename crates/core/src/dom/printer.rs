@@ -42,7 +42,7 @@ impl<'a> Printer<'a> {
                 DfsEvent::Discover(node, _) => {
                     // We're encountering `node` for the first time
                     match &self.doc.nodes[node] {
-                        Node::Element { element: elem } => {
+                        Node::NodeElement { element: elem } => {
                             let pretty = self.options.pretty();
                             let self_closing = self.doc.children[node].is_empty();
                             if pretty {
@@ -85,7 +85,7 @@ impl<'a> Printer<'a> {
                 }
                 DfsEvent::Finish(node, _) => {
                     // We've visited all the children of `node`
-                    if let Node::Element { element: elem } = &self.doc.nodes[node] {
+                    if let Node::NodeElement { element: elem } = &self.doc.nodes[node] {
                         let self_closing = self.doc.children[node].is_empty();
                         if self_closing {
                             return Ok(());

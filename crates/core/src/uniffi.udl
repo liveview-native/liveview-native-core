@@ -53,7 +53,7 @@ dictionary Element {
 [Enum]
 interface Node {
     Root();
-    Element(Element element);
+    NodeElement(Element element);
     Leaf(string leaf);
 };
 

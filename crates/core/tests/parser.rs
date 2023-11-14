@@ -65,7 +65,7 @@ fn parser_preserve_upcase() {
     let root = document.root();
     let component = document.children(root)[0];
     let element = document.get(component);
-    let Node::Element { element } = element else {
+    let Node::NodeElement { element } = element else {
         panic!("expected element");
     };
     let expected_name: InternedString = "Component".into();

@@ -29,7 +29,7 @@ impl<'a> Node<'a> {
                     leaf: RustStr::from_str(s.as_str()),
                 },
             },
-            dom::Node::Element { element: ref elem } => {
+            dom::Node::NodeElement { element: ref elem } => {
                 let attrs = elem.attributes();
                 let mut attributes = Vec::with_capacity(attrs.len());
                 for attr in attrs {

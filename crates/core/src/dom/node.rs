@@ -50,7 +50,7 @@ pub enum Node {
     /// A document may only have a single root, and it has no attributes
     Root,
     /// A typed node that can carry attributes and may contain other nodes
-    Element { element: Element },
+    NodeElement { element: Element },
     /// A leaf node is an untyped node, typically text, and does not have any attributes or children
     Leaf { leaf: String },
 }
@@ -58,20 +58,20 @@ impl Node {
     /// Creates a new, empty element node with the given tag name
     #[inline]
     pub fn new<T: Into<ElementName>>(tag: T) -> Self {
-        Self::Element { element: Element::new(tag.into()) }
+        Self::NodeElement { element: Element::new(tag.into()) }
     }
 
     /// Returns a slice of Attributes for this node, if applicable
     pub fn attributes(&self) -> &[Attribute] {
         match self {
-            Self::Element { element: elem } => elem.attributes(),
+            Self::NodeElement { element: elem } => elem.attributes(),
             _ => &[],
         }
     }
 
     pub(crate) fn id(&self) -> Option<SmallString<[u8; 16]>> {
         match self {
-            Self::Element { element: el } => el.id(),
+            Self::NodeElement { element: el } => el.id(),
             _ => None,
         }
     }
@@ -87,7 +87,7 @@ impl Node {
 impl From<Element> for Node {
     #[inline(always)]
     fn from(elem: Element) -> Self {
-        Self::Element { element: elem }
+        Self::NodeElement { element: elem }
     }
 }
 impl From<&str> for Node {

@@ -204,7 +204,7 @@ impl Document {
     /// Returns the set of attribute refs associated with `node`
     pub fn attributes(&self, node: NodeRef) -> &[Attribute] {
         match &self.nodes[node] {
-            Node::Element { element: ref elem } => elem.attributes(),
+            Node::NodeElement { element: ref elem } => elem.attributes(),
             _ => &[],
         }
     }
@@ -275,8 +275,8 @@ impl Document {
                     let new_k = self.nodes.push(v);
                     node_mapping.insert(k, new_k);
                 }
-                Node::Element { element: elem } => {
-                    let new_k = self.nodes.push(Node::Element { element: elem });
+                Node::NodeElement { element: elem } => {
+                    let new_k = self.nodes.push(Node::NodeElement { element: elem });
                     node_mapping.insert(k, new_k);
                 }
             }
@@ -438,7 +438,7 @@ impl Document {
         name: K,
         value: V,
     ) -> bool {
-        if let Node::Element { element: ref mut elem } = &mut self.nodes[node] {
+        if let Node::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
             let name = name.into();
             let value = value.into();
             elem.set_attribute(name, value);
@@ -450,7 +450,7 @@ impl Document {
 
     /// Removes the attribute `name` from `node`.
     pub fn remove_attribute<K: Into<AttributeName>>(&mut self, node: NodeRef, name: K) {
-        if let Node::Element { element: ref mut elem } = &mut self.nodes[node] {
+        if let Node::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
             let name = name.into();
             elem.remove_attribute(&name);
         }
@@ -462,7 +462,7 @@ impl Document {
         node: NodeRef,
         attributes: Vec<Attribute>,
     ) -> Option<Vec<Attribute>> {
-        if let Node::Element { element: ref mut elem } = &mut self.nodes[node] {
+        if let Node::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
             Some(mem::replace(&mut elem.attributes, attributes))
         } else {
             None
@@ -474,7 +474,7 @@ impl Document {
     where
         P: FnMut(&Attribute) -> bool,
     {
-        if let Node::Element { element: ref mut elem } = &mut self.nodes[node] {
+        if let Node::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
             elem.attributes.retain(predicate);
         }
     }
