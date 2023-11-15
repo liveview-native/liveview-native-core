@@ -3,11 +3,42 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("maven-publish")
     id("org.mozilla.rust-android-gradle.rust-android")
-    //id("idea")
-    id("org.jetbrains.dokka") version "1.9.10"
+    id("org.jetbrains.dokka") version "1.9.10" apply true
+}
+subprojects {
+    apply(plugin = "org.jetbrains.dokka")
 }
 
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.4.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
+    implementation("net.java.dev.jna:jna:5.13.0")
+}
 val uniffiPath = "${buildDir}/generated/source/uniffi/java"
+
+/*
+dokkaHtml.configure {
+    dokkaSourceSets {
+        named("main") {
+            noAndroidSdkLink.set(false)
+            java.srcDir(uniffiPath)
+        }
+    }
+}
+kotlin {
+    sourceSets {
+        named("main") {
+            //java.srcDir(uniffiPath)
+        }
+        configureEach {
+            sourceRoots.from(uniffiPath)
+        }
+    }
+}
+*/
+
 android {
     namespace = "org.phoenixframework.liveview_native_core_jetpack"
     compileSdk = 33
@@ -68,16 +99,6 @@ android {
     }
 }
 
-
-dependencies {
-    testImplementation("junit:junit:4.13.2")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.4.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-
-    implementation("net.java.dev.jna:jna:5.13.0")
-}
-
 // Configuring Rust Cargo build
 // https://github.com/mozilla/rust-android-gradle
 cargo {
@@ -85,7 +106,7 @@ cargo {
 
     module = "../../../../"
 
-    libname = "liveview_native_core"
+    libname = "LiveViewNativeCore"
     // In case you need to run the unit tests, install the respective toolchain and add the target below.
     //targets = listOf("arm", "arm64", "x86", "x86_64", "darwin-aarch64")
     targets = listOf("darwin-aarch64")

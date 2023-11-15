@@ -3,6 +3,23 @@
 import org.junit.Test
 import org.junit.Assert.assertEquals;
 import org.phoenixframework.liveview_native_core.Document;
+import org.phoenixframework.liveview_native_core.DocumentChangeHandler;
+import org.phoenixframework.liveview_native_core.ChangeType;
+import org.phoenixframework.liveview_native_core.NodeRef;
+
+class SimpleChangeHandler: DocumentChangeHandler {
+    constructor() {
+    }
+
+    override fun `handle`(
+        `context`: String,
+        `changeType`: ChangeType,
+        `nodeRef`: NodeRef,
+        `optionNodeRef`: NodeRef?,
+    ) {
+        println("${changeType}")
+    }
+}
 
 class DocumentTest {
 
@@ -67,5 +84,40 @@ class DocumentTest {
 </Column>"""
         var rendered = doc.render();
         assertEquals(expected, rendered)
+        var first_increment = """{
+  "0":"1",
+  "1":"1",
+  "2":{
+    "0":{
+      "s":[
+        "\n      <Text fontWeight=\"W600\" fontSize=\"24\">Item ",
+        "!!!</Text>\n",
+        "\n",
+        "\n"
+      ],
+      "p":{
+         "0":[
+
+           "\n        <Text color=\" #FFFF0000\">Number = ",
+
+           " + 3 is even</Text>\n"
+         ],
+         "1":[
+           "\n        <Text>Number + 4 = ",
+           " is odd</Text>\n"
+           ]
+      },
+      "d":[["1",{"0":"1","s":0},{"0":"5","s":1}]]
+    },
+    "1":"101",
+    "s":[
+      "\n",
+      "\n    <Text>Number + 100 is ","</Text>\n"
+    ]
+  }
+}
+        """
+        var simple = SimpleChangeHandler()
+        doc.mergeFragmentJson(first_increment, simple);
     }
 }
