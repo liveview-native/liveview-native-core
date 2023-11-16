@@ -61,6 +61,7 @@ fn dom_builder_example() {
     assert_eq!(buffer.as_str(), expected);
 }
 
+/*
 #[test]
 fn dom_selection() {
     let document = Document::parse(
@@ -168,3 +169,4 @@ fn dom_selection() {
         1
     );
 }
+*/

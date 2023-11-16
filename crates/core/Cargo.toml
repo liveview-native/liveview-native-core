@@ -21,8 +21,8 @@ crate-type = [
     "rlib",
     "cdylib"
 ]
-#name = "liveview_native_core"
-name = "LiveViewNativeCore"
+name = "liveview_native_core"
+#name = "LiveViewNativeCore"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

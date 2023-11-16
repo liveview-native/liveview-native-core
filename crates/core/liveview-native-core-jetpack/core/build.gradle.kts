@@ -106,7 +106,7 @@ cargo {
 
     module = "../../../../"
 
-    libname = "LiveViewNativeCore"
+    libname = "liveview_native_core"
     // In case you need to run the unit tests, install the respective toolchain and add the target below.
     targets = listOf("arm", "arm64", "x86", "x86_64", "darwin-aarch64")
 }

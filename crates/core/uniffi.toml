@@ -1,4 +1,4 @@
 [bindings.kotlin]
-#cdylib_name = "liveview_native_core"
-cdylib_name = "LiveViewNativeCore"
+cdylib_name = "liveview_native_core"
+#cdylib_name = "LiveViewNativeCore"
 package_name = "org.phoenixframework.liveview_native_core"
