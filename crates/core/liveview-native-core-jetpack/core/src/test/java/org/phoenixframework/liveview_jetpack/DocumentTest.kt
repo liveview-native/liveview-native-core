@@ -119,5 +119,40 @@ class DocumentTest {
         """
         var simple = SimpleChangeHandler()
         doc.mergeFragmentJson(first_increment, simple);
+        rendered = doc.render();
+        expected = """<Column>
+    <Button phx-click="inc">
+        <Text>
+            Increment
+        </Text>
+    </Button>
+    <Button phx-click="dec">
+        <Text>
+            Decrement
+        </Text>
+    </Button>
+    <Text>
+        Static Text
+    </Text>
+    <Text>
+        Counter 1: 1
+    </Text>
+    <Text>
+        Counter 2: 1
+    </Text>
+    <Text fontWeight="W600" fontSize="24">
+        Item 1!!!
+    </Text>
+    <Text color=" #FFFF0000">
+        Number = 1 + 3 is even
+    </Text>
+    <Text>
+        Number + 4 = 5 is odd
+    </Text>
+    <Text>
+        Number + 100 is 101
+    </Text>
+</Column>"""
+        assertEquals(expected, rendered)
     }
 }
