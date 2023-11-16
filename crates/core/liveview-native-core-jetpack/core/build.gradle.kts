@@ -108,8 +108,7 @@ cargo {
 
     libname = "LiveViewNativeCore"
     // In case you need to run the unit tests, install the respective toolchain and add the target below.
-    //targets = listOf("arm", "arm64", "x86", "x86_64", "darwin-aarch64")
-    targets = listOf("darwin-aarch64")
+    targets = listOf("arm", "arm64", "x86", "x86_64", "darwin-aarch64")
 }
 
 // Running cargo command before build
