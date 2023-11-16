@@ -8,7 +8,7 @@ env:
 
 jobs:
   integration_tests:
-    runs-on: ubuntu-latest # This is a beta runner
+    runs-on: macos-13 # This is a beta runner
 
     steps:
       - uses: actions/checkout@v4
