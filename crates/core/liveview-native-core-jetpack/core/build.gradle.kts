@@ -66,7 +66,7 @@ android {
             withJavadocJar()
         }
     }
-    ndkVersion = "25.1.8937393"
+    ndkVersion = "25.2.9519653"
 
     sourceSets {
         getByName("main") {
