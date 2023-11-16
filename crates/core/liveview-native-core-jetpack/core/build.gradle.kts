@@ -108,7 +108,14 @@ cargo {
 
     libname = "liveview_native_core"
     // In case you need to run the unit tests, install the respective toolchain and add the target below.
-    targets = listOf("arm", "arm64", "x86", "x86_64", "darwin-aarch64")
+    targets = listOf(
+        "arm", // rust - armv7-linux-androideabi
+        "arm64", // rust - aarch64-linux-android
+        "x86", // rust - i686-linux-android
+        "x86_64", // rust - x86_64-linux-android
+        "darwin-aarch64", // rust - aarch64-apple-darwin
+        "darwin-x86-64", // rust - x86_64-apple-darwin
+    )
 }
 
 // Running cargo command before build
