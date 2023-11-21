@@ -271,7 +271,7 @@ impl Document {
         for (k, v) in doc.nodes.into_iter() {
             match v {
                 Node::Root => continue,
-                v @ Node::Leaf { leaf: _ } => {
+                v @ Node::Leaf { value: _ } => {
                     let new_k = self.nodes.push(v);
                     node_mapping.insert(k, new_k);
                 }
@@ -596,6 +596,13 @@ impl FFiDocument {
         Ok(Self {
             inner: Arc::new(RwLock::new(Document::parse(input)?)),
         })
+    }
+
+    pub fn empty(
+    ) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(Document::empty())),
+        }
     }
 
     pub fn parse_fragment_json(

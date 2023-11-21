@@ -19,6 +19,14 @@ impl Default for NodeRef {
         Self::reserved_value()
     }
 }
+
+impl NodeRef {
+    // Kotlin uses ref but is a signed integer.
+    pub fn r#ref(&self) -> i32 {
+        self.0 as i32
+    }
+}
+
 impl From<NodeIndex<Self>> for NodeRef {
     #[inline(always)]
     fn from(id: NodeIndex<Self>) -> Self {
@@ -52,7 +60,7 @@ pub enum Node {
     /// A typed node that can carry attributes and may contain other nodes
     NodeElement { element: Element },
     /// A leaf node is an untyped node, typically text, and does not have any attributes or children
-    Leaf { leaf: String },
+    Leaf { value: String },
 }
 impl Node {
     /// Creates a new, empty element node with the given tag name
@@ -79,7 +87,7 @@ impl Node {
     /// Returns true if this node is a leaf node
     pub fn is_leaf(&self) -> bool {
         match self {
-            Self::Leaf { leaf: _ } => true,
+            Self::Leaf { value: _ } => true,
             _ => false,
         }
     }
@@ -93,19 +101,19 @@ impl From<Element> for Node {
 impl From<&str> for Node {
     #[inline(always)]
     fn from(string: &str) -> Self {
-        Self::Leaf { leaf: string.to_string() }
+        Self::Leaf { value: string.to_string() }
     }
 }
 impl From<String> for Node {
     #[inline(always)]
     fn from(string: String) -> Self {
-        Self::Leaf { leaf: string }
+        Self::Leaf { value: string }
     }
 }
 impl From<SmallString<[u8; 16]>> for Node {
     #[inline(always)]
     fn from(string: SmallString<[u8; 16]>) -> Self {
-        Self::Leaf { leaf: string.to_string() }
+        Self::Leaf { value: string.to_string() }
     }
 }
 

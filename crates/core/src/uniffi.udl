@@ -28,6 +28,7 @@ enum RenderError {
 };
 
 interface NodeRef {
+    i32 ref();
 };
 
 dictionary AttributeName {
@@ -54,7 +55,7 @@ dictionary Element {
 interface Node {
     Root();
     NodeElement(Element element);
-    Leaf(string leaf);
+    Leaf(string value);
 };
 
 [Trait]
@@ -70,6 +71,9 @@ interface DocumentChangeHandler {
 interface Document {
     [Throws=ParseError, Name=parse]
     constructor(string input);
+
+    [Name=empty]
+    constructor();
 
     string render();
 

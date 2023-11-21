@@ -69,7 +69,7 @@ impl<'a> Printer<'a> {
                                 writer.write_str(">")
                             }
                         }
-                        Node::Leaf { leaf: content } => {
+                        Node::Leaf { value: content } => {
                             if self.options.pretty() {
                                 if !first {
                                     writer.write_char('\n')?;

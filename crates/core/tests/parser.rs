@@ -51,7 +51,7 @@ fn parser_whitespace_handling() {
     assert_eq!(children.len(), 1);
     let content = document.get(children[0]);
     assert_matches!(content, Node::Leaf {..});
-    let Node::Leaf { leaf: content } = content else {
+    let Node::Leaf { value: content } = content else {
         unreachable!()
     };
     assert_eq!(content.as_str(), "some content");

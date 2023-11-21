@@ -49,7 +49,7 @@ impl<'a> Selector<'a> {
     pub fn matches(&self, node: NodeRef, document: &Document) -> bool {
         let element = match &document.nodes[node] {
             Node::NodeElement { element: ref elem } => elem,
-            Node::Leaf { leaf: _ } | Node::Root => return false,
+            Node::Leaf { value: _ } | Node::Root => return false,
         };
 
         match self {

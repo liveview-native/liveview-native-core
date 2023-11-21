@@ -23,7 +23,7 @@ impl<'a> Node<'a> {
                 ty: NodeType::Root,
                 data: NodeData { root: () },
             },
-            dom::Node::Leaf { leaf: ref s } => Self {
+            dom::Node::Leaf { value: ref s } => Self {
                 ty: NodeType::Leaf,
                 data: NodeData {
                     leaf: RustStr::from_str(s.as_str()),

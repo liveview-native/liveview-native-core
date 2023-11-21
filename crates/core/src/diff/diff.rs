@@ -161,7 +161,7 @@ trait CompatibleWith: Deref<Target = Node> {
             (Node::NodeElement { element: from }, Node::NodeElement { element: to }) => {
                 to.name.eq(&from.name) && to.id().eq(&from.id())
             }
-            (Node::Leaf { leaf: _ }, Node::Leaf { leaf: _ }) => true,
+            (Node::Leaf { value: _ }, Node::Leaf { value: _ }) => true,
             (Node::Root, Node::Root) => true,
             _ => false,
         }
@@ -513,26 +513,26 @@ impl<'a> Iterator for Morph<'a> {
                         (Node::Root, Node::Root) | (Node::Root, _) | (_, Node::Root) => {
                             self.advance(Advance::BothCursors, false);
                         }
-                        (Node::Leaf { leaf: old_content }, Node::Leaf { leaf: content }) => {
+                        (Node::Leaf { value: old_content }, Node::Leaf { value: content }) => {
                             if old_content.ne(content) {
                                 self.queue.push(Op::Patch(Patch::Replace {
                                     node: from.node,
-                                    replacement: Node::Leaf { leaf: content.to_owned() },
+                                    replacement: Node::Leaf { value: content.to_owned() },
                                 }));
                             }
 
                             self.advance(Advance::BothCursors, false);
                         }
-                        (Node::Leaf { leaf: _ }, Node::NodeElement { element: _ }) => {
+                        (Node::Leaf { value: _ }, Node::NodeElement { element: _ }) => {
                             self.queue
                                 .push(Op::Patch(Patch::Remove { node: from.node }));
 
                             self.advance(Advance::From, true);
                         }
-                        (Node::NodeElement { element: _ }, Node::Leaf { leaf: content }) => {
+                        (Node::NodeElement { element: _ }, Node::Leaf { value: content }) => {
                             self.queue.push(Op::Patch(Patch::InsertBefore {
                                 before: from.node,
-                                node: Node::Leaf { leaf: content.to_owned() },
+                                node: Node::Leaf { value: content.to_owned() },
                             }));
 
                             self.advance(Advance::To, true);

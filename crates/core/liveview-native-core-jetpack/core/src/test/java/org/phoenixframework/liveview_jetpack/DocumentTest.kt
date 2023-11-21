@@ -2,10 +2,10 @@
 
 import org.junit.Test
 import org.junit.Assert.assertEquals;
-import org.phoenixframework.liveview_native_core.Document;
-import org.phoenixframework.liveview_native_core.DocumentChangeHandler;
-import org.phoenixframework.liveview_native_core.ChangeType;
-import org.phoenixframework.liveview_native_core.NodeRef;
+import org.phoenixframework.liveview.lib.Document;
+import org.phoenixframework.liveview.lib.DocumentChangeHandler;
+import org.phoenixframework.liveview.lib.ChangeType;
+import org.phoenixframework.liveview.lib.NodeRef;
 
 class SimpleChangeHandler: DocumentChangeHandler {
     constructor() {

@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("maven-publish")
     id("org.mozilla.rust-android-gradle.rust-android")
+    // TODO: Add generated sources to dokka sourcesets
     id("org.jetbrains.dokka") version "1.9.10" apply true
 }
 subprojects {
@@ -17,27 +18,6 @@ dependencies {
     implementation("net.java.dev.jna:jna:5.13.0")
 }
 val uniffiPath = "${buildDir}/generated/source/uniffi/java"
-
-/*
-dokkaHtml.configure {
-    dokkaSourceSets {
-        named("main") {
-            noAndroidSdkLink.set(false)
-            java.srcDir(uniffiPath)
-        }
-    }
-}
-kotlin {
-    sourceSets {
-        named("main") {
-            //java.srcDir(uniffiPath)
-        }
-        configureEach {
-            sourceRoots.from(uniffiPath)
-        }
-    }
-}
-*/
 
 android {
     namespace = "org.phoenixframework.liveview_native_core_jetpack"
@@ -66,7 +46,6 @@ android {
             withJavadocJar()
         }
     }
-    ndkVersion = "25.2.9519653"
 
     sourceSets {
         getByName("main") {
