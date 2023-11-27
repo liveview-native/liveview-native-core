@@ -519,7 +519,6 @@ impl Document {
         let rendered : String = root.clone().try_into()?;
         let mut document = crate::parser::parse(&rendered)?;
         document.fragment_template = Some(Arc::new(Mutex::new(root)));
-        //document.event_handler = Some(handler);
         Ok(document)
     }
 
@@ -535,7 +534,8 @@ impl Document {
             *root = root.clone().merge(fragment)?;
             root.clone()
         } else {
-            return Err(RenderError::NoTemplates);
+            self.fragment_template = Some(Arc::new(Mutex::new(fragment.try_into()?)));
+            return Ok(());
         };
 
         let rendered_root : String = root.clone().try_into()?;
