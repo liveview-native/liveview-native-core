@@ -269,7 +269,6 @@ command = "xcodebuild"
 args = [
     "-create-xcframework",
     "-output", "${CARGO_TARGET_DIR}/uniffi/swift/RustFramework.xcframework",
-#"-output", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/swift/RustFramework.xcframework",
 
 	# macOS
     "-library", "${CARGO_TARGET_DIR}/universal/macos/libliveview_native_core.a",
@@ -283,11 +282,6 @@ args = [
     "-library", "${CARGO_TARGET_DIR}/universal/ios-sim/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
-	# watchOS
-    # "-library", "${CARGO_TARGET_DIR}/arm64_32-apple-watchos/debug/libliveview_native_core.a",
-    # "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/c_src/include",
-    # "-library", "${CARGO_TARGET_DIR}/armv7k-apple-watchos/debug/libliveview_native_core.a",
-    # "-headers", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/c_src/include",
 	# watchOS sim
     "-library", "${CARGO_TARGET_DIR}/universal/watchos-sim/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",

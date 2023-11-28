@@ -11,9 +11,10 @@ let package = Package(
             targets: ["LiveViewNativeCore"]),
     ],
     dependencies: [
+        // This is used to generate documentation vio `swift package generate-documentation`
+        // This doesn't work because of:
+        // https://github.com/apple/swift-docc-plugin/issues/50 will hopefully resolve it
         .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
-        // Dependencies declare other packages that this package depends on.
-        // .package(url: /* package url */, from: "1.0.0"),
     ],
     targets: [
         .binaryTarget(name: "RustFramework", path: "../../../target/uniffi/swift/RustFramework.xcframework"),

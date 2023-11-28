@@ -546,7 +546,6 @@ impl Document {
             return Ok(());
         }
 
-
         let mut editor = self.edit();
         let mut stack = vec![];
         for patch in patches.into_iter() {

@@ -62,6 +62,7 @@ fn dom_builder_example() {
 }
 
 /*
+ * TODO: https://github.com/liveview-native/liveview-native-core/issues/58
 #[test]
 fn dom_selection() {
     let document = Document::parse(

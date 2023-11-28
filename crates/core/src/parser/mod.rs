@@ -364,13 +364,10 @@ impl Emitter for DocumentEmitter {
     fn push_doctype_system_identifier(&mut self, _value: &[u8]) {}
 
     fn current_is_appropriate_end_tag_token(&mut self) -> bool {
-        todo!();
-        /*
-        match self.current_token {
-            Some(Token::End(tag)) => !(self.last_start_tag == "") && tag == self.last_start_tag,
+        match &self.current_token {
+            Some(Token::End(tag)) => !(self.last_start_tag == "") && tag.to_string() == self.last_start_tag.to_string(),
             _ => false,
         }
-        */
     }
 }
 
