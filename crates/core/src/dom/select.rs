@@ -93,12 +93,9 @@ impl<'a> Selector<'a> {
             }
             Self::AttributeValue(name, ref value) => {
                 for attr in element.attributes() {
-                    todo!();
-                    /*
-                    if &attr.name == name && attr.value.eq(value) {
+                    if &attr.name == name && attr.value.eq(&Some(value.to_string())) {
                         return true;
                     }
-                    */
                 }
                 false
             }

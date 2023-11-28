@@ -660,7 +660,16 @@ impl fmt::Display for FFiDocument {
     }
 }
 
-use crate::ffi::ChangeType;
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub enum ChangeType {
+    Change = 0,
+    Add = 1,
+    Remove = 2,
+    Replace = 3,
+}
+
 pub trait DocumentChangeHandler : Send + Sync + fmt::Debug {
     fn handle(
         &self,

@@ -7,21 +7,16 @@
 
 pub mod diff;
 pub mod dom;
-pub mod ffi;
-mod interner;
 pub mod parser;
 
+mod interner;
 pub use self::interner::{symbols, InternedString, Symbol};
 
 uniffi::include_scaffolding!("uniffi");
 
-use crate::ffi::{
-    ChangeType,
-    NodeType,
-};
-
 use crate::dom::{
     DocumentChangeHandler,
+    ChangeType,
     FFiDocument as Document,
     NodeRef,
     Attribute,
