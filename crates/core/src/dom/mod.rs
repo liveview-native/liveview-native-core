@@ -8,6 +8,11 @@ use std::{
     fmt, mem,
     ops::{Deref, DerefMut},
     path::Path,
+    sync::{
+        Arc,
+        RwLock,
+        Mutex,
+    }
 };
 
 use cranelift_entity::{packed_option::PackedOption, EntityRef, PrimaryMap, SecondaryMap};
@@ -32,11 +37,7 @@ use crate::diff::fragment::{
     RenderError,
     FragmentMerge,
 };
-use std::sync::{
-    Arc,
-    RwLock,
-    Mutex,
-};
+use crate::diff::PatchResult;
 
 /// A `Document` represents a virtual DOM, and supports common operations typically performed against them.
 ///
@@ -507,9 +508,7 @@ impl Document {
         };
         Ok(root)
     }
-}
-use crate::diff::PatchResult;
-impl Document {
+
     /// Parses a `RootDiff` and returns a `Document`
     pub fn parse_fragment_json(
         input: String,

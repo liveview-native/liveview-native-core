@@ -1,4 +1,3 @@
-
 /// Represents a node in a `Document` which can have children and attributes
 public struct ElementData {
     /// An (optional) namespace for the element tag name
@@ -9,7 +8,6 @@ public struct ElementData {
     public let attributes: [Attribute]
 
     init(doc: Document, ref: NodeRef, data: Element) {
-
         self.namespace = data.name.namespace
         self.tag = data.name.name
         self.attributes = data.attributes
