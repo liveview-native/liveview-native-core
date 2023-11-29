@@ -4,12 +4,12 @@ use cranelift_entity::entity_impl;
 use petgraph::graph::{IndexType, NodeIndex};
 use smallstr::SmallString;
 
-use super::{Attribute, AttributeName, AttributeValue};
+use super::{Attribute, AttributeName};
 use crate::{InternedString, Symbol};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct NodeRef(u32);
+pub struct NodeRef(pub(crate) u32);
 entity_impl!(NodeRef, "node");
 impl Default for NodeRef {
     #[inline]
@@ -19,6 +19,14 @@ impl Default for NodeRef {
         Self::reserved_value()
     }
 }
+
+impl NodeRef {
+    // Kotlin uses ref but is a signed integer.
+    pub fn r#ref(&self) -> i32 {
+        self.0 as i32
+    }
+}
+
 impl From<NodeIndex<Self>> for NodeRef {
     #[inline(always)]
     fn from(id: NodeIndex<Self>) -> Self {
@@ -50,28 +58,28 @@ pub enum Node {
     /// A document may only have a single root, and it has no attributes
     Root,
     /// A typed node that can carry attributes and may contain other nodes
-    Element(Element),
+    NodeElement { element: Element },
     /// A leaf node is an untyped node, typically text, and does not have any attributes or children
-    Leaf(SmallString<[u8; 16]>),
+    Leaf { value: String },
 }
 impl Node {
     /// Creates a new, empty element node with the given tag name
     #[inline]
     pub fn new<T: Into<ElementName>>(tag: T) -> Self {
-        Self::Element(Element::new(tag.into()))
+        Self::NodeElement { element: Element::new(tag.into()) }
     }
 
     /// Returns a slice of Attributes for this node, if applicable
     pub fn attributes(&self) -> &[Attribute] {
         match self {
-            Self::Element(elem) => elem.attributes(),
+            Self::NodeElement { element: elem } => elem.attributes(),
             _ => &[],
         }
     }
 
-    pub(crate) fn id(&self) -> Option<&SmallString<[u8; 16]>> {
+    pub(crate) fn id(&self) -> Option<SmallString<[u8; 16]>> {
         match self {
-            Self::Element(el) => el.id(),
+            Self::NodeElement { element: el } => el.id(),
             _ => None,
         }
     }
@@ -79,7 +87,7 @@ impl Node {
     /// Returns true if this node is a leaf node
     pub fn is_leaf(&self) -> bool {
         match self {
-            Self::Leaf(_) => true,
+            Self::Leaf { value: _ } => true,
             _ => false,
         }
     }
@@ -87,33 +95,33 @@ impl Node {
 impl From<Element> for Node {
     #[inline(always)]
     fn from(elem: Element) -> Self {
-        Self::Element(elem)
+        Self::NodeElement { element: elem }
     }
 }
 impl From<&str> for Node {
     #[inline(always)]
     fn from(string: &str) -> Self {
-        Self::Leaf(SmallString::from_str(string))
+        Self::Leaf { value: string.to_string() }
     }
 }
 impl From<String> for Node {
     #[inline(always)]
     fn from(string: String) -> Self {
-        Self::Leaf(SmallString::from_string(string))
+        Self::Leaf { value: string }
     }
 }
 impl From<SmallString<[u8; 16]>> for Node {
     #[inline(always)]
     fn from(string: SmallString<[u8; 16]>) -> Self {
-        Self::Leaf(string)
+        Self::Leaf { value: string.to_string() }
     }
 }
 
 /// Represents the fully-qualified name of an element
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ElementName {
-    pub namespace: Option<InternedString>,
-    pub name: InternedString,
+    pub namespace: Option<String>,
+    pub name: String,
 }
 impl fmt::Display for ElementName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -126,7 +134,7 @@ impl fmt::Display for ElementName {
 }
 impl ElementName {
     #[inline]
-    pub fn new<N: Into<InternedString>>(name: N) -> Self {
+    pub fn new<N: Into<String>>(name: N) -> Self {
         Self {
             namespace: None,
             name: name.into(),
@@ -134,7 +142,7 @@ impl ElementName {
     }
 
     #[inline]
-    pub fn new_with_namespace<NS: Into<InternedString>, N: Into<InternedString>>(
+    pub fn new_with_namespace<NS: Into<String>, N: Into<String>>(
         namespace: NS,
         name: N,
     ) -> Self {
@@ -167,7 +175,7 @@ impl From<Symbol> for ElementName {
 impl Into<InternedString> for ElementName {
     fn into(self) -> InternedString {
         if self.namespace.is_none() {
-            self.name
+            self.name.into()
         } else {
             let string = self.to_string();
             string.into()
@@ -198,17 +206,16 @@ impl Element {
         }
     }
 
-    pub(crate) fn id(&self) -> Option<&SmallString<[u8; 16]>> {
-        self.attributes().iter().find_map(|attr| {
+    pub(crate) fn id(&self) -> Option<SmallString<[u8; 16]>> {
+        for attr in &self.attributes {
             if attr.name.eq("id") {
-                match attr.value {
-                    AttributeValue::None => None,
-                    AttributeValue::String(ref id) => Some(id),
+                if let Some(value) = &attr.value {
+                    let value = SmallString::<[u8; 16]>::from_string(value.clone());
+                    return Some(value);
                 }
-            } else {
-                None
             }
-        })
+        }
+        None
     }
 
     /// Returns a slice of AttributeRefs associated to this element
@@ -221,7 +228,7 @@ impl Element {
     ///
     /// If the attribute is already associated with this element, the value is replaced.
     #[inline]
-    pub fn set_attribute(&mut self, name: AttributeName, value: AttributeValue) {
+    pub fn set_attribute(&mut self, name: AttributeName, value: Option<String>) {
         for attribute in self.attributes.iter_mut() {
             if attribute.name == name {
                 attribute.value = value;

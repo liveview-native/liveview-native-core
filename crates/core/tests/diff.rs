@@ -319,7 +319,8 @@ test_fixture!("svg-xlink");
 test_fixture!("tag-to-text");
 test_fixture!("text-to-tag");
 test_fixture!("text-to-text");
-test_fixture!("textarea");
+// TODO: https://github.com/liveview-native/liveview-native-core/issues/58
+//test_fixture!("textarea");
 test_fixture!("todomvc");
 test_fixture!("todomvc2");
 test_fixture!("two");

@@ -48,8 +48,8 @@ impl<'a> Selector<'a> {
     /// Checks if the given node matches this selector
     pub fn matches(&self, node: NodeRef, document: &Document) -> bool {
         let element = match &document.nodes[node] {
-            Node::Element(ref elem) => elem,
-            Node::Leaf(_) | Node::Root => return false,
+            Node::NodeElement { element: ref elem } => elem,
+            Node::Leaf { value: _ } | Node::Root => return false,
         };
 
         match self {
@@ -93,7 +93,7 @@ impl<'a> Selector<'a> {
             }
             Self::AttributeValue(name, ref value) => {
                 for attr in element.attributes() {
-                    if &attr.name == name && attr.value.eq(value) {
+                    if &attr.name == name && attr.value.eq(&Some(value.to_string())) {
                         return true;
                     }
                 }
@@ -105,8 +105,8 @@ impl<'a> Selector<'a> {
                         continue;
                     }
                     let value = match &attr.value {
-                        AttributeValue::String(s) => s.as_str(),
-                        AttributeValue::None => "",
+                        Some(s) => s.as_str(),
+                        None => "",
                     };
                     for split in value.split_whitespace() {
                         if split == *expected {
@@ -122,8 +122,8 @@ impl<'a> Selector<'a> {
                         continue;
                     }
                     match &attr.value {
-                        AttributeValue::String(s) if s.starts_with(prefix) => return true,
-                        AttributeValue::None if prefix.is_empty() => return true,
+                        Some(s) if s.starts_with(prefix) => return true,
+                        None if prefix.is_empty() => return true,
                         _ => continue,
                     }
                 }
@@ -135,8 +135,8 @@ impl<'a> Selector<'a> {
                         continue;
                     }
                     match &attr.value {
-                        AttributeValue::String(s) if s.ends_with(suffix) => return true,
-                        AttributeValue::None if suffix.is_empty() => return true,
+                        Some(s) if s.ends_with(suffix) => return true,
+                        None if suffix.is_empty() => return true,
                         _ => continue,
                     }
                 }
@@ -148,8 +148,8 @@ impl<'a> Selector<'a> {
                         continue;
                     }
                     match &attr.value {
-                        AttributeValue::String(s) if s.contains(substring) => return true,
-                        AttributeValue::None if substring.is_empty() => return true,
+                        Some(s) if s.contains(substring) => return true,
+                        None if substring.is_empty() => return true,
                         _ => continue,
                     }
                 }

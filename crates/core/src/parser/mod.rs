@@ -171,7 +171,7 @@ impl DocumentEmitter {
                     if k.as_str() == "id" {
                         ids.push(v.clone());
                     }
-                    element.set_attribute(k.as_str().into(), v.into());
+                    element.set_attribute(k.as_str().into(), Some(v.into_string()));
                 }
                 other => invalid_state("invalid state in which to flush a token", Some(other)),
             }
@@ -256,19 +256,19 @@ impl Emitter for DocumentEmitter {
                 let tag = smallvec_to_smallstr(mem::take(&mut self.current_tag));
                 element.name = tag.as_str().into();
                 if self_closing {
-                    let end_tag = element.name;
+                    let end_tag = element.name.clone();
                     self.emit_token(Token::Start(StartToken {
                         ids,
-                        element,
+                        element: element.clone(),
                         self_closing,
                     }));
                     self.emit_token(Token::End(end_tag));
                     None
                 } else {
-                    self.last_start_tag = element.name.into();
+                    self.last_start_tag = element.name.clone().into();
                     self.emit_token(Token::Start(StartToken {
                         ids,
-                        element,
+                        element: element.clone(),
                         self_closing,
                     }));
                     html5gum::naive_next_state(self.last_start_tag.as_str().as_bytes())
@@ -364,8 +364,8 @@ impl Emitter for DocumentEmitter {
     fn push_doctype_system_identifier(&mut self, _value: &[u8]) {}
 
     fn current_is_appropriate_end_tag_token(&mut self) -> bool {
-        match self.current_token {
-            Some(Token::End(tag)) => !(self.last_start_tag == "") && tag == self.last_start_tag,
+        match &self.current_token {
+            Some(Token::End(tag)) => !(self.last_start_tag == "") && tag.to_string() == self.last_start_tag.to_string(),
             _ => false,
         }
     }
