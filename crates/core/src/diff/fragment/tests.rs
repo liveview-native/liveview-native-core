@@ -15,6 +15,7 @@ fn jetpack_more_edge_cases() {
     ]
 }"#;
     let root: RootDiff = serde_json::from_str(initial).expect("Failed to deserialize fragment");
+    println!("Rootdiff: {root:#?}");
     let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
     let increment = r#"{
   "0":"1",
