@@ -5,11 +5,11 @@ use smallstr::SmallString;
 use crate::InternedString;
 
 /// Represents the fully-qualified name of an attribute
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AttributeName {
     /// This is used by svg attributes, e.g. `xlink-href`
-    pub namespace: Option<InternedString>,
-    pub name: InternedString,
+    pub namespace: Option<String>,
+    pub name: String,
 }
 impl fmt::Display for AttributeName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -22,7 +22,7 @@ impl fmt::Display for AttributeName {
 }
 impl AttributeName {
     #[inline]
-    pub fn new<N: Into<InternedString>>(name: N) -> Self {
+    pub fn new<N: Into<String>>(name: N) -> Self {
         Self {
             namespace: None,
             name: name.into(),
@@ -30,7 +30,7 @@ impl AttributeName {
     }
 
     #[inline]
-    pub fn new_with_namespace<NS: Into<InternedString>, N: Into<InternedString>>(
+    pub fn new_with_namespace<NS: Into<String>, N: Into<String>>(
         namespace: NS,
         name: N,
     ) -> Self {
@@ -63,14 +63,14 @@ impl PartialEq<str> for AttributeName {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Attribute {
     pub name: AttributeName,
-    pub value: AttributeValue,
+    pub value: Option<String>,
 }
 impl Attribute {
     /// Creates a new attribute with the given name and value
     ///
     /// If the attribute you wish to create is namespaced, make sure to set the
     /// namespace with `set_namespace` after creating the attribute.
-    pub fn new<K: Into<InternedString>>(name: K, value: AttributeValue) -> Self {
+    pub fn new<K: Into<String>>(name: K, value: Option<String>) -> Self {
         Self {
             name: AttributeName::new(name),
             value,
@@ -78,7 +78,7 @@ impl Attribute {
     }
 
     #[inline]
-    pub fn set_value(&mut self, value: AttributeValue) {
+    pub fn set_value(&mut self, value: Option<String>) {
         self.value = value;
     }
 }

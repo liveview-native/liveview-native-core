@@ -158,10 +158,10 @@ trait CompatibleWith: Deref<Target = Node> {
         T: Deref<Target = Node>,
     {
         match (self.deref(), other.deref()) {
-            (Node::Element(from), Node::Element(to)) => {
+            (Node::NodeElement { element: from }, Node::NodeElement { element: to }) => {
                 to.name.eq(&from.name) && to.id().eq(&from.id())
             }
-            (Node::Leaf(_), Node::Leaf(_)) => true,
+            (Node::Leaf { value: _ }, Node::Leaf { value: _ }) => true,
             (Node::Root, Node::Root) => true,
             _ => false,
         }
@@ -348,7 +348,7 @@ impl<'a> Iterator for Morph<'a> {
                     ref to,
                 } => {
                     if cursor.next().is_some() {
-                        if let Node::Element(el) = cursor.node() {
+                        if let Node::NodeElement { element: el } = cursor.node() {
                             if let Some(id) = el.id() {
                                 if to.doc.get_by_id(id).is_some() {
                                     // Only detach if not previously moved
@@ -513,31 +513,31 @@ impl<'a> Iterator for Morph<'a> {
                         (Node::Root, Node::Root) | (Node::Root, _) | (_, Node::Root) => {
                             self.advance(Advance::BothCursors, false);
                         }
-                        (Node::Leaf(old_content), Node::Leaf(content)) => {
+                        (Node::Leaf { value: old_content }, Node::Leaf { value: content }) => {
                             if old_content.ne(content) {
                                 self.queue.push(Op::Patch(Patch::Replace {
                                     node: from.node,
-                                    replacement: Node::Leaf(content.to_owned()),
+                                    replacement: Node::Leaf { value: content.to_owned() },
                                 }));
                             }
 
                             self.advance(Advance::BothCursors, false);
                         }
-                        (Node::Leaf(_), Node::Element(_)) => {
+                        (Node::Leaf { value: _ }, Node::NodeElement { element: _ }) => {
                             self.queue
                                 .push(Op::Patch(Patch::Remove { node: from.node }));
 
                             self.advance(Advance::From, true);
                         }
-                        (Node::Element(_), Node::Leaf(content)) => {
+                        (Node::NodeElement { element: _ }, Node::Leaf { value: content }) => {
                             self.queue.push(Op::Patch(Patch::InsertBefore {
                                 before: from.node,
-                                node: Node::Leaf(content.to_owned()),
+                                node: Node::Leaf { value: content.to_owned() },
                             }));
 
                             self.advance(Advance::To, true);
                         }
-                        (Node::Element(from_el), Node::Element(to_el)) => {
+                        (Node::NodeElement { element: from_el }, Node::NodeElement { element: to_el }) => {
                             // nodes are compatible; morph attribute changes and continue
                             if to_el.name.eq(&from_el.name) && to_el.id().eq(&from_el.id()) {
                                 if from_el.attributes().ne(to_el.attributes()) {
@@ -621,7 +621,7 @@ impl<'a> Iterator for Morph<'a> {
                             // TODO: as an optimization, use peek to add node caching
                             self.queue.push(Op::Patch(Patch::Replace {
                                 node: from.node,
-                                replacement: Node::Element(to_el.to_owned()),
+                                replacement: Node::NodeElement { element: to_el.to_owned() },
                             }));
 
                             self.advance(Advance::BothCursors, false);
