@@ -701,15 +701,3 @@ pub enum MergeError {
     #[error("Add child to existing")]
     AddChildToExisting,
 }
-/*
-impl ToString  for MergeError {
-    fn to_string(&self) -> String {
-        match self {
-            MergeError::FragmentTypeMismatch => "Fragment type mismatch".into(),
-            MergeError::CreateComponentFromUpdate => "Create component from update".into(),
-            MergeError::CreateChildFromUpdateFragment => "Create child from update fragment".into(),
-            MergeError::AddChildToExisting => "Add child to existing".into(),
-        }
-    }
-}
-*/
