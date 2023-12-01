@@ -15,7 +15,9 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.4.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     implementation("net.java.dev.jna:jna:5.13.0")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
 }
 val uniffiPath = "${buildDir}/generated/source/uniffi/java"
 
@@ -36,6 +38,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "1.8"
@@ -58,6 +61,7 @@ android {
         val t = tasks.register<Exec>("generate${name.capitalize()}UniFFIBindings") {
             workingDir("${project.projectDir}")
             // Runs the bindings generation, note that you must have uniffi-bindgen installed and in your PATH environment variable
+            // TODO: Ensure that the aarch64-apple-darwin build is finished.
             commandLine(
                 "cargo",
                 "run",
@@ -65,12 +69,10 @@ android {
                 "uniffi-bindgen",
                 "--",
                 "generate",
-                rootProject.file("../src/uniffi.udl"),
+                "--library",
+                rootProject.file("../../../target/aarch64-apple-darwin/debug/libliveview_native_core.dylib"),
                 "--language",
                 "kotlin",
-                // TODO: Try out different config options for kotlin with uniffi
-                "--config",
-                rootProject.file("../uniffi.toml"),
                 "--out-dir",
                 uniffiPath
             )

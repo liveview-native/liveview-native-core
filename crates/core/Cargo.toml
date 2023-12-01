@@ -30,20 +30,35 @@ cranelift-entity = { version = "0.101" }
 fixedbitset = { version = "0.4" }
 fxhash = { version = "0.2" }
 html5gum = { git = "https://github.com/liveviewnative/html5gum", branch = "lvn" }
+intrusive-collections = { version = "0.9", features = ["nightly"] }
 indexmap = { version = "2.1", features = ["std"] }
 petgraph = { version = "0.6", default-features = false, features = ["graphmap"] }
+phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client", branch = "simlay/more-fixes-for-file-upload" }
+#phoenix_channels_client = { path = "../../../phoenix-channels-client/" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 smallstr = { version = "0.3", features = ["union"] }
 smallvec = { version = "1.10", features = ["union", "const_generics", "specialization"] }
 thiserror = "1.0"
-uniffi = { version = "0.25", features = ["cli"] }
+uniffi = { version = "0.26", features = ["cli", "tokio"] }
+async-compat = "0.2.3"
+futures = "0.3.29"
+log = "0.4"
+reqwest = { version = "0.11.23", features = ["native-tls-vendored"] }
+tokio = { version = "1.35", features = ["full"] }
 
 [build-dependencies]
 Inflector = "0.11"
-uniffi = { version = "0.25", features = [ "build" ] }
+uniffi = { version = "0.26", features = [ "build" ] }
 
 [dev-dependencies]
 paste = { version = "1.0" }
 pretty_assertions = { version = "1.4.0" }
 text-diff = { version = "0.4.0" }
+uniffi = { version = "0.26", features = ["bindgen-tests", "tokio", "cli"]}
+tokio = { version = "1.35", features = ["full"] }
+env_logger = "0.10.1"
+
+# For image generation for tests
+image = "0.24.8"
+tempfile = "3.9.0"

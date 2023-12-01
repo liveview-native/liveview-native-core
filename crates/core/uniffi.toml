@@ -1,3 +1,24 @@
 [bindings.kotlin]
 cdylib_name = "liveview_native_core"
-package_name = "org.phoenixframework.liveview.lib"
+package_name = "org.phoenixframework.liveviewnative.core"
+
+[bindings.swift]
+omit_argument_labels = true
+module_name = "LiveViewNativeCore"
+
+[bindings.kotlin.custom_types.Url]
+type_name = "URL"
+imports = [ "java.net.URI", "java.net.URL" ]
+into_custom = "URI({}).toURL()"
+from_custom = "{}.toString()"
+
+[bindings.swift.custom_types.Url]
+type_name = "URL"
+# Modules that need to be imported
+imports = ["Foundation"]
+# Functions to convert between strings and URLs
+into_custom = "URL(string: {})!"
+from_custom = "String(describing: {})"
+
+[bindings.kotlin.external_packages]
+phoenix_channels_client = "org.phoenixframework.liveviewnative.channel"

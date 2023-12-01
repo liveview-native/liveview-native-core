@@ -26,13 +26,41 @@ jobs:
             ~/.cargo/registry
             target
           key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Build
-        uses: actions-rs/cargo@v1
+
+      - name: Cache deps
+        id: cache-deps
+        uses: actions/cache@v4
+        env:
+          cache-name: cache-elixir-deps
         with:
-          command: build
-          args: --package liveview-native-core
+          path: tests/support/test_server/deps
+          key: ${{ runner.os }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-${{ env.cache-name }}-
+      - name: Cache compiled build
+        id: cache-build
+        uses: actions/cache@v4
+        env:
+          cache-name: cache-compiled-build
+        with:
+          path: tests/support/test_server/_build
+          key: ${{ runner.os }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-${{ env.cache-name }}-
+            ${{ runner.os }}-mix-
+      - name: Set up Elixir, kotlin and ktlint
+        run: brew install elixir kotlin ktlint
+      - name: Install test server dependencies, compile and run in background
+        working-directory: ./tests/support/test_server
+        run: |
+          mix deps.get
+          mix compile
+          mix phx.server &
+
+      - name: Get JNA jar
+        run: wget 'https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.14.0/jna-5.14.0.jar'
       - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --package liveview-native-core
+        run: cargo test
+        env:
+          # This is required for the kotlin uniffi tests
+          CLASSPATH: "/opt/homebrew/opt/kotlin/libexec/lib/kotlinx-coroutines-core-jvm.jar:./jna-5.14.0.jar"

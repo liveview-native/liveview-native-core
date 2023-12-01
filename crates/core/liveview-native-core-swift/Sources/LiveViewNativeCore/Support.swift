@@ -1,3 +1,4 @@
+/*
 /// Represents a node in a `Document` which can have children and attributes
 public struct ElementData {
     /// An (optional) namespace for the element tag name
@@ -37,3 +38,4 @@ extension AttributeName {
         }
     }
 }
+*/
