@@ -1,11 +1,10 @@
 import XCTest
 @testable import LiveViewNativeCore
-
 class MyContext {
     var didChange = false
 }
 class SimpleHandler: DocumentChangeHandler {
-    func handle(context: String, changeType: ChangeType, nodeRef: NodeRef, optionNodeRef: NodeRef?) {
+    func handle(_context: String, _changeType: ChangeType, _nodeRef: NodeRef, _parent: NodeRef?) {
     }
 }
 
@@ -21,7 +20,7 @@ final class LiveViewNativeCoreTests: XCTestCase {
             </body>
         </html>
         """
-        let doc1 = try Document.parse(input: input)
+        let doc1 = try Document.parse(input)
         let rendered1 = doc1.render()
         XCTAssertEqual(input, rendered1)
 
@@ -36,7 +35,7 @@ final class LiveViewNativeCoreTests: XCTestCase {
             </body>
         </html>
         """
-        let doc2 = try Document.parse(input: updated)
+        let doc2 = try Document.parse(updated)
         let rendered2 = doc2.render()
         XCTAssertEqual(updated, rendered2)
     }
@@ -54,7 +53,7 @@ final class LiveViewNativeCoreTests: XCTestCase {
             ]
         }
         """
-        let initial_document = try Document.parseFragmentJson(input: initial_json)
+        let initial_document = try Document.parseFragmentJson(initial_json)
         let initial_rendered = initial_document.render()
         var expected = """
         <Column>
@@ -115,7 +114,7 @@ final class LiveViewNativeCoreTests: XCTestCase {
         }
         """
         let simple = SimpleHandler()
-        try initial_document.mergeFragmentJson(json: first_increment, handler: simple)
+        try initial_document.mergeFragmentJson(first_increment, simple)
         let second_render = initial_document.render()
         expected = """
         <Column>
@@ -186,7 +185,7 @@ final class LiveViewNativeCoreTests: XCTestCase {
           }
         }
         """
-        try initial_document.mergeFragmentJson(json: second_increment, handler: simple)
+        try initial_document.mergeFragmentJson(second_increment, simple)
         let third_render = initial_document.render()
         expected = """
         <Column>

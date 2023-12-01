@@ -5,10 +5,16 @@ import PackageDescription
 
 let package = Package(
     name: "LiveViewNativeCore",
+    platforms: [
+        .iOS("16.0"),
+        .macOS("13.0"),
+        .watchOS("9.0"),
+        .tvOS("16.0"),
+    ],
     products: [
         .library(
             name: "LiveViewNativeCore",
-            targets: ["LiveViewNativeCore"]),
+            targets: ["RustFramework", "LiveViewNativeCore"]),
     ],
     dependencies: [
         // This is used to generate documentation vio `swift package generate-documentation`

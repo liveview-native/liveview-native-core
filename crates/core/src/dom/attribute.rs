@@ -5,7 +5,7 @@ use smallstr::SmallString;
 use crate::InternedString;
 
 /// Represents the fully-qualified name of an attribute
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, uniffi::Record)]
 pub struct AttributeName {
     /// This is used by svg attributes, e.g. `xlink-href`
     pub namespace: Option<String>,
@@ -60,7 +60,7 @@ impl PartialEq<str> for AttributeName {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct Attribute {
     pub name: AttributeName,
     pub value: Option<String>,

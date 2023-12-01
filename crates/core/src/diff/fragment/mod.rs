@@ -50,7 +50,8 @@ impl TryInto<String> for Root {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
+#[uniffi(flat_error)]
 pub enum RenderError {
     #[error("No components found when needed")]
     NoComponents,

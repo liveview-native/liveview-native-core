@@ -107,20 +107,39 @@ args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "check", "${@}"]
 category = "Build"
 description = "Runs cargo build"
 command = "rustup"
-args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "build", "--profile", "${CARGO_PROFILE}", "--", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "${@}"]
-
+args = [
+    "run", "${CARGO_MAKE_TOOLCHAIN}",
+    "cargo", "build",
+    "--profile", "${CARGO_PROFILE}",
+    "--", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)",
+    "${@}"
+]
 
 [tasks.create-lipo-universal-directories]
 workspace = false
 private = true
-script = "mkdir -p ${CARGO_TARGET_DIR}/universal/macos/ ${CARGO_TARGET_DIR}/universal/ios-sim/ ${CARGO_TARGET_DIR}/universal/watchos-sim/"
+command = "mkdir"
+args = [
+    "-p",
+    "${CARGO_TARGET_DIR}/universal/macos/",
+    "${CARGO_TARGET_DIR}/universal/ios-sim/",
+    "${CARGO_TARGET_DIR}/universal/watchos-sim/",
+    "${CARGO_TARGET_DIR}/universal/tvos-sim/",
+]
 
 [tasks.build-macos]
 workspace = false
 category = "Build"
 description = "Compiles for all targets needed to produce a universal library for macOS"
 command = "rustup"
-args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "build", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "--target", "aarch64-apple-darwin", "--target", "x86_64-apple-darwin", "-p", "liveview-native-core"]
+args = [
+    "run", "${CARGO_MAKE_TOOLCHAIN}",
+    "cargo", "build",
+    "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)",
+    "--target", "aarch64-apple-darwin",
+    "--target", "x86_64-apple-darwin",
+    "-p", "liveview-native-core"
+]
 dependencies = ["install-targets"]
 
 [tasks.build-ios]
@@ -128,7 +147,15 @@ workspace = false
 category = "Build"
 description = "Compiles for all targets needed to produce a universal library for iOS"
 command = "rustup"
-args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "build", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "--target", "aarch64-apple-ios", "--target", "aarch64-apple-ios-sim", "--target", "x86_64-apple-ios", "-p", "liveview-native-core"]
+args = [
+    "run", "${CARGO_MAKE_TOOLCHAIN}",
+    "cargo", "build",
+    "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)",
+    "--target", "aarch64-apple-ios",
+    "--target", "aarch64-apple-ios-sim",
+    "--target", "x86_64-apple-ios", "-p",
+    "liveview-native-core"
+]
 dependencies = ["install-targets"]
 
 [tasks.build-watchos]
@@ -136,7 +163,16 @@ workspace = false
 category = "Build"
 description = "Compiles for all targets needed to produce a universal library for watchOS"
 command = "rustup"
-args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "build", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "-Z", "build-std", "--target", "arm64_32-apple-watchos", "--target", "armv7k-apple-watchos", "--target", "aarch64-apple-watchos-sim", "--target", "x86_64-apple-watchos-sim", "-p", "liveview-native-core"]
+args = [
+    "run", "${CARGO_MAKE_TOOLCHAIN}",
+    "cargo", "build",
+    "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)",
+    "-Z", "build-std",
+    "--target", "arm64_32-apple-watchos",
+    "--target", "aarch64-apple-watchos-sim",
+    "--target", "x86_64-apple-watchos-sim",
+    "-p", "liveview-native-core"
+]
 dependencies = ["install-targets"]
 
 [tasks.build-tvos]
@@ -144,11 +180,20 @@ workspace = false
 category = "Build"
 description = "Compiles for all targets needed to produce a universal library for tvOS"
 command = "rustup"
-args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "build", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "-Z", "build-std", "--target", "aarch64-apple-tvos", "--target", "x86_64-apple-tvos", "-p", "liveview-native-core"]
+args = [
+    "run", "${CARGO_MAKE_TOOLCHAIN}",
+    "cargo", "build",
+    "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)",
+    "-Z", "build-std",
+    "--target", "aarch64-apple-tvos",
+    "--target", "aarch64-apple-tvos-sim",
+    "--target", "x86_64-apple-tvos",
+    "-p", "liveview-native-core"
+]
 dependencies = ["install-targets"]
 
 [tasks.lipo-macos]
-dependencies = ["create-lipo-universal-directories"]
+dependencies = ["create-lipo-universal-directories", "build-macos"]
 workspace = false
 category = "Build"
 description = "Combines macOS targets into a universal binary"
@@ -161,7 +206,7 @@ args = [
 ]
 
 [tasks.lipo-ios-sim]
-dependencies = ["create-lipo-universal-directories"]
+dependencies = ["create-lipo-universal-directories", "build-ios"]
 workspace = false
 category = "Build"
 description = "Combines iOS simulator targets into a universal binary"
@@ -174,8 +219,22 @@ args = [
 	"-output", "${CARGO_TARGET_DIR}/universal/ios-sim/libliveview_native_core.a"
 ]
 
+[tasks.lipo-tvos-sim]
+dependencies = ["create-lipo-universal-directories", "build-tvos"]
+workspace = false
+category = "Build"
+description = "Combines iOS simulator targets into a universal binary"
+command = "xcrun"
+args = [
+	"lipo",
+	"-create",
+	"${CARGO_TARGET_DIR}/aarch64-apple-tvos-sim/debug/libliveview_native_core.a",
+	"${CARGO_TARGET_DIR}/x86_64-apple-tvos/debug/libliveview_native_core.a",
+	"-output", "${CARGO_TARGET_DIR}/universal/tvos-sim/libliveview_native_core.a"
+]
+
 [tasks.lipo-watchos-sim]
-dependencies = ["create-lipo-universal-directories"]
+dependencies = ["create-lipo-universal-directories", "build-watchos"]
 workspace = false
 category = "Build"
 description = "Combines watchOS simulator targets into a universal binary"
@@ -184,8 +243,8 @@ args = [
 	"lipo", "-create",
 	"${CARGO_TARGET_DIR}/aarch64-apple-watchos-sim/debug/libliveview_native_core.a",
 	"${CARGO_TARGET_DIR}/x86_64-apple-watchos-sim/debug/libliveview_native_core.a",
-	"${CARGO_TARGET_DIR}/arm64_32-apple-watchos/debug/libliveview_native_core.a",
-	"${CARGO_TARGET_DIR}/armv7k-apple-watchos/debug/libliveview_native_core.a",
+    # This isn't a simulator but putting it in the xcframework task doesn't work.
+    "${CARGO_TARGET_DIR}/arm64_32-apple-watchos/debug/libliveview_native_core.a",
 	"-output", "${CARGO_TARGET_DIR}/universal/watchos-sim/libliveview_native_core.a"
 ]
 
@@ -194,7 +253,14 @@ workspace = false
 private = true
 description = "Installs all toolchain targets needed for packaging"
 command = "rustup"
-args = ["target", "add", "--toolchain", "${CARGO_MAKE_TOOLCHAIN}", "aarch64-apple-darwin", "x86_64-apple-darwin", "aarch64-apple-ios", "aarch64-apple-ios-sim", "x86_64-apple-ios"]
+args = [
+    "target", "add", "--toolchain", "${CARGO_MAKE_TOOLCHAIN}",
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "aarch64-apple-ios",
+    "aarch64-apple-ios-sim",
+    "x86_64-apple-ios"
+]
 
 [tasks.clean]
 category = "Build"
@@ -215,7 +281,13 @@ dependencies = ["test-rust", "test-swift"]
 category = "Test"
 description = "Runs tests written in Rust"
 command = "rustup"
-args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "test", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)", "@@split(CARGO_MAKE_CARGO_BUILD_TEST_FLAGS, )", "${@}"]
+args = [
+    "run", "${CARGO_MAKE_TOOLCHAIN}",
+    "cargo", "test",
+    "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)",
+    "@@split(CARGO_MAKE_CARGO_BUILD_TEST_FLAGS, )",
+    "${@}"
+]
 
 [tasks.bloat]
 category = "Development"
@@ -223,7 +295,7 @@ description = "Run cargo-bloat"
 command = "cargo"
 args = ["bloat", "${@}"]
 
-[tasks.uniffi-swift-generate]
+[tasks.uniffi-swift-generate-from-udl]
 workspace = false
 category = "Packaging"
 description = ""
@@ -238,28 +310,80 @@ args = [
     "--language=swift",
     "--out-dir=${CARGO_TARGET_DIR}/uniffi/swift/generated",
 ]
-[tasks.uniffi-swift]
+
+[tasks.uniffi-swift-generate]
 workspace = false
 category = "Packaging"
 description = ""
-command = "mv"
+command = "cargo"
 args = [
-    "${CARGO_TARGET_DIR}/uniffi/swift/generated/liveview_native_coreFFI.modulemap",
-    "${CARGO_TARGET_DIR}/uniffi/swift/generated/module.modulemap"
+    "run",
+    "--bin",
+    "uniffi-bindgen",
+    "--",
+    "generate",
+    "--library",
+    "${CARGO_TARGET_DIR}/aarch64-apple-darwin/debug/libliveview_native_core.a",
+    "--language=swift",
+    "--out-dir=${CARGO_TARGET_DIR}/uniffi/swift/generated",
 ]
+dependencies = ["build-macos"]
+
+[tasks.uniffi-kotlin-generate]
+workspace = false
+category = "Packaging"
+description = ""
+command = "cargo"
+args = [
+    "run",
+    "--bin",
+    "uniffi-bindgen",
+    "--",
+    "generate",
+    "--library",
+    "${CARGO_TARGET_DIR}/aarch64-apple-darwin/debug/libliveview_native_core.dylib",
+    "--language=kotlin",
+    "--out-dir=${CARGO_TARGET_DIR}/uniffi/kotlin/generated",
+]
+dependencies = ["build-macos"]
+
+[tasks.uniffi-swift-modulemap]
+workspace = false
+category = "Packaging"
+description = ""
+script_runner = "@shell"
+script = '''
+cat ${CARGO_TARGET_DIR}/uniffi/swift/generated/LiveViewNativeCoreFFI.modulemap \
+    ${CARGO_TARGET_DIR}/uniffi/swift/generated/PhoenixChannelsClientFFI.modulemap \
+    > \
+    ${CARGO_TARGET_DIR}/uniffi/swift/generated/module.modulemap
+'''
 dependencies = ["uniffi-swift-generate"]
 
 [tasks.uniffi-swift-package]
 workspace = false
 category = "Packaging"
 description = "Generates the LiveViewNativeCore.xcframework package"
+dependencies = ["uniffi-swift-modulemap", "uniffi-swift-package-lvn", "uniffi-swift-package-phx"]
+
+[tasks.uniffi-swift-package-lvn]
+workspace = false
+category = "Packaging"
+description = "Generates the LiveViewNativeCore.xcframework package"
 command = "cp"
 args = [
-    "-r",
-    "${CARGO_TARGET_DIR}/uniffi/swift/generated/liveview_native_core.swift",
-    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/",
+    "${CARGO_TARGET_DIR}/uniffi/swift/generated/LiveViewNativeCore.swift",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/LiveViewNativeCore.swift",
 ]
-dependencies = ["uniffi-xcframework"]
+[tasks.uniffi-swift-package-phx]
+workspace = false
+category = "Packaging"
+description = "Generates the LiveViewNativeCore.xcframework package"
+command = "cp"
+args = [
+    "${CARGO_TARGET_DIR}/uniffi/swift/generated/PhoenixChannelsClient.swift",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/PhoenixChannelsClient.swift",
+]
 
 [tasks.uniffi-xcframework]
 workspace = false
@@ -290,10 +414,22 @@ args = [
     "-library", "${CARGO_TARGET_DIR}/aarch64-apple-tvos/debug/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
-    "-library", "${CARGO_TARGET_DIR}/x86_64-apple-tvos/debug/libliveview_native_core.a",
+    # tvOS sim
+    "-library", "${CARGO_TARGET_DIR}/universal/tvos-sim/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 ]
-dependencies = ["build-macos", "build-ios", "build-watchos", "build-tvos", "lipo-macos", "lipo-ios-sim", "lipo-watchos-sim", "remove-existing-uniffi-xcframework", "uniffi-swift"]
+dependencies = [
+    "build-macos",
+    "lipo-macos",
+    "build-ios",
+    "lipo-ios-sim",
+    "build-watchos",
+    "lipo-watchos-sim",
+    "build-tvos",
+    "lipo-tvos-sim",
+    "remove-existing-uniffi-xcframework",
+    "uniffi-swift-package"
+]
 
 [tasks.remove-existing-uniffi-xcframework]
 workspace = false
@@ -303,28 +439,39 @@ script = "rm -r ${CARGO_TARGET_DIR}/uniffi/swift/RustFramework.xcframework"
 
 [tasks.uniffi-swift-test]
 dependencies = [
+    "uniffi-swift-test-package",
     "uniffi-swift-test-tvos",
     "uniffi-swift-test-ios",
     "uniffi-swift-test-macos",
     "uniffi-swift-test-watchos",
 ]
+
+[tasks.uniffi-swift-test-package]
+workspace = false
+category = "Testing"
+description = "Generates the LiveViewNativeCore.xcframework package"
+command = "swift"
+args = [
+    "test",
+    "--package-path",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/",
+]
+dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
 [tasks.uniffi-swift-test-tvos]
 workspace = false
-category = "Packaging"
+category = "Testing"
 description = "Generates the LiveViewNativeCore.xcframework package"
 command = "xcodebuild"
 args = [
-    "ARCHS=x86_64",
-    "ONLY_ACTIVE_ARCH=NO",
     "-scheme",
     "LiveViewNativeCore",
     "-destination",
-    "name=Apple TV 4K (3rd generation),arch=x86_64",
+    "name=Apple TV 4K (3rd generation)",
     "-workspace",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/",
     "test"
 ]
-dependencies = ["uniffi-swift-package"]
+dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
 
 [tasks.uniffi-swift-test-ios]
 workspace = false
@@ -340,7 +487,7 @@ args = [
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/",
     "test"
 ]
-dependencies = ["uniffi-swift-package"]
+dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
 
 [tasks.uniffi-swift-test-watchos]
 workspace = false
@@ -356,7 +503,7 @@ args = [
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/",
     "test"
 ]
-dependencies = ["uniffi-swift-package"]
+dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
 
 [tasks.uniffi-swift-test-macos]
 workspace = false
@@ -372,4 +519,4 @@ args = [
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/",
     "test"
 ]
-dependencies = ["uniffi-swift-package"]
+dependencies = ["uniffi-swift-package", "uniffi-xcframework"]

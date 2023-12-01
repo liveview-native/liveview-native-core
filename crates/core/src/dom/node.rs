@@ -7,7 +7,7 @@ use smallstr::SmallString;
 use super::{Attribute, AttributeName};
 use crate::{InternedString, Symbol};
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, uniffi::Object)]
 #[repr(transparent)]
 pub struct NodeRef(pub(crate) u32);
 entity_impl!(NodeRef, "node");
@@ -20,6 +20,7 @@ impl Default for NodeRef {
     }
 }
 
+#[uniffi::export]
 impl NodeRef {
     // Kotlin uses ref but is a signed integer.
     pub fn r#ref(&self) -> i32 {
@@ -51,7 +52,7 @@ unsafe impl IndexType for NodeRef {
 }
 
 /// This enum represents the valid node types of a `Document` tree
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, uniffi::Enum)]
 pub enum Node {
     /// A marker node that indicates the root of a document
     ///
@@ -118,7 +119,7 @@ impl From<SmallString<[u8; 16]>> for Node {
 }
 
 /// Represents the fully-qualified name of an element
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, uniffi::Record)]
 pub struct ElementName {
     pub namespace: Option<String>,
     pub name: String,
@@ -190,7 +191,7 @@ impl PartialEq<InternedString> for ElementName {
 }
 
 /// An `Element` is a typed node in a document, with the ability to carry attributes and contain other nodes.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
 pub struct Element {
     pub name: ElementName,
     pub attributes: Vec<Attribute>,

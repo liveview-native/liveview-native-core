@@ -2,10 +2,27 @@
 
 import org.junit.Test
 import org.junit.Assert.assertEquals;
-import org.phoenixframework.liveview.lib.Document;
-import org.phoenixframework.liveview.lib.DocumentChangeHandler;
-import org.phoenixframework.liveview.lib.ChangeType;
-import org.phoenixframework.liveview.lib.NodeRef;
+import org.phoenixframework.liveviewnative.core.Document;
+import org.phoenixframework.liveviewnative.core.DocumentChangeHandler;
+import org.phoenixframework.liveviewnative.core.ChangeType;
+import org.phoenixframework.liveviewnative.core.NodeRef;
+import org.phoenixframework.liveviewnative.core.LiveSocket;
+
+import java.time.Duration;
+import kotlinx.coroutines.*;
+import kotlin.coroutines.*;
+import kotlinx.coroutines.test.runTest;
+import kotlin.system.*;
+
+class SocketTest {
+    @Test
+    fun simple_connect() = runTest {
+        var live_socket = LiveSocket.spawn("ws://127.0.0.1:4000/live/websocket");
+        var socket = live_socket.socket();
+
+        socket.connect(Duration.ofDays(10));
+    }
+}
 
 class SimpleChangeHandler: DocumentChangeHandler {
     constructor() {
