@@ -26,7 +26,7 @@ name = "liveview_native_core"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cranelift-entity = { version = "0.101" }
+cranelift-entity = { version = "0.103" }
 fixedbitset = { version = "0.4" }
 fxhash = { version = "0.2" }
 html5gum = { git = "https://github.com/liveviewnative/html5gum", branch = "lvn" }
