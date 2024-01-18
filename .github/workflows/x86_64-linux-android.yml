@@ -28,7 +28,7 @@ jobs:
           target: x86_64-linux-android
           default: true
       - name: Cache Cargo
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin
@@ -58,7 +58,7 @@ jobs:
           distribution: 'temurin'
       - name: Cache android
         id: cache-android
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         env:
           cache-name: cache-android
         with:
