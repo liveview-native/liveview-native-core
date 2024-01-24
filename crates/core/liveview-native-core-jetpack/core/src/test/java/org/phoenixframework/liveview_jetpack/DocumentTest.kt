@@ -17,10 +17,8 @@ import kotlin.system.*;
 class SocketTest {
     @Test
     fun simple_connect() = runTest {
-        var live_socket = LiveSocket.spawn("ws://127.0.0.1:4000/live/websocket");
+        var live_socket = LiveSocket("http://127.0.0.1:4000/upload?_lvn[format]=swiftui", Duration.ofDays(10));
         var socket = live_socket.socket();
-
-        socket.connect(Duration.ofDays(10));
     }
 }
 

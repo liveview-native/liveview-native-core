@@ -13,17 +13,21 @@ subprojects {
 dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.4.0")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
-    implementation("net.java.dev.jna:jna:5.13.0")
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
+    implementation("net.java.dev.jna:jna:5.14.0")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
 val uniffiPath = "${buildDir}/generated/source/uniffi/java"
 
 android {
     namespace = "org.phoenixframework.liveview_native_core_jetpack"
     compileSdk = 33
+
+    lint {
+         disable += "NewApi"
+    }
 
     defaultConfig {
         minSdk = 21
@@ -58,10 +62,19 @@ android {
     }
 
     libraryVariants.all {
-        val t = tasks.register<Exec>("generate${name.capitalize()}UniFFIBindings") {
+        val dylib = tasks.register<Exec>("build${name.capitalize()}StaticLib") {
+            workingDir("${project.projectDir}")
+            commandLine(
+                "cargo",
+                "build",
+                "--lib",
+            )
+        }
+        val generateUniffi = tasks.register<Exec>("generate${name.capitalize()}UniFFIBindings") {
             workingDir("${project.projectDir}")
             // Runs the bindings generation, note that you must have uniffi-bindgen installed and in your PATH environment variable
             // TODO: Ensure that the aarch64-apple-darwin build is finished.
+
             commandLine(
                 "cargo",
                 "run",
@@ -70,14 +83,14 @@ android {
                 "--",
                 "generate",
                 "--library",
-                rootProject.file("../../../target/aarch64-apple-darwin/debug/libliveview_native_core.dylib"),
+                rootProject.file("../../../target/debug/libliveview_native_core.dylib"),
                 "--language",
                 "kotlin",
                 "--out-dir",
                 uniffiPath
             )
         }
-        javaCompileProvider.get().dependsOn(t)
+        javaCompileProvider.get().dependsOn(generateUniffi)
     }
 }
 
@@ -85,6 +98,8 @@ android {
 // https://github.com/mozilla/rust-android-gradle
 cargo {
     verbose = true
+
+    apiLevel = 21
 
     module = "../../../../"
 
@@ -104,6 +119,12 @@ cargo {
 tasks.configureEach {
     if ((name == "javaPreCompileDebug" || name == "javaPreCompileRelease")) {
         dependsOn("cargoBuild")
+    }
+    if (name == "cargoBuild") {
+        dependsOn("generateDebugUniFFIBindings")
+    }
+    if (name == "generateDebugUniFFIBindings") {
+        dependsOn("buildDebugStaticLib")
     }
 }
 

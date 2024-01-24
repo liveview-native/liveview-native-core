@@ -14,6 +14,12 @@ use log::{
     info,
     error,
 };
+use crate::{
+    dom::{
+        Selector, AttributeName, ElementName,
+    },
+    parser::parse
+};
 
 mod error;
 use error::{
@@ -21,12 +27,9 @@ use error::{
     UploadError
 };
 
-use crate::{
-    dom::{
-        Selector, AttributeName, ElementName,
-    },
-    parser::parse
-};
+#[cfg(test)]
+mod tests;
+
 
 
 #[derive(uniffi::Object)]
@@ -69,32 +72,36 @@ impl Default for UploadConfig {
     }
 }
 
-#[uniffi::export]
+#[uniffi::export(async_runtime = "tokio")]
 impl LiveChannel {
     pub async fn validate_upload(&self, file: &LiveFile) -> Result<Payload, LiveSocketError> {
         // Validate the inputs
         //let phx_upload_id = phx_input_id.clone().unwrap();
         let validate_event_string = format!(r#"{{
-    "type":"form",
-    "event":"validate",
-    "value":"_target=avatar",
-    "uploads":{{
-    "{}":[{{
-            "path":"avatar",
-            "ref":"0",
-            "name":"{}",
-            "relative_path":"",
-            "type":"{}",
-            "size":{}
-        }}
-    ]}}
-}}"#, file.phx_id, file.name, file.file_type, file.contents.len());
+            "type":"form",
+            "event":"validate",
+            "value":"_target=avatar",
+            "uploads":{{
+            "{}":[{{
+                    "path":"avatar",
+                    "ref":"0",
+                    "name":"{}",
+                    "relative_path":"",
+                    "type":"{}",
+                    "size":{}
+                }}
+            ]}}
+        }}"#, file.phx_id, file.name, file.file_type, file.contents.len());
 
         let validate_event: Event = Event::User {
             user: "event".to_string(),
         };
         let validate_event_payload: Payload = Payload::json_from_serialized(validate_event_string)?;
-        let validate_resp = self.channel.call(validate_event, validate_event_payload, self.timeout).await;
+        let validate_resp = self.channel.call(
+            validate_event,
+            validate_event_payload,
+            self.timeout
+        ).await;
         /* Validate "okay" response looks like:
 {
 "diff": {
@@ -304,7 +311,7 @@ The allow upload error response looks like:
 
 }
 
-#[uniffi::export]
+#[uniffi::export(async_runtime = "tokio")]
 impl LiveSocket {
 
     #[uniffi::constructor]
@@ -399,7 +406,9 @@ impl LiveSocket {
         debug!("websocket url: {websocket_url}");
 
         let websocket_url = websocket_url.parse::<Url>()?;
-        let socket = Socket::spawn(websocket_url.clone(), Some(cookies))?;
+        let socket = futures::executor::block_on(async_compat::Compat::new(async {
+            Socket::spawn(websocket_url.clone(), Some(cookies))
+        }))?;
 
         Ok(Self {
             socket,
@@ -412,25 +421,16 @@ impl LiveSocket {
     }
 
     pub async fn join_liveview_channel(&self) -> Result<LiveChannel, LiveSocketError> {
-
-
         let _ = self.socket.connect(self.timeout).await?;
         let join_payload = Payload::JSONPayload {
             json: JSON::Object {
                 object: HashMap::from([
                             ("static".to_string(),  JSON::Str { string: self.phx_static.clone()}),
                             ("session".to_string(), JSON::Str { string: self.phx_session.clone()}),
-                            //("url".to_string(), JSON::Str { string: "http://localhost:4000/upload".to_string() }),
                             ("params".to_string(),  JSON::Object {
                                 object: HashMap::from([
                                             ("_mounts".to_string(), JSON::Numb { number: Number::PosInt { pos: 0 }}),
                                             ("_csrf_token".to_string(), JSON::Str { string: self.csrf_token.clone() }),
-                                            /*
-                                            ("_track_static".to_string(), JSON::Array { array: vec![
-                                                JSON::Str { string: "http://localhost:4000/assets/app.css".to_string() },
-                                                JSON::Str { string: "http://localhost:4000/assets/app.js".to_string() },
-                                            ]})
-                                            */
                                 ])
                             })
                 ]),
@@ -489,219 +489,3 @@ impl LiveSocket {
 
 }
 
-#[cfg(test)]
-mod live_socket_tests {
-    use super::*;
-    fn get_phx_input_from_resp(join_response: Payload) -> String {
-        let new_root = match join_response {
-            Payload::JSONPayload {
-                json: JSON::Object {
-                    ref object
-                },
-            } => {
-                if let Some(rendered) = object.get("rendered") {
-                    let rendered = rendered.to_string();
-                    use crate::diff::fragment::{
-                        Root,
-                        RootDiff,
-                    };
-                    let root: RootDiff = serde_json::from_str(rendered.as_str()).expect("Failed to deserialize fragment");
-                    let root : Root = root.try_into().expect("Failed to convert rootdiff into root");
-                    let root : String = root.try_into().expect("Failed to convert root into string");
-                    let document = parse(&root).expect("Failed to parse document");
-                    Some(document)
-                } else {
-                    None
-                }
-            },
-            _ => {
-                None
-            }
-        };
-        let document = new_root.expect("Failed to get new document");
-
-        let phx_input_id = document.select(Selector::Attribute(AttributeName {
-                namespace: None,
-                name: "data-phx-upload-ref".into(),
-            },
-        ))
-            .last()
-            .map(|node_ref| document.get(node_ref))
-            .map(|input_div| {
-                input_div
-                    .attributes()
-                    .iter()
-                    .filter(|attr| attr.name.name == "id")
-                    .map(|attr| attr.value.clone())
-                    .collect::<Option<String>>()
-            }).flatten()
-            .expect("Failed to get input_id");
-        phx_input_id
-    }
-
-    // This is from
-    // https://github.com/image-rs/image/blob/4989d5f83a4a1aaaf7b1fd1f33f7b4db1d3404d3/examples/tile/main.rs
-    fn get_image(imgx: u32, imgy: u32, suffix: String) -> Vec<u8> {
-        use image::RgbaImage;
-        let mut img = RgbaImage::new(imgx, imgy);
-        let tile = image::load_from_memory_with_format(
-            include_bytes!("../../tests/support/tinycross.png"),
-            image::ImageFormat::Png
-        ).expect("Failed to load example image");
-
-        use tempfile::tempdir;
-        let tmp_dir = tempdir().expect("Failed to get tempdir");
-        let file_path = tmp_dir.path().join(format!("image-{imgx}-{imgy}.{suffix}"));
-
-        image::imageops::tile(&mut img, &tile);
-        img.save(file_path.clone()).unwrap();
-
-        // The format is deduced from the path.
-        std::fs::read(file_path).expect("Failed to get image")
-    }
-
-    #[tokio::test]
-    async fn join_live_view() {
-        let _ = env_logger::builder()
-            .parse_default_env()
-            .filter_level(log::LevelFilter::Debug)
-            .is_test(true)
-            .try_init();
-        let timeout = std::time::Duration::from_secs(2);;
-
-        let url = "http://127.0.0.1:4000/upload?_lvn[format]=swiftui";
-        let timeout = Duration::from_secs(2);
-        let live_socket = LiveSocket::new(url.to_string(), timeout).expect("Failed to get liveview socket");
-        let live_channel = live_socket.join_liveview_channel().await.expect("Failed to join channel");
-        let join_response = live_channel.join_payload;
-        let _phx_input_id = get_phx_input_from_resp(join_response);
-    }
-
-    #[tokio::test]
-    async fn single_chunk_file() {
-        let _ = env_logger::builder()
-            .parse_default_env()
-            .filter_level(log::LevelFilter::Debug)
-            .is_test(true)
-            .try_init();
-
-        let url = "http://127.0.0.1:4000/upload?_lvn[format]=swiftui";
-        let image_bytes = get_image(100, 100, "png".to_string());
-        let timeout = Duration::from_secs(2);
-        let live_socket = LiveSocket::new(url.to_string(), timeout).expect("Failed to get liveview socket");
-        let live_channel = live_socket.join_liveview_channel().await.expect("Failed to join the liveview channel");
-        let join_response = live_channel.join_payload.clone();
-        let phx_input_id = get_phx_input_from_resp(join_response);
-
-        assert_eq!(live_channel.channel.status(), ChannelStatus::Joined);
-
-        let gh_favicon = LiveFile {
-            contents: image_bytes.clone(),
-            phx_id: phx_input_id.clone(),
-            file_type: "png".to_string(),
-            name: "tile.png".to_string(),
-        };
-        let _ = live_channel.validate_upload(&gh_favicon).await.expect("Failed to validate upload");
-        live_channel.upload_file(&gh_favicon).await.expect("Failed to upload");
-    }
-
-    #[tokio::test]
-    async fn multi_chunk_file() {
-        let _ = env_logger::builder()
-            .parse_default_env()
-            .filter_level(log::LevelFilter::Debug)
-            .is_test(true)
-            .try_init();
-
-        let url = "http://127.0.0.1:4000/upload?_lvn[format]=swiftui";
-        let image_bytes = get_image(2000, 2000, "png".to_string());
-
-        let timeout = Duration::from_secs(2);
-        let live_socket = LiveSocket::new(url.to_string(), timeout).expect("Failed to get liveview socket");
-        let live_channel = live_socket.join_liveview_channel().await.expect("Failed to join the liveview channel");
-        let join_response = live_channel.join_payload.clone();
-        let phx_input_id = get_phx_input_from_resp(join_response);
-
-        assert_eq!(live_channel.channel.status(), ChannelStatus::Joined);
-        let me = LiveFile {
-            contents: image_bytes.clone(),
-            phx_id: phx_input_id,
-            file_type: "png".to_string(),
-            name: "tile.png".to_string(),
-        };
-        let _ = live_channel.validate_upload(&me).await.expect("Failed to validate upload");
-        live_channel.upload_file(&me).await.expect("Failed to upload");
-    }
-
-    #[tokio::test]
-    async fn error_file_too_large() {
-        let _ = env_logger::builder()
-            .parse_default_env()
-            .filter_level(log::LevelFilter::Debug)
-            .is_test(true)
-            .try_init();
-
-        let url = "http://127.0.0.1:4000/upload?_lvn[format]=swiftui";
-
-        // For this file we want to use tiff because it's much biggger than a png.
-        let image_bytes = get_image(2000, 2000, "tiff".to_string());
-
-        let timeout = Duration::from_secs(2);
-        let live_socket = LiveSocket::new(url.to_string(), timeout).expect("Failed to get liveview socket");
-        let live_channel = live_socket.join_liveview_channel().await.expect("Failed to join the liveview channel");
-        let join_response = live_channel.join_payload.clone();
-        let phx_input_id = get_phx_input_from_resp(join_response);
-
-        assert_eq!(live_channel.channel.status(), ChannelStatus::Joined);
-        let me = LiveFile {
-            contents: image_bytes.clone(),
-            phx_id: phx_input_id,
-            file_type: "png".to_string(),
-            name: "tile.png".to_string(),
-        };
-        let _ = live_channel.validate_upload(&me).await.expect("Failed to validate upload");
-        let out = live_channel.upload_file(&me).await.expect_err("This file is too big and should have failed");
-
-        // This hack is required because LiveSocketError doesn't derive from PartialEq
-        if let LiveSocketError::Upload{error: UploadError::FileTooLarge} = out {
-        } else {
-            panic!("This should be a FileTooLarge Error");
-        }
-    }
-
-    #[tokio::test]
-    async fn error_incorrect_file_type() {
-        let _ = env_logger::builder()
-            .parse_default_env()
-            .filter_level(log::LevelFilter::Debug)
-            .is_test(true)
-            .try_init();
-
-        let url = "http://127.0.0.1:4000/upload?_lvn[format]=swiftui";
-
-        // For this file we want to use tiff because it's much biggger than a png.
-        let image_bytes = get_image(200, 200, "tiff".to_string());
-
-        let timeout = Duration::from_secs(2);
-        let live_socket = LiveSocket::new(url.to_string(), timeout).expect("Failed to get liveview socket");
-        let live_channel = live_socket.join_liveview_channel().await.expect("Failed to join the liveview channel");
-        let join_response = live_channel.join_payload.clone();
-        let phx_input_id = get_phx_input_from_resp(join_response);
-
-        assert_eq!(live_channel.channel.status(), ChannelStatus::Joined);
-        let me = LiveFile {
-            contents: image_bytes.clone(),
-            phx_id: phx_input_id,
-            file_type: "tiff".to_string(),
-            name: "tile.tiff".to_string(),
-        };
-        let _ = live_channel.validate_upload(&me).await.expect("Failed to validate upload");
-        let out = live_channel.upload_file(&me).await.expect_err("This should b ean incorrect file error");
-        // This hack is required because LiveSocketError doesn't derive from PartialEq
-        if let LiveSocketError::Upload{error: UploadError::FileNotAccepted} = out {
-        } else {
-            panic!("This should be a FileNotAccepted Error");
-        }
-    }
-
-}

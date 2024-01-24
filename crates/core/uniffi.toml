@@ -1,6 +1,8 @@
 [bindings.kotlin]
 cdylib_name = "liveview_native_core"
 package_name = "org.phoenixframework.liveviewnative.core"
+android_cleaner = false
+android = true
 
 [bindings.swift]
 omit_argument_labels = true

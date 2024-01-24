@@ -523,7 +523,7 @@ impl Document {
     pub fn merge_fragment_json(
         &mut self,
         json: String,
-        handler: Arc<dyn DocumentChangeHandler>
+        handler: Box<dyn DocumentChangeHandler>
     ) -> Result<(), RenderError> {
         let fragment: RootDiff = serde_json::from_str(&json).map_err(|e| RenderError::from(e))?;
 
@@ -592,8 +592,8 @@ pub enum ChangeType {
     Replace = 3,
 }
 
-#[uniffi::export]
-pub trait DocumentChangeHandler : Send + Sync + fmt::Debug {
+#[uniffi::export(callback_interface)]
+pub trait DocumentChangeHandler {
     fn handle(
         &self,
         context: String,

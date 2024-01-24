@@ -8,7 +8,7 @@ env:
 
 jobs:
   integration_tests:
-    runs-on: macos-12
+    runs-on: macos-14
 
     steps:
       - uses: actions/checkout@v4
@@ -18,7 +18,7 @@ jobs:
           toolchain: ${{ env.TOOLCHAIN }}
           default: true
       - name: Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin
@@ -57,10 +57,10 @@ jobs:
           mix compile
           mix phx.server &
 
-      - name: Get JNA jar
+      - name: Get the JNA jar for testing kotlin.
         run: wget 'https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.14.0/jna-5.14.0.jar'
       - name: Test
         run: cargo test
         env:
           # This is required for the kotlin uniffi tests
-          CLASSPATH: "/opt/homebrew/opt/kotlin/libexec/lib/kotlinx-coroutines-core-jvm.jar:./jna-5.14.0.jar"
+          CLASSPATH: "/Users/runner/work/liveview-native-core/liveview-native-core/jna-5.14.0.jar:/opt/homebrew/opt/kotlin/libexec/lib/kotlinx-coroutines-core-jvm.jar"
