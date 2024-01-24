@@ -1,10 +1,7 @@
 import XCTest
 @testable import LiveViewNativeCore
-class MyContext {
-    var didChange = false
-}
 class SimpleHandler: DocumentChangeHandler {
-    func handle(_context: String, _changeType: ChangeType, _nodeRef: NodeRef, _parent: NodeRef?) {
+    func handle(_ context: String, _ changeType: ChangeType, _ nodeRef: NodeRef, _ parent: NodeRef?) {
     }
 }
 

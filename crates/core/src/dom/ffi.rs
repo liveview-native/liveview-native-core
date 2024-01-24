@@ -51,7 +51,7 @@ impl Document {
     pub fn merge_fragment_json(
         &self,
         json: String,
-        handler: Arc<dyn DocumentChangeHandler>
+        handler: Box<dyn DocumentChangeHandler>
     ) -> Result<(), RenderError> {
         if let Ok(mut inner) = self.inner.write() {
             Ok(inner.merge_fragment_json(json, handler)?)

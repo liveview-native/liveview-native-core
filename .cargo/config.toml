@@ -1,0 +1,23 @@
+[target.aarch64-apple-ios-sim]
+runner = "cargo dinghy -p auto-ios-aarch64-sim runner"
+
+[target.x86_64-apple-ios]
+runner = "cargo dinghy -p auto-ios-x86_64 runner"
+
+# Running on device requires doing the steps in
+# https://github.com/sonos/dinghy/blob/main/docs/ios.md#additional-requirements
+[target.aarch64-apple-ios]
+runner = "cargo dinghy -p auto-ios-aarch64 runner"
+
+# These target runners are added in https://github.com/sonos/dinghy/pull/203
+[target.aarch64-apple-tvos-sim]
+runner = "cargo dinghy -p auto-tvos-aarch64-sim runner"
+
+[target.x86_64-apple-tvos]
+runner = "cargo dinghy -p auto-tvos-x86_64 runner"
+
+[target.x86_64-apple-watchos-sim]
+runner = "cargo dinghy -p auto-watchos-x86_64-sim runner"
+
+[target.aarch64-apple-watchos-sim]
+runner = "cargo dinghy -p auto-watchos-aarch64-sim runner"

@@ -30,5 +30,8 @@ split-debuginfo = "packed"
 debug = 1
 
 [patch.crates-io]
-uniffi = { git = "https://github.com/mozilla/uniffi-rs/", branch = "main" }
-tokio = { git = "https://github.com/tokio-rs/tokio" }
+# Work for https://github.com/sfackler/rust-native-tls/pull/285 hasn't been published to crates.io yet.
+native-tls = { git = "https://github.com/sfackler/rust-native-tls", rev = "0b69ce6a3c4bfe973ede44f6862fc13f3f09c773" }
+# work for https://github.com/kornelski/rust-security-framework/pull/190 hasn't been published to crates.io yet.
+security-framework = { git = "https://github.com/kornelski/rust-security-framework/", rev = "54d905027e50ec4f0969824efa8e34581922a1f4" }
+security-framework-sys = { git = "https://github.com/kornelski/rust-security-framework/", rev = "54d905027e50ec4f0969824efa8e34581922a1f4" }

@@ -1,5 +1,8 @@
 import XCTest
 @testable import LiveViewNativeCore
+#if canImport(SystemConfiguration)
+    import SystemConfiguration
+#endif
 
 let url = "http://127.0.0.1:4000/upload?_lvn[format]=swiftui";
 
