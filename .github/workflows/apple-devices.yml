@@ -1,0 +1,66 @@
+# based on https://gist.github.com/learnopengles/60c945b92fbe60a0fecaa0143c35c4a for testing in simulator
+name: x86_64-apple-ios
+
+on: pull_request
+
+env:
+  TOOLCHAIN: nightly
+  CARGO_TERM_COLOR: always
+  CARGO_DINGHY_REV: "a8ec5b0"
+
+jobs:
+  integration_tests:
+    # rust cross-compilation
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        rust-target: ["x86_64-apple-ios" ]
+        apple-sim: [ "iOS" ]
+        include:
+          - rust-target: "x86_64-apple-tvos"
+            apple-sim: "tvOS"
+          - rust-target: "x86_64-apple-watchos-sim"
+            apple-sim: "watchOS"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          components: rust-src
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/git
+            ~/.cargo/registry
+            target
+          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ env.CARGO_DINGHY_REV }}-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install cargo-dinghy
+        run: |
+          if ! command -v cargo-dinghy &> /dev/null; then
+            cargo install --git https://github.com/liveview-native/dinghy.git --force --rev ${CARGO_DINGHY_REV} cargo-dinghy
+          fi
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --package liveview-native-core
+
+      - name: Set linker
+        run: echo "CARGO_TARGET_X86_64_APPLE_IOS_LINKER=$PWD/crates/core/tests/support/linker_shim.sh" >> $GITHUB_ENV
+      - name: Build tests
+        run: cargo test --package liveview-native-core --no-run --target=x86_64-apple-ios
+
+      - name: Start Simulator
+        uses: futureware-tech/simulator-action@v3
+        with:
+          os: ${{ matrix.apple-sim }}
+
+      - name: Run Rust tests on simulator for ${{ matrix.rust-target }}
+        env:
+          DINGHY_LOG: debug
+        run: |
+          cargo dinghy all-platforms
+          cargo dinghy all-devices
+          cargo -Zbuild-std test --target ${{ matrix.rust-target }}
