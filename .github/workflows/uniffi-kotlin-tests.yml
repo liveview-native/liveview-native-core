@@ -42,7 +42,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Install gradle
-        uses: gradle/gradle-build-action@v2.11.0
+        uses: gradle/gradle-build-action@v3.0.0
 
       - name: Run build with Gradle wrapper
         working-directory: ./crates/core/liveview-native-core-jetpack/
