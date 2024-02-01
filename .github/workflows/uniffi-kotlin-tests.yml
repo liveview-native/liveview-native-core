@@ -50,7 +50,7 @@ jobs:
         uses: actions/cache@v4
         env:
           cache-name: cache-compiled-build
-        with:
+        with:https://github.com/liveview-native/liveview-native-core/pull/61/conflicts
           path: tests/support/test_server/_build
           key: ${{ runner.os }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
