@@ -7,18 +7,27 @@ import org.phoenixframework.liveviewnative.core.DocumentChangeHandler;
 import org.phoenixframework.liveviewnative.core.ChangeType;
 import org.phoenixframework.liveviewnative.core.NodeRef;
 import org.phoenixframework.liveviewnative.core.LiveSocket;
+import org.phoenixframework.liveviewnative.core.LiveFile;
 
 import java.time.Duration;
 import kotlinx.coroutines.*;
 import kotlin.coroutines.*;
 import kotlinx.coroutines.test.runTest;
 import kotlin.system.*;
+import java.util.Base64;
 
 class SocketTest {
     @Test
     fun simple_connect() = runTest {
         var live_socket = LiveSocket("http://127.0.0.1:4000/upload?_lvn[format]=swiftui", Duration.ofDays(10));
-        var socket = live_socket.socket();
+        var live_channel = live_socket.joinLiveviewChannel()
+        var phx_id = live_channel.getPhxRefFromJoinPayload()
+        // This is a PNG located at crates/core/tests/support/tinycross.png
+        var base64TileImg = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4gEdFQog0ycfAgAAAIJJREFUOMulU0EOwCAIK2T/f/LYwWAAgZGtJzS1BbVEuEVAAACCQOsKlkOrEicwgeVz5tC5R1yrDdnKuo6j6J5ydgd+npOUHfaGEJkQq+6cQNVqP1oQiCJxvAjGT3Dn3l1sKpAdfhPhqXP5xDYLXz7SkYUuUNnrcBWULkRlFqZxtvwH8zGCEN6LErUAAAAASUVORK5CYII="
+
+        val contents = Base64.getDecoder().decode(base64TileImg)
+        var live_file = LiveFile(contents, "png", "foobar.png", phx_id)
+        live_channel.uploadFile(live_file)
     }
 }
 

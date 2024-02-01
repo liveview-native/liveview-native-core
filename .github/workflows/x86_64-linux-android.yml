@@ -5,48 +5,19 @@ on: pull_request
 
 env:
   ANDROID_API: 33
-  ANDROID_NDK_VERSION: 26.1.10909125
-  ANDROID_SYSTEM_IMAGE_PACKAGE: system-images;android-33;google_apis_playstore;x86_64
+  ANDROID_NDK_VERSION: 25.2.9519653
   TOOLCHAIN: nightly
   CARGO_TERM_COLOR: always
+  CARGO_DINGHY_REV: "3950414"
 
 jobs:
   integration_tests:
     # rust cross-compilation
-    runs-on: macos-13
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Add Android home and subdirectories to environment
-        run: |
-          echo "${ANDROID_HOME}/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          echo "${ANDROID_HOME}/emulator" >> $GITHUB_PATH
-          echo "${ANDROID_HOME}/platform-tools" >> $GITHUB_PATH
-      - name: sdkmanager setup
-        run: |
-          yes | sdkmanager --licenses
-          sdkmanager --install "platform-tools" \
-                               "platforms;android-${ANDROID_API}" \
-                               "build-tools;${ANDROID_API}.0.2" \
-                               "emulator" \
-                               "ndk;${ANDROID_NDK_VERSION}" \
-                               "${ANDROID_SYSTEM_IMAGE_PACKAGE}"
-      - name: Create Android Virtual Device
-        run: |
-          echo no | \
-            avdmanager create avd --force \
-                                  --name AVD \
-                                  --abi google_apis_playstore/x86_64 \
-                                  --package "${ANDROID_SYSTEM_IMAGE_PACKAGE}"
-
-      - name: Start Android Emulator and background the process.
-        timeout-minutes: 20
-        run: |
-          echo "Starting ADB server"
-          ${ANDROID_HOME}/platform-tools/adb start-server
-          echo "Starting Emulator"
-          ${ANDROID_HOME}/emulator/emulator -avd AVD -netdelay none -netspeed full -no-boot-anim -no-window -noaudio -accel auto -verbose &
-
       - uses: actions/checkout@v4
+
       - name: Install Rust Nightly
         uses: dtolnay/rust-toolchain@master
         with:
@@ -60,10 +31,13 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-dinghy
+          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-${{ env.CARGO_DINGHY_REV }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-dinghy
+        run: |
+          if ! command -v cargo-dinghy &> /dev/null; then
+            cargo install --git https://github.com/sonos/dinghy.git --force --rev ${CARGO_DINGHY_REV} cargo-dinghy
+          fi
 
       - name: Cache deps
         id: cache-deps
@@ -72,9 +46,7 @@ jobs:
           cache-name: cache-elixir-deps
         with:
           path: tests/support/test_server/deps
-          key: ${{ runner.os }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-mix-${{ env.cache-name }}-
+          key: ${{ runner.os }}-mix-${{ env.cache-name }}-deps-${{ hashFiles('**/mix.lock') }}
 
       - name: Cache compiled build
         id: cache-build
@@ -83,13 +55,12 @@ jobs:
           cache-name: cache-compiled-build
         with:
           path: tests/support/test_server/_build
-          key: ${{ runner.os }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-mix-${{ env.cache-name }}-
-            ${{ runner.os }}-mix-
+          key: ${{ runner.os }}-mix-${{ env.cache-name }}-build-${{ hashFiles('**/mix.lock') }}
 
-      - name: Set up Elixir
-        run: brew install elixir
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version:  1.15
+          otp-version: 25
 
       - name: Install test server dependencies, compile and run in background
         working-directory: ./tests/support/test_server
@@ -103,19 +74,49 @@ jobs:
         with:
           java-version: 17
           distribution: 'temurin'
-      # https://github.com/sfackler/rust-openssl/issues/1402
-      - name: Add android clang tools to PATH
-        run: |
-          echo "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/darwin-x86_64/bin" >> $GITHUB_PATH
 
-      - name: Ensure Android device has started
-        timeout-minutes: 20
+      - name: Enable KVM
         run: |
-          ${ANDROID_HOME}/platform-tools/adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed | tr -d '\r') ]]; do sleep 1; done; input keyevent 82'
-          ${ANDROID_HOME}/platform-tools/adb devices
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
-      - name: Test with cargo-dinghy
-        run: |
-          cargo dinghy all-platforms
-          cargo dinghy all-devices
-          RANLIB=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib cargo dinghy -p auto-android-x86_64-api${ANDROID_API} test
+      - name: Gradle cache
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: AVD cache
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ env.ANDROID_API }}
+
+      - name: Create AVD and generate snapshot for caching
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.ANDROID_API }}
+          ndk: ${{ env.ANDROID_NDK_VERSION }}
+          force-avd-creation: false
+          target: google_apis
+          arch: x86_64
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "Generated AVD snapshot for caching."
+
+      - name: Run tests in android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.ANDROID_API }}
+          ndk: ${{ env.ANDROID_NDK_VERSION }}
+          target: google_apis
+          arch: x86_64
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            cargo dinghy all-platforms
+            cargo dinghy all-devices
+            RANLIB=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib cargo dinghy -p auto-android-x86_64-api${ANDROID_API} test

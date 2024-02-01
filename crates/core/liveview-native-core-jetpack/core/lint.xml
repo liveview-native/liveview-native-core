@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <issue
+        id="NewApi"
+        severity="ignore"
+        message="Call requires API level 33 (current min is 21): `java.lang.ref.Cleaner#create`"
+        errorLine1="    val cleaner = java.lang.ref.Cleaner.create()"
+        errorLine2="                                        ~~~~~~">
+        <location
+            file="build/generated/source/uniffi/java/org/phoenixframework/liveviewnative/core/liveview_native_core.kt"
+            line="1132"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        severity="ignore"
+        message="Call requires API level 33 (current min is 21): `java.lang.ref.Cleaner#register`"
+        errorLine1="    ): UniffiCleaner.Cleanable = JavaLangRefCleanable(cleaner.register(value, cleanUpTask))"
+        errorLine2="                                                              ~~~~~~~~">
+        <location
+            file="build/generated/source/uniffi/java/org/phoenixframework/liveviewnative/core/liveview_native_core.kt"
+            line="1137"
+            column="63"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        severity="ignore"
+        message="Call requires API level 33 (current min is 21): `java.lang.ref.Cleaner.Cleanable#clean`"
+        errorLine1="    override fun clean() = cleanable.clean()"
+        errorLine2="                                     ~~~~~">
+        <location
+            file="build/generated/source/uniffi/java/org/phoenixframework/liveviewnative/core/liveview_native_core.kt"
+            line="1143"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        severity="ignore"
+        message="Call requires API level 33 (current min is 21): `java.lang.ref.Cleaner#create`"
+        errorLine1="    val cleaner = java.lang.ref.Cleaner.create()"
+        errorLine2="                                        ~~~~~~">
+        <location
+            file="build/generated/source/uniffi/java/org/phoenixframework/liveviewnative/channel/phoenix_channels_client.kt"
+            line="1350"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        severity="ignore"
+        message="Call requires API level 33 (current min is 21): `java.lang.ref.Cleaner#register`"
+        errorLine1="    ): UniffiCleaner.Cleanable = JavaLangRefCleanable(cleaner.register(value, cleanUpTask))"
+        errorLine2="                                                              ~~~~~~~~">
+        <location
+            file="build/generated/source/uniffi/java/org/phoenixframework/liveviewnative/channel/phoenix_channels_client.kt"
+            line="1355"
+            column="63"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        severity="ignore"
+        message="Call requires API level 33 (current min is 21): `java.lang.ref.Cleaner.Cleanable#clean`"
+        errorLine1="    override fun clean() = cleanable.clean()"
+        errorLine2="                                     ~~~~~">
+        <location
+            file="build/generated/source/uniffi/java/org/phoenixframework/liveviewnative/channel/phoenix_channels_client.kt"
+            line="1361"
+            column="38"/>
+    </issue>
+</lint>

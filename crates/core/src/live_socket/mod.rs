@@ -1,17 +1,14 @@
 use std::{sync::Arc, collections::HashMap, time::Duration};
 use phoenix_channels_client::{
     Socket,
-    SocketStatus,
-    SocketStatuses,
     Topic,
     Payload,
     Channel,
     JSON,
-    url::Url, Number, ChannelStatus, Event,
+    url::Url, Number, Event,
 };
 use log::{
     debug,
-    info,
     error,
 };
 use crate::{
@@ -50,10 +47,22 @@ pub struct LiveChannel {
 }
 #[derive(uniffi::Object)]
 pub struct LiveFile {
-    pub contents: Vec<u8>,
-    pub file_type: String,
-    pub name: String,
-    pub phx_id: String,
+    contents: Vec<u8>,
+    file_type: String,
+    name: String,
+    phx_id: String,
+}
+#[uniffi::export]
+impl LiveFile {
+    #[uniffi::constructor]
+    pub fn new(contents: Vec<u8>, file_type: String, name: String, phx_id: String) -> Self {
+        Self {
+            contents,
+            file_type,
+            name,
+            phx_id,
+        }
+    }
 }
 pub struct UploadConfig {
     chunk_size: u64,
@@ -74,6 +83,55 @@ impl Default for UploadConfig {
 
 #[uniffi::export(async_runtime = "tokio")]
 impl LiveChannel {
+    pub fn join_payload(&self) -> Payload {
+        self.join_payload.clone()
+    }
+    pub fn get_phx_ref_from_join_payload(&self) -> Result<String, LiveSocketError> {
+        let new_root = match self.join_payload {
+            Payload::JSONPayload {
+                json: JSON::Object {
+                    ref object
+                },
+            } => {
+                if let Some(rendered) = object.get("rendered") {
+                    let rendered = rendered.to_string();
+                    use crate::diff::fragment::{
+                        Root,
+                        RootDiff,
+                    };
+                    let root : RootDiff = serde_json::from_str(rendered.as_str())?;
+                    let root : Root = root.try_into()?;
+                    let root : String = root.try_into()?;
+                    let document = parse(&root)?;
+                    Some(document)
+                } else {
+                    None
+                }
+            },
+            _ => {
+                None
+            }
+        };
+        let document = new_root.ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
+
+        let phx_input_id = document.select(Selector::Attribute(AttributeName {
+            namespace: None,
+            name: "data-phx-upload-ref".into(),
+        },
+        ))
+            .last()
+            .map(|node_ref| document.get(node_ref))
+            .map(|input_div| {
+                input_div
+                    .attributes()
+                    .iter()
+                    .filter(|attr| attr.name.name == "id")
+                    .map(|attr| attr.value.clone())
+                    .collect::<Option<String>>()
+            }).flatten()
+        .ok_or(LiveSocketError::NoInputRefInDocument);
+        phx_input_id
+    }
     pub async fn validate_upload(&self, file: &LiveFile) -> Result<Payload, LiveSocketError> {
         // Validate the inputs
         //let phx_upload_id = phx_input_id.clone().unwrap();

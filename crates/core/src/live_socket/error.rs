@@ -12,7 +12,10 @@ use phoenix_channels_client::{
     CallError,
     LeaveError,
 };
-use crate::parser::ParseError;
+use crate::{
+    parser::ParseError,
+    diff::fragment::{RenderError, MergeError},
+};
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum LiveSocketError {
@@ -34,6 +37,7 @@ pub enum LiveSocketError {
     },
     #[error("CSFR Token Missing from DOM!")]
     CSFRTokenMissing,
+
     #[error("Phoenix ID Missing from DOM!")]
     PhoenixIDMissing,
 
@@ -58,7 +62,28 @@ pub enum LiveSocketError {
     #[error(transparent)]
     Upload {
         error: UploadError,
-    }
+    },
+
+    #[error("Failed to get document out of the join payload.")]
+    NoDocumentInJoinPayload,
+
+    #[error(transparent)]
+    DocumentMerge {
+        error: MergeError,
+    },
+
+    #[error(transparent)]
+    DocumentRender {
+        error: RenderError,
+    },
+
+    #[error("Failed to find the data-phx-upload-ref in the join payload.")]
+    NoInputRefInDocument,
+
+    #[error("Failed to find the data-phx-upload-ref in the join payload.")]
+    Serde {
+        error: String,
+    },
 }
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
@@ -162,7 +187,30 @@ impl From<reqwest::Error> for LiveSocketError {
     }
 }
 impl From<ParseError> for LiveSocketError {
-    fn from(value: ParseError) -> Self {
-        todo!()
+    fn from(error: ParseError) -> Self {
+        Self::Parse { error }
+    }
+}
+
+impl From<serde_json::Error> for LiveSocketError {
+    fn from(value: serde_json::Error) -> Self {
+        Self::Serde {
+            error: value.to_string(),
+        }
+    }
+}
+
+impl From<RenderError> for LiveSocketError {
+    fn from(error: RenderError) -> Self {
+        Self::DocumentRender {
+            error
+        }
+    }
+}
+impl From<MergeError> for LiveSocketError {
+    fn from(error: MergeError) -> Self {
+        Self::DocumentMerge {
+            error
+        }
     }
 }
