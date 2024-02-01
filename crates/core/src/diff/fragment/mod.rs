@@ -691,7 +691,7 @@ impl FragmentMerge for HashMap<String, Child> {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum MergeError {
     #[error("Fragment type mismatch")]
     FragmentTypeMismatch,

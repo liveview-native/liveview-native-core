@@ -25,10 +25,6 @@ android {
     namespace = "org.phoenixframework.liveview_native_core_jetpack"
     compileSdk = 33
 
-    lint {
-         disable += "NewApi"
-    }
-
     defaultConfig {
         minSdk = 21
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

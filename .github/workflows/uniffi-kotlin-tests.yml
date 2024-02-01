@@ -50,7 +50,7 @@ jobs:
         uses: actions/cache@v4
         env:
           cache-name: cache-compiled-build
-        with:https://github.com/liveview-native/liveview-native-core/pull/61/conflicts
+        with:
           path: tests/support/test_server/_build
           key: ${{ runner.os }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
@@ -73,7 +73,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Install gradle
-        uses: gradle/gradle-build-action@v2.11.0
+        uses: gradle/gradle-build-action@v3.0.0
 
       # https://github.com/actions/runner-images/blob/5a9870800dc54127d22ee36c303b47314d231c69/images/macos/macos-14-arm64-Readme.md
       # There's no python in the m1 macos runners.

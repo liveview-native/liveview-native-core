@@ -78,6 +78,12 @@ jobs:
         with:
           os: ${{ matrix.apple-sim }}
 
+      - name: Build tests
+        env:
+          DINGHY_LOG: debug
+        run: |
+          cargo -Zbuild-std test --target ${{ matrix.rust-target }} --no-run
+
       - name: Run Rust tests on simulator for ${{ matrix.rust-target }}
         env:
           DINGHY_LOG: debug
