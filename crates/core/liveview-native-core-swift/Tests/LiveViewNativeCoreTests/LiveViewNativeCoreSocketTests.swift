@@ -40,7 +40,7 @@ final class LiveViewNativeCoreUploadTests: XCTestCase {
         let live_socket = try LiveSocket(url, timeout)
         let live_channel = try await live_socket.joinLiveviewChannel()
 
-        let phx_id = try live_channel.getPhxRefFromJoinPayload()
+        let phx_id = try live_channel.getPhxRefFromUploadJoinPayload()
         let image : Data! = Data(base64Encoded: base64TileImg)
 
         let live_file = LiveFile(image, "png", "foobar.png", phx_id)

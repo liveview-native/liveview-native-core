@@ -6,40 +6,21 @@ fn get_image(imgx: u32, imgy: u32, suffix: String) -> Vec<u8> {
     use image::RgbaImage;
     let mut img = RgbaImage::new(imgx, imgy);
     let tile = image::load_from_memory_with_format(
-        include_bytes!("../../tests/support/tinycross.png"),
+        include_bytes!("../../../tests/support/tinycross.png"),
         image::ImageFormat::Png
     ).expect("Failed to load example image");
 
     use tempfile::tempdir;
     let tmp_dir = tempdir().expect("Failed to get tempdir");
-    let file_path = tmp_dir.path().join(format!("image-{imgx}-{imgy}.{suffix}"));
+    let file_path = tmp_dir
+        .path()
+        .join(format!("image-{imgx}-{imgy}.{suffix}"));
 
     image::imageops::tile(&mut img, &tile);
     img.save(file_path.clone()).unwrap();
 
     // The format is deduced from the path.
     std::fs::read(file_path).expect("Failed to get image")
-}
-
-#[cfg(target_os = "android")]
-const HOST: &str = "10.0.2.2";
-
-#[cfg(not(target_os = "android"))]
-const HOST: &str = "127.0.0.1";
-
-const TIME_OUT : Duration = Duration::from_secs(2);
-#[tokio::test]
-async fn join_live_view() {
-    let _ = env_logger::builder()
-        .parse_default_env()
-        .filter_level(log::LevelFilter::Debug)
-        .is_test(true)
-        .try_init();
-
-    let url = format!("http://{HOST}:4000/upload?_lvn[format]=swiftui");
-    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT).expect("Failed to get liveview socket");
-    let live_channel = live_socket.join_liveview_channel().await.expect("Failed to join channel");
-    let _phx_input_id = live_channel.get_phx_ref_from_join_payload();
 }
 
 #[tokio::test]
@@ -52,9 +33,16 @@ async fn single_chunk_file() {
 
     let url = format!("http://{HOST}:4000/upload?_lvn[format]=swiftui");
     let image_bytes = get_image(100, 100, "png".to_string());
-    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT).expect("Failed to get liveview socket");
-    let live_channel = live_socket.join_liveview_channel().await.expect("Failed to join the liveview channel");
-    let phx_input_id = live_channel.get_phx_ref_from_join_payload().expect("Failed to get phx id from join payload");
+    let live_socket = LiveSocket::new(
+        url.to_string(),
+        TIME_OUT).expect("Failed to get liveview socket");
+    let live_channel = live_socket
+        .join_liveview_channel()
+        .await
+        .expect("Failed to join the liveview channel");
+    let phx_input_id = live_channel
+        .get_phx_ref_from_upload_join_payload()
+        .expect("Failed to get phx id from join payload");
 
     let gh_favicon = LiveFile::new(
         image_bytes.clone(),
@@ -62,7 +50,9 @@ async fn single_chunk_file() {
         "tile.png".to_string(),
         phx_input_id.clone(),
     );
-    let _ = live_channel.validate_upload(&gh_favicon).await.expect("Failed to validate upload");
+    let _ = live_channel.validate_upload(&gh_favicon)
+        .await
+        .expect("Failed to validate upload");
     live_channel.upload_file(&gh_favicon).await.expect("Failed to upload");
 }
 
@@ -77,9 +67,17 @@ async fn multi_chunk_file() {
     let url = format!("http://{HOST}:4000/upload?_lvn[format]=swiftui");
     let image_bytes = get_image(2000, 2000, "png".to_string());
 
-    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT).expect("Failed to get liveview socket");
-    let live_channel = live_socket.join_liveview_channel().await.expect("Failed to join the liveview channel");
-    let phx_input_id = live_channel.get_phx_ref_from_join_payload().expect("Failed to get phx id from join payload");
+    let live_socket = LiveSocket::new(
+        url.to_string(),
+        TIME_OUT
+    ).expect("Failed to get liveview socket");
+    let live_channel = live_socket
+        .join_liveview_channel()
+        .await
+        .expect("Failed to join the liveview channel");
+    let phx_input_id = live_channel
+        .get_phx_ref_from_upload_join_payload()
+        .expect("Failed to get phx id from join payload");
 
     let me = LiveFile {
         contents: image_bytes.clone(),
@@ -87,7 +85,10 @@ async fn multi_chunk_file() {
         file_type: "png".to_string(),
         name: "tile.png".to_string(),
     };
-    let _ = live_channel.validate_upload(&me).await.expect("Failed to validate upload");
+    let _ = live_channel
+        .validate_upload(&me)
+        .await
+        .expect("Failed to validate upload");
     live_channel.upload_file(&me).await.expect("Failed to upload");
 }
 
@@ -104,9 +105,17 @@ async fn error_file_too_large() {
     // For this file we want to use tiff because it's much biggger than a png.
     let image_bytes = get_image(2000, 2000, "tiff".to_string());
 
-    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT).expect("Failed to get liveview socket");
-    let live_channel = live_socket.join_liveview_channel().await.expect("Failed to join the liveview channel");
-    let phx_input_id = live_channel.get_phx_ref_from_join_payload().expect("Failed to get phx id from join payload");
+    let live_socket = LiveSocket::new(
+        url.to_string(),
+        TIME_OUT
+    ).expect("Failed to get liveview socket");
+    let live_channel = live_socket
+        .join_liveview_channel()
+        .await
+        .expect("Failed to join the liveview channel");
+    let phx_input_id = live_channel
+        .get_phx_ref_from_upload_join_payload()
+        .expect("Failed to get phx id from join payload");
 
     let me = LiveFile {
         contents: image_bytes.clone(),
@@ -114,8 +123,13 @@ async fn error_file_too_large() {
         file_type: "png".to_string(),
         name: "tile.png".to_string(),
     };
-    let _ = live_channel.validate_upload(&me).await.expect("Failed to validate upload");
-    let out = live_channel.upload_file(&me).await.expect_err("This file is too big and should have failed");
+    let _ = live_channel
+        .validate_upload(&me)
+        .await
+        .expect("Failed to validate upload");
+    let out = live_channel.upload_file(&me)
+        .await
+        .expect_err("This file is too big and should have failed");
 
     // This hack is required because LiveSocketError doesn't derive from PartialEq
     if let LiveSocketError::Upload{error: UploadError::FileTooLarge} = out {
@@ -137,9 +151,17 @@ async fn error_incorrect_file_type() {
     // For this file we want to use tiff because it's much biggger than a png.
     let image_bytes = get_image(100, 100, "png".to_string());
 
-    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT).expect("Failed to get liveview socket");
-    let live_channel = live_socket.join_liveview_channel().await.expect("Failed to join the liveview channel");
-    let phx_input_id = live_channel.get_phx_ref_from_join_payload().expect("Failed to get phx id from join payload");
+    let live_socket = LiveSocket::new(
+        url.to_string(),
+        TIME_OUT
+    ).expect("Failed to get liveview socket");
+    let live_channel = live_socket
+        .join_liveview_channel()
+        .await
+        .expect("Failed to join the liveview channel");
+    let phx_input_id = live_channel
+        .get_phx_ref_from_upload_join_payload()
+        .expect("Failed to get phx id from join payload");
 
     let me = LiveFile {
         contents: image_bytes.clone(),
@@ -147,8 +169,13 @@ async fn error_incorrect_file_type() {
         file_type: "tiff".to_string(),
         name: "tile.tiff".to_string(),
     };
-    let _ = live_channel.validate_upload(&me).await.expect("Failed to validate upload");
-    let out = live_channel.upload_file(&me).await.expect_err("This should b ean incorrect file error");
+    let _ = live_channel.validate_upload(&me)
+        .await
+        .expect("Failed to validate upload");
+    let out = live_channel
+        .upload_file(&me)
+        .await
+        .expect_err("This should b ean incorrect file error");
     // This hack is required because LiveSocketError doesn't derive from PartialEq
     if let LiveSocketError::Upload{error: UploadError::FileNotAccepted} = out {
     } else {

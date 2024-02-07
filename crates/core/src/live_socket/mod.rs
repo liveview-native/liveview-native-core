@@ -15,7 +15,12 @@ use crate::{
     dom::{
         Selector, AttributeName, ElementName,
     },
-    parser::parse
+    parser::parse,
+    diff::fragment::{
+        FragmentMerge,
+        Root,
+        RootDiff,
+    },
 };
 
 mod error;
@@ -43,6 +48,7 @@ pub struct LiveChannel {
     pub channel: Arc<Channel>,
     pub socket: Arc<Socket>,
     pub join_payload: Payload,
+    document: Root,
     timeout: Duration,
 }
 #[derive(uniffi::Object)]
@@ -83,10 +89,27 @@ impl Default for UploadConfig {
 
 #[uniffi::export(async_runtime = "tokio")]
 impl LiveChannel {
+    pub async fn merge_diffs(&self) -> Result<(), LiveSocketError> {
+        // TODO: This should probably take the event closure to send changes back to swift/kotlin
+        let mut document = self.document.clone();
+        let events = self.channel.events();
+        loop {
+            let event = events.event().await?;
+            if let Event::User { user: user_event } = event.event {
+                if user_event == "diff" {
+                    let payload = event.payload.to_string();
+                    debug!("PAYLOAD: {payload}");
+                    let diff : RootDiff = serde_json::from_str(payload.as_str())?;
+                    debug!("diff: {diff:#?}");
+                    document = document.merge(diff)?;
+                }
+            }
+        }
+    }
     pub fn join_payload(&self) -> Payload {
         self.join_payload.clone()
     }
-    pub fn get_phx_ref_from_join_payload(&self) -> Result<String, LiveSocketError> {
+    pub fn get_phx_ref_from_upload_join_payload(&self) -> Result<String, LiveSocketError> {
         let new_root = match self.join_payload {
             Payload::JSONPayload {
                 json: JSON::Object {
@@ -95,10 +118,6 @@ impl LiveChannel {
             } => {
                 if let Some(rendered) = object.get("rendered") {
                     let rendered = rendered.to_string();
-                    use crate::diff::fragment::{
-                        Root,
-                        RootDiff,
-                    };
                     let root : RootDiff = serde_json::from_str(rendered.as_str())?;
                     let root : Root = root.try_into()?;
                     let root : String = root.try_into()?;
@@ -113,6 +132,7 @@ impl LiveChannel {
             }
         };
         let document = new_root.ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
+        debug!("Join payload render: {document}");
 
         let phx_input_id = document.select(Selector::Attribute(AttributeName {
             namespace: None,
@@ -497,6 +517,25 @@ impl LiveSocket {
 
         let channel = self.socket.channel(Topic::from_string(format!("lv:{}", self.phx_id)), Some(join_payload)).await?;
         let join_payload = channel.join(self.timeout).await?;
+        let root = match join_payload {
+            Payload::JSONPayload {
+                json: JSON::Object {
+                    ref object
+                },
+            } => {
+                if let Some(rendered) = object.get("rendered") {
+                    let rendered = rendered.to_string();
+                    let root : RootDiff = serde_json::from_str(rendered.as_str())?;
+                    let root : Root = root.try_into()?;
+                    Some(root)
+                } else {
+                    None
+                }
+            },
+            _ => {
+                None
+            }
+        }.ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
         /* Okay join response looks like: To do an upload we need the new `data-phx-upload-ref`
 {
   "rendered": {
@@ -537,6 +576,7 @@ impl LiveSocket {
             channel: channel,
             join_payload,
             socket: self.socket.clone(),
+            document: root,
             timeout: self.timeout,
         })
     }

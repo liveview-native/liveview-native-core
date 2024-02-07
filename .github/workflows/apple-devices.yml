@@ -6,21 +6,33 @@ on: pull_request
 env:
   TOOLCHAIN: nightly
   CARGO_TERM_COLOR: always
-  CARGO_DINGHY_REV: "a8ec5b0"
+  CARGO_DINGHY_REV: "121354f"
 
 jobs:
   integration_tests:
     # rust cross-compilation
-    runs-on: macos-13
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        rust-target: ["x86_64-apple-ios" ]
+        rust-target: ["aarch64-apple-ios-sim" ]
         apple-sim: [ "iOS" ]
+        os: [ macos-14 ]
         include:
-          - rust-target: "x86_64-apple-tvos"
+          - rust-target: "aarch64-apple-tvos-sim"
+            os: macos-14
             apple-sim: "tvOS"
-          - rust-target: "x86_64-apple-watchos-sim"
+          - rust-target: "aarch64-apple-watchos-sim"
+            os: macos-14
             apple-sim: "watchOS"
+          - rust-target: "x86_64-apple-watchos-sim"
+            os: macos-13
+            apple-sim: "watchOS"
+          - rust-target: "x86_64-apple-tvos"
+            os: macos-13
+            apple-sim: "tvOS"
+          - rust-target: "x86_64-apple-ios"
+            os: macos-13
+            apple-sim: "iOS"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -35,11 +47,11 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ env.CARGO_DINGHY_REV }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ github.workflow }}-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ env.CARGO_DINGHY_REV }}-${{ hashFiles('**/Cargo.lock') }}
       - name: Install cargo-dinghy
         run: |
           if ! command -v cargo-dinghy &> /dev/null; then
-            cargo install --git https://github.com/liveview-native/dinghy.git --force --rev ${CARGO_DINGHY_REV} cargo-dinghy
+            cargo install --git https://github.com/sonos/dinghy.git --force --rev ${CARGO_DINGHY_REV} cargo-dinghy
           fi
 
       - name: Cache deps
@@ -49,9 +61,9 @@ jobs:
           cache-name: cache-elixir-deps
         with:
           path: tests/support/test_server/deps
-          key: ${{ runner.os }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-${{ env.cache-name }}-
+            ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-
       - name: Cache compiled build
         id: cache-build
         uses: actions/cache@v4
@@ -59,10 +71,10 @@ jobs:
           cache-name: cache-compiled-build
         with:
           path: tests/support/test_server/_build
-          key: ${{ runner.os }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-mix-${{ env.cache-name }}-
-            ${{ runner.os }}-mix-
+            ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-
+            ${{ runner.os }}-${{ runner.arch }}-mix-
       - name: Set up Elixir
         run: brew install elixir
 

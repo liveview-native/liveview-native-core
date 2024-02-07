@@ -1,0 +1,253 @@
+{
+    "0": " src=\"/images/logo.svg\"",
+    "1": "1.7.10",
+    "2": {
+        "0": " id=\"flash-group\"",
+        "1": {
+            "0": "",
+            "s": [
+                "<!-- <TestServerWeb.CoreComponents.flash> lib/test_server_web/components/core_components.ex:111 -->",
+                "<!-- </TestServerWeb.CoreComponents.flash> -->"
+            ]
+        },
+        "2": {
+            "0": "",
+            "s": [
+                "<!-- <TestServerWeb.CoreComponents.flash> lib/test_server_web/components/core_components.ex:111 -->",
+                "<!-- </TestServerWeb.CoreComponents.flash> -->"
+            ]
+        },
+        "3": {
+            "0": {
+                "0": " id=\"client-error\"",
+                "1": " phx-click=\"[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]\"",
+                "2": "bg-rose-50 text-rose-900 shadow-md ring-rose-500 fill-rose-900",
+                "3": " hidden phx-connected=\"[[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]\" phx-disconnected=\"[[&quot;show&quot;,{&quot;display&quot;:null,&quot;time&quot;:200,&quot;to&quot;:&quot;.phx-client-error #client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-out&quot;,&quot;duration-300&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;]]}]]\"",
+                "4": {
+                    "0": "",
+                    "1": {
+                        "0": {
+                            "0": "hero-exclamation-circle-mini h-4 w-4",
+                            "s": [
+                                "<!-- <TestServerWeb.CoreComponents.icon> lib/test_server_web/components/core_components.ex:595 --><span class=\"",
+                                "\"></span><!-- </TestServerWeb.CoreComponents.icon> -->"
+                            ],
+                            "r": 1
+                        },
+                        "s": [
+                            "",
+                            ""
+                        ]
+                    },
+                    "2": "We can&#39;t find the internet",
+                    "s": [
+                        "<p class=\"flex items-center gap-1.5 text-sm font-semibold leading-6\">\n    ",
+                        "\n    ",
+                        "\n    ",
+                        "\n  </p>"
+                    ]
+                },
+                "5": {
+                    "0": {
+                        "0": "hero-arrow-path ml-1 h-3 w-3 animate-spin",
+                        "s": [
+                            "<!-- <TestServerWeb.CoreComponents.icon> lib/test_server_web/components/core_components.ex:595 --><span class=\"",
+                            "\"></span><!-- </TestServerWeb.CoreComponents.icon> -->"
+                        ],
+                        "r": 1
+                    },
+                    "s": [
+                        "\n    Attempting to reconnect ",
+                        "\n  "
+                    ]
+                },
+                "6": " aria-label=\"close\"",
+                "7": {
+                    "0": "hero-x-mark-solid h-5 w-5 opacity-40 group-hover:opacity-70",
+                    "s": [
+                        "<!-- <TestServerWeb.CoreComponents.icon> lib/test_server_web/components/core_components.ex:595 --><span class=\"",
+                        "\"></span><!-- </TestServerWeb.CoreComponents.icon> -->"
+                    ],
+                    "r": 1
+                },
+                "s": [
+                    "<div",
+                    "",
+                    " role=\"alert\" class=\"fixed top-2 right-2 mr-2 w-80 sm:w-96 z-50 rounded-lg p-3 ring-1 ",
+                    "\"",
+                    ">\n  ",
+                    "\n  <p class=\"mt-2 text-sm leading-5\">",
+                    "</p>\n  <button type=\"button\" class=\"group absolute top-1 right-1 p-2\"",
+                    ">\n    ",
+                    "\n  </button>\n</div>"
+                ]
+            },
+            "s": [
+                "<!-- <TestServerWeb.CoreComponents.flash> lib/test_server_web/components/core_components.ex:111 -->",
+                "<!-- </TestServerWeb.CoreComponents.flash> -->"
+            ]
+        },
+        "4": {
+            "0": {
+                "0": " id=\"server-error\"",
+                "1": " phx-click=\"[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]\"",
+                "2": "bg-rose-50 text-rose-900 shadow-md ring-rose-500 fill-rose-900",
+                "3": " hidden phx-connected=\"[[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]\" phx-disconnected=\"[[&quot;show&quot;,{&quot;display&quot;:null,&quot;time&quot;:200,&quot;to&quot;:&quot;.phx-server-error #server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-out&quot;,&quot;duration-300&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;]]}]]\"",
+                "4": {
+                    "0": "",
+                    "1": {
+                        "0": {
+                            "0": "hero-exclamation-circle-mini h-4 w-4",
+                            "s": [
+                                "<!-- <TestServerWeb.CoreComponents.icon> lib/test_server_web/components/core_components.ex:595 --><span class=\"",
+                                "\"></span><!-- </TestServerWeb.CoreComponents.icon> -->"
+                            ],
+                            "r": 1
+                        },
+                        "s": [
+                            "",
+                            ""
+                        ]
+                    },
+                    "2": "Something went wrong!",
+                    "s": [
+                        "<p class=\"flex items-center gap-1.5 text-sm font-semibold leading-6\">\n    ",
+                        "\n    ",
+                        "\n    ",
+                        "\n  </p>"
+                    ]
+                },
+                "5": {
+                    "0": {
+                        "0": "hero-arrow-path ml-1 h-3 w-3 animate-spin",
+                        "s": [
+                            "<!-- <TestServerWeb.CoreComponents.icon> lib/test_server_web/components/core_components.ex:595 --><span class=\"",
+                            "\"></span><!-- </TestServerWeb.CoreComponents.icon> -->"
+                        ],
+                        "r": 1
+                    },
+                    "s": [
+                        "\n    Hang in there while we get back on track\n    ",
+                        "\n  "
+                    ]
+                },
+                "6": " aria-label=\"close\"",
+                "7": {
+                    "0": "hero-x-mark-solid h-5 w-5 opacity-40 group-hover:opacity-70",
+                    "s": [
+                        "<!-- <TestServerWeb.CoreComponents.icon> lib/test_server_web/components/core_components.ex:595 --><span class=\"",
+                        "\"></span><!-- </TestServerWeb.CoreComponents.icon> -->"
+                    ],
+                    "r": 1
+                },
+                "s": [
+                    "<div",
+                    "",
+                    " role=\"alert\" class=\"fixed top-2 right-2 mr-2 w-80 sm:w-96 z-50 rounded-lg p-3 ring-1 ",
+                    "\"",
+                    ">\n  ",
+                    "\n  <p class=\"mt-2 text-sm leading-5\">",
+                    "</p>\n  <button type=\"button\" class=\"group absolute top-1 right-1 p-2\"",
+                    ">\n    ",
+                    "\n  </button>\n</div>"
+                ]
+            },
+            "s": [
+                "<!-- <TestServerWeb.CoreComponents.flash> lib/test_server_web/components/core_components.ex:111 -->",
+                "<!-- </TestServerWeb.CoreComponents.flash> -->"
+            ]
+        },
+        "s": [
+            "<!-- <TestServerWeb.CoreComponents.flash_group> lib/test_server_web/components/core_components.ex:148 --><div",
+            ">\n  ",
+            "\n  ",
+            "\n  ",
+            "\n\n  ",
+            "\n</div><!-- </TestServerWeb.CoreComponents.flash_group> -->"
+        ],
+        "r": 1
+    },
+    "3": {
+        "0": {
+            "0": " href=\"/upload\"",
+            "1": "",
+            "2": "",
+            "3": "",
+            "4": "",
+            "5": {
+                "s": [
+                    "Upload Page"
+                ]
+            },
+            "s": [
+                "<!-- <Phoenix.Component.link> lib/phoenix_component.ex:2660 --><a",
+                "",
+                "",
+                "",
+                "",
+                ">",
+                "</a><!-- </Phoenix.Component.link> -->"
+            ],
+            "r": 1
+        },
+        "1": {
+            "stream": [
+                "0",
+                {
+                    "songs-0": [
+                        -1,
+                        null
+                    ],
+                    "songs-1": [
+                        -1,
+                        null
+                    ]
+                },
+                []
+            ],
+            "s": [
+                "<tr",
+                ">\n      <td>",
+                "</td>\n      <td><button phx-click=\"delete-song\"",
+                ">delete</button></td>\n      <td><button phx-click=\"increment-song\"",
+                ">increment</button></td>\n    </tr>"
+            ],
+            "d": [
+                [
+                    " id=\"songs-0\"",
+                    "base song 0",
+                    " phx-value-id=\"0\"",
+                    " phx-value-id=\"0\""
+                ],
+                [
+                    " id=\"songs-1\"",
+                    "base song 1",
+                    " phx-value-id=\"1\"",
+                    " phx-value-id=\"1\""
+                ]
+            ]
+        },
+        "2": {
+            "stream": [
+                "1",
+                {},
+                []
+            ],
+            "s": [],
+            "d": []
+        },
+        "s": [
+            "<!-- <TestServerWeb.SimpleLiveStream.render> lib/test_server_web/live/simple_stream.ex:107 -->",
+            "\n<table>\n  <tbody id=\"songs\" phx-update=\"stream\">\n    ",
+            "\n  </tbody>\n</table>\n<button phx-click=\"reset-stream\" phx-value-id=\"0\">Reset Stream</button>\n<button phx-click=\"add-fancy-song\" phx-value-id=\"9999\">Add fancy song</button>\n<table>\n  <tbody id=\"songs_other\" phx-update=\"stream\">\n    ",
+            "\n  </tbody>\n</table><!-- </TestServerWeb.SimpleLiveStream.render> -->"
+        ]
+    },
+    "s": [
+        "<!-- <TestServerWeb.Layouts.app> lib/test_server_web/components/layouts/app.html.heex:1 --><header class=\"px-4 sm:px-6 lg:px-8\">\n  <div class=\"flex items-center justify-between border-b border-zinc-100 py-3 text-sm\">\n    <div class=\"flex items-center gap-4\">\n      <a href=\"/\">\n        <img",
+        " width=\"36\">\n      </a>\n      <p class=\"bg-brand/5 text-brand rounded-full px-2 font-medium leading-6\">\n        v",
+        "\n      </p>\n    </div>\n    <div class=\"flex items-center gap-4 font-semibold leading-6 text-zinc-900\">\n      <a href=\"https://twitter.com/elixirphoenix\" class=\"hover:text-zinc-700\">\n        @elixirphoenix\n      </a>\n      <a href=\"https://github.com/phoenixframework/phoenix\" class=\"hover:text-zinc-700\">\n        GitHub\n      </a>\n      <a href=\"https://hexdocs.pm/phoenix/overview.html\" class=\"rounded-lg bg-zinc-100 px-2 py-1 hover:bg-zinc-200/80\">\n        Get Started <span aria-hidden=\"true\">&rarr;</span>\n      </a>\n    </div>\n  </div>\n</header>\n<main class=\"px-4 py-20 sm:px-6 lg:px-8\">\n  <div class=\"mx-auto max-w-2xl\">\n    ",
+        "\n",
+        "\n  </div>\n</main><!-- </TestServerWeb.Layouts.app> -->"
+    ]
+}

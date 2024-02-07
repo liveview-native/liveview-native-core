@@ -119,4 +119,4 @@ jobs:
           script: |
             cargo dinghy all-platforms
             cargo dinghy all-devices
-            RANLIB=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib cargo dinghy -p auto-android-x86_64-api${ANDROID_API} test
+            RANLIB=${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib cargo dinghy -p auto-android-x86_64-api${ANDROID_API} test -- --test-threads 1

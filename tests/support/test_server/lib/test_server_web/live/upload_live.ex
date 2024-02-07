@@ -1,17 +1,14 @@
-
 defmodule TestServerWeb.SimpleLiveUpload do
   use TestServerWeb, :live_view
   #use TestServerWeb.Styles.AppStyles
   use Phoenix.LiveView
-  use LiveViewNative.LiveView
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
-    IO.puts ("MOUNTING UPLOAD")
     {:ok,
-    socket
-    |> assign(:uploaded_files, [])
-    |> allow_upload(:avatar, accept: ~w(.png), max_entries: 2)}
+      socket
+      |> assign(:uploaded_files, [])
+      |> allow_upload(:avatar, accept: ~w(.png), max_entries: 2)}
   end
 
 
@@ -36,10 +33,10 @@ defmodule TestServerWeb.SimpleLiveUpload do
     """
   end
 
-
   @impl true
   def render(assigns) do
     ~H"""
+    <.link href={~p"/simple_stream"}>Streaming Page</.link>
     <p> THIS IS AN UPLOAD FORM </p>
     <form id="upload-form" phx-submit="save" phx-change="validate">
 

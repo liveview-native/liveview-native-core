@@ -1,0 +1,80 @@
+<!-- <TestServerWeb.Layouts.app> lib/test_server_web/components/layouts/app.html.heex:1 --><header class="px-4 sm:px-6 lg:px-8">
+  <div class="flex items-center justify-between border-b border-zinc-100 py-3 text-sm">
+    <div class="flex items-center gap-4">
+      <a href="/">
+        <img src="/images/logo.svg" width="36">
+      </a>
+      <p class="bg-brand/5 text-brand rounded-full px-2 font-medium leading-6">
+        v1.7.10
+      </p>
+    </div>
+    <div class="flex items-center gap-4 font-semibold leading-6 text-zinc-900">
+      <a href="https://twitter.com/elixirphoenix" class="hover:text-zinc-700">
+        @elixirphoenix
+      </a>
+      <a href="https://github.com/phoenixframework/phoenix" class="hover:text-zinc-700">
+        GitHub
+      </a>
+      <a href="https://hexdocs.pm/phoenix/overview.html" class="rounded-lg bg-zinc-100 px-2 py-1 hover:bg-zinc-200/80">
+        Get Started <span aria-hidden="true">&rarr;</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main class="px-4 py-20 sm:px-6 lg:px-8">
+  <div class="mx-auto max-w-2xl">
+    <!-- <TestServerWeb.CoreComponents.flash_group> lib/test_server_web/components/core_components.ex:148 --><div id="flash-group">
+  <!-- <TestServerWeb.CoreComponents.flash> lib/test_server_web/components/core_components.ex:111 --><!-- </TestServerWeb.CoreComponents.flash> -->
+  <!-- <TestServerWeb.CoreComponents.flash> lib/test_server_web/components/core_components.ex:111 --><!-- </TestServerWeb.CoreComponents.flash> -->
+  <!-- <TestServerWeb.CoreComponents.flash> lib/test_server_web/components/core_components.ex:111 --><div id="client-error" phx-click="[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" role="alert" class="fixed top-2 right-2 mr-2 w-80 sm:w-96 z-50 rounded-lg p-3 ring-1 bg-rose-50 text-rose-900 shadow-md ring-rose-500 fill-rose-900" hidden phx-connected="[[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" phx-disconnected="[[&quot;show&quot;,{&quot;display&quot;:null,&quot;time&quot;:200,&quot;to&quot;:&quot;.phx-client-error #client-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-out&quot;,&quot;duration-300&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;]]}]]">
+  <p class="flex items-center gap-1.5 text-sm font-semibold leading-6">
+    
+    <!-- <TestServerWeb.CoreComponents.icon> lib/test_server_web/components/core_components.ex:595 --><span class="hero-exclamation-circle-mini h-4 w-4"></span><!-- </TestServerWeb.CoreComponents.icon> -->
+    We can&#39;t find the internet
+  </p>
+  <p class="mt-2 text-sm leading-5">
+    Attempting to reconnect <!-- <TestServerWeb.CoreComponents.icon> lib/test_server_web/components/core_components.ex:595 --><span class="hero-arrow-path ml-1 h-3 w-3 animate-spin"></span><!-- </TestServerWeb.CoreComponents.icon> -->
+  </p>
+  <button type="button" class="group absolute top-1 right-1 p-2" aria-label="close">
+    <!-- <TestServerWeb.CoreComponents.icon> lib/test_server_web/components/core_components.ex:595 --><span class="hero-x-mark-solid h-5 w-5 opacity-40 group-hover:opacity-70"></span><!-- </TestServerWeb.CoreComponents.icon> -->
+  </button>
+</div><!-- </TestServerWeb.CoreComponents.flash> -->
+
+  <!-- <TestServerWeb.CoreComponents.flash> lib/test_server_web/components/core_components.ex:111 --><div id="server-error" phx-click="[[&quot;push&quot;,{&quot;value&quot;:{&quot;key&quot;:&quot;error&quot;},&quot;event&quot;:&quot;lv:clear-flash&quot;}],[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" role="alert" class="fixed top-2 right-2 mr-2 w-80 sm:w-96 z-50 rounded-lg p-3 ring-1 bg-rose-50 text-rose-900 shadow-md ring-rose-500 fill-rose-900" hidden phx-connected="[[&quot;hide&quot;,{&quot;time&quot;:200,&quot;to&quot;:&quot;#server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-in&quot;,&quot;duration-200&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;]]}]]" phx-disconnected="[[&quot;show&quot;,{&quot;display&quot;:null,&quot;time&quot;:200,&quot;to&quot;:&quot;.phx-server-error #server-error&quot;,&quot;transition&quot;:[[&quot;transition-all&quot;,&quot;transform&quot;,&quot;ease-out&quot;,&quot;duration-300&quot;],[&quot;opacity-0&quot;,&quot;translate-y-4&quot;,&quot;sm:translate-y-0&quot;,&quot;sm:scale-95&quot;],[&quot;opacity-100&quot;,&quot;translate-y-0&quot;,&quot;sm:scale-100&quot;]]}]]">
+  <p class="flex items-center gap-1.5 text-sm font-semibold leading-6">
+    
+    <!-- <TestServerWeb.CoreComponents.icon> lib/test_server_web/components/core_components.ex:595 --><span class="hero-exclamation-circle-mini h-4 w-4"></span><!-- </TestServerWeb.CoreComponents.icon> -->
+    Something went wrong!
+  </p>
+  <p class="mt-2 text-sm leading-5">
+    Hang in there while we get back on track
+    <!-- <TestServerWeb.CoreComponents.icon> lib/test_server_web/components/core_components.ex:595 --><span class="hero-arrow-path ml-1 h-3 w-3 animate-spin"></span><!-- </TestServerWeb.CoreComponents.icon> -->
+  </p>
+  <button type="button" class="group absolute top-1 right-1 p-2" aria-label="close">
+    <!-- <TestServerWeb.CoreComponents.icon> lib/test_server_web/components/core_components.ex:595 --><span class="hero-x-mark-solid h-5 w-5 opacity-40 group-hover:opacity-70"></span><!-- </TestServerWeb.CoreComponents.icon> -->
+  </button>
+</div><!-- </TestServerWeb.CoreComponents.flash> -->
+</div><!-- </TestServerWeb.CoreComponents.flash_group> -->
+<!-- <TestServerWeb.SimpleLiveStream.render> lib/test_server_web/live/simple_stream.ex:107 --><!-- <Phoenix.Component.link> lib/phoenix_component.ex:2660 --><a href="/upload">Upload Page</a><!-- </Phoenix.Component.link> -->
+<table>
+  <tbody id="songs" phx-update="stream">
+    <tr id="songs-0">
+      <td>base song 0</td>
+      <td><button phx-click="delete-song" phx-value-id="0">delete</button></td>
+      <td><button phx-click="increment-song" phx-value-id="0">increment</button></td>
+    </tr><tr id="songs-1">
+      <td>base song 1</td>
+      <td><button phx-click="delete-song" phx-value-id="1">delete</button></td>
+      <td><button phx-click="increment-song" phx-value-id="1">increment</button></td>
+    </tr>
+  </tbody>
+</table>
+<button phx-click="reset-stream" phx-value-id="0">Reset Stream</button>
+<button phx-click="add-fancy-song" phx-value-id="9999">Add fancy song</button>
+<table>
+  <tbody id="songs_other" phx-update="stream">
+    
+  </tbody>
+</table><!-- </TestServerWeb.SimpleLiveStream.render> -->
+  </div>
+</main><!-- </TestServerWeb.Layouts.app> -->

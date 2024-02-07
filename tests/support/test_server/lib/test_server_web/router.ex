@@ -21,6 +21,7 @@ defmodule TestServerWeb.Router do
     get "/", PageController, :home
     live "/thermostat", ThermostatLive
     live "/upload", SimpleLiveUpload
+    live "/simple_stream", SimpleLiveStream
   end
 
   # Other scopes may use custom stacks.
