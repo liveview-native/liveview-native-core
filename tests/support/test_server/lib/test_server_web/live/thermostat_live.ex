@@ -6,14 +6,26 @@ defmodule TestServerWeb.ThermostatLive do
     ~H"""
     Current temperature: <%= @temperature %>°F
     <button phx-click="inc_temperature">+</button>
+    <%= for temp  <- @temperatures do %>
+      <p> temp: <%= temp %> </p>
+    <% end %>
     """
   end
   def mount(_params, _session, socket) do
     temperature = 70
+    temperatures = []
     # Let's assume a fixed temperature for now
-    {:ok, assign(socket, :temperature, temperature)}
+    {:ok,
+      socket
+      |> assign(:temperature, temperature)
+      |> assign(:temperatures, temperatures)
+    }
   end
   def handle_event("inc_temperature", _params, socket) do
-    {:noreply, update(socket, :temperature, &(&1 + 1))}
+    {:noreply,
+      socket
+      |> update(:temperature, &(&1 + 1))
+      |> update(:temperatures, &(&1 ++ [1]))
+    }
   end
 end

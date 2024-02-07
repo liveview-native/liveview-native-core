@@ -1,6 +1,8 @@
 use pretty_assertions::assert_eq;
 
 use super::*;
+mod stream;
+
 #[test]
 fn jetpack_more_edge_cases() {
     let initial = r#"{
@@ -772,6 +774,7 @@ fn test_decode_comprehension_with_templates() {
             "0".into(),
             vec!["\\n    bar ".into(), "\\n  ".into()],
         )])),
+        stream: None,
     };
     assert_eq!(out, expected);
 }
@@ -796,6 +799,7 @@ fn test_decode_comprehension_without_templates() {
         ],
         statics: None,
         templates: None,
+        stream: None,
     };
     assert_eq!(out, expected);
 }
@@ -857,6 +861,7 @@ fn test_decode_component_diff() {
                         ],
                         statics: None,
                         templates: None,
+                        stream: None,
                     }),
                 )]),
             },

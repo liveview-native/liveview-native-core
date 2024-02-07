@@ -11,6 +11,7 @@ use phoenix_channels_client::{
     JSONDeserializationError,
     CallError,
     LeaveError,
+    EventsError,
 };
 use crate::{
     parser::ParseError,
@@ -29,7 +30,7 @@ pub enum LiveSocketError {
     },
     #[error("Parse Error - {error}")]
     Parse {
-        error: ParseError,
+        #[from] error: ParseError,
     },
     #[error("JSON Deserialization - {error}")]
     JSONDeserialization {
@@ -61,7 +62,7 @@ pub enum LiveSocketError {
 
     #[error(transparent)]
     Upload {
-        error: UploadError,
+        #[from] error: UploadError,
     },
 
     #[error("Failed to get document out of the join payload.")]
@@ -69,12 +70,12 @@ pub enum LiveSocketError {
 
     #[error(transparent)]
     DocumentMerge {
-        error: MergeError,
+        #[from] error: MergeError,
     },
 
     #[error(transparent)]
     DocumentRender {
-        error: RenderError,
+        #[from] error: RenderError,
     },
 
     #[error("Failed to find the data-phx-upload-ref in the join payload.")]
@@ -84,6 +85,11 @@ pub enum LiveSocketError {
     Serde {
         error: String,
     },
+
+    #[error("There was an error with retrieving the events from the channel.")]
+    Events {
+        error: String,
+    }
 }
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
@@ -98,14 +104,9 @@ pub enum UploadError {
     #[error("There was another issue with uploading {error}")]
     Other { error: String},
 }
-impl From<UploadError> for LiveSocketError {
-    fn from(value: UploadError) -> Self {
-        Self::Upload {
-            error: value,
-        }
-    }
-}
 
+// These are all manually implemented and turned into a string because uniffi doesn't support
+// exported error types in the generations.
 impl From<PhoenixError> for LiveSocketError {
     fn from(value: PhoenixError) -> Self {
         Self::Phoenix {
@@ -167,13 +168,11 @@ impl From<ChannelJoinError> for LiveSocketError {
         Self::from(PhoenixError::from(ChannelError::from(value)))
     }
 }
-
 impl From<StatusesError> for LiveSocketError {
     fn from(value: StatusesError) -> Self {
         Self::from(PhoenixError::from(value))
     }
 }
-
 impl From<SpawnError> for LiveSocketError {
     fn from(value: SpawnError) -> Self {
         Self::from(PhoenixError::from(value))
@@ -186,12 +185,6 @@ impl From<reqwest::Error> for LiveSocketError {
         }
     }
 }
-impl From<ParseError> for LiveSocketError {
-    fn from(error: ParseError) -> Self {
-        Self::Parse { error }
-    }
-}
-
 impl From<serde_json::Error> for LiveSocketError {
     fn from(value: serde_json::Error) -> Self {
         Self::Serde {
@@ -199,18 +192,10 @@ impl From<serde_json::Error> for LiveSocketError {
         }
     }
 }
-
-impl From<RenderError> for LiveSocketError {
-    fn from(error: RenderError) -> Self {
-        Self::DocumentRender {
-            error
-        }
-    }
-}
-impl From<MergeError> for LiveSocketError {
-    fn from(error: MergeError) -> Self {
-        Self::DocumentMerge {
-            error
+impl From<EventsError> for LiveSocketError {
+    fn from(error: EventsError) -> Self {
+        Self::Events {
+            error: error.to_string(),
         }
     }
 }

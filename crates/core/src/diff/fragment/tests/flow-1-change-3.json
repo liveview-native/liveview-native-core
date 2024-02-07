@@ -1,0 +1,35 @@
+{
+    "3": {
+        "1": {
+            "stream": [
+                "0",
+                {
+                    "songs-0": [
+                        -1,
+                        null
+                    ],
+                    "songs-1": [
+                        -1,
+                        null
+                    ]
+                },
+                [],
+                true
+            ],
+            "d": [
+                [
+                    " id=\"songs-0\"",
+                    "reset base song 0",
+                    " phx-value-id=\"0\"",
+                    " phx-value-id=\"0\""
+                ],
+                [
+                    " id=\"songs-1\"",
+                    "reset base song 1",
+                    " phx-value-id=\"1\"",
+                    " phx-value-id=\"1\""
+                ]
+            ]
+        }
+    }
+}
