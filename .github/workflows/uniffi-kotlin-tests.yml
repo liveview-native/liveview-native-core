@@ -73,7 +73,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Install gradle
-        uses: gradle/gradle-build-action@v3.0.0
+        uses: gradle/gradle-build-action@v3.1.0
 
       # https://github.com/actions/runner-images/blob/5a9870800dc54127d22ee36c303b47314d231c69/images/macos/macos-14-arm64-Readme.md
       # There's no python in the m1 macos runners.
