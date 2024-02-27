@@ -27,7 +27,7 @@ name = "liveview_native_core"
 
 [dependencies]
 cranelift-entity = { version = "0.104" }
-fixedbitset = { version = "0.4" }
+fixedbitset = { version = "0.5" }
 fxhash = { version = "0.2" }
 html5gum = { git = "https://github.com/liveviewnative/html5gum", branch = "lvn" }
 intrusive-collections = { version = "0.9", features = ["nightly"] }
