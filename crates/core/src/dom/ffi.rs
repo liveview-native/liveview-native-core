@@ -7,7 +7,7 @@ use std::{
 };
 pub use super::{
     attribute::Attribute,
-    node::{Node, NodeRef},
+    node::{NodeData, NodeRef},
     printer::PrintOptions,
     DocumentChangeHandler,
 };
@@ -15,7 +15,7 @@ use crate::parser::ParseError;
 use crate::diff::fragment::RenderError;
 
 
-#[derive(uniffi::Object)]
+#[derive(Clone, uniffi::Object)]
 pub struct Document {
     inner: Arc<RwLock<super::Document>>,
 }
@@ -75,11 +75,21 @@ impl Document {
     pub fn get_attributes(&self, node_ref: Arc<NodeRef>) -> Vec<Attribute> {
         self.inner.read().expect("Failed to get lock").attributes(*node_ref).to_vec()
     }
-    pub fn get(&self, node_ref: Arc<NodeRef>) -> Node {
+    pub fn get(&self, node_ref: Arc<NodeRef>) -> NodeData {
         self.inner.read().expect("Failed to get lock").get(*node_ref).clone()
     }
     pub fn render(&self) -> String {
         self.to_string()
+    }
+}
+impl Document {
+    pub fn print_node(
+        &self,
+        node: NodeRef,
+        writer: &mut dyn std::fmt::Write,
+        options: PrintOptions,
+    ) -> fmt::Result {
+        self.inner.read().expect("Failed to get lock").print_node(node, writer, options)
     }
 }
 
