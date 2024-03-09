@@ -6,13 +6,7 @@ mod ffi;
 
 use std::{
     collections::{BTreeMap, VecDeque},
-    fmt, mem,
-    ops::{Deref, DerefMut},
-    path::Path,
-    sync::{
-        Arc,
-        Mutex,
-    }
+    fmt, mem, ops::{Deref, DerefMut}, path::Path, sync::Arc,
 };
 
 use cranelift_entity::{packed_option::PackedOption, EntityRef, PrimaryMap, SecondaryMap};
@@ -74,7 +68,8 @@ use crate::diff::PatchResult;
 pub struct Document {
     root: NodeRef,
     /// The fragment template.
-    pub fragment_template: Option<Arc<Mutex<Root>>>,
+    pub fragment_template: Option<Root>,
+    pub event_callback: Option<Arc<dyn DocumentChangeHandler>>,
     /// A map from node reference to node data
     nodes: PrimaryMap<NodeRef, NodeData>,
     /// A map from a node to its parent node, if it currently has one
@@ -133,6 +128,7 @@ impl Document {
             children: SecondaryMap::new(),
             ids: Default::default(),
             fragment_template: None,
+            event_callback: None,
         }
     }
 
@@ -497,14 +493,12 @@ impl Document {
 
     pub fn merge_fragment(&mut self, root_diff: RootDiff) -> Result<Root, MergeError> {
         let root = if let Some(root) = &self.fragment_template {
-            let mut root = root.as_ref().lock().unwrap();
-            *root = root.clone().merge(root_diff)?;
-            root.clone()
+            root.clone().merge(root_diff)?
         } else {
             let new_root : Root = root_diff.try_into()?;
-            self.fragment_template = Some(Arc::new(Mutex::new(new_root.clone())));
             new_root
         };
+        self.fragment_template = Some(root.clone());
         Ok(root)
     }
 
@@ -516,25 +510,24 @@ impl Document {
         let root : Root = fragment.try_into()?;
         let rendered : String = root.clone().try_into()?;
         let mut document = crate::parser::parse(&rendered)?;
-        document.fragment_template = Some(Arc::new(Mutex::new(root)));
+        document.fragment_template = Some(root);
         Ok(document)
     }
+
 
     pub fn merge_fragment_json(
         &mut self,
         json: String,
-        handler: Box<dyn DocumentChangeHandler>
     ) -> Result<(), RenderError> {
         let fragment: RootDiff = serde_json::from_str(&json).map_err(|e| RenderError::from(e))?;
 
         let root = if let Some(root) = &self.fragment_template {
-            let mut root = root.as_ref().lock().unwrap();
-            *root = root.clone().merge(fragment)?;
-            root.clone()
+            root.clone().merge(fragment)?
         } else {
-            self.fragment_template = Some(Arc::new(Mutex::new(fragment.try_into()?)));
+            self.fragment_template = Some(fragment.try_into()?);
             return Ok(());
         };
+        self.fragment_template = Some(root.clone());
 
         let rendered_root : String = root.clone().try_into()?;
         let new_doc = Self::parse(rendered_root)?;
@@ -543,33 +536,38 @@ impl Document {
         if patches.is_empty() {
             return Ok(());
         }
+        let handler = if let Some(handler) = self.event_callback.clone() {
+            handler
+        } else {
+            return Ok(())
+        };
 
         let mut editor = self.edit();
         let mut stack = vec![];
         for patch in patches.into_iter() {
             let patch_result = patch.apply(&mut editor, &mut stack);
             // TODO: Use the actual context
-            let context = String::new();
+            let context = ffi::Document::from(new_doc.clone());
 
             match patch_result {
                 None => (),
                 Some(PatchResult::Add { node, parent }) => {
-                    handler.handle(context, ChangeType::Add, node.into(), Some(parent.into()));
+                    handler.handle(context.into(), ChangeType::Add, node.into(), Some(parent.into()));
                 }
                 Some(PatchResult::Remove { node, parent }) => {
                     handler.handle(
-                        context,
+                        context.into(),
                         ChangeType::Remove,
                         node.into(),
                         Some(parent.into()),
                     );
                 }
                 Some(PatchResult::Change { node }) => {
-                    handler.handle(context, ChangeType::Change, node.into(), None);
+                    handler.handle(context.into(), ChangeType::Change, node.into(), None);
                 }
                 Some(PatchResult::Replace { node, parent }) => {
                     handler.handle(
-                        context,
+                        context.into(),
                         ChangeType::Replace,
                         node.into(),
                         Some(parent.into()),
@@ -580,7 +578,6 @@ impl Document {
         editor.finish();
         Ok(())
     }
-
 }
 
 #[repr(C)]
@@ -592,11 +589,16 @@ pub enum ChangeType {
     Replace = 3,
 }
 
+#[derive(Copy, Clone, uniffi::Enum)]
+pub enum EventType {
+    Changed, // { change: ChangeType },
+}
+
 #[uniffi::export(callback_interface)]
-pub trait DocumentChangeHandler {
+pub trait DocumentChangeHandler : Send + Sync {
     fn handle(
         &self,
-        context: String,
+        doc: Arc<ffi::Document>,
         change_type: ChangeType,
         node_ref: Arc<NodeRef>,
         parent: Option<Arc<NodeRef>>,

@@ -89,14 +89,6 @@ impl Node {
     }
     pub fn get_children(&self) -> Vec<Arc<NodeRef>> {
         self.document.children(self.id.into())
-        /*
-        self.document.children(self.id.into()).iter().map(|id| {
-            let document = self.document.clone();
-            let data = document.get(id.clone());
-
-            Arc::new(Self::new(&document, id, data))
-        }).collect()
-        */
     }
     pub fn document(&self) -> FFiDocument {
         self.document.clone()
@@ -110,8 +102,8 @@ impl Node {
     pub fn attributes(&self) -> Vec<Attribute> {
         self.data.attributes()
     }
-    pub fn to_string(&self) -> String {
-        todo!();
+    pub fn display(&self) -> String {
+        format!("{self}")
     }
 }
 impl NodeData {

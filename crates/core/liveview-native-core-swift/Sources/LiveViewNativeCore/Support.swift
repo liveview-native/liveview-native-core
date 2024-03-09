@@ -1,14 +1,27 @@
 import Foundation
+
 class SimpleHandler: DocumentChangeHandler {
-    func handle(_ context: String, _ changeType: ChangeType, _ nodeRef: NodeRef, _ parent: NodeRef?) {
+    var callback: (Document, NodeRef) -> ()
+    init (
+        _ callback: @escaping (Document, NodeRef) -> ()
+    ) {
+       self.callback = callback
     }
-}
-public enum EventType {
-    /// When a document is modified in some way, the `changed` event is raised
-    case changed
+    func handle(_ context: Document, _ changeType: ChangeType, _ node: NodeRef, _ parent: NodeRef?) {
+        switch changeType {
+        case .add:
+            self.callback(context, parent!)
+        case .remove:
+            self.callback(context, parent!)
+        case .change:
+            self.callback(context, node)
+        case .replace:
+            self.callback(context, parent!)
+        }
+    }
+
 }
 
-//public typealias Payload = [String: Any]
 extension Document {
     public subscript(ref: NodeRef) -> Node {
         let data = self.get(ref)
@@ -26,16 +39,13 @@ extension Document {
         let jsonData = try JSONSerialization.data(withJSONObject: payload, options: .prettyPrinted)
         let payload = String(data: jsonData, encoding: .utf8)!
 
-        // TODO: Fix this
-        let simple = SimpleHandler()
-        return try self.mergeFragmentJson(payload, simple)
+        return try self.mergeFragmentJson(payload)
     }
 
-    // TODO: Fix this
     public func on(_ event: EventType, _ callback: @escaping (Document, NodeRef) -> ()) {
 
-        //precondition(!self.handlers.keys.contains(event))
-        //self.handlers[event] = callback
+        let simple = SimpleHandler(callback)
+        self.setEventHandler(simple)
     }
 }
 
@@ -63,6 +73,7 @@ extension AttributeName: ExpressibleByStringLiteral {
         }
     }
 }
+
 extension Node {
     public func children() -> NodeChildrenSequence {
         let children = self.getChildren()
@@ -75,7 +86,11 @@ extension Node {
         let attributes = self.attributes()
         return attributes.first { $0.name == name }
     }
+    public func toString() -> String {
+        return self.display()
+    }
 }
+
 extension NodeRef: Hashable {
     public static func == (lhs: NodeRef, rhs: NodeRef) -> Bool {
         return lhs.ref() == rhs.ref()
@@ -86,7 +101,6 @@ extension NodeRef: Hashable {
 }
 
 public struct NodeChildrenSequence: Sequence, Collection, RandomAccessCollection {
-    //public typealias Element = Node
     public typealias Element = Node
     public typealias Index = Int
 

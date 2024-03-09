@@ -20,6 +20,14 @@ pub struct Document {
     inner: Arc<RwLock<super::Document>>,
 }
 
+impl From<super::Document> for Document {
+    fn from(doc: super::Document) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(doc))
+        }
+    }
+}
+
 #[uniffi::export]
 impl Document {
     #[uniffi::constructor]
@@ -47,14 +55,22 @@ impl Document {
             inner
         }))
     }
+    pub fn set_event_handler(
+        &self,
+        handler: Box<dyn DocumentChangeHandler>
+    ) {
+        if let Ok(mut inner) = self.inner.write() {
+            inner.event_callback = Some(Arc::from(handler));
+        }
+    }
+
 
     pub fn merge_fragment_json(
         &self,
         json: String,
-        handler: Box<dyn DocumentChangeHandler>
     ) -> Result<(), RenderError> {
         if let Ok(mut inner) = self.inner.write() {
-            Ok(inner.merge_fragment_json(json, handler)?)
+            Ok(inner.merge_fragment_json(json)?)
         } else {
             unimplemented!("The error case for when we cannot get the lock for the Document has not been finished yet");
         }
