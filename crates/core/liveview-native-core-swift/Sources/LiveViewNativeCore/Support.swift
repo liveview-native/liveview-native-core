@@ -34,7 +34,6 @@ extension Document {
     }
     public func mergeFragmentJson(
         _ payload: [String: Any]
-        //_ callback: @escaping (Document, NodeRef) -> ()
         ) throws {
         let jsonData = try JSONSerialization.data(withJSONObject: payload, options: .prettyPrinted)
         let payload = String(data: jsonData, encoding: .utf8)!
@@ -113,7 +112,7 @@ public struct NodeChildrenSequence: Sequence, Collection, RandomAccessCollection
         i + 1
     }
     public subscript(position: Int) -> Node {
-        doc[slice[startIndex + position]]
+        return doc[slice[startIndex + position]]
     }
 }
 public struct NodeDepthFirstChildrenSequence: Sequence {
@@ -122,8 +121,7 @@ public struct NodeDepthFirstChildrenSequence: Sequence {
     let root: Node
 
     public func makeIterator() -> Iterator {
-        //return Iterator(children: [root.children().makeIterator()])
-        return Iterator(children: [])
+        return Iterator(children: [root.children().makeIterator()])
     }
 
     public struct Iterator: IteratorProtocol {
@@ -134,7 +132,7 @@ public struct NodeDepthFirstChildrenSequence: Sequence {
         public mutating func next() -> Node? {
             if !children.isEmpty {
                 if let node = children[children.count - 1].next() {
-                    //children.append(node.children().makeIterator())
+                    children.append(node.children().makeIterator())
                     return node
                 } else {
                     children.removeLast()

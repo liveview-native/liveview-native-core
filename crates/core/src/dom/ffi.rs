@@ -64,7 +64,6 @@ impl Document {
         }
     }
 
-
     pub fn merge_fragment_json(
         &self,
         json: String,
