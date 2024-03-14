@@ -1,7 +1,7 @@
 import XCTest
 @testable import LiveViewNativeCore
 class SimpleHandler: DocumentChangeHandler {
-    func handle(_ context: String, _ changeType: ChangeType, _ nodeRef: NodeRef, _ parent: NodeRef?) {
+    func handle(_ doc: Document, _ changeType: ChangeType, _ nodeRef: NodeRef, _ parent: NodeRef?) {
     }
 }
 
@@ -50,7 +50,9 @@ final class LiveViewNativeCoreTests: XCTestCase {
             ]
         }
         """
+        let simple = SimpleHandler()
         let initial_document = try Document.parseFragmentJson(initial_json)
+        initial_document.setEventHandler(simple)
         let initial_rendered = initial_document.render()
         var expected = """
         <Column>
@@ -110,8 +112,7 @@ final class LiveViewNativeCoreTests: XCTestCase {
           }
         }
         """
-        let simple = SimpleHandler()
-        try initial_document.mergeFragmentJson(first_increment, simple)
+        try initial_document.mergeFragmentJson(first_increment)
         let second_render = initial_document.render()
         expected = """
         <Column>
@@ -182,7 +183,7 @@ final class LiveViewNativeCoreTests: XCTestCase {
           }
         }
         """
-        try initial_document.mergeFragmentJson(second_increment, simple)
+        try initial_document.mergeFragmentJson(second_increment)
         let third_render = initial_document.render()
         expected = """
         <Column>

@@ -76,7 +76,7 @@ extension AttributeName: ExpressibleByStringLiteral {
 extension Node {
     public func children() -> NodeChildrenSequence {
         let children = self.getChildren()
-        return NodeChildrenSequence(doc: self.document(), slice: children, startIndex: children.startIndex, endIndex: children.endIndex)
+        return NodeChildrenSequence(doc: self.document(), slice: children)
     }
     public func depthFirstChildren() -> NodeDepthFirstChildrenSequence {
         return NodeDepthFirstChildrenSequence(root: self)
@@ -105,8 +105,9 @@ public struct NodeChildrenSequence: Sequence, Collection, RandomAccessCollection
 
     let doc: Document
     let slice: [NodeRef]
-    public let startIndex: Int
-    public let endIndex: Int
+    public var startIndex: Int { 0 }
+
+    public var endIndex: Int { self.slice.count }
 
     public func index(after i: Int) -> Int {
         i + 1
