@@ -36,7 +36,7 @@ class SimpleChangeHandler: DocumentChangeHandler {
     }
 
     override fun `handle`(
-        `context`: String,
+        `context`: Document,
         `changeType`: ChangeType,
         `nodeRef`: NodeRef,
         `optionNodeRef`: NodeRef?,
@@ -141,8 +141,9 @@ class DocumentTest {
   }
 }
         """
-        var simple = SimpleChangeHandler()
-        doc.mergeFragmentJson(first_increment, simple);
+        var simple = SimpleChangeHandler();
+        doc.setEventHandler(simple);
+        doc.mergeFragmentJson(first_increment);
         rendered = doc.render();
         expected = """<Column>
     <Button phx-click="inc">
