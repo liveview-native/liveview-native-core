@@ -146,7 +146,7 @@ publishing {
         register<MavenPublication>("release")  {
             groupId = "org.phoenixframework"
             artifactId = "liveview-native-core-jetpack"
-            version = "0.1.0-pre-alpha-08"
+            version = "0.1.0-pre-alpha-09"
 
             afterEvaluate {
                 from(components["release"])
