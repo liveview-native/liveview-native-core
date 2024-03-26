@@ -43,7 +43,7 @@ uniffi = { version = "0.26", features = ["cli", "tokio"] }
 async-compat = "0.2.3"
 futures = "0.3.29"
 log = "0.4"
-reqwest = { version = "0.11.23", features = ["native-tls-vendored"] }
+reqwest = { version = "0.12.2", features = ["native-tls-vendored"] }
 tokio = { version = "1.35", features = ["full"] }
 
 [build-dependencies]
