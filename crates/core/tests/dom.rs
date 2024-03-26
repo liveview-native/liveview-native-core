@@ -8,20 +8,20 @@ fn dom_builder_example() {
     let mut builder = Document::build();
 
     // Start creating a new document rooted at the given node
-    let html = builder.append(Node::new("html"));
+    let html = builder.append(NodeData::new("html"));
     builder.set_insertion_point(html);
 
     // Apply an attribute to the html node
     builder.set_attribute("lang", "en".to_string());
 
     // Insert a new node and move the insertion point to that node
-    let head = builder.append(Node::new("head"));
+    let head = builder.append(NodeData::new("head"));
     builder.set_insertion_point(head);
 
     // Use of insertion guards
     {
         let mut guard = builder.insert_guard();
-        let meta = guard.append(Node::new("meta"));
+        let meta = guard.append(NodeData::new("meta"));
         guard.set_insertion_point(meta);
         guard.set_attribute("charset", "utf-8".to_string());
     }
@@ -29,7 +29,7 @@ fn dom_builder_example() {
     assert_eq!(builder.insertion_point(), head);
 
     // Insert a node after another node, regardless of where the builder is currently positioned
-    let body = builder.insert_after(Node::new("body"), head);
+    let body = builder.insert_after(NodeData::new("body"), head);
     builder.set_insertion_point(body);
     builder.set_attribute("class", "main".to_string());
 

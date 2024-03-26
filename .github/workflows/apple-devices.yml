@@ -24,15 +24,6 @@ jobs:
           - rust-target: "aarch64-apple-watchos-sim"
             os: macos-14
             apple-sim: "watchOS"
-          - rust-target: "x86_64-apple-watchos-sim"
-            os: macos-13
-            apple-sim: "watchOS"
-          - rust-target: "x86_64-apple-tvos"
-            os: macos-13
-            apple-sim: "tvOS"
-          - rust-target: "x86_64-apple-ios"
-            os: macos-13
-            apple-sim: "iOS"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master

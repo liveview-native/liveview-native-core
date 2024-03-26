@@ -36,7 +36,7 @@ class SimpleChangeHandler: DocumentChangeHandler {
     }
 
     override fun `handle`(
-        `context`: String,
+        `context`: Document,
         `changeType`: ChangeType,
         `nodeRef`: NodeRef,
         `optionNodeRef`: NodeRef?,
@@ -67,6 +67,47 @@ class DocumentTest {
         var doc = Document.parse(input);
         var rendered = doc.render();
         assertEquals(input, rendered)
+    }
+    @Test
+    fun json_merging_from_empty() {
+        var doc = Document.empty();
+        var input = """
+        {
+          "0":"0",
+          "1":"0",
+          "2":"",
+          "s":[
+            "<Column>\n  <Button phx-click=\"inc\">\n    <Text>Increment</Text>\n  </Button>\n  <Button phx-click=\"dec\">\n    <Text>Decrement</Text>\n  </Button>\n  <Text>Static Text </Text>\n  <Text>Counter 1: ",
+            " </Text>\n  <Text>Counter 2: ",
+            " </Text>\n",
+            "\n</Column>"
+            ]
+        }
+        """
+        doc.mergeFragmentJson(input)
+        var expected = """<Column>
+    <Button phx-click="inc">
+        <Text>
+            Increment
+        </Text>
+    </Button>
+    <Button phx-click="dec">
+        <Text>
+            Decrement
+        </Text>
+    </Button>
+    <Text>
+        Static Text
+    </Text>
+    <Text>
+        Counter 1: 0
+    </Text>
+    <Text>
+        Counter 2: 0
+    </Text>
+</Column>"""
+        var rendered = doc.render();
+        assertEquals(expected, rendered)
     }
 
     @Test
@@ -141,8 +182,9 @@ class DocumentTest {
   }
 }
         """
-        var simple = SimpleChangeHandler()
-        doc.mergeFragmentJson(first_increment, simple);
+        var simple = SimpleChangeHandler();
+        doc.setEventHandler(simple);
+        doc.mergeFragmentJson(first_increment);
         rendered = doc.render();
         expected = """<Column>
     <Button phx-click="inc">

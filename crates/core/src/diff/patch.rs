@@ -5,20 +5,20 @@ use crate::dom::*;
 pub enum Patch {
     InsertBefore {
         before: NodeRef,
-        node: Node,
+        node: NodeData,
     },
     InsertAfter {
         after: NodeRef,
-        node: Node,
+        node: NodeData,
     },
     /// Creates `node` without attaching it to a parent
     /// It is expected to be pushed on the argument stack and popped off by subsequent ops
     Create {
-        node: Node,
+        node: NodeData,
     },
     /// Same as `Create`, but also makes the new node the current node
     CreateAndMoveTo {
-        node: Node,
+        node: NodeData,
     },
     /// Pushes the currently selected NodeRef on the stack, intended for use in conjunction with other stack-based ops
     PushCurrent,
@@ -43,7 +43,7 @@ pub enum Patch {
     /// This is used in conjunction with `Move` to construct a subtree
     /// without modifying a Document, which is necessary when generating diffs
     Append {
-        node: Node,
+        node: NodeData,
     },
     /// Pops an argument off the stack and appends it as the next sibling of `after`
     AppendAfter {
@@ -52,14 +52,14 @@ pub enum Patch {
     /// Appends `node` to `parent`
     AppendTo {
         parent: NodeRef,
-        node: Node,
+        node: NodeData,
     },
     Remove {
         node: NodeRef,
     },
     Replace {
         node: NodeRef,
-        replacement: Node,
+        replacement: NodeData,
     },
     /// Adds `attr` to the current node
     AddAttribute {

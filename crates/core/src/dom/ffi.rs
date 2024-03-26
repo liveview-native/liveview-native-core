@@ -7,7 +7,7 @@ use std::{
 };
 pub use super::{
     attribute::Attribute,
-    node::{Node, NodeRef},
+    node::{NodeData, NodeRef},
     printer::PrintOptions,
     DocumentChangeHandler,
 };
@@ -15,9 +15,17 @@ use crate::parser::ParseError;
 use crate::diff::fragment::RenderError;
 
 
-#[derive(uniffi::Object)]
+#[derive(Clone, uniffi::Object)]
 pub struct Document {
     inner: Arc<RwLock<super::Document>>,
+}
+
+impl From<super::Document> for Document {
+    fn from(doc: super::Document) -> Self {
+        Self {
+            inner: Arc::new(RwLock::new(doc))
+        }
+    }
 }
 
 #[uniffi::export]
@@ -47,14 +55,21 @@ impl Document {
             inner
         }))
     }
+    pub fn set_event_handler(
+        &self,
+        handler: Box<dyn DocumentChangeHandler>
+    ) {
+        if let Ok(mut inner) = self.inner.write() {
+            inner.event_callback = Some(Arc::from(handler));
+        }
+    }
 
     pub fn merge_fragment_json(
         &self,
         json: String,
-        handler: Box<dyn DocumentChangeHandler>
     ) -> Result<(), RenderError> {
         if let Ok(mut inner) = self.inner.write() {
-            Ok(inner.merge_fragment_json(json, handler)?)
+            Ok(inner.merge_fragment_json(json)?)
         } else {
             unimplemented!("The error case for when we cannot get the lock for the Document has not been finished yet");
         }
@@ -75,11 +90,21 @@ impl Document {
     pub fn get_attributes(&self, node_ref: Arc<NodeRef>) -> Vec<Attribute> {
         self.inner.read().expect("Failed to get lock").attributes(*node_ref).to_vec()
     }
-    pub fn get(&self, node_ref: Arc<NodeRef>) -> Node {
+    pub fn get(&self, node_ref: Arc<NodeRef>) -> NodeData {
         self.inner.read().expect("Failed to get lock").get(*node_ref).clone()
     }
     pub fn render(&self) -> String {
         self.to_string()
+    }
+}
+impl Document {
+    pub fn print_node(
+        &self,
+        node: NodeRef,
+        writer: &mut dyn std::fmt::Write,
+        options: PrintOptions,
+    ) -> fmt::Result {
+        self.inner.read().expect("Failed to get lock").print_node(node, writer, options)
     }
 }
 

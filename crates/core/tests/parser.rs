@@ -3,7 +3,7 @@
 use std::assert_matches::assert_matches;
 
 use liveview_native_core::{
-    dom::{AttributeName, Node},
+    dom::{AttributeName, NodeData},
     parser, InternedString,
 };
 
@@ -50,8 +50,8 @@ fn parser_whitespace_handling() {
     let children = document.children(body);
     assert_eq!(children.len(), 1);
     let content = document.get(children[0]);
-    assert_matches!(content, Node::Leaf {..});
-    let Node::Leaf { value: content } = content else {
+    assert_matches!(content, NodeData::Leaf {..});
+    let NodeData::Leaf { value: content } = content else {
         unreachable!()
     };
     assert_eq!(content.as_str(), "some content");
@@ -65,7 +65,7 @@ fn parser_preserve_upcase() {
     let root = document.root();
     let component = document.children(root)[0];
     let element = document.get(component);
-    let Node::NodeElement { element } = element else {
+    let NodeData::NodeElement { element } = element else {
         panic!("expected element");
     };
     let expected_name: InternedString = "Component".into();
