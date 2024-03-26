@@ -491,17 +491,6 @@ impl Document {
         printer.print(writer)
     }
 
-    pub fn merge_fragment(&mut self, root_diff: RootDiff) -> Result<Root, MergeError> {
-        let root = if let Some(root) = &self.fragment_template {
-            root.clone().merge(root_diff)?
-        } else {
-            let new_root : Root = root_diff.try_into()?;
-            new_root
-        };
-        self.fragment_template = Some(root.clone());
-        Ok(root)
-    }
-
     /// Parses a `RootDiff` and returns a `Document`
     pub fn parse_fragment_json(
         input: String,
@@ -524,23 +513,21 @@ impl Document {
         let root = if let Some(root) = &self.fragment_template {
             root.clone().merge(fragment)?
         } else {
-            self.fragment_template = Some(fragment.try_into()?);
-            return Ok(());
+            fragment.try_into()?
+            //self.fragment_template = Some(fragment.try_into()?);
+            //return Ok(());
         };
         self.fragment_template = Some(root.clone());
 
         let rendered_root : String = root.clone().try_into()?;
+        log::debug!("Rendered root: {rendered_root}");
         let new_doc = Self::parse(rendered_root)?;
 
         let patches = crate::diff::diff(self, &new_doc);
         if patches.is_empty() {
             return Ok(());
         }
-        let handler = if let Some(handler) = self.event_callback.clone() {
-            handler
-        } else {
-            return Ok(())
-        };
+        let handler = self.event_callback.clone();
 
         let mut editor = self.edit();
         let mut stack = vec![];
@@ -552,26 +539,34 @@ impl Document {
             match patch_result {
                 None => (),
                 Some(PatchResult::Add { node, parent }) => {
-                    handler.handle(context.into(), ChangeType::Add, node.into(), Some(parent.into()));
+                    if let Some(ref handler) = handler {
+                        handler.handle(context.into(), ChangeType::Add, node.into(), Some(parent.into()));
+                    }
                 }
                 Some(PatchResult::Remove { node, parent }) => {
-                    handler.handle(
-                        context.into(),
-                        ChangeType::Remove,
-                        node.into(),
-                        Some(parent.into()),
-                    );
+                    if let Some(ref handler) = handler {
+                        handler.handle(
+                            context.into(),
+                            ChangeType::Remove,
+                            node.into(),
+                            Some(parent.into()),
+                        );
+                    }
                 }
                 Some(PatchResult::Change { node }) => {
-                    handler.handle(context.into(), ChangeType::Change, node.into(), None);
+                    if let Some(ref handler) = handler {
+                        handler.handle(context.into(), ChangeType::Change, node.into(), None);
+                    }
                 }
                 Some(PatchResult::Replace { node, parent }) => {
-                    handler.handle(
-                        context.into(),
-                        ChangeType::Replace,
-                        node.into(),
-                        Some(parent.into()),
-                    );
+                    if let Some(ref handler) = handler {
+                        handler.handle(
+                            context.into(),
+                            ChangeType::Replace,
+                            node.into(),
+                            Some(parent.into()),
+                        );
+                    }
                 }
             }
         }

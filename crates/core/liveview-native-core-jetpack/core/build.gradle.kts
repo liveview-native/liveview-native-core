@@ -115,6 +115,7 @@ cargo {
 tasks.configureEach {
     if ((name == "javaPreCompileDebug" || name == "javaPreCompileRelease")) {
         dependsOn("cargoBuild")
+        dependsOn("generateDebugUniFFIBindings")
     }
     if (name == "cargoBuild") {
         dependsOn("generateDebugUniFFIBindings")

@@ -26,7 +26,7 @@ name = "liveview_native_core"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cranelift-entity = { version = "0.104" }
+cranelift-entity = { version = "0.106" }
 fixedbitset = { version = "0.4" }
 fxhash = { version = "0.2" }
 html5gum = { git = "https://github.com/liveviewnative/html5gum", branch = "lvn" }
@@ -43,7 +43,7 @@ uniffi = { version = "0.26", features = ["cli", "tokio"] }
 async-compat = "0.2.3"
 futures = "0.3.29"
 log = "0.4"
-reqwest = { version = "0.11.23", features = ["native-tls-vendored"] }
+reqwest = { version = "0.12.0", features = ["native-tls-vendored"] }
 tokio = { version = "1.35", features = ["full"] }
 
 [build-dependencies]
@@ -59,5 +59,5 @@ tokio = { version = "1.35", features = ["full"] }
 env_logger = "0.11.1"
 
 # For image generation for tests
-image = "0.24.8"
+image = "0.25.0"
 tempfile = "3.9.0"
