@@ -74,7 +74,7 @@ android {
             commandLine(
                 "cargo",
                 "run",
-                "--bin",
+                "-p",
                 "uniffi-bindgen",
                 "--",
                 "generate",
@@ -147,7 +147,7 @@ publishing {
         register<MavenPublication>("release")  {
             groupId = "org.phoenixframework"
             artifactId = "liveview-native-core-jetpack"
-            version = "0.1.0-pre-alpha-09"
+            version = "0.2.0-pre-alpha-01"
 
             afterEvaluate {
                 from(components["release"])
