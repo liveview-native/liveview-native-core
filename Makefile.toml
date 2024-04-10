@@ -219,8 +219,6 @@ args = [
 	"lipo", "-create",
 	"${CARGO_TARGET_DIR}/aarch64-apple-watchos-sim/debug/libliveview_native_core.a",
 	"${CARGO_TARGET_DIR}/x86_64-apple-watchos-sim/debug/libliveview_native_core.a",
-    # This isn't a simulator but putting it in the xcframework task doesn't work.
-    "${CARGO_TARGET_DIR}/arm64_32-apple-watchos/debug/libliveview_native_core.a",
 	"-output", "${CARGO_TARGET_DIR}/universal/watchos-sim/libliveview_native_core.a"
 ]
 
@@ -350,6 +348,10 @@ args = [
 
 	# watchOS sim
     "-library", "${CARGO_TARGET_DIR}/universal/watchos-sim/libliveview_native_core.a",
+    "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
+
+    # watchOS
+    "-library", "${CARGO_TARGET_DIR}/arm64_32-apple-watchos/debug/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
 	# tvOS

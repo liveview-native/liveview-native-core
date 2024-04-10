@@ -1,22 +1,22 @@
 import Foundation
 
-class SimpleHandler: DocumentChangeHandler {
-    var callback: (Document, NodeRef) -> ()
+final class SimpleHandler: DocumentChangeHandler {
+    let callback: (NodeRef, NodeData, NodeRef?) -> ()
     init (
-        _ callback: @escaping (Document, NodeRef) -> ()
+        _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> ()
     ) {
        self.callback = callback
     }
-    func handle(_ context: Document, _ changeType: ChangeType, _ node: NodeRef, _ parent: NodeRef?) {
+    func handle(_ changeType: ChangeType, _ node: NodeRef, _ data: NodeData, _ parent: NodeRef?) {
         switch changeType {
         case .add:
-            self.callback(context, parent!)
+            self.callback(parent!, data, parent)
         case .remove:
-            self.callback(context, parent!)
+            self.callback(parent!, data, parent)
         case .change:
-            self.callback(context, node)
+            self.callback(node, data, parent)
         case .replace:
-            self.callback(context, parent!)
+            self.callback(parent!, data, parent)
         }
     }
 
@@ -28,20 +28,20 @@ extension Document {
         return Node(self, ref, data)
     }
     public static func parseFragmentJson(payload: [String: Any]) throws -> Document {
-        let jsonData = try JSONSerialization.data(withJSONObject: payload, options: .prettyPrinted)
+        let jsonData = try JSONSerialization.data(withJSONObject: payload)
         let payload = String(data: jsonData, encoding: .utf8)!
         return try Document.parseFragmentJson(payload)
     }
     public func mergeFragmentJson(
         _ payload: [String: Any]
         ) throws {
-        let jsonData = try JSONSerialization.data(withJSONObject: payload, options: .prettyPrinted)
+        let jsonData = try JSONSerialization.data(withJSONObject: payload)
         let payload = String(data: jsonData, encoding: .utf8)!
 
         return try self.mergeFragmentJson(payload)
     }
 
-    public func on(_ event: EventType, _ callback: @escaping (Document, NodeRef) -> ()) {
+    public func on(_ event: EventType, _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> ()) {
 
         let simple = SimpleHandler(callback)
         self.setEventHandler(simple)

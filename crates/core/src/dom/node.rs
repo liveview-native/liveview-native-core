@@ -67,7 +67,7 @@ pub enum NodeData {
 
 #[derive(Clone, uniffi::Object)]
 pub struct Node {
-    pub document: FFiDocument,
+    document: FFiDocument,
     pub id: NodeRef,
     pub data: NodeData,
 }

@@ -1,11 +1,93 @@
 import XCTest
 @testable import LiveViewNativeCore
-class SimpleHandler: DocumentChangeHandler {
-    func handle(_ doc: Document, _ changeType: ChangeType, _ nodeRef: NodeRef, _ parent: NodeRef?) {
+final class SimpleHandler: DocumentChangeHandler {
+    func handle(_ changeType: ChangeType, _ nodeRef: NodeRef, _ nodeData: NodeData, _ parent: NodeRef?) {
+        print("Handler:", changeType, ", node:", nodeRef.ref());
     }
 }
 
 final class LiveViewNativeCoreTests: XCTestCase {
+    func testForSwiftUIClientBug() throws {
+        let initial_json = """
+        {
+            "s" : [
+                "",
+                ""
+            ],
+            "0" : {
+                "0" : "",
+                "s" : [
+                    "<VStack>\\n  ",
+                    "\\n  <Button phx-click=\\"inc_temperature\\"> Increment Temperature </Button>\\n  <Button phx-click=\\"dec_temperature\\"> Decrement Temperature </Button>\\n</VStack>"
+                ],
+                "r" : 1
+            }
+        }
+        """
+        let doc = try Document.parseFragmentJson(initial_json)
+        let simple = SimpleHandler()
+        doc.setEventHandler(simple)
+        print("initial:\n", doc.render())
+        var expected = """
+        <VStack>
+            <Button phx-click="inc_temperature">
+                Increment Temperature
+            </Button>
+            <Button phx-click="dec_temperature">
+                Decrement Temperature
+            </Button>
+        </VStack>
+        """
+        XCTAssertEqual(expected, doc.render())
+
+        let first_increment = """
+        {
+            "0" : {
+                "0" : {
+                    "s" : [
+                        "<Text> Temperature: ",
+                        " </Text>"
+                    ],
+                    "d" : [
+                        ["Increment"]
+                    ]
+                }
+            }
+        }
+        """
+        try doc.mergeFragmentJson(first_increment)
+        expected = """
+        <VStack>
+            <Text>
+                Temperature: Increment
+            </Text>
+            <Button phx-click="inc_temperature">
+                Increment Temperature
+            </Button>
+            <Button phx-click="dec_temperature">
+                Decrement Temperature
+            </Button>
+        </VStack>
+        """
+        print("first:\n", doc.render())
+        XCTAssertEqual(expected, doc.render())
+        let second_increment = """
+        {
+            "0" : {
+                "0" : {
+                    "d" : [       ]
+                }
+            }
+        }
+        """
+        try doc.mergeFragmentJson(second_increment)
+        print("second:\n", doc.render())
+        let third_increment = """
+        {   "0" : {     "0" : {       "d" : [         [           "Increment"         ]       ]     }   } }
+        """
+        try doc.mergeFragmentJson(third_increment)
+        print("third:\n", doc.render())
+    }
     func testIntegration() throws {
         let input = """
         <html lang="en">
@@ -51,9 +133,9 @@ final class LiveViewNativeCoreTests: XCTestCase {
         }
         """
         let simple = SimpleHandler()
-        let initial_document = try Document.parseFragmentJson(initial_json)
-        initial_document.setEventHandler(simple)
-        let initial_rendered = initial_document.render()
+        let doc = try Document.parseFragmentJson(initial_json)
+        doc.setEventHandler(simple)
+        let initial_rendered = doc.render()
         var expected = """
         <Column>
             <Button phx-click="inc">
@@ -112,8 +194,8 @@ final class LiveViewNativeCoreTests: XCTestCase {
           }
         }
         """
-        try initial_document.mergeFragmentJson(first_increment)
-        let second_render = initial_document.render()
+        try doc.mergeFragmentJson(first_increment)
+        let second_render = doc.render()
         expected = """
         <Column>
             <Button phx-click="inc">
@@ -183,8 +265,8 @@ final class LiveViewNativeCoreTests: XCTestCase {
           }
         }
         """
-        try initial_document.mergeFragmentJson(second_increment)
-        let third_render = initial_document.render()
+        try doc.mergeFragmentJson(second_increment)
+        let third_render = doc.render()
         expected = """
         <Column>
             <Button phx-click="inc">

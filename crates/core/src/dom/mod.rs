@@ -27,7 +27,6 @@ use crate::parser;
 use crate::diff::fragment::{
     Root,
     RootDiff,
-    MergeError,
     RenderError,
     FragmentMerge,
 };
@@ -514,56 +513,65 @@ impl Document {
             root.clone().merge(fragment)?
         } else {
             fragment.try_into()?
-            //self.fragment_template = Some(fragment.try_into()?);
-            //return Ok(());
         };
         self.fragment_template = Some(root.clone());
 
         let rendered_root : String = root.clone().try_into()?;
-        log::debug!("Rendered root: {rendered_root}");
         let new_doc = Self::parse(rendered_root)?;
 
         let patches = crate::diff::diff(self, &new_doc);
+        println!("PATCHES TO BE APPLIED:\n{patches:#?}");
         if patches.is_empty() {
             return Ok(());
         }
         let handler = self.event_callback.clone();
 
-        let mut editor = self.edit();
         let mut stack = vec![];
+        let mut editor = self.edit();
         for patch in patches.into_iter() {
+            println!("APPLYING PATCH: {patch:?}");
+
             let patch_result = patch.apply(&mut editor, &mut stack);
-            // TODO: Use the actual context
-            let context = ffi::Document::from(new_doc.clone());
+            println!("Applied PATCH: {patch_result:?}");
 
             match patch_result {
                 None => (),
-                Some(PatchResult::Add { node, parent }) => {
-                    if let Some(ref handler) = handler {
-                        handler.handle(context.into(), ChangeType::Add, node.into(), Some(parent.into()));
-                    }
-                }
-                Some(PatchResult::Remove { node, parent }) => {
+                Some(PatchResult::Add { node, parent, data}) => {
                     if let Some(ref handler) = handler {
                         handler.handle(
-                            context.into(),
+                            ChangeType::Add,
+                            node.into(),
+                            data,
+                            Some(parent.into())
+                        );
+                    }
+                }
+                Some(PatchResult::Remove { node, parent, data}) => {
+                    if let Some(ref handler) = handler {
+                        handler.handle(
                             ChangeType::Remove,
                             node.into(),
+                            data,
                             Some(parent.into()),
                         );
                     }
                 }
-                Some(PatchResult::Change { node }) => {
-                    if let Some(ref handler) = handler {
-                        handler.handle(context.into(), ChangeType::Change, node.into(), None);
-                    }
-                }
-                Some(PatchResult::Replace { node, parent }) => {
+                Some(PatchResult::Change { node, data}) => {
                     if let Some(ref handler) = handler {
                         handler.handle(
-                            context.into(),
+                            ChangeType::Change,
+                            node.into(),
+                            data,
+                            None
+                        );
+                    }
+                }
+                Some(PatchResult::Replace { node, parent, data}) => {
+                    if let Some(ref handler) = handler {
+                        handler.handle(
                             ChangeType::Replace,
                             node.into(),
+                            data,
                             Some(parent.into()),
                         );
                     }
@@ -593,9 +601,9 @@ pub enum EventType {
 pub trait DocumentChangeHandler : Send + Sync {
     fn handle(
         &self,
-        doc: Arc<ffi::Document>,
         change_type: ChangeType,
         node_ref: Arc<NodeRef>,
+        node_data: NodeData,
         parent: Option<Arc<NodeRef>>,
     );
 }
