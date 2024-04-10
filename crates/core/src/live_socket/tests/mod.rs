@@ -18,7 +18,7 @@ async fn join_live_view() {
         .is_test(true)
         .try_init();
 
-    let url = format!("http://{HOST}:4000/upload?_lvn[format]=swiftui");
+    let url = format!("http://{HOST}:4001/upload?_lvn[format]=swiftui");
     let live_socket = LiveSocket::new(
         url.to_string(),
         TIME_OUT
