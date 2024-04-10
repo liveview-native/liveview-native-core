@@ -60,7 +60,7 @@ extension AttributeName: ExpressibleByStringLiteral {
         }
     }
     public init?(rawValue: String) {
-        let parts = rawValue.split(separator: ":")
+        let parts = rawValue.split(separator: ":" as Character)
         switch parts.count {
         case 1:
             self.name = rawValue
@@ -105,12 +105,12 @@ public struct NodeChildrenSequence: Sequence, Collection, RandomAccessCollection
 
     let doc: Document
     let slice: [NodeRef]
-    public var startIndex: Int { 0 }
+    public var startIndex: Int { self.slice.startIndex }
 
-    public var endIndex: Int { self.slice.count }
+    public var endIndex: Int { self.slice.endIndex }
 
     public func index(after i: Int) -> Int {
-        i + 1
+        slice.index(after: i)
     }
     public subscript(position: Int) -> Node {
         return doc[slice[startIndex + position]]
@@ -131,6 +131,7 @@ public struct NodeDepthFirstChildrenSequence: Sequence {
         var children: [NodeChildrenSequence.Iterator]
 
         public mutating func next() -> Node? {
+
             if !children.isEmpty {
                 if let node = children[children.count - 1].next() {
                     children.append(node.children().makeIterator())
