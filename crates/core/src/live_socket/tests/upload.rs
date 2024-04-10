@@ -31,7 +31,7 @@ async fn single_chunk_file() {
         .is_test(true)
         .try_init();
 
-    let url = format!("http://{HOST}:4000/upload?_lvn[format]=swiftui");
+    let url = format!("http://{HOST}/upload?_lvn[format]=swiftui");
     let image_bytes = get_image(100, 100, "png".to_string());
     let live_socket = LiveSocket::new(
         url.to_string(),
@@ -64,7 +64,7 @@ async fn multi_chunk_file() {
         .is_test(true)
         .try_init();
 
-    let url = format!("http://{HOST}:4000/upload?_lvn[format]=swiftui");
+    let url = format!("http://{HOST}/upload?_lvn[format]=swiftui");
     let image_bytes = get_image(2000, 2000, "png".to_string());
 
     let live_socket = LiveSocket::new(
@@ -100,7 +100,7 @@ async fn error_file_too_large() {
         .is_test(true)
         .try_init();
 
-    let url = format!("http://{HOST}:4000/upload?_lvn[format]=swiftui");
+    let url = format!("http://{HOST}/upload?_lvn[format]=swiftui");
 
     // For this file we want to use tiff because it's much biggger than a png.
     let image_bytes = get_image(2000, 2000, "tiff".to_string());
@@ -146,7 +146,7 @@ async fn error_incorrect_file_type() {
         .is_test(true)
         .try_init();
 
-    let url = format!("http://{HOST}:4000/upload?_lvn[format]=swiftui");
+    let url = format!("http://{HOST}/upload?_lvn[format]=swiftui");
 
     // For this file we want to use tiff because it's much biggger than a png.
     let image_bytes = get_image(100, 100, "png".to_string());

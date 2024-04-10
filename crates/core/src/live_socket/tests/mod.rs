@@ -3,10 +3,10 @@ mod streaming;
 mod upload;
 
 #[cfg(target_os = "android")]
-const HOST: &str = "10.0.2.2";
+const HOST: &str = "10.0.2.2:4001";
 
 #[cfg(not(target_os = "android"))]
-const HOST: &str = "127.0.0.1";
+const HOST: &str = "127.0.0.1:4001";
 
 const TIME_OUT : Duration = Duration::from_secs(2);
 
@@ -18,7 +18,7 @@ async fn join_live_view() {
         .is_test(true)
         .try_init();
 
-    let url = format!("http://{HOST}:4001/upload?_lvn[format]=swiftui");
+    let url = format!("http://{HOST}/upload?_lvn[format]=swiftui");
     let live_socket = LiveSocket::new(
         url.to_string(),
         TIME_OUT
