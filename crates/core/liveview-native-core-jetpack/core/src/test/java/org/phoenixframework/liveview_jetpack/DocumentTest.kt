@@ -6,8 +6,7 @@ import org.phoenixframework.liveviewnative.core.Document;
 import org.phoenixframework.liveviewnative.core.DocumentChangeHandler;
 import org.phoenixframework.liveviewnative.core.ChangeType;
 import org.phoenixframework.liveviewnative.core.NodeRef;
-import org.phoenixframework.liveviewnative.core.LiveSocket;
-import org.phoenixframework.liveviewnative.core.LiveFile;
+import org.phoenixframework.liveviewnative.core.NodeData;
 
 import java.time.Duration;
 import kotlinx.coroutines.*;
@@ -16,6 +15,9 @@ import kotlinx.coroutines.test.runTest;
 import kotlin.system.*;
 import java.util.Base64;
 
+/*
+import org.phoenixframework.liveviewnative.core.LiveSocket;
+import org.phoenixframework.liveviewnative.core.LiveFile;
 class SocketTest {
     @Test
     fun simple_connect() = runTest {
@@ -30,6 +32,7 @@ class SocketTest {
         live_channel.uploadFile(live_file)
     }
 }
+*/
 
 class SimpleChangeHandler: DocumentChangeHandler {
     constructor() {
@@ -38,6 +41,7 @@ class SimpleChangeHandler: DocumentChangeHandler {
     override fun `handle`(
         `changeType`: ChangeType,
         `nodeRef`: NodeRef,
+        `nodeData`: NodeData,
         `optionNodeRef`: NodeRef?,
     ) {
         println("${changeType}")

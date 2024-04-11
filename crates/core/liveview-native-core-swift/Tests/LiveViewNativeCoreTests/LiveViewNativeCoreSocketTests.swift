@@ -4,6 +4,7 @@ import XCTest
     import SystemConfiguration
 #endif
 
+/*
 let url = "http://127.0.0.1:4001/upload?_lvn[format]=swiftui";
 let timeout = TimeInterval(10.0)
 
@@ -47,3 +48,4 @@ final class LiveViewNativeCoreUploadTests: XCTestCase {
         try await live_channel.uploadFile(live_file)
     }
 }
+*/

@@ -1,7 +1,6 @@
 use core::{
     cell::{Cell, RefCell},
     cmp::{self, Ordering},
-    convert::AsRef,
     fmt,
     hash::{Hash, Hasher},
     mem,

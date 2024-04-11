@@ -294,17 +294,18 @@ description = ""
 script_runner = "@shell"
 script = '''
 cat ${CARGO_TARGET_DIR}/uniffi/swift/generated/LiveViewNativeCoreFFI.modulemap \
-    ${CARGO_TARGET_DIR}/uniffi/swift/generated/PhoenixChannelsClientFFI.modulemap \
     > \
     ${CARGO_TARGET_DIR}/uniffi/swift/generated/module.modulemap
 '''
+# TODO: Put this back in the cat statment
+#${CARGO_TARGET_DIR}/uniffi/swift/generated/PhoenixChannelsClientFFI.modulemap \
 dependencies = ["uniffi-swift-generate"]
 
 [tasks.uniffi-swift-package]
 workspace = false
 category = "Packaging"
 description = "Generates the swift package from the liveview native core and phoenix-channels-clients bindings"
-dependencies = ["uniffi-swift-modulemap", "uniffi-swift-package-lvn", "uniffi-swift-package-phx"]
+dependencies = ["uniffi-swift-modulemap", "uniffi-swift-package-lvn"]# TODO add this back when adding channels clients, "uniffi-swift-package-phoenix"
 
 [tasks.uniffi-swift-package-lvn]
 workspace = false
@@ -315,7 +316,7 @@ args = [
     "${CARGO_TARGET_DIR}/uniffi/swift/generated/LiveViewNativeCore.swift",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/LiveViewNativeCore.swift",
 ]
-[tasks.uniffi-swift-package-phx]
+[tasks.uniffi-swift-package-phoenix]
 workspace = false
 category = "Packaging"
 description = "Copy the swift bindings for PhoenixChannelsClient to the right location."
