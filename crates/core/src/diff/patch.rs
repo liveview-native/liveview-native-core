@@ -97,7 +97,7 @@ pub enum PatchResult {
     /// The `node` has been removed from the document, having formerly been a child of `parent`.
     Remove { node: NodeRef, parent: NodeRef, data: NodeData },
     /// The `node` has been changed in some other way.
-    Change { node: NodeRef, data: NodeData},
+    Change { node: NodeRef, data: NodeData },
     /// The `node` has been replaced
     Replace { node: NodeRef, parent: NodeRef, data: NodeData},
 }

@@ -2,7 +2,7 @@ use std::{
     fmt,
     sync::{
         Arc,
-        RwLock,
+        Mutex,
     }
 };
 pub use super::{
@@ -17,13 +17,13 @@ use crate::diff::fragment::RenderError;
 
 #[derive(Clone, uniffi::Object)]
 pub struct Document {
-    inner: Arc<RwLock<super::Document>>,
+    inner: Arc<Mutex<super::Document>>,
 }
 
 impl From<super::Document> for Document {
     fn from(doc: super::Document) -> Self {
         Self {
-            inner: Arc::new(RwLock::new(doc))
+            inner: Arc::new(Mutex::new(doc))
         }
     }
 }
@@ -35,14 +35,14 @@ impl Document {
         input: String,
     ) -> Result<Arc<Self>, ParseError> {
         Ok(Arc::new(Self {
-            inner: Arc::new(RwLock::new(super::Document::parse(input)?)),
+            inner: Arc::new(Mutex::new(super::Document::parse(input)?)),
         }))
     }
 
     #[uniffi::constructor]
     pub fn empty() -> Arc<Self> {
         Arc::new(Self {
-            inner: Arc::new(RwLock::new(super::Document::empty())),
+            inner: Arc::new(Mutex::new(super::Document::empty())),
         })
     }
 
@@ -50,7 +50,7 @@ impl Document {
     pub fn parse_fragment_json(
         input: String,
     ) -> Result<Arc<Self>, RenderError> {
-        let inner = Arc::new(RwLock::new(super::Document::parse_fragment_json(input)?));
+        let inner = Arc::new(Mutex::new(super::Document::parse_fragment_json(input)?));
         Ok(Arc::new(Self {
             inner
         }))
@@ -59,7 +59,7 @@ impl Document {
         &self,
         handler: Box<dyn DocumentChangeHandler>
     ) {
-        if let Ok(mut inner) = self.inner.write() {
+        if let Ok(mut inner) = self.inner.lock() {
             inner.event_callback = Some(Arc::from(handler));
         }
     }
@@ -68,7 +68,7 @@ impl Document {
         &self,
         json: String,
     ) -> Result<(), RenderError> {
-        if let Ok(mut inner) = self.inner.write() {
+        if let Ok(mut inner) = self.inner.lock() {
             Ok(inner.merge_fragment_json(json)?)
         } else {
             unimplemented!("The error case for when we cannot get the lock for the Document has not been finished yet");
@@ -76,22 +76,22 @@ impl Document {
     }
 
     pub fn root(&self) -> Arc<NodeRef> {
-        self.inner.read().expect("Failed to get lock").root().into()
+        self.inner.lock().expect("Failed to get lock").root().into()
     }
 
     pub fn get_parent(&self, node_ref: Arc<NodeRef>) -> Option<Arc<NodeRef>> {
-        self.inner.read().expect("Failed to get lock").parent(*node_ref).map(|node_ref| node_ref.into())
+        self.inner.lock().expect("Failed to get lock").parent(*node_ref).map(|node_ref| node_ref.into())
     }
 
     pub fn children(&self, node_ref: Arc<NodeRef>) -> Vec<Arc<NodeRef>> {
-        self.inner.read().expect("Failed to get lock").children(*node_ref).iter().map(|node| Arc::new(*node)).collect()
+        self.inner.lock().expect("Failed to get lock").children(*node_ref).iter().map(|node| Arc::new(*node)).collect()
     }
 
     pub fn get_attributes(&self, node_ref: Arc<NodeRef>) -> Vec<Attribute> {
-        self.inner.read().expect("Failed to get lock").attributes(*node_ref).to_vec()
+        self.inner.lock().expect("Failed to get lock").attributes(*node_ref).to_vec()
     }
     pub fn get(&self, node_ref: Arc<NodeRef>) -> NodeData {
-        self.inner.read().expect("Failed to get lock").get(*node_ref).clone()
+        self.inner.lock().expect("Failed to get lock").get(*node_ref).clone()
     }
     pub fn render(&self) -> String {
         self.to_string()
@@ -104,7 +104,7 @@ impl Document {
         writer: &mut dyn std::fmt::Write,
         options: PrintOptions,
     ) -> fmt::Result {
-        self.inner.read().expect("Failed to get lock").print_node(node, writer, options)
+        self.inner.lock().expect("Failed to get lock").print_node(node, writer, options)
     }
 }
 
@@ -112,7 +112,7 @@ impl fmt::Display for Document {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         println!("WRITING DOCUMENT");
-        if let Ok(inner) = self.inner.read() {
+        if let Ok(inner) = self.inner.lock() {
             inner.print(f, PrintOptions::Pretty)
         } else {
             todo!()

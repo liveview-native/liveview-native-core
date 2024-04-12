@@ -52,6 +52,9 @@ extension AttributeName: ExpressibleByStringLiteral {
     public init(stringLiteral value: String) {
         self.init(namespace: .none, name: value)
     }
+    public init(name: String) {
+        self.init(namespace: .none, name: name)
+    }
     public var rawValue: String {
         if let namespace {
             return "\(namespace):\(name)"
