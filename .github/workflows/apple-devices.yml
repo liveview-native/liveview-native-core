@@ -69,13 +69,13 @@ jobs:
 #            ${{ runner.os }}-${{ runner.arch }}-mix-
 #      - name: Set up Elixir
 #        run: brew install elixir
-
-      - name: Install test server dependencies, compile and run in background
-        working-directory: ./tests/support/test_server
-        run: |
-          mix deps.get
-          mix compile
-          mix phx.server &
+#
+#      - name: Install test server dependencies, compile and run in background
+#        working-directory: ./tests/support/test_server
+#        run: |
+#          mix deps.get
+#          mix compile
+#          mix phx.server &
 
       - name: Start Simulator
         uses: futureware-tech/simulator-action@v3
