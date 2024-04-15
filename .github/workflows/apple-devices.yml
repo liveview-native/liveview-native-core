@@ -45,29 +45,30 @@ jobs:
             cargo install --git https://github.com/sonos/dinghy.git --force --rev ${CARGO_DINGHY_REV} cargo-dinghy
           fi
 
-      - name: Cache deps
-        id: cache-deps
-        uses: actions/cache@v4
-        env:
-          cache-name: cache-elixir-deps
-        with:
-          path: tests/support/test_server/deps
-          key: ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-
-      - name: Cache compiled build
-        id: cache-build
-        uses: actions/cache@v4
-        env:
-          cache-name: cache-compiled-build
-        with:
-          path: tests/support/test_server/_build
-          key: ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-
-            ${{ runner.os }}-${{ runner.arch }}-mix-
-      - name: Set up Elixir
-        run: brew install elixir
+# TODO: Fix this when enabling live-channels feature flag.
+#      - name: Cache deps
+#        id: cache-deps
+#        uses: actions/cache@v4
+#        env:
+#          cache-name: cache-elixir-deps
+#        with:
+#          path: tests/support/test_server/deps
+#          key: ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
+#          restore-keys: |
+#            ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-
+#      - name: Cache compiled build
+#        id: cache-build
+#        uses: actions/cache@v4
+#        env:
+#          cache-name: cache-compiled-build
+#        with:
+#          path: tests/support/test_server/_build
+#          key: ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
+#          restore-keys: |
+#            ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-
+#            ${{ runner.os }}-${{ runner.arch }}-mix-
+#      - name: Set up Elixir
+#        run: brew install elixir
 
       - name: Install test server dependencies, compile and run in background
         working-directory: ./tests/support/test_server

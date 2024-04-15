@@ -35,36 +35,37 @@ jobs:
             target
           key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Cache deps
-        id: cache-deps
-        uses: actions/cache@v4
-        env:
-          cache-name: cache-elixir-deps
-        with:
-          path: tests/support/test_server/deps
-          key: ${{ runner.os }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-mix-${{ env.cache-name }}-
-      - name: Cache compiled build
-        id: cache-build
-        uses: actions/cache@v4
-        env:
-          cache-name: cache-compiled-build
-        with:
-          path: tests/support/test_server/_build
-          key: ${{ runner.os }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-mix-${{ env.cache-name }}-
-            ${{ runner.os }}-mix-
-      - name: Set up Elixir
-        run: brew install elixir
-
-      - name: Install test server dependencies, compile and run in background
-        working-directory: ./tests/support/test_server
-        run: |
-          mix deps.get
-          mix compile
-          mix phx.server &
+# TODO: Fix this when enabling live-channels feature flag.
+#      - name: Cache deps
+#        id: cache-deps
+#        uses: actions/cache@v4
+#        env:
+#          cache-name: cache-elixir-deps
+#        with:
+#          path: tests/support/test_server/deps
+#          key: ${{ runner.os }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
+#          restore-keys: |
+#            ${{ runner.os }}-mix-${{ env.cache-name }}-
+#      - name: Cache compiled build
+#        id: cache-build
+#        uses: actions/cache@v4
+#        env:
+#          cache-name: cache-compiled-build
+#        with:
+#          path: tests/support/test_server/_build
+#          key: ${{ runner.os }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
+#          restore-keys: |
+#            ${{ runner.os }}-mix-${{ env.cache-name }}-
+#            ${{ runner.os }}-mix-
+#      - name: Set up Elixir
+#        run: brew install elixir
+#
+#      - name: Install test server dependencies, compile and run in background
+#        working-directory: ./tests/support/test_server
+#        run: |
+#          mix deps.get
+#          mix compile
+#          mix phx.server &
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4

@@ -520,7 +520,6 @@ impl Document {
         let new_doc = Self::parse(rendered_root)?;
 
         let patches = crate::diff::diff(self, &new_doc);
-        println!("PATCHES TO BE APPLIED:\n{patches:#?}");
         if patches.is_empty() {
             return Ok(());
         }
@@ -529,11 +528,7 @@ impl Document {
         let mut stack = vec![];
         let mut editor = self.edit();
         for patch in patches.into_iter() {
-            println!("APPLYING PATCH: {patch:?}");
-
             let patch_result = patch.apply(&mut editor, &mut stack);
-            println!("Applied PATCH: {patch_result:?}");
-
             match patch_result {
                 None => (),
                 Some(PatchResult::Add { node, parent, data}) => {
