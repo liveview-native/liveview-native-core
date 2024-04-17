@@ -9,8 +9,8 @@ use super::{Attribute, AttributeName, ffi::Document as FFiDocument};
 use crate::{InternedString, Symbol};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, uniffi::Object)]
-#[repr(transparent)]
 pub struct NodeRef(pub(crate) u32);
+
 entity_impl!(NodeRef, "node");
 impl Default for NodeRef {
     #[inline]

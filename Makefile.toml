@@ -124,6 +124,7 @@ args = [
     "${CARGO_TARGET_DIR}/universal/macos/",
     "${CARGO_TARGET_DIR}/universal/ios-sim/",
     "${CARGO_TARGET_DIR}/universal/watchos-sim/",
+    "${CARGO_TARGET_DIR}/universal/watchos/",
     "${CARGO_TARGET_DIR}/universal/tvos-sim/",
 ]
 
@@ -160,6 +161,7 @@ args = [
 
     "--target", "arm64_32-apple-watchos",
     "--target", "aarch64-apple-watchos-sim",
+    "--target", "aarch64-apple-watchos",
     "--target", "x86_64-apple-watchos-sim",
 
     "--target", "aarch64-apple-tvos",
@@ -175,10 +177,10 @@ category = "Build"
 description = "Combines macOS targets into a universal binary"
 command = "xcrun"
 args = [
-	"lipo", "-create",
-	"${CARGO_TARGET_DIR}/aarch64-apple-darwin/debug/libliveview_native_core.a",
+    "lipo", "-create",
+    "${CARGO_TARGET_DIR}/aarch64-apple-darwin/debug/libliveview_native_core.a",
     "${CARGO_TARGET_DIR}/x86_64-apple-darwin/debug/libliveview_native_core.a",
-	"-output", "${CARGO_TARGET_DIR}/universal/macos/libliveview_native_core.a"
+    "-output", "${CARGO_TARGET_DIR}/universal/macos/libliveview_native_core.a"
 ]
 
 [tasks.lipo-ios-sim]
@@ -188,11 +190,11 @@ category = "Build"
 description = "Combines iOS simulator targets into a universal binary"
 command = "xcrun"
 args = [
-	"lipo",
-	"-create",
-	"${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libliveview_native_core.a",
+    "lipo",
+    "-create",
+    "${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libliveview_native_core.a",
     "${CARGO_TARGET_DIR}/x86_64-apple-ios/debug/libliveview_native_core.a",
-	"-output", "${CARGO_TARGET_DIR}/universal/ios-sim/libliveview_native_core.a"
+    "-output", "${CARGO_TARGET_DIR}/universal/ios-sim/libliveview_native_core.a"
 ]
 
 [tasks.lipo-tvos-sim]
@@ -202,11 +204,11 @@ category = "Build"
 description = "Combines iOS simulator targets into a universal binary"
 command = "xcrun"
 args = [
-	"lipo",
-	"-create",
-	"${CARGO_TARGET_DIR}/aarch64-apple-tvos-sim/debug/libliveview_native_core.a",
-	"${CARGO_TARGET_DIR}/x86_64-apple-tvos/debug/libliveview_native_core.a",
-	"-output", "${CARGO_TARGET_DIR}/universal/tvos-sim/libliveview_native_core.a"
+    "lipo",
+    "-create",
+    "${CARGO_TARGET_DIR}/aarch64-apple-tvos-sim/debug/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/x86_64-apple-tvos/debug/libliveview_native_core.a",
+    "-output", "${CARGO_TARGET_DIR}/universal/tvos-sim/libliveview_native_core.a"
 ]
 
 [tasks.lipo-watchos-sim]
@@ -216,10 +218,23 @@ category = "Build"
 description = "Combines watchOS simulator targets into a universal binary"
 command = "xcrun"
 args = [
-	"lipo", "-create",
-	"${CARGO_TARGET_DIR}/aarch64-apple-watchos-sim/debug/libliveview_native_core.a",
-	"${CARGO_TARGET_DIR}/x86_64-apple-watchos-sim/debug/libliveview_native_core.a",
-	"-output", "${CARGO_TARGET_DIR}/universal/watchos-sim/libliveview_native_core.a"
+    "lipo", "-create",
+    "${CARGO_TARGET_DIR}/aarch64-apple-watchos/debug/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/arm64_32-apple-watchos/debug/libliveview_native_core.a",
+    "-output", "${CARGO_TARGET_DIR}/universal/watchos/libliveview_native_core.a"
+]
+
+[tasks.lipo-watchos]
+dependencies = ["create-lipo-universal-directories", "build-apple-no-std-targets"]
+workspace = false
+category = "Build"
+description = "Combines watchOS simulator targets into a universal binary"
+command = "xcrun"
+args = [
+    "lipo", "-create",
+    "${CARGO_TARGET_DIR}/aarch64-apple-watchos-sim/debug/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/x86_64-apple-watchos-sim/debug/libliveview_native_core.a",
+    "-output", "${CARGO_TARGET_DIR}/universal/watchos/libliveview_native_core.a"
 ]
 
 [tasks.install-targets]
@@ -335,27 +350,27 @@ args = [
     "-create-xcframework",
     "-output", "${CARGO_TARGET_DIR}/uniffi/swift/RustFramework.xcframework",
 
-	# macOS
+    # macOS
     "-library", "${CARGO_TARGET_DIR}/universal/macos/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
-	# iOS
+    # iOS
     "-library", "${CARGO_TARGET_DIR}/aarch64-apple-ios/debug/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
-	# iOS sim
+    # iOS sim
     "-library", "${CARGO_TARGET_DIR}/universal/ios-sim/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
-	# watchOS sim
+    # watchOS sim
     "-library", "${CARGO_TARGET_DIR}/universal/watchos-sim/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
     # watchOS
-    "-library", "${CARGO_TARGET_DIR}/arm64_32-apple-watchos/debug/libliveview_native_core.a",
+    "-library", "${CARGO_TARGET_DIR}/universal/watchos/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
-	# tvOS
+    # tvOS
     "-library", "${CARGO_TARGET_DIR}/aarch64-apple-tvos/debug/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
