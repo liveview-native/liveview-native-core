@@ -24,15 +24,6 @@ jobs:
           - rust-target: "aarch64-apple-watchos-sim"
             os: macos-14
             apple-sim: "watchOS"
-          - rust-target: "x86_64-apple-watchos-sim"
-            os: macos-13
-            apple-sim: "watchOS"
-          - rust-target: "x86_64-apple-tvos"
-            os: macos-13
-            apple-sim: "tvOS"
-          - rust-target: "x86_64-apple-ios"
-            os: macos-13
-            apple-sim: "iOS"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -54,37 +45,6 @@ jobs:
             cargo install --git https://github.com/sonos/dinghy.git --force --rev ${CARGO_DINGHY_REV} cargo-dinghy
           fi
 
-      - name: Cache deps
-        id: cache-deps
-        uses: actions/cache@v4
-        env:
-          cache-name: cache-elixir-deps
-        with:
-          path: tests/support/test_server/deps
-          key: ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-
-      - name: Cache compiled build
-        id: cache-build
-        uses: actions/cache@v4
-        env:
-          cache-name: cache-compiled-build
-        with:
-          path: tests/support/test_server/_build
-          key: ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-2-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ runner.arch }}-mix-${{ env.cache-name }}-
-            ${{ runner.os }}-${{ runner.arch }}-mix-
-      - name: Set up Elixir
-        run: brew install elixir
-
-      - name: Install test server dependencies, compile and run in background
-        working-directory: ./tests/support/test_server
-        run: |
-          mix deps.get
-          mix compile
-          mix phx.server &
-
       - name: Start Simulator
         uses: futureware-tech/simulator-action@v3
         with:
@@ -104,3 +64,23 @@ jobs:
           cargo dinghy all-platforms
           cargo dinghy all-devices
           cargo -Zbuild-std test --target ${{ matrix.rust-target }}
+
+      - name: Set up Elixir
+        run: brew install elixir
+
+      - name: Install test server dependencies, compile and run in background
+        working-directory: ./tests/support/test_server
+        run: |
+          mix deps.get
+          mix compile
+          mix phx.server &
+
+      - name: Run Rust tests on simulator for ${{ matrix.rust-target }}
+        env:
+          DINGHY_LOG: debug
+        timeout-minutes: 20
+        run: |
+          cargo dinghy all-platforms
+          cargo dinghy all-devices
+          cargo -Zbuild-std test --target ${{ matrix.rust-target }} --features liveview-channels
+          cargo -Zbuild-std test --target ${{ matrix.rust-target }} --features liveview-channels-tls

@@ -1,15 +1,16 @@
 use std::fmt;
+use std::sync::Arc;
 
 use cranelift_entity::entity_impl;
 use petgraph::graph::{IndexType, NodeIndex};
 use smallstr::SmallString;
 
-use super::{Attribute, AttributeName};
+use super::{Attribute, AttributeName, ffi::Document as FFiDocument};
 use crate::{InternedString, Symbol};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, uniffi::Object)]
-#[repr(transparent)]
 pub struct NodeRef(pub(crate) u32);
+
 entity_impl!(NodeRef, "node");
 impl Default for NodeRef {
     #[inline]
@@ -53,7 +54,7 @@ unsafe impl IndexType for NodeRef {
 
 /// This enum represents the valid node types of a `Document` tree
 #[derive(Debug, Clone, PartialEq, uniffi::Enum)]
-pub enum Node {
+pub enum NodeData {
     /// A marker node that indicates the root of a document
     ///
     /// A document may only have a single root, and it has no attributes
@@ -63,22 +64,58 @@ pub enum Node {
     /// A leaf node is an untyped node, typically text, and does not have any attributes or children
     Leaf { value: String },
 }
-impl Node {
-    /// Creates a new, empty element node with the given tag name
-    #[inline]
-    pub fn new<T: Into<ElementName>>(tag: T) -> Self {
-        Self::NodeElement { element: Element::new(tag.into()) }
-    }
 
+#[derive(Clone, uniffi::Object)]
+pub struct Node {
+    document: FFiDocument,
+    pub id: NodeRef,
+    pub data: NodeData,
+}
+impl std::fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.document.print_node(self.id, f, crate::dom::PrintOptions::Pretty)
+    }
+}
+
+#[uniffi::export]
+impl Node {
+    #[uniffi::constructor]
+    pub fn new(document: &FFiDocument, id: &NodeRef, data: NodeData) -> Self {
+        Self {
+            document: document.clone(),
+            id: id.clone(),
+            data,
+        }
+    }
+    pub fn get_children(&self) -> Vec<Arc<NodeRef>> {
+        self.document.children(self.id.into())
+    }
+    pub fn document(&self) -> FFiDocument {
+        self.document.clone()
+    }
+    pub fn id(&self) -> NodeRef {
+        self.id
+    }
+    pub fn data(&self) -> NodeData {
+        self.data.clone()
+    }
+    pub fn attributes(&self) -> Vec<Attribute> {
+        self.data.attributes()
+    }
+    pub fn display(&self) -> String {
+        format!("{self}")
+    }
+}
+impl NodeData {
     /// Returns a slice of Attributes for this node, if applicable
-    pub fn attributes(&self) -> &[Attribute] {
+    pub fn attributes(&self) -> Vec<Attribute> {
         match self {
-            Self::NodeElement { element: elem } => elem.attributes(),
-            _ => &[],
+            Self::NodeElement { element: elem } => elem.attributes.clone(),
+            _ => vec![],
         }
     }
 
-    pub(crate) fn id(&self) -> Option<SmallString<[u8; 16]>> {
+    pub fn id(&self) -> Option<String> {
         match self {
             Self::NodeElement { element: el } => el.id(),
             _ => None,
@@ -93,25 +130,33 @@ impl Node {
         }
     }
 }
-impl From<Element> for Node {
+impl NodeData {
+    /// Creates a new, empty element node with the given tag name
+    #[inline]
+    pub fn new<T: Into<ElementName>>(tag: T) -> Self {
+        Self::NodeElement { element: Element::new(tag.into()) }
+    }
+}
+
+impl From<Element> for NodeData {
     #[inline(always)]
     fn from(elem: Element) -> Self {
         Self::NodeElement { element: elem }
     }
 }
-impl From<&str> for Node {
+impl From<&str> for NodeData {
     #[inline(always)]
     fn from(string: &str) -> Self {
         Self::Leaf { value: string.to_string() }
     }
 }
-impl From<String> for Node {
+impl From<String> for NodeData {
     #[inline(always)]
     fn from(string: String) -> Self {
         Self::Leaf { value: string }
     }
 }
-impl From<SmallString<[u8; 16]>> for Node {
+impl From<SmallString<[u8; 16]>> for NodeData {
     #[inline(always)]
     fn from(string: SmallString<[u8; 16]>) -> Self {
         Self::Leaf { value: string.to_string() }
@@ -207,13 +252,10 @@ impl Element {
         }
     }
 
-    pub(crate) fn id(&self) -> Option<SmallString<[u8; 16]>> {
+    pub(crate) fn id(&self) -> Option<String> {
         for attr in &self.attributes {
             if attr.name.eq("id") {
-                if let Some(value) = &attr.value {
-                    let value = SmallString::<[u8; 16]>::from_string(value.clone());
-                    return Some(value);
-                }
+                return attr.value.clone();
             }
         }
         None
@@ -221,8 +263,8 @@ impl Element {
 
     /// Returns a slice of AttributeRefs associated to this element
     #[inline]
-    pub fn attributes(&self) -> &[Attribute] {
-        self.attributes.as_slice()
+    pub fn attributes(&self) -> Vec<Attribute> {
+        self.attributes.clone()
     }
 
     /// Sets the attribute named `name` on this element.

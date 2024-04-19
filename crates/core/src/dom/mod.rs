@@ -6,13 +6,7 @@ mod ffi;
 
 use std::{
     collections::{BTreeMap, VecDeque},
-    fmt, mem,
-    ops::{Deref, DerefMut},
-    path::Path,
-    sync::{
-        Arc,
-        Mutex,
-    }
+    fmt, mem, ops::{Deref, DerefMut}, path::Path, sync::Arc,
 };
 
 use cranelift_entity::{packed_option::PackedOption, EntityRef, PrimaryMap, SecondaryMap};
@@ -25,7 +19,7 @@ use smallvec::SmallVec;
 use self::printer::Printer;
 pub use self::{
     attribute::{Attribute, AttributeName, AttributeValue},
-    node::{Element, ElementName, Node, NodeRef},
+    node::{Element, ElementName, NodeData, NodeRef},
     printer::PrintOptions,
     select::{SelectionIter, Selector},
 };
@@ -33,7 +27,6 @@ use crate::parser;
 use crate::diff::fragment::{
     Root,
     RootDiff,
-    MergeError,
     RenderError,
     FragmentMerge,
 };
@@ -74,9 +67,10 @@ use crate::diff::PatchResult;
 pub struct Document {
     root: NodeRef,
     /// The fragment template.
-    pub fragment_template: Option<Arc<Mutex<Root>>>,
+    pub fragment_template: Option<Root>,
+    pub event_callback: Option<Arc<dyn DocumentChangeHandler>>,
     /// A map from node reference to node data
-    nodes: PrimaryMap<NodeRef, Node>,
+    nodes: PrimaryMap<NodeRef, NodeData>,
     /// A map from a node to its parent node, if it currently has one
     parents: SecondaryMap<NodeRef, PackedOption<NodeRef>>,
     /// A map from a node to its child nodes
@@ -92,7 +86,7 @@ impl fmt::Debug for Document {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use petgraph::dot::{Config, Dot};
         let edge_getter = |_, edge_ref: EdgeRef| format!("{} to {}", edge_ref.from, edge_ref.to);
-        let node_getter = |_, node_ref: (NodeRef, &Node)| format!("id = {}", node_ref.0);
+        let node_getter = |_, node_ref: (NodeRef, &NodeData)| format!("id = {}", node_ref.0);
         let dot = Dot::with_attr_getters(self, &[Config::EdgeNoLabel], &edge_getter, &node_getter);
         write!(f, "{:?}", &dot)
     }
@@ -125,7 +119,7 @@ impl Document {
     /// Creates a new empty Document, with preallocated capacity for nodes
     pub fn with_capacity(cap: usize) -> Self {
         let mut nodes = PrimaryMap::with_capacity(cap);
-        let root = nodes.push(Node::Root);
+        let root = nodes.push(NodeData::Root);
         Self {
             root,
             nodes,
@@ -133,6 +127,7 @@ impl Document {
             children: SecondaryMap::new(),
             ids: Default::default(),
             fragment_template: None,
+            event_callback: None,
         }
     }
 
@@ -160,7 +155,7 @@ impl Document {
     /// Clears all data from this document, but keeps the allocated capacity, for more efficient reuse
     pub fn clear(&mut self) {
         self.nodes.clear();
-        self.root = self.nodes.push(Node::Root);
+        self.root = self.nodes.push(NodeData::Root);
         self.parents.clear();
         self.children.clear();
         self.ids.clear();
@@ -191,34 +186,34 @@ impl Document {
 
     /// Returns the data associated with the given `NodeRef`
     #[inline]
-    pub fn get(&self, node: NodeRef) -> &Node {
+    pub fn get(&self, node: NodeRef) -> &NodeData {
         &self.nodes[node]
     }
 
     /// Returns the data associated with the given `NodeRef`, mutably
     #[inline]
-    pub fn get_mut(&mut self, node: NodeRef) -> &mut Node {
+    pub fn get_mut(&mut self, node: NodeRef) -> &mut NodeData {
         &mut self.nodes[node]
     }
 
     /// Returns the set of attribute refs associated with `node`
-    pub fn attributes(&self, node: NodeRef) -> &[Attribute] {
+    pub fn attributes(&self, node: NodeRef) -> Vec<Attribute> {
         match &self.nodes[node] {
-            Node::NodeElement { element: ref elem } => elem.attributes(),
-            _ => &[],
+            NodeData::NodeElement { element: ref elem } => elem.attributes.clone(),
+            _ => vec![],
         }
     }
 
     /// Returns the attribute `name` on `node`, otherwise `None`
-    pub fn get_attribute_by_name<'a, N: Into<AttributeName>>(
-        &'a self,
+    pub fn get_attribute_by_name<N: Into<AttributeName>>(
+        &self,
         node: NodeRef,
         name: N,
-    ) -> Option<&'a Attribute> {
+    ) -> Option<Attribute> {
         let name = name.into();
         self.attributes(node)
             .iter()
-            .find_map(|attr| if attr.name == name { Some(attr) } else { None })
+            .find_map(|attr| if attr.name == name { Some(attr.clone()) } else { None })
     }
 
     /// Returns the parent of `node`, if it has one
@@ -270,13 +265,13 @@ impl Document {
         self.nodes.reserve(num_nodes);
         for (k, v) in doc.nodes.into_iter() {
             match v {
-                Node::Root => continue,
-                v @ Node::Leaf { value: _ } => {
+                NodeData::Root => continue,
+                v @ NodeData::Leaf { value: _ } => {
                     let new_k = self.nodes.push(v);
                     node_mapping.insert(k, new_k);
                 }
-                Node::NodeElement { element: elem } => {
-                    let new_k = self.nodes.push(Node::NodeElement { element: elem });
+                NodeData::NodeElement { element: elem } => {
+                    let new_k = self.nodes.push(NodeData::NodeElement { element: elem });
                     node_mapping.insert(k, new_k);
                 }
             }
@@ -425,7 +420,7 @@ impl Document {
     ///
     /// This operation adds `node` to the document without inserting it in the tree, i.e. it is initially detached
     #[inline]
-    pub fn push_node<N: Into<Node>>(&mut self, node: N) -> NodeRef {
+    pub fn push_node<N: Into<NodeData>>(&mut self, node: N) -> NodeRef {
         self.nodes.push(node.into())
     }
 
@@ -438,7 +433,7 @@ impl Document {
         name: K,
         value: V,
     ) -> bool {
-        if let Node::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
+        if let NodeData::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
             let name = name.into();
             let value = value.into();
             elem.set_attribute(name, value);
@@ -450,7 +445,7 @@ impl Document {
 
     /// Removes the attribute `name` from `node`.
     pub fn remove_attribute<K: Into<AttributeName>>(&mut self, node: NodeRef, name: K) {
-        if let Node::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
+        if let NodeData::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
             let name = name.into();
             elem.remove_attribute(&name);
         }
@@ -462,7 +457,7 @@ impl Document {
         node: NodeRef,
         attributes: Vec<Attribute>,
     ) -> Option<Vec<Attribute>> {
-        if let Node::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
+        if let NodeData::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
             Some(mem::replace(&mut elem.attributes, attributes))
         } else {
             None
@@ -474,7 +469,7 @@ impl Document {
     where
         P: FnMut(&Attribute) -> bool,
     {
-        if let Node::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
+        if let NodeData::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
             elem.attributes.retain(predicate);
         }
     }
@@ -495,19 +490,6 @@ impl Document {
         printer.print(writer)
     }
 
-    pub fn merge_fragment(&mut self, root_diff: RootDiff) -> Result<Root, MergeError> {
-        let root = if let Some(root) = &self.fragment_template {
-            let mut root = root.as_ref().lock().unwrap();
-            *root = root.clone().merge(root_diff)?;
-            root.clone()
-        } else {
-            let new_root : Root = root_diff.try_into()?;
-            self.fragment_template = Some(Arc::new(Mutex::new(new_root.clone())));
-            new_root
-        };
-        Ok(root)
-    }
-
     /// Parses a `RootDiff` and returns a `Document`
     pub fn parse_fragment_json(
         input: String,
@@ -516,25 +498,23 @@ impl Document {
         let root : Root = fragment.try_into()?;
         let rendered : String = root.clone().try_into()?;
         let mut document = crate::parser::parse(&rendered)?;
-        document.fragment_template = Some(Arc::new(Mutex::new(root)));
+        document.fragment_template = Some(root);
         Ok(document)
     }
+
 
     pub fn merge_fragment_json(
         &mut self,
         json: String,
-        handler: Box<dyn DocumentChangeHandler>
     ) -> Result<(), RenderError> {
         let fragment: RootDiff = serde_json::from_str(&json).map_err(|e| RenderError::from(e))?;
 
         let root = if let Some(root) = &self.fragment_template {
-            let mut root = root.as_ref().lock().unwrap();
-            *root = root.clone().merge(fragment)?;
-            root.clone()
+            root.clone().merge(fragment)?
         } else {
-            self.fragment_template = Some(Arc::new(Mutex::new(fragment.try_into()?)));
-            return Ok(());
+            fragment.try_into()?
         };
+        self.fragment_template = Some(root.clone());
 
         let rendered_root : String = root.clone().try_into()?;
         let new_doc = Self::parse(rendered_root)?;
@@ -543,44 +523,59 @@ impl Document {
         if patches.is_empty() {
             return Ok(());
         }
+        let handler = self.event_callback.clone();
 
-        let mut editor = self.edit();
         let mut stack = vec![];
+        let mut editor = self.edit();
         for patch in patches.into_iter() {
             let patch_result = patch.apply(&mut editor, &mut stack);
-            // TODO: Use the actual context
-            let context = String::new();
-
             match patch_result {
                 None => (),
-                Some(PatchResult::Add { node, parent }) => {
-                    handler.handle(context, ChangeType::Add, node.into(), Some(parent.into()));
+                Some(PatchResult::Add { node, parent, data}) => {
+                    if let Some(ref handler) = handler {
+                        handler.handle(
+                            ChangeType::Add,
+                            node.into(),
+                            data,
+                            Some(parent.into())
+                        );
+                    }
                 }
-                Some(PatchResult::Remove { node, parent }) => {
-                    handler.handle(
-                        context,
-                        ChangeType::Remove,
-                        node.into(),
-                        Some(parent.into()),
-                    );
+                Some(PatchResult::Remove { node, parent, data}) => {
+                    if let Some(ref handler) = handler {
+                        handler.handle(
+                            ChangeType::Remove,
+                            node.into(),
+                            data,
+                            Some(parent.into()),
+                        );
+                    }
                 }
-                Some(PatchResult::Change { node }) => {
-                    handler.handle(context, ChangeType::Change, node.into(), None);
+                Some(PatchResult::Change { node, data}) => {
+                    if let Some(ref handler) = handler {
+                        handler.handle(
+                            ChangeType::Change,
+                            node.into(),
+                            data,
+                            None
+                        );
+                    }
                 }
-                Some(PatchResult::Replace { node, parent }) => {
-                    handler.handle(
-                        context,
-                        ChangeType::Replace,
-                        node.into(),
-                        Some(parent.into()),
-                    );
+                Some(PatchResult::Replace { node, parent, data}) => {
+                    if let Some(ref handler) = handler {
+                        handler.handle(
+                            ChangeType::Replace,
+                            node.into(),
+                            data,
+                            Some(parent.into()),
+                        );
+                    }
                 }
             }
         }
         editor.finish();
         Ok(())
     }
-
 }
 
 #[repr(C)]
@@ -592,13 +587,18 @@ pub enum ChangeType {
     Replace = 3,
 }
 
+#[derive(Copy, Clone, uniffi::Enum)]
+pub enum EventType {
+    Changed, // { change: ChangeType },
+}
+
 #[uniffi::export(callback_interface)]
-pub trait DocumentChangeHandler {
+pub trait DocumentChangeHandler : Send + Sync {
     fn handle(
         &self,
-        context: String,
         change_type: ChangeType,
         node_ref: Arc<NodeRef>,
+        node_data: NodeData,
         parent: Option<Arc<NodeRef>>,
     );
 }
@@ -676,7 +676,7 @@ pub trait DocumentBuilder {
 
     /// Returns the `Node` corresponding to the current insertion point
     #[inline]
-    fn current_node(&self) -> &Node {
+    fn current_node(&self) -> &NodeData {
         self.document().get(self.insertion_point())
     }
 
@@ -719,7 +719,7 @@ pub trait DocumentBuilder {
     }
 
     /// Creates a node, returning its NodeRef, without attaching it to the element tree
-    fn push_node<N: Into<Node>>(&mut self, node: N) -> NodeRef {
+    fn push_node<N: Into<NodeData>>(&mut self, node: N) -> NodeRef {
         self.document_mut().push_node(node.into())
     }
 
@@ -748,13 +748,13 @@ pub trait DocumentBuilder {
 
     /// Appends `node` as a child of the current node
     #[inline]
-    fn append<N: Into<Node>>(&mut self, node: N) -> NodeRef {
+    fn append<N: Into<NodeData>>(&mut self, node: N) -> NodeRef {
         let ip = self.insertion_point();
         self.append_child(ip, node.into())
     }
 
     /// Appends `node` as a child of `to`
-    fn append_child<N: Into<Node>>(&mut self, to: NodeRef, node: N) -> NodeRef {
+    fn append_child<N: Into<NodeData>>(&mut self, to: NodeRef, node: N) -> NodeRef {
         let doc = self.document_mut();
         let nr = doc.nodes.push(node.into());
         doc.append_child(to, nr);
@@ -763,7 +763,7 @@ pub trait DocumentBuilder {
 
     /// Inserts `node`, returning its NodeRef, and making it the new insertion point
     #[inline]
-    fn insert<N: Into<Node>>(&mut self, node: N) -> NodeRef {
+    fn insert<N: Into<NodeData>>(&mut self, node: N) -> NodeRef {
         let ip = self.insertion_point();
         let nr = self.insert_after(node, ip);
         self.set_insertion_point(ip);
@@ -771,7 +771,7 @@ pub trait DocumentBuilder {
     }
 
     /// Inserts `node` as a sibling of `after`, immediately following it in the document
-    fn insert_after<N: Into<Node>>(&mut self, node: N, after: NodeRef) -> NodeRef {
+    fn insert_after<N: Into<NodeData>>(&mut self, node: N, after: NodeRef) -> NodeRef {
         let doc = self.document_mut();
         let nr = doc.nodes.push(node.into());
         doc.insert_after(nr, after);
@@ -779,7 +779,7 @@ pub trait DocumentBuilder {
     }
 
     /// Inserts `node` as a sibling of `before`, immediately preceding it in the document
-    fn insert_before<N: Into<Node>>(&mut self, node: N, before: NodeRef) -> NodeRef {
+    fn insert_before<N: Into<NodeData>>(&mut self, node: N, before: NodeRef) -> NodeRef {
         let doc = self.document_mut();
         let nr = doc.nodes.push(node.into());
         doc.insert_before(nr, before);
@@ -792,7 +792,7 @@ pub trait DocumentBuilder {
     }
 
     /// Replaces the content of `node` with `replacement`
-    fn replace<N: Into<Node>>(&mut self, node: NodeRef, replacement: N) {
+    fn replace<N: Into<NodeData>>(&mut self, node: NodeRef, replacement: N) {
         let replace = self.document_mut().get_mut(node);
         *replace = replacement.into();
     }
@@ -974,7 +974,7 @@ impl petgraph::visit::GraphProp for Document {
     type EdgeType = petgraph::Directed;
 }
 impl petgraph::visit::Data for Document {
-    type NodeWeight = Node;
+    type NodeWeight = NodeData;
     type EdgeWeight = ();
 }
 impl petgraph::visit::NodeCount for Document {
@@ -994,7 +994,7 @@ impl<'a> petgraph::visit::IntoNodeIdentifiers for &'a Document {
     }
 }
 impl<'a> petgraph::visit::IntoNodeReferences for &'a Document {
-    type NodeRef = (NodeRef, &'a Node);
+    type NodeRef = (NodeRef, &'a NodeData);
     type NodeReferences = NodeReferences<'a>;
 
     #[inline]
@@ -1110,7 +1110,7 @@ impl<'a> NodeReferences<'a> {
     }
 }
 impl<'a> Iterator for NodeReferences<'a> {
-    type Item = (NodeRef, &'a Node);
+    type Item = (NodeRef, &'a NodeData);
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.0.next() {

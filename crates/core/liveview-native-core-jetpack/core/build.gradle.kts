@@ -74,7 +74,7 @@ android {
             commandLine(
                 "cargo",
                 "run",
-                "--bin",
+                "-p",
                 "uniffi-bindgen",
                 "--",
                 "generate",
@@ -115,6 +115,7 @@ cargo {
 tasks.configureEach {
     if ((name == "javaPreCompileDebug" || name == "javaPreCompileRelease")) {
         dependsOn("cargoBuild")
+        dependsOn("generateDebugUniFFIBindings")
     }
     if (name == "cargoBuild") {
         dependsOn("generateDebugUniFFIBindings")
@@ -146,7 +147,7 @@ publishing {
         register<MavenPublication>("release")  {
             groupId = "org.phoenixframework"
             artifactId = "liveview-native-core-jetpack"
-            version = "0.1.0-pre-alpha-08"
+            version = "0.2.0-pre-alpha-01"
 
             afterEvaluate {
                 from(components["release"])

@@ -6,8 +6,7 @@ import org.phoenixframework.liveviewnative.core.Document;
 import org.phoenixframework.liveviewnative.core.DocumentChangeHandler;
 import org.phoenixframework.liveviewnative.core.ChangeType;
 import org.phoenixframework.liveviewnative.core.NodeRef;
-import org.phoenixframework.liveviewnative.core.LiveSocket;
-import org.phoenixframework.liveviewnative.core.LiveFile;
+import org.phoenixframework.liveviewnative.core.NodeData;
 
 import java.time.Duration;
 import kotlinx.coroutines.*;
@@ -16,10 +15,13 @@ import kotlinx.coroutines.test.runTest;
 import kotlin.system.*;
 import java.util.Base64;
 
+/*
+import org.phoenixframework.liveviewnative.core.LiveSocket;
+import org.phoenixframework.liveviewnative.core.LiveFile;
 class SocketTest {
     @Test
     fun simple_connect() = runTest {
-        var live_socket = LiveSocket("http://127.0.0.1:4000/upload?_lvn[format]=swiftui", Duration.ofDays(10));
+        var live_socket = LiveSocket("http://127.0.0.1:4001/upload?_lvn[format]=swiftui", Duration.ofDays(10));
         var live_channel = live_socket.joinLiveviewChannel()
         var phx_id = live_channel.getPhxRefFromUploadJoinPayload()
         // This is a PNG located at crates/core/tests/support/tinycross.png
@@ -30,15 +32,16 @@ class SocketTest {
         live_channel.uploadFile(live_file)
     }
 }
+*/
 
 class SimpleChangeHandler: DocumentChangeHandler {
     constructor() {
     }
 
     override fun `handle`(
-        `context`: String,
         `changeType`: ChangeType,
         `nodeRef`: NodeRef,
+        `nodeData`: NodeData,
         `optionNodeRef`: NodeRef?,
     ) {
         println("${changeType}")
@@ -67,6 +70,47 @@ class DocumentTest {
         var doc = Document.parse(input);
         var rendered = doc.render();
         assertEquals(input, rendered)
+    }
+    @Test
+    fun json_merging_from_empty() {
+        var doc = Document.empty();
+        var input = """
+        {
+          "0":"0",
+          "1":"0",
+          "2":"",
+          "s":[
+            "<Column>\n  <Button phx-click=\"inc\">\n    <Text>Increment</Text>\n  </Button>\n  <Button phx-click=\"dec\">\n    <Text>Decrement</Text>\n  </Button>\n  <Text>Static Text </Text>\n  <Text>Counter 1: ",
+            " </Text>\n  <Text>Counter 2: ",
+            " </Text>\n",
+            "\n</Column>"
+            ]
+        }
+        """
+        doc.mergeFragmentJson(input)
+        var expected = """<Column>
+    <Button phx-click="inc">
+        <Text>
+            Increment
+        </Text>
+    </Button>
+    <Button phx-click="dec">
+        <Text>
+            Decrement
+        </Text>
+    </Button>
+    <Text>
+        Static Text
+    </Text>
+    <Text>
+        Counter 1: 0
+    </Text>
+    <Text>
+        Counter 2: 0
+    </Text>
+</Column>"""
+        var rendered = doc.render();
+        assertEquals(expected, rendered)
     }
 
     @Test
@@ -141,8 +185,9 @@ class DocumentTest {
   }
 }
         """
-        var simple = SimpleChangeHandler()
-        doc.mergeFragmentJson(first_increment, simple);
+        var simple = SimpleChangeHandler();
+        doc.setEventHandler(simple);
+        doc.mergeFragmentJson(first_increment);
         rendered = doc.render();
         expected = """<Column>
     <Button phx-click="inc">

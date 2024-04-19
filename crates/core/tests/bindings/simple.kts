@@ -1,2 +1,3 @@
 import org.phoenixframework.liveviewnative.core.*;
-import org.phoenixframework.liveviewnative.channel.*;
+// TODO: Uncomment this when adding live-channel support.
+//import org.phoenixframework.liveviewnative.channel.*;

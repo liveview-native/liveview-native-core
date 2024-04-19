@@ -31,7 +31,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    fn node(&self) -> &Node {
+    fn node(&self) -> &NodeData {
         self.doc.get(self.node)
     }
 
@@ -145,30 +145,30 @@ impl<'a> From<&'a Document> for Cursor<'a> {
 }
 
 impl<'a> Deref for Cursor<'a> {
-    type Target = Node;
+    type Target = NodeData;
 
     fn deref(&self) -> &Self::Target {
         self.node()
     }
 }
 
-trait CompatibleWith: Deref<Target = Node> {
+trait CompatibleWith: Deref<Target = NodeData> {
     fn is_compatible_with<T>(&self, other: &T) -> bool
     where
-        T: Deref<Target = Node>,
+        T: Deref<Target = NodeData>,
     {
         match (self.deref(), other.deref()) {
-            (Node::NodeElement { element: from }, Node::NodeElement { element: to }) => {
+            (NodeData::NodeElement { element: from }, NodeData::NodeElement { element: to }) => {
                 to.name.eq(&from.name) && to.id().eq(&from.id())
             }
-            (Node::Leaf { value: _ }, Node::Leaf { value: _ }) => true,
-            (Node::Root, Node::Root) => true,
+            (NodeData::Leaf { value: _ }, NodeData::Leaf { value: _ }) => true,
+            (NodeData::Root, NodeData::Root) => true,
             _ => false,
         }
     }
 }
 
-impl<T> CompatibleWith for T where T: Deref<Target = Node> {}
+impl<T> CompatibleWith for T where T: Deref<Target = NodeData> {}
 
 #[derive(Debug)]
 enum Op<'a> {
@@ -348,7 +348,7 @@ impl<'a> Iterator for Morph<'a> {
                     ref to,
                 } => {
                     if cursor.next().is_some() {
-                        if let Node::NodeElement { element: el } = cursor.node() {
+                        if let NodeData::NodeElement { element: el } = cursor.node() {
                             if let Some(id) = el.id() {
                                 if to.doc.get_by_id(id).is_some() {
                                     // Only detach if not previously moved
@@ -510,37 +510,37 @@ impl<'a> Iterator for Morph<'a> {
                     }
 
                     match (from.node(), to.node()) {
-                        (Node::Root, Node::Root) | (Node::Root, _) | (_, Node::Root) => {
+                        (NodeData::Root, NodeData::Root) | (NodeData::Root, _) | (_, NodeData::Root) => {
                             self.advance(Advance::BothCursors, false);
                         }
-                        (Node::Leaf { value: old_content }, Node::Leaf { value: content }) => {
+                        (NodeData::Leaf { value: old_content }, NodeData::Leaf { value: content }) => {
                             if old_content.ne(content) {
                                 self.queue.push(Op::Patch(Patch::Replace {
                                     node: from.node,
-                                    replacement: Node::Leaf { value: content.to_owned() },
+                                    replacement: NodeData::Leaf { value: content.to_owned() },
                                 }));
                             }
 
                             self.advance(Advance::BothCursors, false);
                         }
-                        (Node::Leaf { value: _ }, Node::NodeElement { element: _ }) => {
+                        (NodeData::Leaf { value: _ }, NodeData::NodeElement { element: _ }) => {
                             self.queue
                                 .push(Op::Patch(Patch::Remove { node: from.node }));
 
                             self.advance(Advance::From, true);
                         }
-                        (Node::NodeElement { element: _ }, Node::Leaf { value: content }) => {
+                        (NodeData::NodeElement { element: _ }, NodeData::Leaf { value: content }) => {
                             self.queue.push(Op::Patch(Patch::InsertBefore {
                                 before: from.node,
-                                node: Node::Leaf { value: content.to_owned() },
+                                node: NodeData::Leaf { value: content.to_owned() },
                             }));
 
                             self.advance(Advance::To, true);
                         }
-                        (Node::NodeElement { element: from_el }, Node::NodeElement { element: to_el }) => {
+                        (NodeData::NodeElement { element: from_el }, NodeData::NodeElement { element: to_el }) => {
                             // nodes are compatible; morph attribute changes and continue
                             if to_el.name.eq(&from_el.name) && to_el.id().eq(&from_el.id()) {
-                                if from_el.attributes().ne(to_el.attributes()) {
+                                if from_el.attributes.ne(&to_el.attributes) {
                                     self.queue.push(Op::Patch(Patch::SetAttributes {
                                         node: from.node,
                                         attributes: to.attributes().to_vec(),
@@ -621,7 +621,7 @@ impl<'a> Iterator for Morph<'a> {
                             // TODO: as an optimization, use peek to add node caching
                             self.queue.push(Op::Patch(Patch::Replace {
                                 node: from.node,
-                                replacement: Node::NodeElement { element: to_el.to_owned() },
+                                replacement: NodeData::NodeElement { element: to_el.to_owned() },
                             }));
 
                             self.advance(Advance::BothCursors, false);

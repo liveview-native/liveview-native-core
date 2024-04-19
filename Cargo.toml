@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/core",
+    "crates/core", "crates/uniffi-bindgen",
 ]
 
 [workspace.package]
@@ -25,9 +25,14 @@ split-debuginfo = "unpacked"
 debug = 2
 
 [profile.release]
-opt-level = 1
+opt-level = 'z'     # Optimize for size
+lto = true          # Enable link-time optimization
+codegen-units = 1   # Reduce number of codegen units to increase optimizations
+panic = 'abort'     # Abort on panic
+strip = 'debuginfo'        # Strip symbols from binary*
 split-debuginfo = "packed"
 debug = 1
+
 
 [patch.crates-io]
 # Work for https://github.com/sfackler/rust-native-tls/pull/285 hasn't been published to crates.io yet.

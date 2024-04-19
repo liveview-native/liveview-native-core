@@ -39,35 +39,36 @@ jobs:
             cargo install --git https://github.com/sonos/dinghy.git --force --rev ${CARGO_DINGHY_REV} cargo-dinghy
           fi
 
-      - name: Cache deps
-        id: cache-deps
-        uses: actions/cache@v4
-        env:
-          cache-name: cache-elixir-deps
-        with:
-          path: tests/support/test_server/deps
-          key: ${{ runner.os }}-mix-${{ env.cache-name }}-deps-${{ hashFiles('**/mix.lock') }}
-
-      - name: Cache compiled build
-        id: cache-build
-        uses: actions/cache@v4
-        env:
-          cache-name: cache-compiled-build
-        with:
-          path: tests/support/test_server/_build
-          key: ${{ runner.os }}-mix-${{ env.cache-name }}-build-${{ hashFiles('**/mix.lock') }}
-
-      - uses: erlef/setup-beam@v1
-        with:
-          elixir-version:  1.15
-          otp-version: 25
-
-      - name: Install test server dependencies, compile and run in background
-        working-directory: ./tests/support/test_server
-        run: |
-          mix deps.get
-          mix compile
-          mix phx.server &
+# TODO: Fix this when enabling live-channels feature flag.
+#      - name: Cache deps
+#        id: cache-deps
+#        uses: actions/cache@v4
+#        env:
+#          cache-name: cache-elixir-deps
+#        with:
+#          path: tests/support/test_server/deps
+#          key: ${{ runner.os }}-mix-${{ env.cache-name }}-deps-${{ hashFiles('**/mix.lock') }}
+#
+#      - name: Cache compiled build
+#        id: cache-build
+#        uses: actions/cache@v4
+#        env:
+#          cache-name: cache-compiled-build
+#        with:
+#          path: tests/support/test_server/_build
+#          key: ${{ runner.os }}-mix-${{ env.cache-name }}-build-${{ hashFiles('**/mix.lock') }}
+#
+#      - uses: erlef/setup-beam@v1
+#        with:
+#          elixir-version:  1.15
+#          otp-version: 25
+#
+#      - name: Install test server dependencies, compile and run in background
+#        working-directory: ./tests/support/test_server
+#        run: |
+#          mix deps.get
+#          mix compile
+#          mix phx.server &
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
