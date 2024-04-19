@@ -211,7 +211,7 @@ args = [
     "-output", "${CARGO_TARGET_DIR}/universal/tvos-sim/libliveview_native_core.a"
 ]
 
-[tasks.lipo-watchos-sim]
+[tasks.lipo-watchos]
 dependencies = ["create-lipo-universal-directories", "build-apple-no-std-targets"]
 workspace = false
 category = "Build"
@@ -224,7 +224,7 @@ args = [
     "-output", "${CARGO_TARGET_DIR}/universal/watchos/libliveview_native_core.a"
 ]
 
-[tasks.lipo-watchos]
+[tasks.lipo-watchos-sim]
 dependencies = ["create-lipo-universal-directories", "build-apple-no-std-targets"]
 workspace = false
 category = "Build"
@@ -234,7 +234,7 @@ args = [
     "lipo", "-create",
     "${CARGO_TARGET_DIR}/aarch64-apple-watchos-sim/debug/libliveview_native_core.a",
     "${CARGO_TARGET_DIR}/x86_64-apple-watchos-sim/debug/libliveview_native_core.a",
-    "-output", "${CARGO_TARGET_DIR}/universal/watchos/libliveview_native_core.a"
+    "-output", "${CARGO_TARGET_DIR}/universal/watchos-sim/libliveview_native_core.a"
 ]
 
 [tasks.install-targets]
@@ -401,7 +401,8 @@ dependencies = [
     "uniffi-swift-test-tvos",
     "uniffi-swift-test-ios",
     "uniffi-swift-test-macos",
-    "uniffi-swift-test-watchos",
+# TODO: When https://github.com/rust-lang/rust/pull/124089 lands, re-enable the watchOS tests.
+#"uniffi-swift-test-watchos",
 ]
 
 [tasks.uniffi-swift-test-package]
