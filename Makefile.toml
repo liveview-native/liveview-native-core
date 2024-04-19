@@ -384,6 +384,7 @@ dependencies = [
     "lipo-ios-sim",
     "build-apple-no-std-targets",
     "lipo-watchos-sim",
+    "lipo-watchos",
     "lipo-tvos-sim",
     "remove-existing-uniffi-xcframework",
     "uniffi-swift-generate",
