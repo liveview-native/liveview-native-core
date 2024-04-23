@@ -5,9 +5,13 @@ members = [
 ]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0-alpha"
 rust-version = "1.64"
-authors = ["Paul Schoenfelder <paulschoenfelder@gmail.com>", "Thomas Sieverding <Thomas@bajix.com>", "Elle Imhoff <Kronic.Deth@gmail.com>"]
+authors = [
+    "Paul Schoenfelder <paulschoenfelder@gmail.com>", 
+    "Thomas Sieverding <Thomas@bajix.com>", 
+    "Elle Imhoff <Kronic.Deth@gmail.com>"
+]
 description = "Provides core, cross-platform functionality for LiveView Native implementations"
 repository = "https://github.com/liveview-native/liveview-native-core"
 homepage = "https://github.com/liveview-native/liveview-native-core"
@@ -28,7 +32,6 @@ debug = 2
 opt-level = 'z'     # Optimize for size
 lto = true          # Enable link-time optimization
 codegen-units = 1   # Reduce number of codegen units to increase optimizations
-panic = 'abort'     # Abort on panic
 strip = 'debuginfo'        # Strip symbols from binary*
 split-debuginfo = "packed"
 debug = 1

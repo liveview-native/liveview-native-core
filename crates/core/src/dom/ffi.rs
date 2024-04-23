@@ -111,7 +111,6 @@ impl Document {
 impl fmt::Display for Document {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        println!("WRITING DOCUMENT");
         if let Ok(inner) = self.inner.lock() {
             inner.print(f, PrintOptions::Pretty)
         } else {

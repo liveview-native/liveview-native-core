@@ -97,24 +97,6 @@ echo "*************************************"
 '''
 ]
 
-[tasks.check]
-category = "Build"
-description = "Runs cargo check"
-command = "rustup"
-args = ["run", "${CARGO_MAKE_TOOLCHAIN}", "cargo", "check", "${@}"]
-
-[tasks.build]
-category = "Build"
-description = "Runs cargo build"
-command = "rustup"
-args = [
-    "run", "${CARGO_MAKE_TOOLCHAIN}",
-    "cargo", "build",
-    "--profile", "${CARGO_PROFILE}",
-    "--", "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)",
-    "${@}"
-]
-
 [tasks.create-lipo-universal-directories]
 workspace = false
 private = true
@@ -136,6 +118,7 @@ command = "rustup"
 args = [
     "run", "${CARGO_MAKE_TOOLCHAIN}",
     "cargo", "build",
+    "--profile", "${CARGO_PROFILE}",
     "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)",
     "--target", "aarch64-apple-darwin",
     "--target", "x86_64-apple-darwin",
@@ -143,6 +126,9 @@ args = [
     "--target", "aarch64-apple-ios",
     "--target", "aarch64-apple-ios-sim",
     "--target", "x86_64-apple-ios",
+
+#"--target", "aarch64-apple-visionos",
+#"--target", "aarch64-apple-visionos-sim",
     "-p", "liveview-native-core"
 ]
 dependencies = ["install-targets"]
@@ -156,6 +142,7 @@ command = "rustup"
 args = [
     "run", "${CARGO_MAKE_TOOLCHAIN}",
     "cargo", "build",
+    "--profile", "${CARGO_PROFILE}",
     "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)",
     "-Z", "build-std",
 
@@ -178,8 +165,8 @@ description = "Combines macOS targets into a universal binary"
 command = "xcrun"
 args = [
     "lipo", "-create",
-    "${CARGO_TARGET_DIR}/aarch64-apple-darwin/debug/libliveview_native_core.a",
-    "${CARGO_TARGET_DIR}/x86_64-apple-darwin/debug/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/aarch64-apple-darwin/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/x86_64-apple-darwin/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
     "-output", "${CARGO_TARGET_DIR}/universal/macos/libliveview_native_core.a"
 ]
 
@@ -192,8 +179,8 @@ command = "xcrun"
 args = [
     "lipo",
     "-create",
-    "${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libliveview_native_core.a",
-    "${CARGO_TARGET_DIR}/x86_64-apple-ios/debug/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/x86_64-apple-ios/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
     "-output", "${CARGO_TARGET_DIR}/universal/ios-sim/libliveview_native_core.a"
 ]
 
@@ -206,8 +193,8 @@ command = "xcrun"
 args = [
     "lipo",
     "-create",
-    "${CARGO_TARGET_DIR}/aarch64-apple-tvos-sim/debug/libliveview_native_core.a",
-    "${CARGO_TARGET_DIR}/x86_64-apple-tvos/debug/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/aarch64-apple-tvos-sim/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/x86_64-apple-tvos/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
     "-output", "${CARGO_TARGET_DIR}/universal/tvos-sim/libliveview_native_core.a"
 ]
 
@@ -219,8 +206,8 @@ description = "Combines watchOS simulator targets into a universal binary"
 command = "xcrun"
 args = [
     "lipo", "-create",
-    "${CARGO_TARGET_DIR}/aarch64-apple-watchos/debug/libliveview_native_core.a",
-    "${CARGO_TARGET_DIR}/arm64_32-apple-watchos/debug/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/aarch64-apple-watchos/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/arm64_32-apple-watchos/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
     "-output", "${CARGO_TARGET_DIR}/universal/watchos/libliveview_native_core.a"
 ]
 
@@ -232,8 +219,8 @@ description = "Combines watchOS simulator targets into a universal binary"
 command = "xcrun"
 args = [
     "lipo", "-create",
-    "${CARGO_TARGET_DIR}/aarch64-apple-watchos-sim/debug/libliveview_native_core.a",
-    "${CARGO_TARGET_DIR}/x86_64-apple-watchos-sim/debug/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/aarch64-apple-watchos-sim/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/x86_64-apple-watchos-sim/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
     "-output", "${CARGO_TARGET_DIR}/universal/watchos-sim/libliveview_native_core.a"
 ]
 
@@ -296,7 +283,7 @@ args = [
     "--",
     "generate",
     "--library",
-    "${CARGO_TARGET_DIR}/aarch64-apple-darwin/debug/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/aarch64-apple-darwin/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
     "--language=swift",
     "--out-dir=${CARGO_TARGET_DIR}/uniffi/swift/generated",
 ]
@@ -340,6 +327,19 @@ args = [
     "${CARGO_TARGET_DIR}/uniffi/swift/generated/PhoenixChannelsClient.swift",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/PhoenixChannelsClient.swift",
 ]
+[tasks.uniffi-xcframework-zip]
+workspace = false
+category = "Packaging"
+description = "Generates zip of liveview_native_core.xcframework"
+command = "ditto"
+args = [
+    "-c", "-k", "--sequesterRsrc", "--keepParent",
+    "target/uniffi/swift/liveview_native_core.xcframework/",
+    "target/uniffi/swift/liveview_native_core.xcframework.zip"
+]
+dependencies = [
+    "uniffi-xcframework",
+]
 
 [tasks.uniffi-xcframework]
 workspace = false
@@ -348,14 +348,14 @@ description = "Generates the LiveViewNativeCore.xcframework package"
 command = "xcodebuild"
 args = [
     "-create-xcframework",
-    "-output", "${CARGO_TARGET_DIR}/uniffi/swift/RustFramework.xcframework",
+    "-output", "${CARGO_TARGET_DIR}/uniffi/swift/liveview_native_core.xcframework",
 
     # macOS
     "-library", "${CARGO_TARGET_DIR}/universal/macos/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
     # iOS
-    "-library", "${CARGO_TARGET_DIR}/aarch64-apple-ios/debug/libliveview_native_core.a",
+    "-library", "${CARGO_TARGET_DIR}/aarch64-apple-ios/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
     # iOS sim
@@ -371,12 +371,20 @@ args = [
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
     # tvOS
-    "-library", "${CARGO_TARGET_DIR}/aarch64-apple-tvos/debug/libliveview_native_core.a",
+    "-library", "${CARGO_TARGET_DIR}/aarch64-apple-tvos/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
     # tvOS sim
     "-library", "${CARGO_TARGET_DIR}/universal/tvos-sim/libliveview_native_core.a",
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
+
+    # visionOS
+#"-library", "${CARGO_TARGET_DIR}/aarch64-apple-visionos/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
+#"-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
+
+    # visionOS sim
+#"-library", "${CARGO_TARGET_DIR}/aarch64-apple-visionos-sim/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
+#"-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 ]
 dependencies = [
     "build-apple-std-targets",
@@ -394,7 +402,7 @@ dependencies = [
 workspace = false
 private = true
 script_runner = "@duckscript"
-script = "rm -r ${CARGO_TARGET_DIR}/uniffi/swift/RustFramework.xcframework"
+script = "rm -r ${CARGO_TARGET_DIR}/uniffi/swift/liveview_native_core.xcframework"
 
 [tasks.uniffi-swift-test]
 dependencies = [
@@ -402,8 +410,7 @@ dependencies = [
     "uniffi-swift-test-tvos",
     "uniffi-swift-test-ios",
     "uniffi-swift-test-macos",
-# TODO: When https://github.com/rust-lang/rust/pull/124089 lands, re-enable the watchOS tests.
-#"uniffi-swift-test-watchos",
+    "uniffi-swift-test-watchos",
 ]
 
 [tasks.uniffi-swift-test-package]
@@ -414,7 +421,7 @@ command = "swift"
 args = [
     "test",
     "--package-path",
-    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
 ]
 dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
 [tasks.uniffi-swift-test-tvos]
@@ -428,7 +435,7 @@ args = [
     "-destination",
     "name=Apple TV 4K (3rd generation),arch=x86_64",
     "-workspace",
-    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
 dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
@@ -444,7 +451,7 @@ args = [
     "-destination",
     "name=iPhone 15",
     "-workspace",
-    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
 dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
@@ -460,7 +467,23 @@ args = [
     "-destination",
     "name=Apple Watch Series 9 (45mm)",
     "-workspace",
-    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
+    "test"
+]
+dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
+
+[tasks.uniffi-swift-test-visionos]
+workspace = false
+category = "Packaging"
+description = "Generates the LiveViewNativeCore.xcframework package"
+command = "xcodebuild"
+args = [
+    "-scheme",
+    "LiveViewNativeCore",
+    "-destination",
+    "name=Apple Vision Pro",
+    "-workspace",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
 dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
@@ -476,7 +499,7 @@ args = [
     "-destination",
     "platform=macOS",
     "-workspace",
-    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/crates/core/liveview-native-core-swift/",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
 dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
