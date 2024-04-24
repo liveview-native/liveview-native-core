@@ -222,8 +222,6 @@ args = [
 	"lipo", "-create",
 	"${CARGO_TARGET_DIR}/aarch64-apple-watchos-sim/debug/libliveview_native_core.a",
 	"${CARGO_TARGET_DIR}/x86_64-apple-watchos-sim/debug/libliveview_native_core.a",
-	"${CARGO_TARGET_DIR}/arm64_32-apple-watchos/debug/libliveview_native_core.a",
-	"${CARGO_TARGET_DIR}/armv7k-apple-watchos/debug/libliveview_native_core.a",
 	"-output", "${CARGO_TARGET_DIR}/universal/watchos-sim/libliveview_native_core.a"
 ]
 
