@@ -395,7 +395,7 @@ dependencies = [
     "lipo-watchos",
     "lipo-tvos-sim",
     "remove-existing-uniffi-xcframework",
-    "uniffi-swift-generate",
+    "uniffi-swift-package",
 ]
 
 [tasks.remove-existing-uniffi-xcframework]
