@@ -50,7 +50,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Install gradle
-        uses: gradle/gradle-build-action@v3.2.1
+        uses: gradle/gradle-build-action@v3.3.2
 
       # https://github.com/actions/runner-images/blob/5a9870800dc54127d22ee36c303b47314d231c69/images/macos/macos-14-arm64-Readme.md
       # Python is required to build OpenSSL but there's no python in the m1
