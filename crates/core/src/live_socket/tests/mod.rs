@@ -22,7 +22,7 @@ async fn join_live_view() {
     let live_socket = LiveSocket::new(
         url.to_string(),
         TIME_OUT
-    ).expect("Failed to get liveview socket");
+    ).await.expect("Failed to get liveview socket");
     let live_channel = live_socket
         .join_liveview_channel()
         .await

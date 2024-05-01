@@ -393,20 +393,16 @@ The allow upload error response looks like:
 impl LiveSocket {
 
     #[uniffi::constructor]
-    pub fn new(url: String, timeout: Duration) -> Result<Self, LiveSocketError> {
+    pub async fn new(url: String, timeout: Duration) -> Result<Self, LiveSocketError> {
         let url = url.parse::<Url>()?;
-        let resp = futures::executor::block_on(async_compat::Compat::new(async {
-            reqwest::get(url.clone()).await
-        }))?;
+        let resp = reqwest::get(url.clone()).await?;
         let resp_headers = resp.headers();
         let mut cookies: Vec<String> = Vec::new();
         for cookie in resp_headers.get_all("set-cookie") {
             cookies.push(cookie.to_str().expect("Cookie is not ASCII").to_string());
         }
 
-        let resp_text = futures::executor::block_on(async_compat::Compat::new(async {
-            resp.text().await
-        }))?;
+        let resp_text = resp.text().await?;
 
         let document = parse(&resp_text)?;
         debug!("document: {document}\n\n\n");
@@ -484,9 +480,7 @@ impl LiveSocket {
         debug!("websocket url: {websocket_url}");
 
         let websocket_url = websocket_url.parse::<Url>()?;
-        let socket = futures::executor::block_on(async_compat::Compat::new(async {
-            Socket::spawn(websocket_url.clone(), Some(cookies))
-        }))?;
+        let socket = Socket::spawn(websocket_url.clone(), Some(cookies))?;
 
         Ok(Self {
             socket,

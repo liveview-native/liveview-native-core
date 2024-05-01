@@ -35,7 +35,7 @@ async fn single_chunk_file() {
     let image_bytes = get_image(100, 100, "png".to_string());
     let live_socket = LiveSocket::new(
         url.to_string(),
-        TIME_OUT).expect("Failed to get liveview socket");
+        TIME_OUT).await.expect("Failed to get liveview socket");
     let live_channel = live_socket
         .join_liveview_channel()
         .await
@@ -70,7 +70,7 @@ async fn multi_chunk_file() {
     let live_socket = LiveSocket::new(
         url.to_string(),
         TIME_OUT
-    ).expect("Failed to get liveview socket");
+    ).await.expect("Failed to get liveview socket");
     let live_channel = live_socket
         .join_liveview_channel()
         .await
@@ -108,7 +108,7 @@ async fn error_file_too_large() {
     let live_socket = LiveSocket::new(
         url.to_string(),
         TIME_OUT
-    ).expect("Failed to get liveview socket");
+    ).await.expect("Failed to get liveview socket");
     let live_channel = live_socket
         .join_liveview_channel()
         .await
@@ -154,7 +154,7 @@ async fn error_incorrect_file_type() {
     let live_socket = LiveSocket::new(
         url.to_string(),
         TIME_OUT
-    ).expect("Failed to get liveview socket");
+    ).await.expect("Failed to get liveview socket");
     let live_channel = live_socket
         .join_liveview_channel()
         .await
