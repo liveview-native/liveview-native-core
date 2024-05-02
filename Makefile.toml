@@ -127,11 +127,11 @@ args = [
     "--target", "aarch64-apple-ios-sim",
     "--target", "x86_64-apple-ios",
 
-#"--target", "aarch64-apple-visionos",
-#"--target", "aarch64-apple-visionos-sim",
+    "--target", "aarch64-apple-visionos",
+    "--target", "aarch64-apple-visionos-sim",
     "-p", "liveview-native-core"
 ]
-dependencies = ["install-targets"]
+#dependencies = ["install-targets"]
 
 
 [tasks.build-apple-no-std-targets]
@@ -379,12 +379,12 @@ args = [
     "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
     # visionOS
-#"-library", "${CARGO_TARGET_DIR}/aarch64-apple-visionos/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
-#"-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
+    "-library", "${CARGO_TARGET_DIR}/aarch64-apple-visionos/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
+    "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 
-    # visionOS sim
-#"-library", "${CARGO_TARGET_DIR}/aarch64-apple-visionos-sim/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
-#"-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
+   # visionOS sim
+    "-library", "${CARGO_TARGET_DIR}/aarch64-apple-visionos-sim/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
+    "-headers", "${CARGO_TARGET_DIR}/uniffi/swift/generated",
 ]
 dependencies = [
     "build-apple-std-targets",
