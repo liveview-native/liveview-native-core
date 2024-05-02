@@ -4,19 +4,18 @@ import XCTest
     import SystemConfiguration
 #endif
 
-/*
 let url = "http://127.0.0.1:4001/upload?_lvn[format]=swiftui";
 let timeout = TimeInterval(10.0)
 
 
 final class LiveViewNativeCoreSocketTests: XCTestCase {
     func testConnect() async throws {
-        let live_socket = try LiveSocket(url, timeout)
+        let live_socket = try await LiveSocket(url, timeout)
         let _lvn_channel = try await live_socket.joinLiveviewChannel()
     }
 
     func testStatus() async throws {
-        let live_socket = try LiveSocket(url, timeout)
+        let live_socket = try await LiveSocket(url, timeout)
         let _lvn_channel = try await live_socket.joinLiveviewChannel()
         let socket = live_socket.socket()
 
@@ -38,7 +37,7 @@ let base64TileImg = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD
 
 final class LiveViewNativeCoreUploadTests: XCTestCase {
     func testConnect() async throws {
-        let live_socket = try LiveSocket(url, timeout)
+        let live_socket = try await LiveSocket(url, timeout)
         let live_channel = try await live_socket.joinLiveviewChannel()
 
         let phx_id = try live_channel.getPhxRefFromUploadJoinPayload()
@@ -48,4 +47,3 @@ final class LiveViewNativeCoreUploadTests: XCTestCase {
         try await live_channel.uploadFile(live_file)
     }
 }
-*/
