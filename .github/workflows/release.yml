@@ -89,14 +89,14 @@ jobs:
           sed -i "" -E "s/(let releaseChecksum = \")[^\"]+(\")/\1$checksum\2/g" Package.swift
           sed -i "" -E "s/let useLocalFramework = true/let useLocalFramework = false/g" Package.swift
           git add Package.swift
-          git add -f ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/LiveViewNativeCore.swift
+          git add -f ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/*.swift
           git diff --staged
 
       - name: Commit, tag and push swift package
         if: github.event_name == 'release'
         run: |
           git add Package.swift
-          git add ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/LiveViewNativeCore.swift
+          git add ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/*.swift
           git commit -m "Update Package.swift and add generated LiveViewNativeCore.swift to tracking"
           git tag -fa ${{ github.event.release.tag_name }} -m "Swift Package Release ${{ github.event.release.tag_name }}"
           git push origin ${{ github.event.release.tag_name }} --force
