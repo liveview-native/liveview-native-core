@@ -43,6 +43,16 @@ jobs:
             target
           key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Set up Elixir
+        run: brew install elixir
+
+      - name: Install test server dependencies, compile and run in background
+        working-directory: ./tests/support/test_server
+        run: |
+          mix deps.get
+          mix compile
+          mix phx.server &
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -97,6 +107,16 @@ jobs:
             target
           key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Set up Elixir
+        run: brew install elixir
+
+      - name: Install test server dependencies, compile and run in background
+        working-directory: ./tests/support/test_server
+        run: |
+          mix deps.get
+          mix compile
+          mix phx.server &
+
       - name: Build swift package
         run: cargo make uniffi-swift-package
 
@@ -121,6 +141,16 @@ jobs:
             ~/.cargo/registry
             target
           key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Set up Elixir
+        run: brew install elixir
+
+      - name: Install test server dependencies, compile and run in background
+        working-directory: ./tests/support/test_server
+        run: |
+          mix deps.get
+          mix compile
+          mix phx.server &
 
       - name: Get the JNA jar for testing kotlin.
         run: wget 'https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.14.0/jna-5.14.0.jar'
@@ -169,19 +199,6 @@ jobs:
         with:
           os: ${{ matrix.apple-sim }}
 
-      - name: Build tests
-        run: |
-          cargo -Zbuild-std test --target ${{ matrix.rust-target }} --no-run
-
-      - name: Run Rust tests on simulator for ${{ matrix.rust-target }}
-        env:
-          DINGHY_LOG: debug
-        timeout-minutes: 20
-        run: |
-          cargo dinghy all-platforms
-          cargo dinghy all-devices
-          cargo -Zbuild-std test --target ${{ matrix.rust-target }}
-
       - name: Set up Elixir
         run: brew install elixir
 
@@ -192,25 +209,15 @@ jobs:
           mix compile
           mix phx.server &
 
-      - name: Build tests with liveview-channels
-        run: cargo -Zbuild-std test --target ${{ matrix.rust-target }} --features liveview-channels --no-run
-
-      - name: Run Rust tests on simulator for ${{ matrix.rust-target }} with liveview-channels
-        env:
-          DINGHY_LOG: debug
-        timeout-minutes: 20
-        run: |
-          cargo -Zbuild-std test --target ${{ matrix.rust-target }} --features liveview-channels -- --test-threads 1
-
       - name: Build tests with liveview-channels-tls
-        run: cargo -Zbuild-std test --target ${{ matrix.rust-target }} --features liveview-channels-tls --no-run
+        run: cargo -Zbuild-std test --target ${{ matrix.rust-target }} --no-run
 
-      - name: Run Rust tests on simulator for ${{ matrix.rust-target }} with liveview-channels-tls
+      - name: Run Rust tests on simulator for ${{ matrix.rust-target }}
         env:
           DINGHY_LOG: debug
         timeout-minutes: 20
         run: |
-          cargo -Zbuild-std test --target ${{ matrix.rust-target }} --features liveview-channels-tls -- --test-threads 1
+          cargo -Zbuild-std test --target ${{ matrix.rust-target }} -- --test-threads 1
 
   android_simulator_tests:
     # rust cross-compilation
@@ -238,36 +245,17 @@ jobs:
         with:
           tool: cargo-dinghy@0.7.1
 
-# TODO: Fix this when enabling live-channels feature flag.
-#      - name: Cache deps
-#        id: cache-deps
-#        uses: actions/cache@v4
-#        env:
-#          cache-name: cache-elixir-deps
-#        with:
-#          path: tests/support/test_server/deps
-#          key: ${{ runner.os }}-mix-${{ env.cache-name }}-deps-${{ hashFiles('**/mix.lock') }}
-#
-#      - name: Cache compiled build
-#        id: cache-build
-#        uses: actions/cache@v4
-#        env:
-#          cache-name: cache-compiled-build
-#        with:
-#          path: tests/support/test_server/_build
-#          key: ${{ runner.os }}-mix-${{ env.cache-name }}-build-${{ hashFiles('**/mix.lock') }}
-#
-#      - uses: erlef/setup-beam@v1
-#        with:
-#          elixir-version:  1.15
-#          otp-version: 25
-#
-#      - name: Install test server dependencies, compile and run in background
-#        working-directory: ./tests/support/test_server
-#        run: |
-#          mix deps.get
-#          mix compile
-#          mix phx.server &
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version:  1.15
+          otp-version: 25
+
+      - name: Install test server dependencies, compile and run in background
+        working-directory: ./tests/support/test_server
+        run: |
+          mix deps.get
+          mix compile
+          mix phx.server &
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
