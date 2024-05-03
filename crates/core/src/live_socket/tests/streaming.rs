@@ -12,7 +12,7 @@ async fn streaming_connect() {
 
     let live_socket = LiveSocket::new(
         url.to_string(), TIME_OUT
-    ).await.expect("Failed to get liveview socket");
+    ).expect("Failed to get liveview socket");
     let _live_channel = live_socket
         .join_liveview_channel()
         .await
