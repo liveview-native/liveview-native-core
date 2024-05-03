@@ -28,9 +28,12 @@ liveview-channels = [
     "phoenix_channels_client",
     "reqwest",
     "uniffi/tokio",
+    "async-compat",
+    "futures",
 ]
 liveview-channels-tls = [
     "liveview-channels",
+    "reqwest/native-tls-vendored",
     "phoenix_channels_client/native-tls",
 ]
 
@@ -48,8 +51,10 @@ smallstr = { version = "0.3", features = ["union"] }
 smallvec = { version = "1.10", features = ["union", "const_generics", "specialization"] }
 thiserror = "1.0"
 log = "0.4"
-reqwest = { version = "0.12.3", features = ["native-tls-vendored"], optional = true }
+reqwest = { version = "0.12.3", default-features = false, optional = true }
 uniffi = { version = "0.27" }
+async-compat = { version = "0.2.3", optional = true }
+futures = { version = "0.3.29", optional = true }
 phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client", branch = "main", optional = true }
 
 [build-dependencies]
