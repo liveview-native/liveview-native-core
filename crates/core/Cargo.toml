@@ -23,7 +23,7 @@ crate-type = [
 name = "liveview_native_core"
 
 [features]
-default = []
+default = ["liveview-channels-tls"]
 liveview-channels = [
     "phoenix_channels_client",
     "reqwest",
@@ -33,6 +33,7 @@ liveview-channels = [
 ]
 liveview-channels-tls = [
     "liveview-channels",
+    "reqwest/native-tls-vendored",
     "phoenix_channels_client/native-tls",
 ]
 
@@ -43,7 +44,6 @@ cranelift-entity = { version = "0.107" }
 fixedbitset = { version = "0.4" }
 fxhash = { version = "0.2" }
 html5gum = { git = "https://github.com/liveviewnative/html5gum", branch = "lvn" }
-indexmap = { version = "2.1", features = ["std"] }
 petgraph = { version = "0.6", default-features = false, features = ["graphmap"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
@@ -51,11 +51,11 @@ smallstr = { version = "0.3", features = ["union"] }
 smallvec = { version = "1.10", features = ["union", "const_generics", "specialization"] }
 thiserror = "1.0"
 log = "0.4"
-reqwest = { version = "0.12.3", features = ["native-tls-vendored"], optional = true }
+reqwest = { version = "0.12.3", default-features = false, optional = true }
 uniffi = { version = "0.27" }
-phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client", branch = "simlay/fix-native-tls-feature-flag", optional = true }
 async-compat = { version = "0.2.3", optional = true }
 futures = { version = "0.3.29", optional = true }
+phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client", branch = "main", optional = true }
 
 [build-dependencies]
 Inflector = "0.11"

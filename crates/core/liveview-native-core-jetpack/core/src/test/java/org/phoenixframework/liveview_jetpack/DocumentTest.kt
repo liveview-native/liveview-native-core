@@ -15,7 +15,6 @@ import kotlinx.coroutines.test.runTest;
 import kotlin.system.*;
 import java.util.Base64;
 
-/*
 import org.phoenixframework.liveviewnative.core.LiveSocket;
 import org.phoenixframework.liveviewnative.core.LiveFile;
 class SocketTest {
@@ -32,7 +31,6 @@ class SocketTest {
         live_channel.uploadFile(live_file)
     }
 }
-*/
 
 class SimpleChangeHandler: DocumentChangeHandler {
     constructor() {
