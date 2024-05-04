@@ -5,15 +5,15 @@ import PackageDescription
 let liveview_native_core_framework: Target
 
 // To relase, toggle this to `false`
-let useLocalFramework = true
+let useLocalFramework = false
 if useLocalFramework {
     liveview_native_core_framework = .binaryTarget(
         name: "liveview_native_core",
         path: "./target/uniffi/swift/liveview_native_core.xcframework"
     )
 } else {
-    let releaseTag = "0.3.0-alpha"
-    let releaseChecksum = "f3972f4d40732c884c98426b28550376abaff20a3490b73367ad170f1f0bcca9"
+    let releaseTag = "0.4.0-alpha-0"
+    let releaseChecksum = "601acb198a783b240bb366cd1b6fa6067c2714a6ed4c6afbbdb585590e69afda"
     liveview_native_core_framework = .binaryTarget(
         name: "liveview_native_core",
         url: "https://github.com/liveview-native/liveview-native-core/releases/download/\(releaseTag)/liveview_native_core.xcframework.zip",
