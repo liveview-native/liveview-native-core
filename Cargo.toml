@@ -8,8 +8,8 @@ members = [
 version = "0.3.0-alpha"
 rust-version = "1.64"
 authors = [
-    "Paul Schoenfelder <paulschoenfelder@gmail.com>", 
-    "Thomas Sieverding <Thomas@bajix.com>", 
+    "Paul Schoenfelder <paulschoenfelder@gmail.com>",
+    "Thomas Sieverding <Thomas@bajix.com>",
     "Elle Imhoff <Kronic.Deth@gmail.com>"
 ]
 description = "Provides core, cross-platform functionality for LiveView Native implementations"
@@ -38,8 +38,19 @@ debug = 1
 
 
 [patch.crates-io]
-# Work for https://github.com/sfackler/rust-native-tls/pull/285 hasn't been published to crates.io yet.
-native-tls = { git = "https://github.com/sfackler/rust-native-tls", rev = "0b69ce6a3c4bfe973ede44f6862fc13f3f09c773" }
-# work for https://github.com/kornelski/rust-security-framework/pull/190 hasn't been published to crates.io yet.
-security-framework = { git = "https://github.com/kornelski/rust-security-framework/", rev = "54d905027e50ec4f0969824efa8e34581922a1f4" }
-security-framework-sys = { git = "https://github.com/kornelski/rust-security-framework/", rev = "54d905027e50ec4f0969824efa8e34581922a1f4" }
+# https://github.com/sfackler/rust-native-tls/pull/294
+native-tls = { git = "https://github.com/simlay/rust-native-tls.git", branch = "add-visionos-support" }
+
+# https://github.com/kornelski/rust-security-framework/pull/201
+security-framework =     { git = "https://github.com/simlay/rust-security-framework.git", branch = "add-visionos-support" }
+security-framework-sys = { git = "https://github.com/simlay/rust-security-framework.git", branch = "add-visionos-support" }
+
+# https://github.com/tokio-rs/mio/pull/1773
+mio = { git = "https://github.com/simlay/mio.git", rev = "7b8b2e605ad64bcabf1f0af4366aa404a8b6bbdc" }
+#mio = { path = "../mio" }
+
+# https://github.com/rust-lang/socket2/pull/503
+socket2 = { git = "https://github.com/QuentinPerez/socket2.git", rev = "ca3a93088857b40c27e98d1690f242a7ba8da4dc" }
+
+# https://github.com/tokio-rs/tokio/pull/6465 hasn't been published yet
+tokio = { git = "https://github.com/tokio-rs/tokio.git", rev = "6fcd9c02176bf3cd570bc7de88edaa3b95ea480a"}
