@@ -1,6 +1,9 @@
 [target.aarch64-apple-ios-sim]
 runner = "cargo dinghy -p auto-ios-aarch64-sim runner --"
 
+[target.aarch64-apple-visionos-sim]
+runner = "cargo dinghy -p auto-visionos-aarch64-sim runner --"
+
 [target.x86_64-apple-ios]
 runner = "cargo dinghy -p auto-ios-x86_64 runner --"
 
