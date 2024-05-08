@@ -44,6 +44,7 @@ let package = Package(
         // This doesn't work because of:
         // https://github.com/apple/swift-docc-plugin/issues/50 will hopefully resolve it
         .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
+        .package(url: "https://github.com/ordo-one/package-benchmark", .upToNextMajor(from: "1.0.0")),
     ],
     targets: [
         liveview_native_core_framework,
@@ -61,5 +62,15 @@ let package = Package(
             ],
             path: "./crates/core/liveview-native-core-swift/Tests/LiveViewNativeCoreTests/"
         ),
+        .executableTarget(
+            name: "MyNewBenchmarkTarget",
+            dependencies: [
+                .product(name: "Benchmark", package: "package-benchmark"),
+            ],
+            path: "./crates/core/liveview-native-core-swift/Benchmarks/MyNewBenchmarkTarget",
+            plugins: [
+                .plugin(name: "BenchmarkPlugin", package: "package-benchmark")
+            ]
+            ),
     ]
 )
