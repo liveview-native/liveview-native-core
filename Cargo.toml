@@ -53,6 +53,3 @@ socket2 = { git = "https://github.com/QuentinPerez/socket2.git", rev = "ca3a9308
 
 # https://github.com/tokio-rs/tokio/pull/6465 hasn't been published yet
 tokio = { git = "https://github.com/tokio-rs/tokio.git", rev = "6fcd9c02176bf3cd570bc7de88edaa3b95ea480a"}
-
-# https://github.com/lambda-fairy/rust-errno/pull/95
-errno = { git = "https://github.com/simlay/rust-errno.git", rev = "24ab63bfa1d075f2364ebfd3b275ef1516d91743" }
