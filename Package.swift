@@ -63,11 +63,12 @@ let package = Package(
             path: "./crates/core/liveview-native-core-swift/Tests/LiveViewNativeCoreTests/"
         ),
         .executableTarget(
-            name: "MyNewBenchmarkTarget",
+            name: "LiveViewNativeCoreBenchmarks",
             dependencies: [
                 .product(name: "Benchmark", package: "package-benchmark"),
+                "LiveViewNativeCore",
             ],
-            path: "./crates/core/liveview-native-core-swift/Benchmarks/MyNewBenchmarkTarget",
+            path: "./crates/core/liveview-native-core-swift/Benchmarks/LiveViewNativeCore",
             plugins: [
                 .plugin(name: "BenchmarkPlugin", package: "package-benchmark")
             ]
