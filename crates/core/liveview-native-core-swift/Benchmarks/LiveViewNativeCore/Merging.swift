@@ -12,196 +12,195 @@ let benchmarks = {
     }
     // Add additional benchmarks here
 }
-    func MultiMergeJson() throws {
-        let initial_json = """
-        {
-          "0":"0",
-          "1":"0",
-          "2":"",
-          "s":[
-            "<Column>\\n  <Button phx-click=\\"inc\\">\\n    <Text>Increment</Text>\\n  </Button>\\n  <Button phx-click=\\"dec\\">\\n    <Text>Decrement</Text>\\n  </Button>\\n  <Text>Static Text </Text>\\n  <Text>Counter 1: ",
-            " </Text>\\n  <Text>Counter 2: ",
-            " </Text>\\n",
-            "\\n</Column>"
-            ]
-        }
-        """
-        let doc = try Document.parseFragmentJson(initial_json)
-        let initial_rendered = doc.render()
-        var expected = """
-        <Column>
-            <Button phx-click="inc">
-                <Text>
-                    Increment
-                </Text>
-            </Button>
-            <Button phx-click="dec">
-                <Text>
-                    Decrement
-                </Text>
-            </Button>
-            <Text>
-                Static Text
-            </Text>
-            <Text>
-                Counter 1: 0
-            </Text>
-            <Text>
-                Counter 2: 0
-            </Text>
-        </Column>
-        """
-        //XCTAssertEqual(expected, initial_rendered)
-        let first_increment = """
-        {
-          "0":"1",
-          "1":"1",
-          "2":{
-            "0":{
-              "s":[
-                "\\n      <Text fontWeight=\\"W600\\" fontSize=\\"24\\">Item ",
-                "!!!</Text>\\n",
-                "\\n",
-                "\\n"
-              ],
-              "p":{
-                 "0":[
-
-                   "\\n        <Text color=\\" #FFFF0000\\">Number = ",
-
-                   " + 3 is even</Text>\\n"
-                 ],
-                 "1":[
-                   "\\n        <Text>Number + 4 = ",
-                   " is odd</Text>\\n"
-                   ]
-              },
-              "d":[["1",{"0":"1","s":0},{"0":"5","s":1}]]
-            },
-            "1":"101",
-            "s":[
-              "\\n",
-              "\\n    <Text>Number + 100 is ","</Text>\\n"
-            ]
-          }
-        }
-        """
-        try doc.mergeFragmentJson(first_increment)
-        let second_render = doc.render()
-        expected = """
-        <Column>
-            <Button phx-click="inc">
-                <Text>
-                    Increment
-                </Text>
-            </Button>
-            <Button phx-click="dec">
-                <Text>
-                    Decrement
-                </Text>
-            </Button>
-            <Text>
-                Static Text
-            </Text>
-            <Text>
-                Counter 1: 1
-            </Text>
-            <Text>
-                Counter 2: 1
-            </Text>
-            <Text fontWeight="W600" fontSize="24">
-                Item 1!!!
-            </Text>
-            <Text color=" #FFFF0000">
-                Number = 1 + 3 is even
-            </Text>
-            <Text>
-                Number + 4 = 5 is odd
-            </Text>
-            <Text>
-                Number + 100 is 101
-            </Text>
-        </Column>
-        """
-        //XCTAssertEqual(expected, second_render)
-        let second_increment = """
-        {
-          "0":"2",
-          "1":"2",
-          "2":{
-            "0":{
-              "p":{
-                "0":[
-                  "\\n        <Text color=\\" #FFFF0000\\">Number = ",
-                  " + 3 is even</Text>\\n"
-                ],
-                "1":[
-                  "\\n        <Text>Number + 4 = ",
-                  " is odd</Text>\\n"
-                ],
-                "2":[
-                  "\\n        <Text color=\\" #FF0000FF\\">Number = ",
-                  " + 3 is odd</Text>\\n"
-                ],
-                "3":[
-                  "\\n        <Text>Number + 4 = ",
-                  " is even</Text>\\n"
-                ]
-              },
-              "d":[
-                ["1",{"0":"1","s":0},{"0":"5","s":1}],
-                ["2",{"0":"2","s":2},{"0":"6","s":3}]
-              ]
-            },
-            "1":"102"
-          }
-        }
-        """
-        try doc.mergeFragmentJson(second_increment)
-        let third_render = doc.render()
-        expected = """
-        <Column>
-            <Button phx-click="inc">
-                <Text>
-                    Increment
-                </Text>
-            </Button>
-            <Button phx-click="dec">
-                <Text>
-                    Decrement
-                </Text>
-            </Button>
-            <Text>
-                Static Text
-            </Text>
-            <Text>
-                Counter 1: 2
-            </Text>
-            <Text>
-                Counter 2: 2
-            </Text>
-            <Text fontWeight="W600" fontSize="24">
-                Item 1!!!
-            </Text>
-            <Text color=" #FFFF0000">
-                Number = 1 + 3 is even
-            </Text>
-            <Text>
-                Number + 4 = 5 is odd
-            </Text>
-            <Text fontWeight="W600" fontSize="24">
-                Item 2!!!
-            </Text>
-            <Text color=" #FF0000FF">
-                Number = 2 + 3 is odd
-            </Text>
-            <Text>
-                Number + 4 = 6 is even
-            </Text>
-            <Text>
-                Number + 100 is 102
-            </Text>
-        </Column>
-        """
-        //XCTAssertEqual(expected, third_render)
+// Integration test from:
+// https://github.com/liveview-native/liveview-native-core/blob/4b7d303f98be3325c94575bfb6a7a317e2eee717/crates/core/liveview-native-core-swift/Tests/LiveViewNativeCoreTests/LiveViewNativeCoreTests.swift#L121
+func MultiMergeJson() throws {
+    let initial_json = """
+    {
+      "0":"0",
+      "1":"0",
+      "2":"",
+      "s":[
+        "<Column>\\n  <Button phx-click=\\"inc\\">\\n    <Text>Increment</Text>\\n  </Button>\\n  <Button phx-click=\\"dec\\">\\n    <Text>Decrement</Text>\\n  </Button>\\n  <Text>Static Text </Text>\\n  <Text>Counter 1: ",
+        " </Text>\\n  <Text>Counter 2: ",
+        " </Text>\\n",
+        "\\n</Column>"
+        ]
     }
+    """
+    let doc = try Document.parseFragmentJson(initial_json)
+    let initial_rendered = doc.render()
+    var expected = """
+    <Column>
+        <Button phx-click="inc">
+            <Text>
+                Increment
+            </Text>
+        </Button>
+        <Button phx-click="dec">
+            <Text>
+                Decrement
+            </Text>
+        </Button>
+        <Text>
+            Static Text
+        </Text>
+        <Text>
+            Counter 1: 0
+        </Text>
+        <Text>
+            Counter 2: 0
+        </Text>
+    </Column>
+    """
+    let first_increment = """
+    {
+      "0":"1",
+      "1":"1",
+      "2":{
+        "0":{
+          "s":[
+            "\\n      <Text fontWeight=\\"W600\\" fontSize=\\"24\\">Item ",
+            "!!!</Text>\\n",
+            "\\n",
+            "\\n"
+          ],
+          "p":{
+             "0":[
+
+               "\\n        <Text color=\\" #FFFF0000\\">Number = ",
+
+               " + 3 is even</Text>\\n"
+             ],
+             "1":[
+               "\\n        <Text>Number + 4 = ",
+               " is odd</Text>\\n"
+               ]
+          },
+          "d":[["1",{"0":"1","s":0},{"0":"5","s":1}]]
+        },
+        "1":"101",
+        "s":[
+          "\\n",
+          "\\n    <Text>Number + 100 is ","</Text>\\n"
+        ]
+      }
+    }
+    """
+    try doc.mergeFragmentJson(first_increment)
+    let second_render = doc.render()
+    expected = """
+    <Column>
+        <Button phx-click="inc">
+            <Text>
+                Increment
+            </Text>
+        </Button>
+        <Button phx-click="dec">
+            <Text>
+                Decrement
+            </Text>
+        </Button>
+        <Text>
+            Static Text
+        </Text>
+        <Text>
+            Counter 1: 1
+        </Text>
+        <Text>
+            Counter 2: 1
+        </Text>
+        <Text fontWeight="W600" fontSize="24">
+            Item 1!!!
+        </Text>
+        <Text color=" #FFFF0000">
+            Number = 1 + 3 is even
+        </Text>
+        <Text>
+            Number + 4 = 5 is odd
+        </Text>
+        <Text>
+            Number + 100 is 101
+        </Text>
+    </Column>
+    """
+    let second_increment = """
+    {
+      "0":"2",
+      "1":"2",
+      "2":{
+        "0":{
+          "p":{
+            "0":[
+              "\\n        <Text color=\\" #FFFF0000\\">Number = ",
+              " + 3 is even</Text>\\n"
+            ],
+            "1":[
+              "\\n        <Text>Number + 4 = ",
+              " is odd</Text>\\n"
+            ],
+            "2":[
+              "\\n        <Text color=\\" #FF0000FF\\">Number = ",
+              " + 3 is odd</Text>\\n"
+            ],
+            "3":[
+              "\\n        <Text>Number + 4 = ",
+              " is even</Text>\\n"
+            ]
+          },
+          "d":[
+            ["1",{"0":"1","s":0},{"0":"5","s":1}],
+            ["2",{"0":"2","s":2},{"0":"6","s":3}]
+          ]
+        },
+        "1":"102"
+      }
+    }
+    """
+    try doc.mergeFragmentJson(second_increment)
+    let third_render = doc.render()
+    expected = """
+    <Column>
+        <Button phx-click="inc">
+            <Text>
+                Increment
+            </Text>
+        </Button>
+        <Button phx-click="dec">
+            <Text>
+                Decrement
+            </Text>
+        </Button>
+        <Text>
+            Static Text
+        </Text>
+        <Text>
+            Counter 1: 2
+        </Text>
+        <Text>
+            Counter 2: 2
+        </Text>
+        <Text fontWeight="W600" fontSize="24">
+            Item 1!!!
+        </Text>
+        <Text color=" #FFFF0000">
+            Number = 1 + 3 is even
+        </Text>
+        <Text>
+            Number + 4 = 5 is odd
+        </Text>
+        <Text fontWeight="W600" fontSize="24">
+            Item 2!!!
+        </Text>
+        <Text color=" #FF0000FF">
+            Number = 2 + 3 is odd
+        </Text>
+        <Text>
+            Number + 4 = 6 is even
+        </Text>
+        <Text>
+            Number + 100 is 102
+        </Text>
+    </Column>
+    """
+}
