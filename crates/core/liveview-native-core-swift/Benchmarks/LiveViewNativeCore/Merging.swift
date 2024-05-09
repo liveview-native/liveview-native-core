@@ -12,7 +12,8 @@ let benchmarks = {
     }
     // Add additional benchmarks here
 }
-// Integration test from:
+
+// This is the code for the large integration test from:
 // https://github.com/liveview-native/liveview-native-core/blob/4b7d303f98be3325c94575bfb6a7a317e2eee717/crates/core/liveview-native-core-swift/Tests/LiveViewNativeCoreTests/LiveViewNativeCoreTests.swift#L121
 func MultiMergeJson() throws {
     let initial_json = """
@@ -29,30 +30,7 @@ func MultiMergeJson() throws {
     }
     """
     let doc = try Document.parseFragmentJson(initial_json)
-    let initial_rendered = doc.render()
-    var expected = """
-    <Column>
-        <Button phx-click="inc">
-            <Text>
-                Increment
-            </Text>
-        </Button>
-        <Button phx-click="dec">
-            <Text>
-                Decrement
-            </Text>
-        </Button>
-        <Text>
-            Static Text
-        </Text>
-        <Text>
-            Counter 1: 0
-        </Text>
-        <Text>
-            Counter 2: 0
-        </Text>
-    </Column>
-    """
+    let initial_rendered = doc.toString()
     let first_increment = """
     {
       "0":"1",
@@ -88,42 +66,7 @@ func MultiMergeJson() throws {
     }
     """
     try doc.mergeFragmentJson(first_increment)
-    let second_render = doc.render()
-    expected = """
-    <Column>
-        <Button phx-click="inc">
-            <Text>
-                Increment
-            </Text>
-        </Button>
-        <Button phx-click="dec">
-            <Text>
-                Decrement
-            </Text>
-        </Button>
-        <Text>
-            Static Text
-        </Text>
-        <Text>
-            Counter 1: 1
-        </Text>
-        <Text>
-            Counter 2: 1
-        </Text>
-        <Text fontWeight="W600" fontSize="24">
-            Item 1!!!
-        </Text>
-        <Text color=" #FFFF0000">
-            Number = 1 + 3 is even
-        </Text>
-        <Text>
-            Number + 4 = 5 is odd
-        </Text>
-        <Text>
-            Number + 100 is 101
-        </Text>
-    </Column>
-    """
+    let second_render = doc.toString()
     let second_increment = """
     {
       "0":"2",
@@ -158,49 +101,5 @@ func MultiMergeJson() throws {
     }
     """
     try doc.mergeFragmentJson(second_increment)
-    let third_render = doc.render()
-    expected = """
-    <Column>
-        <Button phx-click="inc">
-            <Text>
-                Increment
-            </Text>
-        </Button>
-        <Button phx-click="dec">
-            <Text>
-                Decrement
-            </Text>
-        </Button>
-        <Text>
-            Static Text
-        </Text>
-        <Text>
-            Counter 1: 2
-        </Text>
-        <Text>
-            Counter 2: 2
-        </Text>
-        <Text fontWeight="W600" fontSize="24">
-            Item 1!!!
-        </Text>
-        <Text color=" #FFFF0000">
-            Number = 1 + 3 is even
-        </Text>
-        <Text>
-            Number + 4 = 5 is odd
-        </Text>
-        <Text fontWeight="W600" fontSize="24">
-            Item 2!!!
-        </Text>
-        <Text color=" #FF0000FF">
-            Number = 2 + 3 is odd
-        </Text>
-        <Text>
-            Number + 4 = 6 is even
-        </Text>
-        <Text>
-            Number + 100 is 102
-        </Text>
-    </Column>
-    """
+    let third_render = doc.toString()
 }

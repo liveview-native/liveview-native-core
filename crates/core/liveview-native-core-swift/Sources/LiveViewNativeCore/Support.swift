@@ -46,6 +46,9 @@ extension Document {
         let simple = SimpleHandler(callback)
         self.setEventHandler(simple)
     }
+    public func toString() -> String {
+        return self.render()
+    }
 }
 
 extension AttributeName: ExpressibleByStringLiteral {
