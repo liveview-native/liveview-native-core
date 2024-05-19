@@ -87,8 +87,21 @@ impl Node {
             data,
         }
     }
-    pub fn get_children(&self) -> Vec<Arc<NodeRef>> {
-        self.document.children(self.id.into())
+    pub fn get_children(&self) -> Vec<Arc<Node>> {
+        self.document.children(self.id.into()).iter().map(|node_ref| {
+            self.document.get_node(node_ref.clone()).into()
+        }).collect()
+    }
+
+    pub fn get_depth_first_children(&self) -> Vec<Arc<Node>> {
+        let mut out : Vec<Arc<Node>> = Vec::new();
+        //out.push(self.clone().into());
+        for child in self.get_children() {
+            out.push(child.clone());
+            let depth = child.get_depth_first_children();
+            out.extend(depth);
+        }
+        out
     }
     pub fn document(&self) -> FFiDocument {
         self.document.clone()

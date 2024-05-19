@@ -307,7 +307,7 @@ dependencies = ["uniffi-swift-generate"]
 workspace = false
 category = "Packaging"
 description = "Generates the swift package from the liveview native core and phoenix-channels-clients bindings"
-dependencies = ["uniffi-swift-modulemap", "uniffi-swift-package-lvn", "uniffi-swift-package-phoenix"]
+dependencies = ["uniffi-swift-generate", "uniffi-swift-modulemap", "uniffi-swift-package-lvn", "uniffi-swift-package-phoenix"]
 
 [tasks.uniffi-swift-package-lvn]
 workspace = false

@@ -24,8 +24,7 @@ final class SimpleHandler: DocumentChangeHandler {
 
 extension Document {
     public subscript(ref: NodeRef) -> Node {
-        let data = self.get(ref)
-        return Node(self, ref, data)
+        return self.getNode(ref)
     }
     public static func parseFragmentJson(payload: [String: Any]) throws -> Document {
         let jsonData = try JSONSerialization.data(withJSONObject: payload)
@@ -81,11 +80,13 @@ extension AttributeName: ExpressibleByStringLiteral {
 
 extension Node {
     public func children() -> NodeChildrenSequence {
-        let children = self.getChildren()
-        return NodeChildrenSequence(doc: self.document(), slice: children)
+        return NodeChildrenSequence(slice: self.getChildren())
     }
     public func depthFirstChildren() -> NodeDepthFirstChildrenSequence {
-        return NodeDepthFirstChildrenSequence(root: self)
+        return NodeDepthFirstChildrenSequence(slice: self.getDepthFirstChildren())
+    }
+    public func depthFirstChildrenOriginal() -> NodeDepthFirstChildrenSequenceOriginal {
+        return NodeDepthFirstChildrenSequenceOriginal(root: self)
     }
     public subscript(_ name: AttributeName) -> Attribute? {
         let attributes = self.attributes()
@@ -109,8 +110,7 @@ public struct NodeChildrenSequence: Sequence, Collection, RandomAccessCollection
     public typealias Element = Node
     public typealias Index = Int
 
-    let doc: Document
-    let slice: [NodeRef]
+    let slice: [Node]
     public var startIndex: Int { self.slice.startIndex }
 
     public var endIndex: Int { self.slice.endIndex }
@@ -119,10 +119,27 @@ public struct NodeChildrenSequence: Sequence, Collection, RandomAccessCollection
         slice.index(after: i)
     }
     public subscript(position: Int) -> Node {
-        return doc[slice[startIndex + position]]
+        return slice[startIndex + position]
     }
 }
-public struct NodeDepthFirstChildrenSequence: Sequence {
+public struct NodeDepthFirstChildrenSequence: Sequence, Collection, RandomAccessCollection {
+    public typealias Element = Node
+    public typealias Index = Int
+
+    let slice: [Node]
+    public var startIndex: Int { self.slice.startIndex }
+
+    public var endIndex: Int { self.slice.endIndex }
+
+    public func index(after i: Int) -> Int {
+        slice.index(after: i)
+    }
+    public subscript(position: Int) -> Node {
+        return slice[startIndex + position]
+    }
+}
+
+public struct NodeDepthFirstChildrenSequenceOriginal: Sequence {
     public typealias Element = Node
 
     let root: Node

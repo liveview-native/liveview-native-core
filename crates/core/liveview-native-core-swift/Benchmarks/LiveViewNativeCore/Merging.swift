@@ -11,20 +11,20 @@ let benchmarks = {
         }
     }
     Benchmark("Large Rendering") { benchmark in
+        let doc = try MultiMergeJson()
         for _ in benchmark.scaledIterations {
-            let doc = try MultiMergeJson()
             blackHole(try MultiMergeRender(doc)) // replace this line with your own benchmark
         }
     }
     Benchmark("Tree Traversal") { benchmark in
+        let doc = try Document.parse(html_input)
         for _ in benchmark.scaledIterations {
-            let doc = try MultiMergeJson()
             blackHole(TreeTraversal(doc)) // replace this line with your own benchmark
         }
     }
     Benchmark("Tree Traversal - Depth First") { benchmark in
+        let doc = try Document.parse(html_input)
         for _ in benchmark.scaledIterations {
-            let doc = try MultiMergeJson()
             blackHole(DepthFirstTreeTraversal(doc)) // replace this line with your own benchmark
         }
     }

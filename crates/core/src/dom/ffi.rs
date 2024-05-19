@@ -7,7 +7,7 @@ use std::{
 };
 pub use super::{
     attribute::Attribute,
-    node::{NodeData, NodeRef},
+    node::{NodeData, NodeRef, Node},
     printer::PrintOptions,
     DocumentChangeHandler,
 };
@@ -68,11 +68,8 @@ impl Document {
         &self,
         json: String,
     ) -> Result<(), RenderError> {
-        if let Ok(mut inner) = self.inner.lock() {
-            Ok(inner.merge_fragment_json(json)?)
-        } else {
-            unimplemented!("The error case for when we cannot get the lock for the Document has not been finished yet");
-        }
+        let mut inner = self.inner.lock().expect("Failed to get lock");
+        Ok(inner.merge_fragment_json(json)?)
     }
 
     pub fn root(&self) -> Arc<NodeRef> {
@@ -92,6 +89,10 @@ impl Document {
     }
     pub fn get(&self, node_ref: Arc<NodeRef>) -> NodeData {
         self.inner.lock().expect("Failed to get lock").get(*node_ref).clone()
+    }
+    pub fn get_node(&self, node_ref: Arc<NodeRef>) -> Node {
+        let data = self.get(node_ref.clone());
+        Node::new(self, &node_ref.clone(), data)
     }
     pub fn render(&self) -> String {
         self.to_string()
