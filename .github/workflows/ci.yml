@@ -112,7 +112,7 @@ jobs:
           key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Set up Elixir
-        run: brew install elixir
+        run: brew install elixir jemalloc
 
       - name: Install test server dependencies, compile and run in background
         working-directory: ./tests/support/test_server
