@@ -71,7 +71,6 @@ let package = Package(
             path: "./crates/core/liveview-native-core-swift/Benchmarks/LiveViewNativeCore",
             plugins: [
                 .plugin(name: "BenchmarkPlugin", package: "package-benchmark")
-            ]
-            ),
+            ]),
     ]
 )

@@ -432,7 +432,8 @@ description = "Generates the LiveViewNativeCore.xcframework package"
 command = "xcodebuild"
 args = [
     "-scheme",
-    "LiveViewNativeCore",
+    "LiveViewNativeCore-Package",
+    "-skipPackagePluginValidation",
     "-destination",
     "name=Apple TV 4K (3rd generation),arch=x86_64",
     "-workspace",
@@ -448,7 +449,8 @@ description = "Generates the LiveViewNativeCore.xcframework package"
 command = "xcodebuild"
 args = [
     "-scheme",
-    "LiveViewNativeCore",
+    "LiveViewNativeCore-Package",
+    "-skipPackagePluginValidation",
     "-destination",
     "name=iPhone 15",
     "-workspace",
@@ -464,7 +466,8 @@ description = "Generates the LiveViewNativeCore.xcframework package"
 command = "xcodebuild"
 args = [
     "-scheme",
-    "LiveViewNativeCore",
+    "LiveViewNativeCore-Package",
+    "-skipPackagePluginValidation",
     "-destination",
     "name=Apple Watch Series 9 (45mm)",
     "-workspace",
@@ -480,7 +483,8 @@ description = "Generates the LiveViewNativeCore.xcframework package"
 command = "xcodebuild"
 args = [
     "-scheme",
-    "LiveViewNativeCore",
+    "LiveViewNativeCore-Package",
+    "-skipPackagePluginValidation",
     "-destination",
     "name=Apple Vision Pro",
     "-workspace",
@@ -496,7 +500,8 @@ description = "Generates the LiveViewNativeCore.xcframework package"
 command = "xcodebuild"
 args = [
     "-scheme",
-    "LiveViewNativeCore",
+    "LiveViewNativeCore-Package",
+    "-skipPackagePluginValidation",
     "-destination",
     "platform=macOS",
     "-workspace",
