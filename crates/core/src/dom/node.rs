@@ -83,7 +83,7 @@ impl Node {
     pub fn new(document: &FFiDocument, id: &NodeRef, data: NodeData) -> Self {
         Self {
             document: document.clone(),
-            id: id.clone(),
+            id: *id,
             data,
         }
     }
@@ -140,10 +140,7 @@ impl NodeData {
 
     /// Returns true if this node is a leaf node
     pub fn is_leaf(&self) -> bool {
-        match self {
-            Self::Leaf { value: _ } => true,
-            _ => false,
-        }
+        matches!(self, Self::Leaf { value: _ })
     }
 }
 impl NodeData {
@@ -234,12 +231,12 @@ impl From<Symbol> for ElementName {
         Self::from(InternedString::from(s))
     }
 }
-impl Into<InternedString> for ElementName {
-    fn into(self) -> InternedString {
-        if self.namespace.is_none() {
-            self.name.into()
+impl From<ElementName> for InternedString {
+    fn from(val: ElementName) -> Self {
+        if val.namespace.is_none() {
+            val.name.into()
         } else {
-            let string = self.to_string();
+            let string = val.to_string();
             string.into()
         }
     }

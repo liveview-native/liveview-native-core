@@ -92,7 +92,7 @@ impl Fragment {
                         // We start at index 1 rather than zero here because
                         // templates and statics are suppose to wrap the inner
                         // contents of the children.
-                        for i in 1..statics.len() {
+                        for (i, static_item) in statics.iter().enumerate().skip(1) {
                             let child = children
                                 .get(&(i - 1).to_string())
                                 .ok_or(RenderError::ChildNotFoundForStatic((i - 1) as i32))?;
@@ -102,7 +102,7 @@ impl Fragment {
                                 parent_templates.clone(),
                             )?;
                             out.push_str(&val);
-                            out.push_str(&statics[i]);
+                            out.push_str(static_item);
                         }
                     }
                     Statics::TemplateRef(template_id) => {
@@ -114,7 +114,7 @@ impl Fragment {
                         // We start at index 1 rather than zero here because
                         // templates and statics are suppose to wrap the inner
                         // contents of the children.
-                        for i in 1..template.len() {
+                        for (i, template_item) in template.iter().enumerate().skip(1) {
                             let child_id = i - 1;
                             let child = children
                                 .get(&child_id.to_string())
@@ -125,7 +125,7 @@ impl Fragment {
                                 Some(templates.clone()),
                             )?;
                             out.push_str(&val);
-                            out.push_str(&template[i]);
+                            out.push_str(template_item);
                         }
                     }
                 }
@@ -144,15 +144,15 @@ impl Fragment {
                 };
                 match (statics, cousin_statics) {
                     (None, None) => {
-                        for children in dynamics.into_iter() {
-                            for child in children.into_iter() {
+                        for children in dynamics.iter() {
+                            for child in children.iter() {
                                 let val = child.render(components, None, templates.clone())?;
                                 out.push_str(&val);
                             }
                         }
                     }
                     (None, Some(statics)) => {
-                        for children in dynamics.into_iter() {
+                        for children in dynamics.iter() {
                             out.push_str(&statics[0]);
                             // We start at index 1 rather than zero here because
                             // templates and statics are suppose to wrap the inner
@@ -169,7 +169,7 @@ impl Fragment {
                     (Some(statics), None) => {
                         match statics {
                             Statics::Statics(statics) => {
-                                for children in dynamics.into_iter() {
+                                for children in dynamics.iter() {
                                     out.push_str(&statics[0]);
                                     // We start at index 1 rather than zero here because
                                     // templates and statics are suppose to wrap the inner
@@ -186,10 +186,10 @@ impl Fragment {
                             }
                             Statics::TemplateRef(template_id) => {
                                 if let Some(ref this_template) = templates {
-                                    if let Some(ref template_statics) =
+                                    if let Some(template_statics) =
                                         this_template.get(&template_id.to_string())
                                     {
-                                        for children in dynamics.into_iter() {
+                                        for children in dynamics.iter() {
                                             out.push_str(&template_statics[0]);
 
                                             // We start at index 1 rather than zero here because
@@ -272,14 +272,14 @@ impl Component {
                 // We start at index 1 rather than zero here because
                 // templates and statics are suppose to wrap the inner
                 // contents of the children.
-                for i in 1..statics.len() {
+                for (i, static_item) in statics.iter().enumerate().skip(1) {
                     let inner = self
                         .children
                         .get(&(i - 1).to_string())
                         .ok_or(RenderError::ChildNotFoundForStatic((i - 1) as i32))?;
                     let val = inner.render(components, None, None)?;
                     out.push_str(&val);
-                    out.push_str(&statics[i]);
+                    out.push_str(static_item);
                 }
                 Ok(out)
             }
@@ -313,7 +313,7 @@ impl Component {
                 // We start at index 1 rather than zero here because
                 // templates and statics are suppose to wrap the inner
                 // contents of the children.
-                for i in 1..outer_statics.len() {
+                for (i, outer_static_item) in outer_statics.iter().enumerate().skip(1) {
                     let child = self
                         .children
                         .get(&(i - 1).to_string())
@@ -325,7 +325,7 @@ impl Component {
 
                     let val = child.render(components, cousin.statics(), None)?;
                     out.push_str(&val);
-                    out.push_str(&outer_statics[i]);
+                    out.push_str(outer_static_item);
                 }
                 Ok(out)
             }
@@ -420,7 +420,7 @@ impl TryFrom<Vec<StreamAttribute>> for Stream {
                         stream.stream_items.push(StreamItem {
                             id: stream_id.to_string(),
                             index: *index,
-                            limit: limit.clone(),
+                            limit: *limit,
                         });
                     }
                 },
@@ -547,16 +547,11 @@ pub enum ChildDiff {
 impl Child {
     pub fn statics(&self) -> Option<Vec<String>> {
         match self {
-            Self::Fragment(Fragment::Regular { statics, .. }) => match statics {
-                Statics::Statics(statics) => Some(statics.clone()),
-                _ => None,
+            Self::Fragment(Fragment::Regular { statics: Statics::Statics(statics), .. }) => {
+                Some(statics.clone())
             },
-            Self::Fragment(Fragment::Comprehension { statics, .. }) => {
-                if let Some(Statics::Statics(statics)) = statics {
-                    Some(statics.clone())
-                } else {
-                    None
-                }
+            Self::Fragment(Fragment::Comprehension { statics: Some(Statics::Statics(statics)), .. }) => {
+                Some(statics.clone())
             }
             _ => None,
         }
@@ -717,9 +712,9 @@ impl FragmentMerge for Fragment {
                                 StreamAttribute::Inserts(inserts) => {
                                     for (insert_id, (index, _limit)) in inserts.iter() {
                                         if let Some(dynamic) = new_dynamics.iter().find(|children| {
-                                            children.iter().find(|child|
-                                                Child::String(format!(" id=\"{insert_id}\"")) == **child
-                                            ).is_some()
+                                            children.iter().any(|child|
+                                                Child::String(format!(" id=\"{insert_id}\"")) == *child
+                                            )
                                         }) {
                                             if *index == -1 {
                                                 current_dynamics.push(dynamic.clone());
@@ -731,9 +726,9 @@ impl FragmentMerge for Fragment {
                                     for delete_id in delete_ids {
                                         if let Some(index) = current_dynamics.iter()
                                             .position(|children| {
-                                                children.iter().find(|child|
-                                                    Child::String(format!(" id=\"{delete_id}\"")) == **child
-                                                ).is_some()
+                                                children.iter().any(|child|
+                                                    Child::String(format!(" id=\"{delete_id}\"")) == *child
+                                                )
                                             })
                                         {
                                             current_dynamics.remove(index);
@@ -743,7 +738,7 @@ impl FragmentMerge for Fragment {
                                 StreamAttribute::ResetStream(reset) => {
                                     if *reset {
                                         stream.stream_items = Vec::new();
-                                        current_dynamics = new_dynamics.clone();
+                                        current_dynamics.clone_from(&new_dynamics)
                                     }
                                 },
                             }

@@ -171,7 +171,9 @@ trait CompatibleWith: Deref<Target = NodeData> {
 impl<T> CompatibleWith for T where T: Deref<Target = NodeData> {}
 
 #[derive(Debug)]
+#[derive(Default)]
 enum Op<'a> {
+    #[default]
     Continue,
     /// Detach node and keyed descendants then remove node
     RemoveNode {
@@ -213,11 +215,6 @@ enum Op<'a> {
     Patch(Patch),
 }
 
-impl Default for Op<'_> {
-    fn default() -> Self {
-        Op::Continue
-    }
-}
 
 impl<'a, T> From<(T, T)> for Op<'a>
 where

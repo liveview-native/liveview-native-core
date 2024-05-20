@@ -99,6 +99,7 @@ impl Document {
     fn inner(&self) -> &super::Document {
         unsafe {&*self.inner.get()}
     }
+    #[allow(clippy::mut_from_ref)]
     fn inner_mut(&self) -> &mut super::Document {
         unsafe { &mut *self.inner.get() }
     }

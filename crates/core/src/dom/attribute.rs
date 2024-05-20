@@ -126,7 +126,7 @@ impl PartialEq for AttributeValue {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::None, Self::None) => true,
-            (Self::None, Self::String(s)) | (Self::String(s), Self::None) => s == "",
+            (Self::None, Self::String(s)) | (Self::String(s), Self::None) => s.is_empty(),
             (Self::String(x), Self::String(y)) => x == y,
         }
     }
@@ -134,7 +134,7 @@ impl PartialEq for AttributeValue {
 impl PartialEq<str> for AttributeValue {
     fn eq(&self, other: &str) -> bool {
         match (self, other) {
-            (Self::None, y) => y == "",
+            (Self::None, y) => y.is_empty(),
             (Self::String(x), y) => x == y,
         }
     }
