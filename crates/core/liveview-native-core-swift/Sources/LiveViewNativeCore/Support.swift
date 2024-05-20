@@ -89,8 +89,7 @@ extension Node {
         return NodeDepthFirstChildrenSequenceOriginal(root: self)
     }
     public subscript(_ name: AttributeName) -> Attribute? {
-        let attributes = self.attributes()
-        return attributes.first { $0.name == name }
+        return self.getAttribute(name)
     }
     public func toString() -> String {
         return self.display()
