@@ -411,7 +411,7 @@ dependencies = [
     "uniffi-swift-test-ios",
     "uniffi-swift-test-macos",
     "uniffi-swift-test-watchos",
-    #"uniffi-swift-test-visionos", # TODO: uncomment this when the default xcode is 15.2 for github CI images.
+    "uniffi-swift-test-visionos", # TODO: uncomment this when the default xcode is 15.2 for github CI images.
 ]
 
 [tasks.uniffi-swift-test-package]
