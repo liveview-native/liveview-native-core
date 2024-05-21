@@ -2,6 +2,10 @@
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
+import class Foundation.ProcessInfo
+let environment = ProcessInfo.processInfo.environment
+let runBenchmarks = environment["RUN_BENCHMARKS"] != nil
+
 let liveview_native_core_framework: Target
 
 // To relase, toggle this to `false`
@@ -62,6 +66,10 @@ let package = Package(
             ],
             path: "./crates/core/liveview-native-core-swift/Tests/LiveViewNativeCoreTests/"
         ),
+    ]
+)
+if runBenchmarks {
+    package.targets.append(
         .executableTarget(
             name: "LiveViewNativeCoreBenchmarks",
             dependencies: [
@@ -71,6 +79,6 @@ let package = Package(
             path: "./crates/core/liveview-native-core-swift/Benchmarks/LiveViewNativeCore",
             plugins: [
                 .plugin(name: "BenchmarkPlugin", package: "package-benchmark")
-            ]),
-    ]
-)
+            ])
+        )
+}
