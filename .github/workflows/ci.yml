@@ -76,7 +76,7 @@ jobs:
         run:
            ./gradlew build --scan
 
-  swift_integration_tests:
+  swift_build_xcframework:
     runs-on: macos-14
 
     steps:
@@ -92,10 +92,65 @@ jobs:
             x86_64-apple-ios
             aarch64-apple-darwin
             x86_64-apple-darwin
+
       - uses: maxim-lobanov/setup-xcode@v1.6.0
         with:
           xcode-version: latest-stable
 
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-make
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/git
+            ~/.cargo/registry
+            target
+          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Test swift package
+        run: cargo make uniffi-xcframework
+
+      - uses: actions/upload-artifact@v4
+        with:
+          retention-days: 5
+          name: liveview_native_core.xcframework
+          path: ./target/uniffi/swift/liveview_native_core.xcframework
+
+  swift_integration_tests:
+    runs-on: macos-14
+    needs:
+      - swift_build_xcframework
+    strategy:
+      matrix:
+        swift-test: [
+          "package",
+          "tvos",
+          "watchos",
+          "macos",
+          "ios",
+          "visionos",
+        ]
+
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust Nightly
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: liveview_native_core.xcframework.zip
+          path: ./target/uniffi/swift/
+
+      - uses: maxim-lobanov/setup-xcode@v1.6.0
+        with:
+          xcode-version: latest-stable
 
       - uses: taiki-e/install-action@v2
         with:
@@ -112,7 +167,7 @@ jobs:
           key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Set up Elixir
-        run: brew install elixir jemalloc
+        run: brew install elixir
 
       - name: Install test server dependencies, compile and run in background
         working-directory: ./tests/support/test_server
@@ -121,11 +176,11 @@ jobs:
           mix compile
           mix phx.server &
 
-      - name: Build swift package
+      - name: Generate the swift package
         run: cargo make uniffi-swift-package
 
       - name: Test swift package
-        run: cargo make uniffi-swift-test # This also runs the uniffi-swift-package step.
+        run: cargo make uniffi-swift-test-${{matrix.swift-test}}
 
   integration_tests:
     runs-on: macos-14

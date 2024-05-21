@@ -45,7 +45,6 @@ let package = Package(
         // This doesn't work because of:
         // https://github.com/apple/swift-docc-plugin/issues/50 will hopefully resolve it
         .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.0.0"),
-        .package(url: "https://github.com/ordo-one/package-benchmark", .upToNextMajor(from: "1.0.0")),
     ],
     targets: [
         liveview_native_core_framework,
@@ -70,6 +69,7 @@ import class Foundation.ProcessInfo
 let environment = ProcessInfo.processInfo.environment
 let runBenchmarks = environment["RUN_BENCHMARKS"] != nil
 if runBenchmarks {
+    package.dependencies.append(.package(url: "https://github.com/ordo-one/package-benchmark", .upToNextMajor(from: "1.0.0")))
     package.targets.append(
         .executableTarget(
             name: "LiveViewNativeCoreBenchmarks",

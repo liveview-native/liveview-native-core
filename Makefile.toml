@@ -272,6 +272,17 @@ description = "Run cargo-bloat"
 command = "cargo"
 args = ["bloat", "${@}"]
 
+[tasks.build-default-staticlib]
+workspace = false
+category = "Build"
+description = "Compiles for all targets needed to produce a universal library for macOS"
+command = "rustup"
+args = [
+    "run", "${CARGO_MAKE_TOOLCHAIN}",
+    "cargo", "build",
+    "--profile", "${CARGO_PROFILE}",
+    "-p", "liveview-native-core"
+]
 [tasks.uniffi-swift-generate]
 workspace = false
 category = "Packaging"
@@ -284,11 +295,11 @@ args = [
     "--",
     "generate",
     "--library",
-    "${CARGO_TARGET_DIR}/aarch64-apple-darwin/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
     "--language=swift",
     "--out-dir=${CARGO_TARGET_DIR}/uniffi/swift/generated",
 ]
-dependencies = ["build-apple-std-targets"]
+dependencies = ["build-default-staticlib"]
 
 [tasks.uniffi-swift-modulemap]
 workspace = false
@@ -424,7 +435,7 @@ args = [
     "--package-path",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
 ]
-dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
+dependencies = ["uniffi-swift-package"]
 [tasks.uniffi-swift-test-tvos]
 workspace = false
 category = "Testing"
@@ -433,14 +444,13 @@ command = "xcodebuild"
 args = [
     "-scheme",
     "LiveViewNativeCore",
-    "-skipPackagePluginValidation",
     "-destination",
     "name=Apple TV 4K (3rd generation),arch=x86_64",
     "-workspace",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
+dependencies = ["uniffi-swift-package"]
 
 [tasks.uniffi-swift-test-ios]
 workspace = false
@@ -450,14 +460,13 @@ command = "xcodebuild"
 args = [
     "-scheme",
     "LiveViewNativeCore",
-    "-skipPackagePluginValidation",
     "-destination",
     "name=iPhone 15",
     "-workspace",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
+dependencies = ["uniffi-swift-package"]
 
 [tasks.uniffi-swift-test-watchos]
 workspace = false
@@ -467,14 +476,13 @@ command = "xcodebuild"
 args = [
     "-scheme",
     "LiveViewNativeCore",
-    "-skipPackagePluginValidation",
     "-destination",
     "name=Apple Watch Series 9 (45mm)",
     "-workspace",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
+dependencies = ["uniffi-swift-package"]
 
 [tasks.uniffi-swift-test-visionos]
 workspace = false
@@ -484,14 +492,13 @@ command = "xcodebuild"
 args = [
     "-scheme",
     "LiveViewNativeCore",
-    "-skipPackagePluginValidation",
     "-destination",
     "name=Apple Vision Pro",
     "-workspace",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
+dependencies = ["uniffi-swift-package"]
 
 [tasks.uniffi-swift-test-macos]
 workspace = false
@@ -501,11 +508,10 @@ command = "xcodebuild"
 args = [
     "-scheme",
     "LiveViewNativeCore",
-    "-skipPackagePluginValidation",
     "-destination",
     "platform=macOS",
     "-workspace",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
+dependencies = ["uniffi-swift-package"]
