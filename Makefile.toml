@@ -417,6 +417,8 @@ script = "rm -r ${CARGO_TARGET_DIR}/uniffi/swift/liveview_native_core.xcframewor
 
 [tasks.uniffi-swift-test]
 dependencies = [
+    "uniffi-swift-package",
+    "uniffi-xcframework",
     "uniffi-swift-test-package",
     "uniffi-swift-test-tvos",
     "uniffi-swift-test-ios",
@@ -435,7 +437,7 @@ args = [
     "--package-path",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
 ]
-dependencies = ["uniffi-swift-package"]
+dependencies = []
 [tasks.uniffi-swift-test-tvos]
 workspace = false
 category = "Testing"
@@ -450,7 +452,7 @@ args = [
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package"]
+dependencies = []
 
 [tasks.uniffi-swift-test-ios]
 workspace = false
@@ -466,7 +468,7 @@ args = [
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package"]
+dependencies = []
 
 [tasks.uniffi-swift-test-watchos]
 workspace = false
@@ -482,7 +484,7 @@ args = [
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package"]
+dependencies = []
 
 [tasks.uniffi-swift-test-visionos]
 workspace = false
@@ -498,7 +500,7 @@ args = [
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package"]
+dependencies = []
 
 [tasks.uniffi-swift-test-macos]
 workspace = false
@@ -514,4 +516,4 @@ args = [
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package"]
+dependencies = []

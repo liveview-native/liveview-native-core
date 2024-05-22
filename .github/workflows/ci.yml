@@ -111,6 +111,15 @@ jobs:
             target
           key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Generate the swift package
+        run: cargo make uniffi-swift-package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          retention-days: 5
+          name: LiveViewNativeCore-Source
+          path: ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore
+
       - name: Test swift package
         run: cargo make uniffi-xcframework
 
@@ -140,15 +149,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Install Rust Nightly
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ env.TOOLCHAIN }}
 
       - uses: actions/download-artifact@v4
         with:
           name: liveview_native_core.xcframework
           path: ./target/uniffi/swift/
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: LiveViewNativeCore-Source
+          path: ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore
+
+      - name: Check artifact downloads
+        run: |
+          ls ./target/uniffi/swift/ ./target/uniffi/swift/liveview_native_core.xcframework ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/ ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/*
 
       - uses: maxim-lobanov/setup-xcode@v1.6.0
         with:
@@ -157,16 +171,6 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-make
-
-      - name: Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/git
-            ~/.cargo/registry
-            target
-          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Set up Elixir
         run: brew install elixir
@@ -177,9 +181,6 @@ jobs:
           mix deps.get
           mix compile
           mix phx.server &
-
-      - name: Generate the swift package
-        run: cargo make uniffi-swift-package
 
       - name: Test swift package
         run: cargo make uniffi-swift-test-${{matrix.swift-test}}
