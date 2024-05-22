@@ -78,7 +78,6 @@ jobs:
 
   swift_build_xcframework:
     runs-on: macos-14
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -276,7 +275,7 @@ jobs:
       - name: Run Rust tests on simulator for ${{ matrix.rust-target }}
         env:
           DINGHY_LOG: debug
-        timeout-minutes: 20
+        timeout-minutes: 30
         run: |
           cargo -Zbuild-std test --target ${{ matrix.rust-target }} -- --test-threads 1
 
