@@ -77,8 +77,6 @@ jobs:
            ./gradlew build --scan
 
   swift_build_xcframework:
-    strategy:
-      fail-fast: false
     runs-on: macos-14
 
     steps:

@@ -45,6 +45,9 @@ native-tls = { git = "https://github.com/simlay/rust-native-tls.git", branch = "
 security-framework =     { git = "https://github.com/kornelski/rust-security-framework.git", rev = "ea683f291bb8dff51d3239e556c3236e09274c16" }
 security-framework-sys = { git = "https://github.com/kornelski/rust-security-framework.git", rev = "ea683f291bb8dff51d3239e556c3236e09274c16" }
 
+# https://github.com/servo/core-foundation-rs/pull/679
+core-foundation-sys = { git = "https://github.com/simlay/core-foundation-rs.git", branch = "add-watchos-and-visionos-for-core-foundation-linking" }
+
 # https://github.com/tokio-rs/mio/pull/1773 and backport PR.
 mio = { git = "https://github.com/simlay/mio.git", rev = "7b8b2e605ad64bcabf1f0af4366aa404a8b6bbdc" }
 
