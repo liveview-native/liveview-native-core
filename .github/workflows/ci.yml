@@ -77,6 +77,8 @@ jobs:
            ./gradlew build --scan
 
   swift_build_xcframework:
+    strategy:
+      fail-fast: false
     runs-on: macos-14
 
     steps:
@@ -126,6 +128,7 @@ jobs:
     needs:
       - swift_build_xcframework
     strategy:
+      fail-fast: false
       matrix:
         swift-test: [
           "package",
@@ -224,6 +227,7 @@ jobs:
     # rust cross-compilation
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         rust-target: ["aarch64-apple-ios-sim" ]
         apple-sim: [ "iOS" ]
