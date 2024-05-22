@@ -11,7 +11,7 @@ use std::sync::{OnceLock, RwLock};
 
 use fxhash::FxHashMap;
 
-#[cfg_attr(rustfmt, rustfmt_skip)]
+#[rustfmt::skip]
 #[allow(nonstandard_style, non_upper_case_globals)]
 pub mod symbols {
     // During the build step, `build.rs` will output the generated atoms to `OUT_DIR` to avoid
@@ -175,22 +175,22 @@ impl Interner {
 // If an interner exists, return it. Otherwise, prepare a fresh one.
 #[inline]
 fn with_interner<T, F: FnOnce(&mut Interner) -> T>(f: F) -> T {
-    let symbol_table = SYMBOL_TABLE.get_or_init(|| SymbolTable::new());
+    let symbol_table = SYMBOL_TABLE.get_or_init(SymbolTable::new);
     let mut r = symbol_table
         .0
         .write()
         .expect("unable to acquire write lock for symbol table");
-    f(&mut *r)
+    f(&mut r)
 }
 
 #[inline]
 fn with_read_only_interner<T, F: FnOnce(&Interner) -> T>(f: F) -> T {
-    let symbol_table = SYMBOL_TABLE.get_or_init(|| SymbolTable::new());
+    let symbol_table = SYMBOL_TABLE.get_or_init(SymbolTable::new);
     let r = symbol_table
         .0
         .read()
         .expect("unable to acquire read lock for symbol table");
-    f(&*r)
+    f(&r)
 }
 
 /// Represents a string stored in the global string interner, and is thus thread-safe
@@ -234,7 +234,7 @@ impl Ord for InternedString {
         if self.0 == other.0 {
             return Ordering::Equal;
         }
-        self.as_str().cmp(&other.as_str())
+        self.as_str().cmp(other.as_str())
     }
 }
 impl<T: Deref<Target = str>> PartialEq<T> for InternedString {
@@ -354,8 +354,8 @@ impl Default for ByteArena {
     #[inline]
     fn default() -> ByteArena {
         Self {
-            ptr: Cell::new(0 as *mut u8),
-            end: Cell::new(0 as *mut u8),
+            ptr: Cell::new(std::ptr::null_mut::<u8>()),
+            end: Cell::new(std::ptr::null_mut::<u8>()),
             chunks: Default::default(),
         }
     }
@@ -400,15 +400,15 @@ impl ByteArena {
 
         self.align(align);
 
-        let future_end = self.ptr.get().wrapping_offset(bytes as isize);
-        if (future_end as *mut u8) >= self.end.get() {
+        let future_end = self.ptr.get().wrapping_add(bytes);
+        if (future_end) >= self.end.get() {
             self.grow(bytes);
         }
 
         let ptr = self.ptr.get();
         // Set the pointer past ourselves
         self.ptr
-            .set(self.ptr.get().wrapping_offset(bytes as isize) as *mut u8);
+            .set(self.ptr.get().wrapping_add(bytes));
 
         ptr
     }
@@ -420,6 +420,7 @@ impl ByteArena {
     ///
     ///  - Zero-sized types
     ///  - Zero-length slices
+    #[allow(clippy::mut_from_ref)]
     #[inline]
     pub fn alloc_slice<T>(&self, slice: &[T]) -> &mut [T]
     where
@@ -430,7 +431,7 @@ impl ByteArena {
         assert!(!slice.is_empty());
 
         unsafe {
-            let mem = self.alloc_raw(slice.len() * mem::size_of::<T>(), mem::align_of::<T>())
+            let mem = self.alloc_raw(std::mem::size_of_val(slice), mem::align_of::<T>())
                 as *mut _ as *mut T;
 
             let arena_slice = slice::from_raw_parts_mut(mem, slice.len());
@@ -518,7 +519,7 @@ mod tests {
         let mut i = Interner::new();
         // Should already be interned with matching indexes
         for (sym, s) in symbols::__SYMBOLS {
-            assert_eq!(i.intern(&s), *sym)
+            assert_eq!(i.intern(s), *sym)
         }
         // Should create a new symbol resulting in an index equal to the last entry in the table
         assert_eq!(i.intern("foo").as_u32(), (i.symbols.len() - 1) as u32);

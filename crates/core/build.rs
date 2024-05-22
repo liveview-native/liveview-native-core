@@ -35,7 +35,7 @@ fn main() {
     }
 
     let out = PathBuf::from(env::var("OUT_DIR").unwrap()).join("strings.rs");
-    let mut file = File::create(&out).unwrap();
+    let mut file = File::create(out).unwrap();
     file.write_all(b"use super::Symbol;\n\n").unwrap();
 
     // Declare symbols
@@ -52,7 +52,7 @@ pub const {}: Symbol = Symbol::new({});
     }
 
     // Symbol strings
-    file.write_all(b"\n\npub(crate) const __SYMBOLS: &'static [(Symbol, &'static str)] = &[\n")
+    file.write_all(b"\n\npub(crate) const __SYMBOLS: &[(Symbol, &str)] = &[\n")
         .unwrap();
     for (name, value) in symbols.iter() {
         writeln!(&mut file, " ({}, \"{}\"),", name.as_str(), value.as_str()).unwrap();

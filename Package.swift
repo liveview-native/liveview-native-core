@@ -2,6 +2,7 @@
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
+
 let liveview_native_core_framework: Target
 
 // To relase, toggle this to `false`
@@ -63,3 +64,22 @@ let package = Package(
         ),
     ]
 )
+
+import class Foundation.ProcessInfo
+let environment = ProcessInfo.processInfo.environment
+let runBenchmarks = environment["RUN_BENCHMARKS"] != nil
+if runBenchmarks {
+    package.dependencies.append(.package(url: "https://github.com/ordo-one/package-benchmark", .upToNextMajor(from: "1.0.0")))
+    package.targets.append(
+        .executableTarget(
+            name: "LiveViewNativeCoreBenchmarks",
+            dependencies: [
+                .product(name: "Benchmark", package: "package-benchmark"),
+                "LiveViewNativeCore",
+            ],
+            path: "./crates/core/liveview-native-core-swift/Benchmarks/LiveViewNativeCore",
+            plugins: [
+                .plugin(name: "BenchmarkPlugin", package: "package-benchmark")
+            ])
+        )
+}

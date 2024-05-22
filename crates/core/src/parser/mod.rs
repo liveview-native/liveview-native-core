@@ -366,7 +366,7 @@ impl Emitter for DocumentEmitter {
 
     fn current_is_appropriate_end_tag_token(&mut self) -> bool {
         match &self.current_token {
-            Some(Token::End(tag)) => !(self.last_start_tag == "") && tag.to_string() == self.last_start_tag.to_string(),
+            Some(Token::End(tag)) => self.last_start_tag != "" && *tag == self.last_start_tag,
             _ => false,
         }
     }

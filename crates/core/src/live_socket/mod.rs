@@ -141,14 +141,14 @@ impl LiveChannel {
         ))
             .last()
             .map(|node_ref| document.get(node_ref))
-            .map(|input_div| {
+            .and_then(|input_div| {
                 input_div
                     .attributes()
                     .iter()
                     .filter(|attr| attr.name.name == "id")
                     .map(|attr| attr.value.clone())
                     .collect::<Option<String>>()
-            }).flatten()
+            })
         .ok_or(LiveSocketError::NoInputRefInDocument);
         phx_input_id
     }
@@ -293,18 +293,11 @@ The allow upload error response looks like:
                         }
                     }
                 }
-                if let Some(entries) = object.get("entries") {
-                    match entries {
-                        JSON::Object { object } => {
-                            if let Some(JSON::Str { string }) = object.get("0") {
-                                Some(string)
-                            } else {
-                                None
-                            }
-                        },
-                        _ => {
-                            None
-                        }
+                if let Some(JSON::Object { object }) = object.get("entries") {
+                    if let Some(JSON::Str { string }) = object.get("0") {
+                        Some(string)
+                    } else {
+                        None
                     }
                 } else {
                     None
@@ -420,8 +413,7 @@ impl LiveSocket {
         ))
             .last()
             .map(|node_ref| document.get(node_ref))
-            .map(|node| node.attributes().first().map(|attr| attr.value.clone()))
-            .flatten()
+            .and_then(|node| node.attributes().first().map(|attr| attr.value.clone()))
             .flatten()
             .ok_or(LiveSocketError::CSFRTokenMissing)?;
 
@@ -446,11 +438,11 @@ impl LiveSocket {
 
         for attr in main_div_attributes {
             if attr.name.name == "id" {
-                phx_id = attr.value.clone();
+                phx_id.clone_from(&attr.value)
             } else if attr.name.name == "data-phx-session" {
-                phx_session = attr.value.clone();
+                phx_session.clone_from(&attr.value)
             } else if attr.name.name == "data-phx-static" {
-                phx_static = attr.value.clone();
+                phx_static.clone_from(&attr.value)
             }
         }
         let phx_id = phx_id.ok_or(LiveSocketError::PhoenixIDMissing)?;
@@ -502,7 +494,7 @@ impl LiveSocket {
     }
 
     pub async fn join_liveview_channel(&self) -> Result<LiveChannel, LiveSocketError> {
-        let _ = self.socket.connect(self.timeout).await?;
+        self.socket.connect(self.timeout).await?;
         let join_payload = Payload::JSONPayload {
             json: JSON::Object {
                 object: HashMap::from([
@@ -576,7 +568,7 @@ impl LiveSocket {
         // As silly as it sounds, rendering this diff and parsing the dom for the
         // data-phx-upload-ref seems like the most stable way.
         Ok(LiveChannel {
-            channel: channel,
+            channel,
             join_payload,
             socket: self.socket.clone(),
             document: root,

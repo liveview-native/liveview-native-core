@@ -281,10 +281,8 @@ impl Document {
             if let Some(old_parent) = doc.parents[*k].expand() {
                 if old_parent == doc.root {
                     self.parents[*new_k] = parent.into();
-                } else {
-                    if let Some(new_parent) = node_mapping.get(&old_parent) {
-                        self.parents[*new_k] = (*new_parent).into();
-                    }
+                } else if let Some(new_parent) = node_mapping.get(&old_parent) {
+                    self.parents[*new_k] = (*new_parent).into();
                 }
             }
             let old_children = &doc.children[*k];
@@ -494,7 +492,7 @@ impl Document {
     pub fn parse_fragment_json(
         input: String,
     ) -> Result<Self, RenderError> {
-        let fragment: RootDiff = serde_json::from_str(&input).map_err(|e| RenderError::from(e))?;
+        let fragment: RootDiff = serde_json::from_str(&input).map_err(RenderError::from)?;
         let root : Root = fragment.try_into()?;
         let rendered : String = root.clone().try_into()?;
         let mut document = crate::parser::parse(&rendered)?;
@@ -507,7 +505,7 @@ impl Document {
         &mut self,
         json: String,
     ) -> Result<(), RenderError> {
-        let fragment: RootDiff = serde_json::from_str(&json).map_err(|e| RenderError::from(e))?;
+        let fragment: RootDiff = serde_json::from_str(&json).map_err(RenderError::from)?;
 
         let root = if let Some(root) = &self.fragment_template {
             root.clone().merge(fragment)?
@@ -831,6 +829,12 @@ pub struct Builder {
     doc: Document,
     pos: NodeRef,
 }
+impl Default for Builder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Builder {
     pub fn new() -> Self {
         let doc = Document::empty();

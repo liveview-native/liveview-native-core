@@ -106,7 +106,7 @@ impl<'a> Printer<'a> {
 }
 
 fn indent(mut n: usize, writer: &mut dyn fmt::Write) -> fmt::Result {
-    const INDENT: &'static str = "    ";
+    const INDENT: &str = "    ";
     while n > 0 {
         writer.write_str(INDENT)?;
         n -= 1;

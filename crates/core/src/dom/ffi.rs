@@ -2,12 +2,12 @@ use std::{
     fmt,
     sync::{
         Arc,
-        Mutex,
-    }
+    },
+    cell::SyncUnsafeCell,
 };
 pub use super::{
     attribute::Attribute,
-    node::{NodeData, NodeRef},
+    node::{NodeData, NodeRef, Node},
     printer::PrintOptions,
     DocumentChangeHandler,
 };
@@ -17,13 +17,13 @@ use crate::diff::fragment::RenderError;
 
 #[derive(Clone, uniffi::Object)]
 pub struct Document {
-    inner: Arc<Mutex<super::Document>>,
+    inner: Arc<SyncUnsafeCell<super::Document>>,
 }
 
 impl From<super::Document> for Document {
     fn from(doc: super::Document) -> Self {
         Self {
-            inner: Arc::new(Mutex::new(doc))
+            inner: Arc::new(SyncUnsafeCell::new(doc))
         }
     }
 }
@@ -35,14 +35,14 @@ impl Document {
         input: String,
     ) -> Result<Arc<Self>, ParseError> {
         Ok(Arc::new(Self {
-            inner: Arc::new(Mutex::new(super::Document::parse(input)?)),
+            inner: Arc::new(SyncUnsafeCell::new(super::Document::parse(input)?)),
         }))
     }
 
     #[uniffi::constructor]
     pub fn empty() -> Arc<Self> {
         Arc::new(Self {
-            inner: Arc::new(Mutex::new(super::Document::empty())),
+            inner: Arc::new(SyncUnsafeCell::new(super::Document::empty())),
         })
     }
 
@@ -50,7 +50,7 @@ impl Document {
     pub fn parse_fragment_json(
         input: String,
     ) -> Result<Arc<Self>, RenderError> {
-        let inner = Arc::new(Mutex::new(super::Document::parse_fragment_json(input)?));
+        let inner = Arc::new(SyncUnsafeCell::new(super::Document::parse_fragment_json(input)?));
         Ok(Arc::new(Self {
             inner
         }))
@@ -59,63 +59,65 @@ impl Document {
         &self,
         handler: Box<dyn DocumentChangeHandler>
     ) {
-        if let Ok(mut inner) = self.inner.lock() {
-            inner.event_callback = Some(Arc::from(handler));
-        }
+        self.inner_mut().event_callback = Some(Arc::from(handler));
     }
 
     pub fn merge_fragment_json(
         &self,
         json: String,
     ) -> Result<(), RenderError> {
-        if let Ok(mut inner) = self.inner.lock() {
-            Ok(inner.merge_fragment_json(json)?)
-        } else {
-            unimplemented!("The error case for when we cannot get the lock for the Document has not been finished yet");
-        }
+        self.inner_mut().merge_fragment_json(json)
     }
 
     pub fn root(&self) -> Arc<NodeRef> {
-        self.inner.lock().expect("Failed to get lock").root().into()
+        self.inner().root().into()
     }
 
     pub fn get_parent(&self, node_ref: Arc<NodeRef>) -> Option<Arc<NodeRef>> {
-        self.inner.lock().expect("Failed to get lock").parent(*node_ref).map(|node_ref| node_ref.into())
+        self.inner().parent(*node_ref).map(|node_ref| node_ref.into())
     }
 
     pub fn children(&self, node_ref: Arc<NodeRef>) -> Vec<Arc<NodeRef>> {
-        self.inner.lock().expect("Failed to get lock").children(*node_ref).iter().map(|node| Arc::new(*node)).collect()
+        self.inner().children(*node_ref).iter().map(|node| Arc::new(*node)).collect()
     }
 
     pub fn get_attributes(&self, node_ref: Arc<NodeRef>) -> Vec<Attribute> {
-        self.inner.lock().expect("Failed to get lock").attributes(*node_ref).to_vec()
+        self.inner().attributes(*node_ref).to_vec()
     }
     pub fn get(&self, node_ref: Arc<NodeRef>) -> NodeData {
-        self.inner.lock().expect("Failed to get lock").get(*node_ref).clone()
+        self.inner().get(*node_ref).clone()
+    }
+    pub fn get_node(&self, node_ref: Arc<NodeRef>) -> Node {
+        let data = self.get(node_ref.clone());
+        Node::new(self, &node_ref.clone(), data)
     }
     pub fn render(&self) -> String {
         self.to_string()
     }
 }
 impl Document {
+    fn inner(&self) -> &super::Document {
+        unsafe {&*self.inner.get()}
+    }
+    #[allow(clippy::mut_from_ref)]
+    fn inner_mut(&self) -> &mut super::Document {
+        unsafe { &mut *self.inner.get() }
+    }
     pub fn print_node(
         &self,
         node: NodeRef,
         writer: &mut dyn std::fmt::Write,
         options: PrintOptions,
     ) -> fmt::Result {
-        self.inner.lock().expect("Failed to get lock").print_node(node, writer, options)
+        self.inner().print_node(node, writer, options)
     }
 }
 
 impl fmt::Display for Document {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Ok(inner) = self.inner.lock() {
-            inner.print(f, PrintOptions::Pretty)
-        } else {
-            todo!()
-        }
+
+        self.inner().print(f, PrintOptions::Pretty)
     }
 }
 

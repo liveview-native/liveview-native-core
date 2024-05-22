@@ -83,12 +83,25 @@ impl Node {
     pub fn new(document: &FFiDocument, id: &NodeRef, data: NodeData) -> Self {
         Self {
             document: document.clone(),
-            id: id.clone(),
+            id: *id,
             data,
         }
     }
-    pub fn get_children(&self) -> Vec<Arc<NodeRef>> {
-        self.document.children(self.id.into())
+    pub fn get_children(&self) -> Vec<Arc<Node>> {
+        self.document.children(self.id.into()).iter().map(|node_ref| {
+            self.document.get_node(node_ref.clone()).into()
+        }).collect()
+    }
+
+    pub fn get_depth_first_children(&self) -> Vec<Arc<Node>> {
+        let mut out : Vec<Arc<Node>> = Vec::new();
+        //out.push(self.clone().into());
+        for child in self.get_children() {
+            out.push(child.clone());
+            let depth = child.get_depth_first_children();
+            out.extend(depth);
+        }
+        out
     }
     pub fn document(&self) -> FFiDocument {
         self.document.clone()
@@ -101,6 +114,9 @@ impl Node {
     }
     pub fn attributes(&self) -> Vec<Attribute> {
         self.data.attributes()
+    }
+    pub fn get_attribute(&self, name: AttributeName) -> Option<Attribute> {
+        self.attributes().iter().find(|attr|  attr.name == name).cloned()
     }
     pub fn display(&self) -> String {
         format!("{self}")
@@ -124,10 +140,7 @@ impl NodeData {
 
     /// Returns true if this node is a leaf node
     pub fn is_leaf(&self) -> bool {
-        match self {
-            Self::Leaf { value: _ } => true,
-            _ => false,
-        }
+        matches!(self, Self::Leaf { value: _ })
     }
 }
 impl NodeData {
@@ -218,12 +231,12 @@ impl From<Symbol> for ElementName {
         Self::from(InternedString::from(s))
     }
 }
-impl Into<InternedString> for ElementName {
-    fn into(self) -> InternedString {
-        if self.namespace.is_none() {
-            self.name.into()
+impl From<ElementName> for InternedString {
+    fn from(val: ElementName) -> Self {
+        if val.namespace.is_none() {
+            val.name.into()
         } else {
-            let string = self.to_string();
+            let string = val.to_string();
             string.into()
         }
     }

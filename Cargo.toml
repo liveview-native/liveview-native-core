@@ -42,8 +42,11 @@ debug = 1
 native-tls = { git = "https://github.com/simlay/rust-native-tls.git", branch = "add-visionos-support" }
 
 # https://github.com/kornelski/rust-security-framework/pull/201
-security-framework =     { git = "https://github.com/simlay/rust-security-framework.git", branch = "add-visionos-support" }
-security-framework-sys = { git = "https://github.com/simlay/rust-security-framework.git", branch = "add-visionos-support" }
+security-framework =     { git = "https://github.com/kornelski/rust-security-framework.git", rev = "ea683f291bb8dff51d3239e556c3236e09274c16" }
+security-framework-sys = { git = "https://github.com/kornelski/rust-security-framework.git", rev = "ea683f291bb8dff51d3239e556c3236e09274c16" }
+
+# https://github.com/servo/core-foundation-rs/pull/679
+core-foundation-sys = { git = "https://github.com/servo/core-foundation-rs", rev = "fb8fd65eef1b2ef247055e944cf258d53f2a517a" }
 
 # https://github.com/tokio-rs/mio/pull/1773 and backport PR.
 mio = { git = "https://github.com/simlay/mio.git", rev = "7b8b2e605ad64bcabf1f0af4366aa404a8b6bbdc" }

@@ -5,6 +5,61 @@ final class SimpleHandler: DocumentChangeHandler {
         print("Handler:", changeType, ", node:", nodeRef.ref());
     }
 }
+final class LiveViewNativeTreeTests: XCTestCase {
+    func testDepthFirstTraversal() throws {
+        let input  = """
+        <Column>
+            <Button phx-click="inc">
+                <Text>
+                    Increment
+                </Text>
+            </Button>
+            <Button phx-click="dec">
+                <Text>
+                    Decrement
+                </Text>
+            </Button>
+            <Text>
+                Static Text
+            </Text>
+            <Text>
+                Counter 1: 2
+            </Text>
+            <Text>
+                Counter 2: 2
+            </Text>
+            <Text fontWeight="W600" fontSize="24">
+                Item 1!!!
+            </Text>
+            <Text color=" #FFFF0000">
+                Number = 1 + 3 is even
+            </Text>
+            <Text>
+                Number + 4 = 5 is odd
+            </Text>
+            <Text fontWeight="W600" fontSize="24">
+                Item 2!!!
+            </Text>
+            <Text color=" #FF0000FF">
+                Number = 2 + 3 is odd
+            </Text>
+            <Text>
+                Number + 4 = 6 is even
+            </Text>
+            <Text>
+                Number + 100 is 102
+            </Text>
+        </Column>
+        """
+        let doc = try Document.parse(input)
+        let root = doc[doc.root()]
+        let old_depth_first = root.depthFirstChildrenOriginal()
+        let new_depth_first = root.depthFirstChildren()
+        for (new, old) in zip(new_depth_first, old_depth_first) {
+            XCTAssertEqual(new.id().ref(), old.id().ref())
+        }
+    }
+}
 
 final class LiveViewNativeCoreTests: XCTestCase {
     func testForSwiftUIClientBug() throws {

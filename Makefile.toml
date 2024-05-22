@@ -272,6 +272,17 @@ description = "Run cargo-bloat"
 command = "cargo"
 args = ["bloat", "${@}"]
 
+[tasks.build-default-staticlib]
+workspace = false
+category = "Build"
+description = "Compiles for all targets needed to produce a universal library for macOS"
+command = "rustup"
+args = [
+    "run", "${CARGO_MAKE_TOOLCHAIN}",
+    "cargo", "build",
+    "--profile", "${CARGO_PROFILE}",
+    "-p", "liveview-native-core"
+]
 [tasks.uniffi-swift-generate]
 workspace = false
 category = "Packaging"
@@ -284,11 +295,11 @@ args = [
     "--",
     "generate",
     "--library",
-    "${CARGO_TARGET_DIR}/aarch64-apple-darwin/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
+    "${CARGO_TARGET_DIR}/${CARGO_BUILD_TYPE}/libliveview_native_core.a",
     "--language=swift",
     "--out-dir=${CARGO_TARGET_DIR}/uniffi/swift/generated",
 ]
-dependencies = ["build-apple-std-targets"]
+dependencies = ["build-default-staticlib"]
 
 [tasks.uniffi-swift-modulemap]
 workspace = false
@@ -307,7 +318,7 @@ dependencies = ["uniffi-swift-generate"]
 workspace = false
 category = "Packaging"
 description = "Generates the swift package from the liveview native core and phoenix-channels-clients bindings"
-dependencies = ["uniffi-swift-modulemap", "uniffi-swift-package-lvn", "uniffi-swift-package-phoenix"]
+dependencies = ["uniffi-swift-generate", "uniffi-swift-modulemap", "uniffi-swift-package-lvn", "uniffi-swift-package-phoenix"]
 
 [tasks.uniffi-swift-package-lvn]
 workspace = false
@@ -406,12 +417,14 @@ script = "rm -r ${CARGO_TARGET_DIR}/uniffi/swift/liveview_native_core.xcframewor
 
 [tasks.uniffi-swift-test]
 dependencies = [
+    "uniffi-swift-package",
+    "uniffi-xcframework",
     "uniffi-swift-test-package",
     "uniffi-swift-test-tvos",
     "uniffi-swift-test-ios",
     "uniffi-swift-test-macos",
     "uniffi-swift-test-watchos",
-    #"uniffi-swift-test-visionos", # TODO: uncomment this when the default xcode is 15.2 for github CI images.
+    "uniffi-swift-test-visionos", # TODO: uncomment this when the default xcode is 15.2 for github CI images.
 ]
 
 [tasks.uniffi-swift-test-package]
@@ -424,7 +437,7 @@ args = [
     "--package-path",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
 ]
-dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
+dependencies = []
 [tasks.uniffi-swift-test-tvos]
 workspace = false
 category = "Testing"
@@ -439,7 +452,7 @@ args = [
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
+dependencies = []
 
 [tasks.uniffi-swift-test-ios]
 workspace = false
@@ -455,7 +468,7 @@ args = [
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
+dependencies = []
 
 [tasks.uniffi-swift-test-watchos]
 workspace = false
@@ -471,7 +484,7 @@ args = [
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
+dependencies = []
 
 [tasks.uniffi-swift-test-visionos]
 workspace = false
@@ -487,7 +500,7 @@ args = [
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
+dependencies = []
 
 [tasks.uniffi-swift-test-macos]
 workspace = false
@@ -503,4 +516,4 @@ args = [
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "test"
 ]
-dependencies = ["uniffi-swift-package", "uniffi-xcframework"]
+dependencies = []
