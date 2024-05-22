@@ -145,7 +145,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: liveview_native_core.xcframework.zip
+          name: liveview_native_core.xcframework
           path: ./target/uniffi/swift/
 
       - uses: maxim-lobanov/setup-xcode@v1.6.0
