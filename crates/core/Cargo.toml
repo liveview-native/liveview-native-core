@@ -28,8 +28,6 @@ liveview-channels = [
     "phoenix_channels_client",
     "reqwest",
     "uniffi/tokio",
-    "async-compat",
-    "futures",
 ]
 liveview-channels-tls = [
     "liveview-channels",
@@ -53,8 +51,6 @@ thiserror = "1.0"
 log = "0.4"
 reqwest = { version = "0.12.3", default-features = false, optional = true }
 uniffi = { version = "0.27" }
-async-compat = { version = "0.2.3", optional = true }
-futures = { version = "0.3.29", optional = true }
 phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client", branch = "main", optional = true }
 
 [build-dependencies]
@@ -65,7 +61,7 @@ paste = { version = "1.0" }
 pretty_assertions = { version = "1.4.0" }
 text-diff = { version = "0.4.0" }
 uniffi = { version = "0.27", features = ["bindgen-tests", "tokio"]}
-tokio = { version = "1.35", features = ["full"] }
+tokio = { version = "1.38", features = ["full"] }
 env_logger = "0.11.1"
 
 # For image generation for tests

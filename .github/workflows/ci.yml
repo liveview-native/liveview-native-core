@@ -16,8 +16,15 @@ env:
 
 jobs:
   kotiln_integration_tests:
-    runs-on: macos-14
+    runs-on: ${{ matrix.os }}
 
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [
+          'macos-14',
+          'ubuntu-latest',
+        ]
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust Nightly
@@ -41,12 +48,14 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{matrix.os}}-${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Set up Elixir
+        if: ${{ matrix.os == 'macos-14' }}
         run: brew install elixir
 
       - name: Install test server dependencies, compile and run in background
+        if: ${{ matrix.os == 'macos-14' }}
         working-directory: ./tests/support/test_server
         run: |
           mix deps.get
@@ -60,7 +69,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Install gradle
-        uses: gradle/gradle-build-action@v3.3.2
+        uses: gradle/actions/setup-gradle@v3
 
       # https://github.com/actions/runner-images/blob/5a9870800dc54127d22ee36c303b47314d231c69/images/macos/macos-14-arm64-Readme.md
       # Python is required to build OpenSSL but there's no python in the m1
@@ -70,11 +79,20 @@ jobs:
           python-version: '3.12'
 
       - name: Run build with Gradle wrapper
+        if: ${{ matrix.os == 'macos-14' }}
         working-directory: ./crates/core/liveview-native-core-jetpack/
         env:
           RANLIB: "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
         run:
            ./gradlew build --scan
+
+      - name: Run build with Gradle wrapper
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        working-directory: ./crates/core/liveview-native-core-jetpack/
+        env:
+          RANLIB: "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+        run:
+           ./gradlew build --scan -x test
 
   swift_build_xcframework:
     runs-on: macos-14
@@ -216,7 +234,12 @@ jobs:
 
       - name: Get the JNA jar for testing kotlin.
         run: wget 'https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.14.0/jna-5.14.0.jar'
-      - name: Test
+
+      - name: Build tests
+        run: cargo test --no-run
+
+      - name: Run Test
+        timeout-minutes: 5
         run: cargo test
         env:
           # This is required for the kotlin uniffi tests
@@ -272,7 +295,7 @@ jobs:
           mix compile
           mix phx.server &
 
-      - name: Build tests with liveview-channels-tls
+      - name: Build tests 
         run: cargo -Zbuild-std test --target ${{ matrix.rust-target }} --no-run
 
       - name: Run Rust tests on simulator for ${{ matrix.rust-target }}

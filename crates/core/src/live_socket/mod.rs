@@ -349,6 +349,7 @@ The allow upload error response looks like:
                 user: "progress".to_string(),
             };
             let progress_event_payload: Payload = Payload::json_from_serialized(progress_event_string)?;
+            debug!("Progress send: {progress_event_payload:#?}");
             let progress_resp = self.channel.call(progress_event, progress_event_payload, self.timeout).await;
             debug!("Progress response: {progress_resp:#?}");
         }
@@ -366,8 +367,6 @@ The allow upload error response looks like:
         let progress_resp = self.channel.call(progress_event, progress_event_payload, self.timeout).await;
         debug!("RESP: {progress_resp:#?}");
 
-        // TODO: Use chunk size and max_file_size
-
         let save_event_string = r#"{"type":"form","event":"save","value":""}"#;
 
         let save_event: Event = Event::User {
@@ -384,27 +383,24 @@ The allow upload error response looks like:
 
 #[uniffi::export(async_runtime = "tokio")]
 impl LiveSocket {
+    #[uniffi::constructor]
+    pub async fn connect(url: String, timeout: Duration) -> Result<Self, LiveSocketError> {
+        Self::new(url, timeout).await
+    }
 
     #[uniffi::constructor]
-    pub fn new(url: String, timeout: Duration) -> Result<Self, LiveSocketError> {
+    pub async fn new(url: String, timeout: Duration) -> Result<Self, LiveSocketError> {
         let url = url.parse::<Url>()?;
-        //let resp = reqwest::get(url.clone()).await?;
-        let resp = futures::executor::block_on(async_compat::Compat::new(async {
-            reqwest::get(url.clone()).await
-        }))?;
+        let resp = reqwest::get(url.clone()).await?;
         let resp_headers = resp.headers();
         let mut cookies: Vec<String> = Vec::new();
         for cookie in resp_headers.get_all("set-cookie") {
             cookies.push(cookie.to_str().expect("Cookie is not ASCII").to_string());
         }
-
-        let resp_text = futures::executor::block_on(async_compat::Compat::new(async {
-            resp.text().await
-        }))?;
-        //let resp_text = resp.text().await?;
+        let resp_text = resp.text().await?;
 
         let document = parse(&resp_text)?;
-        debug!("document: {document}\n\n\n");
+        debug!("document:\n{document}\n\n\n");
 
         let csrf_token = document.select(Selector::Tag(ElementName {
                 namespace: None,
@@ -478,10 +474,7 @@ impl LiveSocket {
         debug!("websocket url: {websocket_url}");
 
         let websocket_url = websocket_url.parse::<Url>()?;
-        //let socket = Socket::spawn(websocket_url.clone(), Some(cookies))?;
-        let socket = futures::executor::block_on(async_compat::Compat::new(async {
-            Socket::spawn(websocket_url.clone(), Some(cookies))
-        }))?;
+        let socket = Socket::spawn(websocket_url.clone(), Some(cookies))?;
 
         Ok(Self {
             socket,
@@ -512,6 +505,8 @@ impl LiveSocket {
 
         let channel = self.socket.channel(Topic::from_string(format!("lv:{}", self.phx_id)), Some(join_payload)).await?;
         let join_payload = channel.join(self.timeout).await?;
+
+        debug!("Join payload: {join_payload:#?}");
         let root = match join_payload {
             Payload::JSONPayload {
                 json: JSON::Object {
@@ -521,6 +516,7 @@ impl LiveSocket {
                 if let Some(rendered) = object.get("rendered") {
                     let rendered = rendered.to_string();
                     let root : RootDiff = serde_json::from_str(rendered.as_str())?;
+                    debug!("root diff: {root:#?}");
                     let root : Root = root.try_into()?;
                     Some(root)
                 } else {

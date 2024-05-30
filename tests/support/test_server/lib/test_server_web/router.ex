@@ -2,13 +2,15 @@ defmodule TestServerWeb.Router do
   use TestServerWeb, :router
 
   pipeline :browser do
-    plug :accepts, ["html"]
+    plug :accepts, ["html", "swiftui", "jetpack"]
     plug :fetch_session
     plug :fetch_live_flash
-    plug :put_root_layout, html: {TestServerWeb.Layouts, :root}
+    plug :put_root_layout, 
+      html: {TestServerWeb.Layouts, :root},
+      swiftui: {TestServerWeb.Layouts.SwiftUI, :root},
+      jetpack: {TestServerWeb.Layouts.Jetpack, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
-    plug LiveViewNative.SessionPlug
   end
 
   pipeline :api do
@@ -20,6 +22,7 @@ defmodule TestServerWeb.Router do
 
     get "/", PageController, :home
     live "/thermostat", ThermostatLive
+    live "/hello", HelloLive
     live "/upload", SimpleLiveUpload
     live "/simple_stream", SimpleLiveStream
   end

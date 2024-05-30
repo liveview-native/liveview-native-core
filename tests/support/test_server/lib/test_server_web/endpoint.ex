@@ -28,6 +28,7 @@ defmodule TestServerWeb.Endpoint do
   if code_reloading? do
     socket "/phoenix/live_reload/socket", Phoenix.LiveReloader.Socket
     plug Phoenix.LiveReloader
+    plug LiveViewNative.LiveReloader
     plug Phoenix.CodeReloader
   end
 
