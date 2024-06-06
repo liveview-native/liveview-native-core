@@ -56,7 +56,6 @@ defmodule TestServerWeb do
 
       unquote(html_helpers())
 
-      use LiveViewNative.LiveView
     end
   end
 
@@ -65,7 +64,7 @@ defmodule TestServerWeb do
       use Phoenix.LiveComponent
 
       unquote(html_helpers())
-      use LiveViewNative.LiveComponent
+
     end
   end
 

@@ -38,9 +38,6 @@ debug = 1
 
 
 [patch.crates-io]
-# https://github.com/sfackler/rust-native-tls/pull/294
-native-tls = { git = "https://github.com/simlay/rust-native-tls.git", branch = "add-visionos-support" }
-
 # https://github.com/kornelski/rust-security-framework/pull/201
 security-framework =     { git = "https://github.com/kornelski/rust-security-framework.git", rev = "ea683f291bb8dff51d3239e556c3236e09274c16" }
 security-framework-sys = { git = "https://github.com/kornelski/rust-security-framework.git", rev = "ea683f291bb8dff51d3239e556c3236e09274c16" }
@@ -53,6 +50,3 @@ mio = { git = "https://github.com/simlay/mio.git", rev = "7b8b2e605ad64bcabf1f0a
 
 # https://github.com/rust-lang/socket2/pull/503
 socket2 = { git = "https://github.com/QuentinPerez/socket2.git", rev = "ca3a93088857b40c27e98d1690f242a7ba8da4dc" }
-
-# https://github.com/tokio-rs/tokio/pull/6465 hasn't been published yet
-tokio = { git = "https://github.com/tokio-rs/tokio.git", rev = "6fcd9c02176bf3cd570bc7de88edaa3b95ea480a"}

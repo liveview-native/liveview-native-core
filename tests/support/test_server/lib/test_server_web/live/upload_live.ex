@@ -1,7 +1,6 @@
 defmodule TestServerWeb.SimpleLiveUpload do
   use TestServerWeb, :live_view
-  #use TestServerWeb.Styles.AppStyles
-  use Phoenix.LiveView
+  use TestServerNative, :live_view
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
@@ -9,28 +8,6 @@ defmodule TestServerWeb.SimpleLiveUpload do
       socket
       |> assign(:uploaded_files, [])
       |> allow_upload(:avatar, accept: ~w(.png), max_entries: 2)}
-  end
-
-
-
-#  @impl true
-#  def render(%{format: :jetpack} = assigns) do
-#
-#    # id="phx-id"
-#    ~JETPACK"""
-#    <UploadForm>
-#      <.live_file_input upload={@uploads.avatar} />
-#    </UploadForm>
-#    """
-#  end
-
-  @impl true
-  def render(%{format: :swiftui} = assigns) do
-    ~SWIFTUI"""
-    <UploadForm>
-      <.live_file_input upload={@uploads.avatar} />
-    </UploadForm>
-    """
   end
 
   @impl true
@@ -74,4 +51,28 @@ defmodule TestServerWeb.SimpleLiveUpload do
   defp error_to_string(:too_large), do: "Too large"
   defp error_to_string(:too_many_files), do: "You have selected too many files"
   defp error_to_string(:not_accepted), do: "You have selected an unacceptable file type"
+end
+defmodule TestServerWeb.SimpleLiveUpload.SwiftUI do
+  use TestServerNative, [:render_component, format: :swiftui]
+  #use Phoenix.Component.live_component
+
+  def render(assigns, _interface) do
+      # <.live_file_input upload={@uploads.avatar} />
+    ~LVN"""
+    <UploadForm>
+    </UploadForm>
+    """
+  end
+end
+
+defmodule TestServerWeb.SimpleLiveUpload.Jetpack do
+  use TestServerNative, [:render_component, format: :swiftui]
+
+  def render(assigns, _) do
+    ~LVN"""
+    <Box size="fill" background="system-blue">
+      <Text align="Center">Upload from Jetpack</Text>
+    </Box>
+    """
+  end
 end

@@ -2,7 +2,7 @@ package org.phoenixframework.liveview_jetpack
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import org.phoenixframework.liveview.lib.Document;
+import org.phoenixframework.liveviewnative.core.Document;
 
 import org.junit.Test
 import org.junit.runner.RunWith

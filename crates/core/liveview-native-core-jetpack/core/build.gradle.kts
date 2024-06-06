@@ -20,6 +20,10 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
 val uniffiPath = "${buildDir}/generated/source/uniffi/java"
+val os_name = System.getProperty("os.name").lowercase()
+val is_linux = os_name.contains("linux")
+val is_mac = os_name.contains("mac")
+val lvn_version = "0.4.0-alpha-2"
 
 android {
     namespace = "org.phoenixframework.liveview_native_core_jetpack"
@@ -31,8 +35,10 @@ android {
     }
 
     buildTypes {
-        release {
+        getByName("release") {
             isMinifyEnabled = false
+        }
+        create("releaseDesktop") {
         }
     }
     compileOptions {
@@ -48,6 +54,10 @@ android {
             withSourcesJar()
             withJavadocJar()
         }
+        singleVariant("releaseDesktop") {
+            withSourcesJar()
+            withJavadocJar()
+        }
     }
     ndkVersion = "25.2.9519653"
 
@@ -55,19 +65,30 @@ android {
         getByName("main") {
             java.srcDir(uniffiPath)
         }
+        getByName("test") {
+            resources.srcDirs("${buildDir}/rustJniLibs/desktop")
+        }
     }
 
     libraryVariants.all {
-        val dylib = tasks.register<Exec>("build${name.capitalize()}StaticLib") {
+        tasks.register<Exec>("build${name.capitalize()}StaticLib") {
             workingDir("${project.projectDir}")
             commandLine(
                 "cargo",
                 "build",
                 "--lib",
+                "-p",
+                "liveview-native-core",
             )
         }
         val generateUniffi = tasks.register<Exec>("generate${name.capitalize()}UniFFIBindings") {
             workingDir("${project.projectDir}")
+            var dylib_file = rootProject.file("../../../target/debug/libliveview_native_core.dylib")
+
+            if (is_linux) {
+                dylib_file = rootProject.file("../../../target/debug/libliveview_native_core.so")
+            }
+
             // Runs the bindings generation, note that you must have uniffi-bindgen installed and in your PATH environment variable
             // TODO: Ensure that the aarch64-apple-darwin build is finished.
 
@@ -79,7 +100,7 @@ android {
                 "--",
                 "generate",
                 "--library",
-                rootProject.file("../../../target/debug/libliveview_native_core.dylib"),
+                dylib_file,
                 "--language",
                 "kotlin",
                 "--out-dir",
@@ -88,6 +109,20 @@ android {
         }
         javaCompileProvider.get().dependsOn(generateUniffi)
     }
+}
+
+var cargo_targets = listOf(
+    "arm", // rust - armv7-linux-androideabi
+    "arm64", // rust - aarch64-linux-android
+    "x86", // rust - i686-linux-android
+    "x86_64", // rust - x86_64-linux-android
+)
+if (is_linux) {
+    cargo_targets += "linux-x86-64"  // x86_64-unknown-linux-gnu
+}
+if (is_mac) {
+    cargo_targets += "darwin-aarch64" // rust - aarch64-apple-darwin
+    cargo_targets += "darwin-x86-64" // rust - x86_64-apple-darwin
 }
 
 // Configuring Rust Cargo build
@@ -101,14 +136,7 @@ cargo {
 
     libname = "liveview_native_core"
     // In case you need to run the unit tests, install the respective toolchain and add the target below.
-    targets = listOf(
-        "arm", // rust - armv7-linux-androideabi
-        "arm64", // rust - aarch64-linux-android
-        "x86", // rust - i686-linux-android
-        "x86_64", // rust - x86_64-linux-android
-        "darwin-aarch64", // rust - aarch64-apple-darwin
-        "darwin-x86-64", // rust - x86_64-apple-darwin
-    )
+    targets = cargo_targets
 }
 
 // Running cargo command before build
@@ -125,32 +153,26 @@ tasks.configureEach {
     }
 }
 
-// Configuring Java Lib Path in order to find the native library before running the Unit Tests
-tasks.withType<Test>().configureEach {
-    doFirst {
-        val rustJniLibsForDesktopDir = File("${projectDir}/build/rustJniLibs/desktop")
-        val archTypesSubdirs = rustJniLibsForDesktopDir.listFiles()
-        for (dir in archTypesSubdirs) {
-            // Selecting the proper JNI lib file for run the unit tests
-            // in according to the architecture. e.g.: darwin-aarch64, darwin-x86-64
-            val arch = System.getProperty("os.arch").replace("_", "-")
-            if (dir.isDirectory && dir.name.contains(arch)) {
-                systemProperty("java.library.path", dir.absolutePath)
-                break
-            }
-        }
-    }
-}
-
 publishing {
     publications {
         register<MavenPublication>("release")  {
             groupId = "org.phoenixframework"
             artifactId = "liveview-native-core-jetpack"
-            version = "0.2.0-pre-alpha-01"
+            version = lvn_version
 
             afterEvaluate {
                 from(components["release"])
+            }
+        }
+    }
+    publications {
+        register<MavenPublication>("releaseDesktop")  {
+            groupId = "org.phoenixframework"
+            artifactId = "liveview-native-core-jetpack-desktop"
+            version = lvn_version
+
+            afterEvaluate {
+                from(components["releaseDesktop"])
             }
         }
     }

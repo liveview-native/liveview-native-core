@@ -20,7 +20,7 @@ import org.phoenixframework.liveviewnative.core.LiveFile;
 class SocketTest {
     @Test
     fun simple_connect() = runTest {
-        var live_socket = LiveSocket("http://127.0.0.1:4001/upload?_lvn[format]=swiftui", Duration.ofDays(10));
+        var live_socket = LiveSocket.connect("http://127.0.0.1:4001/upload?_format=jetpack", Duration.ofDays(10));
         var live_channel = live_socket.joinLiveviewChannel()
         var phx_id = live_channel.getPhxRefFromUploadJoinPayload()
         // This is a PNG located at crates/core/tests/support/tinycross.png

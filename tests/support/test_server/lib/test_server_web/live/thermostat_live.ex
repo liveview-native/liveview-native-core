@@ -1,16 +1,7 @@
 defmodule TestServerWeb.ThermostatLive do
-  # In Phoenix v1.6+ apps, the line is typically:
-  use TestServerWeb, :live_view
   use Phoenix.LiveView
-  def render(assigns) do
-    ~H"""
-    Current temperature: <%= @temperature %>°F
-    <button phx-click="inc_temperature">+</button>
-    <%= for temp  <- @temperatures do %>
-      <p> temp: <%= temp %> </p>
-    <% end %>
-    """
-  end
+  use TestServerWeb, :live_view
+  use TestServerNative, :live_view
   def mount(_params, _session, socket) do
     temperature = 70
     temperatures = []
@@ -27,5 +18,38 @@ defmodule TestServerWeb.ThermostatLive do
       |> update(:temperature, &(&1 + 1))
       |> update(:temperatures, &(&1 ++ [1]))
     }
+  end
+  def render(%{} = assigns) do
+    ~H"""
+    Current temperature: <%= @temperature %>°F
+    <button phx-click="inc_temperature">+</button>
+    <%= for temp  <- @temperatures do %>
+      <p> temp: <%= temp %> </p>
+    <% end %>
+    """
+  end
+end
+defmodule TestServerWeb.ThermostatLive.SwiftUI do
+  use TestServerNative, [:render_component, format: :swiftui]
+
+  def render(assigns, _interface) do
+    ~LVN"""
+    <VStack>
+      <Text>
+        Hello SwiftUI!
+      </Text>
+    </VStack>
+    """
+  end
+end
+defmodule TestServerWeb.ThermostatLive.Jetpack do
+  use TestServerNative, [:render_component, format: :jetpack]
+
+  def render(assigns, _) do
+    ~LVN"""
+    <Box size="fill" background="system-blue">
+      <Text align="Center">Hello</Text>
+    </Box>
+    """
   end
 end
