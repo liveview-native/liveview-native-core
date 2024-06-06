@@ -12,7 +12,7 @@ env:
   TOOLCHAIN: nightly
   CARGO_MAKE_TOOLCHAIN: nightly
   ANDROID_API: 33
-  ANDROID_NDK_VERSION: 25.2.9519653
+  ANDROID_NDK_VERSION: 26.3.11579264
 
 jobs:
   kotiln_integration_tests:
@@ -23,7 +23,7 @@ jobs:
       matrix:
         os: [
           'macos-14',
-          'ubuntu-latest',
+          'ubuntu-24.04',
         ]
     steps:
       - uses: actions/checkout@v4
@@ -87,7 +87,7 @@ jobs:
            ./gradlew build --scan
 
       - name: Run build with Gradle wrapper
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-24.04' }}
         working-directory: ./crates/core/liveview-native-core-jetpack/
         env:
           RANLIB: "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
@@ -307,7 +307,7 @@ jobs:
 
   android_simulator_tests:
     # rust cross-compilation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
