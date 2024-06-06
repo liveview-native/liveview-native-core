@@ -23,9 +23,6 @@ updates:
     directory: "/tests/support/test_server/"
     schedule:
       interval: "daily"
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-patch"] # ignore patch updates
 
   - package-ecosystem: "swift" 
     directory: "/" 

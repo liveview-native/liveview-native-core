@@ -11,7 +11,7 @@ before_install:
   - yes | sdkmanager --licenses
   - yes | sdkmanager --update
   - yes | sdkmanager --uninstall "ndk-bundle"
-  - yes | sdkmanager --install "ndk;25.2.9519653"
+  - yes | sdkmanager --install "ndk;26.3.11579264"
   - yes | sdkmanager --install "cmake;3.22.1"
   # Install JDK 17 and using it for the rest of the build
   - sdk install java 17.0.3-tem
@@ -19,7 +19,7 @@ before_install:
 install:
   - echo "Running a custom install command"
   - uname -a
-  - ls $ANDROID_HOME/ndk/25.2.9519653/toolchains/llvm/prebuilt/*/bin/*
+  - ls $ANDROID_HOME/ndk/26.3.11579264/toolchains/llvm/prebuilt/*/bin/*
   - cd ./crates/core/liveview-native-core-jetpack/
   - source "$HOME/.cargo/env"
   - ./gradlew buildDebugStaticLib
@@ -30,4 +30,4 @@ env:
   RUST_ANDROID_GRADLE_RUSTC_COMMAND: "/home/jitpack/.cargo/bin/rustc"
   RUST_ANDROID_GRADLE_CARGO_COMMAND: "/home/jitpack/.cargo/bin/cargo"
   RUST_ANDROID_GRADLE_RUSTUP_CHANNEL: "nightly"
-  RANLIB: "/opt/android-sdk-linux/ndk/25.2.9519653/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
+  RANLIB: "/opt/android-sdk-linux/ndk/26.3.11579264/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"

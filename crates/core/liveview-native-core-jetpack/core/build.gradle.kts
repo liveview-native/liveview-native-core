@@ -38,8 +38,10 @@ android {
         getByName("release") {
             isMinifyEnabled = false
         }
+        /*
         create("releaseDesktop") {
         }
+        */
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -54,12 +56,14 @@ android {
             withSourcesJar()
             withJavadocJar()
         }
+        /*
         singleVariant("releaseDesktop") {
             withSourcesJar()
             withJavadocJar()
         }
+        */
     }
-    ndkVersion = "25.2.9519653"
+    ndkVersion = "26.3.11579264"
 
     sourceSets {
         getByName("main") {
@@ -88,9 +92,6 @@ android {
             if (is_linux) {
                 dylib_file = rootProject.file("../../../target/debug/libliveview_native_core.so")
             }
-
-            // Runs the bindings generation, note that you must have uniffi-bindgen installed and in your PATH environment variable
-            // TODO: Ensure that the aarch64-apple-darwin build is finished.
 
             commandLine(
                 "cargo",
@@ -165,6 +166,7 @@ publishing {
             }
         }
     }
+    /*
     publications {
         register<MavenPublication>("releaseDesktop")  {
             groupId = "org.phoenixframework"
@@ -176,4 +178,5 @@ publishing {
             }
         }
     }
+    */
 }
