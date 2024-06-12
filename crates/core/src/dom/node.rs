@@ -1,11 +1,10 @@
-use std::fmt;
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 use cranelift_entity::entity_impl;
 use petgraph::graph::{IndexType, NodeIndex};
 use smallstr::SmallString;
 
-use super::{Attribute, AttributeName, ffi::Document as FFiDocument};
+use super::{ffi::Document as FFiDocument, Attribute, AttributeName};
 use crate::{InternedString, Symbol};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, uniffi::Object)]
@@ -73,7 +72,8 @@ pub struct Node {
 }
 impl std::fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.document.print_node(self.id, f, crate::dom::PrintOptions::Pretty)
+        self.document
+            .print_node(self.id, f, crate::dom::PrintOptions::Pretty)
     }
 }
 
@@ -88,13 +88,15 @@ impl Node {
         }
     }
     pub fn get_children(&self) -> Vec<Arc<Node>> {
-        self.document.children(self.id.into()).iter().map(|node_ref| {
-            self.document.get_node(node_ref.clone()).into()
-        }).collect()
+        self.document
+            .children(self.id.into())
+            .iter()
+            .map(|node_ref| self.document.get_node(node_ref.clone()).into())
+            .collect()
     }
 
     pub fn get_depth_first_children(&self) -> Vec<Arc<Node>> {
-        let mut out : Vec<Arc<Node>> = Vec::new();
+        let mut out: Vec<Arc<Node>> = Vec::new();
         //out.push(self.clone().into());
         for child in self.get_children() {
             out.push(child.clone());
@@ -116,7 +118,10 @@ impl Node {
         self.data.attributes()
     }
     pub fn get_attribute(&self, name: AttributeName) -> Option<Attribute> {
-        self.attributes().iter().find(|attr|  attr.name == name).cloned()
+        self.attributes()
+            .iter()
+            .find(|attr| attr.name == name)
+            .cloned()
     }
     pub fn display(&self) -> String {
         format!("{self}")
@@ -147,7 +152,9 @@ impl NodeData {
     /// Creates a new, empty element node with the given tag name
     #[inline]
     pub fn new<T: Into<ElementName>>(tag: T) -> Self {
-        Self::NodeElement { element: Element::new(tag.into()) }
+        Self::NodeElement {
+            element: Element::new(tag.into()),
+        }
     }
 }
 
@@ -160,7 +167,9 @@ impl From<Element> for NodeData {
 impl From<&str> for NodeData {
     #[inline(always)]
     fn from(string: &str) -> Self {
-        Self::Leaf { value: string.to_string() }
+        Self::Leaf {
+            value: string.to_string(),
+        }
     }
 }
 impl From<String> for NodeData {
@@ -172,7 +181,9 @@ impl From<String> for NodeData {
 impl From<SmallString<[u8; 16]>> for NodeData {
     #[inline(always)]
     fn from(string: SmallString<[u8; 16]>) -> Self {
-        Self::Leaf { value: string.to_string() }
+        Self::Leaf {
+            value: string.to_string(),
+        }
     }
 }
 
@@ -201,10 +212,7 @@ impl ElementName {
     }
 
     #[inline]
-    pub fn new_with_namespace<NS: Into<String>, N: Into<String>>(
-        namespace: NS,
-        name: N,
-    ) -> Self {
+    pub fn new_with_namespace<NS: Into<String>, N: Into<String>>(namespace: NS, name: N) -> Self {
         Self {
             namespace: Some(namespace.into()),
             name: name.into(),

@@ -1,41 +1,27 @@
 use phoenix_channels_client::{
-    ChannelError,
-    PhoenixError,
-    SpawnError,
+    CallError, ChannelError, ChannelJoinError, ConnectError, EventsError, JSONDeserializationError,
+    LeaveError, PhoenixError, SocketChannelError, SocketError, SpawnError, StatusesError,
     URLParseError,
-    SocketError,
-    SocketChannelError,
-    StatusesError,
-    ConnectError,
-    ChannelJoinError,
-    JSONDeserializationError,
-    CallError,
-    LeaveError,
-    EventsError,
 };
+
 use crate::{
+    diff::fragment::{MergeError, RenderError},
     parser::ParseError,
-    diff::fragment::{RenderError, MergeError},
 };
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum LiveSocketError {
     #[error("Phoenix Socket Error - {error}")]
-    Phoenix {
-        error: String,
-    },
+    Phoenix { error: String },
     #[error("Reqwest Error - {error}")]
-    Request {
-        error: String,
-    },
+    Request { error: String },
     #[error("Parse Error - {error}")]
     Parse {
-        #[from] error: ParseError,
+        #[from]
+        error: ParseError,
     },
     #[error("JSON Deserialization - {error}")]
-    JSONDeserialization {
-        error: String,
-    },
+    JSONDeserialization { error: String },
     #[error("CSFR Token Missing from DOM!")]
     CSFRTokenMissing,
 
@@ -62,7 +48,8 @@ pub enum LiveSocketError {
 
     #[error(transparent)]
     Upload {
-        #[from] error: UploadError,
+        #[from]
+        error: UploadError,
     },
 
     #[error("Failed to get document out of the join payload.")]
@@ -70,31 +57,28 @@ pub enum LiveSocketError {
 
     #[error(transparent)]
     DocumentMerge {
-        #[from] error: MergeError,
+        #[from]
+        error: MergeError,
     },
 
     #[error(transparent)]
     DocumentRender {
-        #[from] error: RenderError,
+        #[from]
+        error: RenderError,
     },
 
     #[error("Failed to find the data-phx-upload-ref in the join payload.")]
     NoInputRefInDocument,
 
     #[error("Failed to find the data-phx-upload-ref in the join payload.")]
-    Serde {
-        error: String,
-    },
+    Serde { error: String },
 
     #[error("There was an error with retrieving the events from the channel.")]
-    Events {
-        error: String,
-    }
+    Events { error: String },
 }
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum UploadError {
-
     #[error("File exceeds maximum filesize.")]
     FileTooLarge,
 
@@ -102,7 +86,7 @@ pub enum UploadError {
     FileNotAccepted,
 
     #[error("There was another issue with uploading {error}")]
-    Other { error: String},
+    Other { error: String },
 }
 
 // These are all manually implemented and turned into a string because uniffi doesn't support
@@ -121,7 +105,9 @@ impl From<ConnectError> for LiveSocketError {
 }
 impl From<JSONDeserializationError> for LiveSocketError {
     fn from(value: JSONDeserializationError) -> Self {
-        Self::JSONDeserialization { error: value.to_string() }
+        Self::JSONDeserialization {
+            error: value.to_string(),
+        }
     }
 }
 impl From<URLParseError> for LiveSocketError {

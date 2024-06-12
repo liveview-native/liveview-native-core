@@ -1,38 +1,19 @@
-use std::{sync::Arc, collections::HashMap, time::Duration};
-use phoenix_channels_client::{
-    Socket,
-    Topic,
-    Payload,
-    Channel,
-    JSON,
-    url::Url, Number, Event,
-};
-use log::{
-    debug,
-    error,
-};
+use std::{collections::HashMap, sync::Arc, time::Duration};
+
+use log::{debug, error};
+use phoenix_channels_client::{url::Url, Channel, Event, Number, Payload, Socket, Topic, JSON};
+
 use crate::{
-    dom::{
-        Selector, AttributeName, ElementName,
-    },
+    diff::fragment::{FragmentMerge, Root, RootDiff},
+    dom::{AttributeName, ElementName, Selector},
     parser::parse,
-    diff::fragment::{
-        FragmentMerge,
-        Root,
-        RootDiff,
-    },
 };
 
 mod error;
-use error::{
-    LiveSocketError,
-    UploadError
-};
+use error::{LiveSocketError, UploadError};
 
 #[cfg(test)]
 mod tests;
-
-
 
 #[derive(uniffi::Object)]
 pub struct LiveSocket {
@@ -99,7 +80,7 @@ impl LiveChannel {
                 if user_event == "diff" {
                     let payload = event.payload.to_string();
                     debug!("PAYLOAD: {payload}");
-                    let diff : RootDiff = serde_json::from_str(payload.as_str())?;
+                    let diff: RootDiff = serde_json::from_str(payload.as_str())?;
                     debug!("diff: {diff:#?}");
                     document = document.merge(diff)?;
                 }
@@ -112,33 +93,29 @@ impl LiveChannel {
     pub fn get_phx_ref_from_upload_join_payload(&self) -> Result<String, LiveSocketError> {
         let new_root = match self.join_payload {
             Payload::JSONPayload {
-                json: JSON::Object {
-                    ref object
-                },
+                json: JSON::Object { ref object },
             } => {
                 if let Some(rendered) = object.get("rendered") {
                     let rendered = rendered.to_string();
-                    let root : RootDiff = serde_json::from_str(rendered.as_str())?;
-                    let root : Root = root.try_into()?;
-                    let root : String = root.try_into()?;
+                    let root: RootDiff = serde_json::from_str(rendered.as_str())?;
+                    let root: Root = root.try_into()?;
+                    let root: String = root.try_into()?;
                     let document = parse(&root)?;
                     Some(document)
                 } else {
                     None
                 }
-            },
-            _ => {
-                None
             }
+            _ => None,
         };
         let document = new_root.ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
         debug!("Join payload render: {document}");
 
-        let phx_input_id = document.select(Selector::Attribute(AttributeName {
-            namespace: None,
-            name: "data-phx-upload-ref".into(),
-        },
-        ))
+        let phx_input_id = document
+            .select(Selector::Attribute(AttributeName {
+                namespace: None,
+                name: "data-phx-upload-ref".into(),
+            }))
             .last()
             .map(|node_ref| document.get(node_ref))
             .and_then(|input_div| {
@@ -149,13 +126,14 @@ impl LiveChannel {
                     .map(|attr| attr.value.clone())
                     .collect::<Option<String>>()
             })
-        .ok_or(LiveSocketError::NoInputRefInDocument);
+            .ok_or(LiveSocketError::NoInputRefInDocument);
         phx_input_id
     }
     pub async fn validate_upload(&self, file: &LiveFile) -> Result<Payload, LiveSocketError> {
         // Validate the inputs
         //let phx_upload_id = phx_input_id.clone().unwrap();
-        let validate_event_string = format!(r#"{{
+        let validate_event_string = format!(
+            r#"{{
             "type":"form",
             "event":"validate",
             "value":"_target=avatar",
@@ -169,40 +147,44 @@ impl LiveChannel {
                     "size":{}
                 }}
             ]}}
-        }}"#, file.phx_id, file.name, file.file_type, file.contents.len());
+        }}"#,
+            file.phx_id,
+            file.name,
+            file.file_type,
+            file.contents.len()
+        );
 
         let validate_event: Event = Event::User {
             user: "event".to_string(),
         };
         let validate_event_payload: Payload = Payload::json_from_serialized(validate_event_string)?;
-        let validate_resp = self.channel.call(
-            validate_event,
-            validate_event_payload,
-            self.timeout
-        ).await;
+        let validate_resp = self
+            .channel
+            .call(validate_event, validate_event_payload, self.timeout)
+            .await;
         /* Validate "okay" response looks like:
-{
-"diff": {
-    "0": {
-        "2": " accept=\".jpg,.jpeg,.ico\"",
-        "4": " data-phx-active-refs=\"0\"",
-        "5": " data-phx-done-refs=\"\"",
-        "6": " data-phx-preflighted-refs=\"\"",
-        "8": " multiple"
-    }
-}
-         */
+        {
+        "diff": {
+            "0": {
+                "2": " accept=\".jpg,.jpeg,.ico\"",
+                "4": " data-phx-active-refs=\"0\"",
+                "5": " data-phx-done-refs=\"\"",
+                "6": " data-phx-preflighted-refs=\"\"",
+                "8": " multiple"
+            }
+        }
+                 */
         // TODO: Use the validate response.
         Ok(validate_resp?)
     }
 
     pub async fn upload_file(&self, file: &LiveFile) -> Result<(), LiveSocketError> {
-
         // Allow upload requests to upload.
-        let upload_event : Event = Event::User {
+        let upload_event: Event = Event::User {
             user: "allow_upload".to_string(),
         };
-        let event_string = format!(r#"{{
+        let event_string = format!(
+            r#"{{
             "ref":"{}",
             "entries":[
                 {{
@@ -221,73 +203,81 @@ impl LiveChannel {
         );
 
         let event_payload: Payload = Payload::json_from_serialized(event_string)?;
-        let allow_upload_resp = self.channel.call(upload_event, event_payload, self.timeout).await?;
+        let allow_upload_resp = self
+            .channel
+            .call(upload_event, event_payload, self.timeout)
+            .await?;
         debug!("allow_upload RESP: {allow_upload_resp:#?}");
 
-
         /*
-The allow upload okay response looks like:
-{
-    "config":{
-        "chunk_size":64000,
-        "max_file_size":8000000,
-        "max_entries":2
-    },
-    "errors":{},
-    "diff":{
-        "0":{
-            "2":" accept=\".jpg,.jpeg,.ico\"",
-            "4":" data-phx-active-refs=\"0\"",
-            "5":" data-phx-done-refs=\"\"",
-            "6":" data-phx-preflighted-refs=\"0\"",
-            "8":" multiple"
+        The allow upload okay response looks like:
+        {
+            "config":{
+                "chunk_size":64000,
+                "max_file_size":8000000,
+                "max_entries":2
+            },
+            "errors":{},
+            "diff":{
+                "0":{
+                    "2":" accept=\".jpg,.jpeg,.ico\"",
+                    "4":" data-phx-active-refs=\"0\"",
+                    "5":" data-phx-done-refs=\"\"",
+                    "6":" data-phx-preflighted-refs=\"0\"",
+                    "8":" multiple"
+                }
+            },
+            "ref":"phx-F6rgg119TbUm66NB",
+            "entries":{
+                "0":"SFMyNTY.g2gDaAJhBXQAAAADdwNwaWRYdw1ub25vZGVAbm9ob3N0AACcKgAAAAAAAAAAdwNyZWZoAm0AAAAUcGh4LUY2cmdnMTE5VGJVbTY2TkJtAAAAATB3A2NpZHcDbmlsbgYARL4WE40BYgABUYA.JdLOUHO83Kp17PlDLv-_gHJVXjRWbmqf1mOaUx9yBBM"
+            }
         }
-    },
-    "ref":"phx-F6rgg119TbUm66NB",
-    "entries":{
-        "0":"SFMyNTY.g2gDaAJhBXQAAAADdwNwaWRYdw1ub25vZGVAbm9ob3N0AACcKgAAAAAAAAAAdwNyZWZoAm0AAAAUcGh4LUY2cmdnMTE5VGJVbTY2TkJtAAAAATB3A2NpZHcDbmlsbgYARL4WE40BYgABUYA.JdLOUHO83Kp17PlDLv-_gHJVXjRWbmqf1mOaUx9yBBM"
-    }
-}
-        Out of this JSON we need the string from entries["0"] as this is the upload token.
+                Out of this JSON we need the string from entries["0"] as this is the upload token.
 
-The allow upload error response looks like:
-{
-    "errors":[["0", "too_large"]],
-}
-        */
+        The allow upload error response looks like:
+        {
+            "errors":[["0", "too_large"]],
+        }
+                */
         let mut upload_config = UploadConfig::default();
         let upload_token = match allow_upload_resp {
             Payload::JSONPayload {
-                json: JSON::Object {
-                    ref object
-                },
+                json: JSON::Object { ref object },
             } => {
-                if let Some(JSON::Object{ ref object }) = object.get("config") {
-                    if let Some(JSON::Numb { number: Number::PosInt{ pos }}) = object.get("chunk_size") {
+                if let Some(JSON::Object { ref object }) = object.get("config") {
+                    if let Some(JSON::Numb {
+                        number: Number::PosInt { pos },
+                    }) = object.get("chunk_size")
+                    {
                         upload_config.chunk_size = *pos;
                     }
-                    if let Some(JSON::Numb { number: Number::PosInt{ pos }}) = object.get("max_file_size") {
+                    if let Some(JSON::Numb {
+                        number: Number::PosInt { pos },
+                    }) = object.get("max_file_size")
+                    {
                         upload_config.max_file_size = *pos;
                     }
-                    if let Some(JSON::Numb { number: Number::PosInt{ pos }}) = object.get("max_entries") {
+                    if let Some(JSON::Numb {
+                        number: Number::PosInt { pos },
+                    }) = object.get("max_entries")
+                    {
                         upload_config.max_entries = *pos;
                     }
                 }
-                if let Some(JSON::Array{ array }) = object.get("error") {
-                    if let Some(JSON::Array { array } ) = array.first() {
-                        if let Some(JSON::Str{ string: error_string}) = array.last() {
+                if let Some(JSON::Array { array }) = object.get("error") {
+                    if let Some(JSON::Array { array }) = array.first() {
+                        if let Some(JSON::Str {
+                            string: error_string,
+                        }) = array.last()
+                        {
                             error!("Upload error string: {error_string}");
                             let upload_error = match error_string.as_str() {
-                                "too_large" => {
-                                    UploadError::FileTooLarge
-                                }
-                                "not_accepted" => {
-                                    UploadError::FileNotAccepted
-                                }
+                                "too_large" => UploadError::FileTooLarge,
+                                "not_accepted" => UploadError::FileNotAccepted,
 
-                                other => {
-                                    UploadError::Other{ error: other.to_string()}
-                                }
+                                other => UploadError::Other {
+                                    error: other.to_string(),
+                                },
                             };
                             return Err(upload_error)?;
                         }
@@ -302,10 +292,8 @@ The allow upload error response looks like:
                 } else {
                     None
                 }
-            },
-            _ => {
-                None
-            },
+            }
+            _ => None,
         };
 
         let upload_token = upload_token.ok_or(LiveSocketError::NoUploadToken)?;
@@ -315,7 +303,13 @@ The allow upload error response looks like:
         // with the token.
         let upload_join_payload = format!(r#"{{ "token": "{}" }}"#, upload_token);
         let upload_join_payload = Payload::json_from_serialized(upload_join_payload)?;
-        let upload_channel = self.socket.channel(Topic::from_string("lvu:0".to_string()), Some(upload_join_payload)).await?;
+        let upload_channel = self
+            .socket
+            .channel(
+                Topic::from_string("lvu:0".to_string()),
+                Some(upload_join_payload),
+            )
+            .await?;
         let upload_join_resp = upload_channel.join(self.timeout).await;
         // The good response for a joining the upload channel is "{}"
         debug!("UPLOAD JOIN: {upload_join_resp:#?}");
@@ -323,7 +317,9 @@ The allow upload error response looks like:
         let chunk_size = upload_config.chunk_size as usize;
         let file_size = file.contents.len();
         let chunk_start_indices = (0..file_size).step_by(chunk_size);
-        let chunk_end_indices = (chunk_size..file_size).step_by(chunk_size).chain(vec![file_size]);
+        let chunk_end_indices = (chunk_size..file_size)
+            .step_by(chunk_size)
+            .chain(vec![file_size]);
 
         for (start_chunk, end_chunk) in chunk_start_indices.zip(chunk_end_indices) {
             debug!("Upload offsets: {start_chunk}, {end_chunk}");
@@ -333,24 +329,27 @@ The allow upload error response looks like:
             let chunk_payload: Payload = Payload::Binary {
                 bytes: file.contents[start_chunk..end_chunk].to_vec(),
             };
-            let _chunk_resp = upload_channel.call(chunk_event, chunk_payload, self.timeout).await;
+            let _chunk_resp = upload_channel
+                .call(chunk_event, chunk_payload, self.timeout)
+                .await;
 
-
-            let progress = ((end_chunk as f64/ file_size as f64) * 100.0) as i8;
+            let progress = ((end_chunk as f64 / file_size as f64) * 100.0) as i8;
             // We must inform the server we've reached 100% upload via the progress.
             let progress_event_string = format!(
                 r#"{{"event":null, "ref":"{}", "entry_ref":"0", "progress":{} }}"#,
-                file.phx_id,
-                progress,
+                file.phx_id, progress,
             );
-
 
             let progress_event: Event = Event::User {
                 user: "progress".to_string(),
             };
-            let progress_event_payload: Payload = Payload::json_from_serialized(progress_event_string)?;
+            let progress_event_payload: Payload =
+                Payload::json_from_serialized(progress_event_string)?;
             debug!("Progress send: {progress_event_payload:#?}");
-            let progress_resp = self.channel.call(progress_event, progress_event_payload, self.timeout).await;
+            let progress_resp = self
+                .channel
+                .call(progress_event, progress_event_payload, self.timeout)
+                .await;
             debug!("Progress response: {progress_resp:#?}");
         }
 
@@ -364,7 +363,10 @@ The allow upload error response looks like:
             user: "progress".to_string(),
         };
         let progress_event_payload: Payload = Payload::json_from_serialized(progress_event_string)?;
-        let progress_resp = self.channel.call(progress_event, progress_event_payload, self.timeout).await;
+        let progress_resp = self
+            .channel
+            .call(progress_event, progress_event_payload, self.timeout)
+            .await;
         debug!("RESP: {progress_resp:#?}");
 
         let save_event_string = r#"{"type":"form","event":"save","value":""}"#;
@@ -372,13 +374,16 @@ The allow upload error response looks like:
         let save_event: Event = Event::User {
             user: "event".to_string(),
         };
-        let save_event_payload: Payload = Payload::json_from_serialized(save_event_string.to_string())?;
-        let save_resp = self.channel.call(save_event, save_event_payload, self.timeout).await;
+        let save_event_payload: Payload =
+            Payload::json_from_serialized(save_event_string.to_string())?;
+        let save_resp = self
+            .channel
+            .call(save_event, save_event_payload, self.timeout)
+            .await;
         debug!("RESP: {save_resp:#?}");
         upload_channel.leave().await?;
         Ok(())
     }
-
 }
 
 #[uniffi::export(async_runtime = "tokio")]
@@ -402,11 +407,11 @@ impl LiveSocket {
         let document = parse(&resp_text)?;
         debug!("document:\n{document}\n\n\n");
 
-        let csrf_token = document.select(Selector::Tag(ElementName {
+        let csrf_token = document
+            .select(Selector::Tag(ElementName {
                 namespace: None,
                 name: "csrf-token".into(),
-            },
-        ))
+            }))
             .last()
             .map(|node_ref| document.get(node_ref))
             .and_then(|node| node.attributes().first().map(|attr| attr.value.clone()))
@@ -416,20 +421,21 @@ impl LiveSocket {
         let mut phx_id: Option<String> = None;
         let mut phx_static: Option<String> = None;
         let mut phx_session: Option<String> = None;
-        let main_div_attributes = document.select(Selector::Attribute(AttributeName {
+        let main_div_attributes = document
+            .select(Selector::Attribute(AttributeName {
                 namespace: None,
                 name: "data-phx-main".into(),
-            },
-        ))
+            }))
             .last();
         debug!("MAIN DIV: {main_div_attributes:?}");
-        let main_div_attributes = document.select(Selector::Attribute(AttributeName {
+        let main_div_attributes = document
+            .select(Selector::Attribute(AttributeName {
                 namespace: None,
                 name: "data-phx-main".into(),
-            },
-        ))
+            }))
             .last()
-            .map(|node_ref| document.get(node_ref)).map(|main_div| main_div.attributes())
+            .map(|node_ref| document.get(node_ref))
+            .map(|main_div| main_div.attributes())
             .ok_or(LiveSocketError::PhoenixMainMissing)?;
 
         for attr in main_div_attributes {
@@ -457,19 +463,23 @@ impl LiveSocket {
         // "iframe[src=\"/phoenix/live_reload/frame\"]"
         let mounts = 0;
 
-        let websocket_scheme = match url.scheme()  {
+        let websocket_scheme = match url.scheme() {
             "https" => "wss",
             "http" => "ws",
-            scheme => return Err(LiveSocketError::SchemeNotSupported{scheme: scheme.to_string()}),
+            scheme => {
+                return Err(LiveSocketError::SchemeNotSupported {
+                    scheme: scheme.to_string(),
+                })
+            }
         };
-        let port = url.port().map(|port| format!(":{port}")).unwrap_or("".to_string());
+        let port = url
+            .port()
+            .map(|port| format!(":{port}"))
+            .unwrap_or("".to_string());
         let host = url.host_str().ok_or(LiveSocketError::NoHostInURL)?;
         let websocket_url = format!(
             "{}://{}{}/live/websocket?_csrf_token={}&vsn=2.0.0&_mount={mounts}",
-            websocket_scheme,
-            host,
-            port,
-            csrf_token,
+            websocket_scheme, host, port, csrf_token,
         );
         debug!("websocket url: {websocket_url}");
 
@@ -491,76 +501,102 @@ impl LiveSocket {
         let join_payload = Payload::JSONPayload {
             json: JSON::Object {
                 object: HashMap::from([
-                            ("static".to_string(),  JSON::Str { string: self.phx_static.clone()}),
-                            ("session".to_string(), JSON::Str { string: self.phx_session.clone()}),
-                            ("params".to_string(),  JSON::Object {
-                                object: HashMap::from([
-                                            ("_mounts".to_string(), JSON::Numb { number: Number::PosInt { pos: 0 }}),
-                                            ("_csrf_token".to_string(), JSON::Str { string: self.csrf_token.clone() }),
-                                ])
-                            })
+                    (
+                        "static".to_string(),
+                        JSON::Str {
+                            string: self.phx_static.clone(),
+                        },
+                    ),
+                    (
+                        "session".to_string(),
+                        JSON::Str {
+                            string: self.phx_session.clone(),
+                        },
+                    ),
+                    (
+                        "params".to_string(),
+                        JSON::Object {
+                            object: HashMap::from([
+                                (
+                                    "_mounts".to_string(),
+                                    JSON::Numb {
+                                        number: Number::PosInt { pos: 0 },
+                                    },
+                                ),
+                                (
+                                    "_csrf_token".to_string(),
+                                    JSON::Str {
+                                        string: self.csrf_token.clone(),
+                                    },
+                                ),
+                            ]),
+                        },
+                    ),
                 ]),
-            }
+            },
         };
 
-        let channel = self.socket.channel(Topic::from_string(format!("lv:{}", self.phx_id)), Some(join_payload)).await?;
+        let channel = self
+            .socket
+            .channel(
+                Topic::from_string(format!("lv:{}", self.phx_id)),
+                Some(join_payload),
+            )
+            .await?;
         let join_payload = channel.join(self.timeout).await?;
 
         debug!("Join payload: {join_payload:#?}");
         let root = match join_payload {
             Payload::JSONPayload {
-                json: JSON::Object {
-                    ref object
-                },
+                json: JSON::Object { ref object },
             } => {
                 if let Some(rendered) = object.get("rendered") {
                     let rendered = rendered.to_string();
-                    let root : RootDiff = serde_json::from_str(rendered.as_str())?;
+                    let root: RootDiff = serde_json::from_str(rendered.as_str())?;
                     debug!("root diff: {root:#?}");
-                    let root : Root = root.try_into()?;
+                    let root: Root = root.try_into()?;
                     Some(root)
                 } else {
                     None
                 }
-            },
-            _ => {
-                None
             }
-        }.ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
+            _ => None,
+        }
+        .ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
         /* Okay join response looks like: To do an upload we need the new `data-phx-upload-ref`
-{
-  "rendered": {
-    "0": {
-      "0": " id=\"phx-F6rhEydz8YniGqoB\"",
-      "1": " name=\"avatar\"",
-      "2": " accept=\".jpg,.jpeg,.ico\"",
-      "3": " data-phx-upload-ref=\"phx-F6rhEydz8YniGqoB\"",
-      "4": " data-phx-active-refs=\"\"",
-      "5": " data-phx-done-refs=\"\"",
-      "6": " data-phx-preflighted-refs=\"\"",
-      "7": "",
-      "8": " multiple",
-      "s": [
-        "<input",
-        " type=\"file\"",
-        "",
-        " data-phx-hook=\"Phoenix.LiveFileUpload\" data-phx-update=\"ignore\"",
-        "",
-        "",
-        "",
-        "",
-        "",
-        ">"
-      ],
-      "r": 1
-    },
-    "s": [
-      "<p> THIS IS AN UPLOAD FORM </p>\n<form id=\"upload-form\" phx-submit=\"save\" phx-change=\"validate\">\n\n  ",
-      "\n\n  <button type=\"submit\">Upload</button>\n</form>"
-    ]
-  }
-}
-         */
+        {
+          "rendered": {
+            "0": {
+              "0": " id=\"phx-F6rhEydz8YniGqoB\"",
+              "1": " name=\"avatar\"",
+              "2": " accept=\".jpg,.jpeg,.ico\"",
+              "3": " data-phx-upload-ref=\"phx-F6rhEydz8YniGqoB\"",
+              "4": " data-phx-active-refs=\"\"",
+              "5": " data-phx-done-refs=\"\"",
+              "6": " data-phx-preflighted-refs=\"\"",
+              "7": "",
+              "8": " multiple",
+              "s": [
+                "<input",
+                " type=\"file\"",
+                "",
+                " data-phx-hook=\"Phoenix.LiveFileUpload\" data-phx-update=\"ignore\"",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ">"
+              ],
+              "r": 1
+            },
+            "s": [
+              "<p> THIS IS AN UPLOAD FORM </p>\n<form id=\"upload-form\" phx-submit=\"save\" phx-change=\"validate\">\n\n  ",
+              "\n\n  <button type=\"submit\">Upload</button>\n</form>"
+            ]
+          }
+        }
+                 */
         // As silly as it sounds, rendering this diff and parsing the dom for the
         // data-phx-upload-ref seems like the most stable way.
         Ok(LiveChannel {
@@ -575,6 +611,4 @@ impl LiveSocket {
     pub fn socket(&self) -> Arc<Socket> {
         self.socket.clone()
     }
-
 }
-

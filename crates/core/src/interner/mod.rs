@@ -407,8 +407,7 @@ impl ByteArena {
 
         let ptr = self.ptr.get();
         // Set the pointer past ourselves
-        self.ptr
-            .set(self.ptr.get().wrapping_add(bytes));
+        self.ptr.set(self.ptr.get().wrapping_add(bytes));
 
         ptr
     }
@@ -431,8 +430,8 @@ impl ByteArena {
         assert!(!slice.is_empty());
 
         unsafe {
-            let mem = self.alloc_raw(std::mem::size_of_val(slice), mem::align_of::<T>())
-                as *mut _ as *mut T;
+            let mem = self.alloc_raw(std::mem::size_of_val(slice), mem::align_of::<T>()) as *mut _
+                as *mut T;
 
             let arena_slice = slice::from_raw_parts_mut(mem, slice.len());
             arena_slice.copy_from_slice(slice);

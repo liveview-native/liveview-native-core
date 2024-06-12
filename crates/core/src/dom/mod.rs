@@ -1,12 +1,15 @@
 mod attribute;
+mod ffi;
 mod node;
 mod printer;
 mod select;
-mod ffi;
 
 use std::{
     collections::{BTreeMap, VecDeque},
-    fmt, mem, ops::{Deref, DerefMut}, path::Path, sync::Arc,
+    fmt, mem,
+    ops::{Deref, DerefMut},
+    path::Path,
+    sync::Arc,
 };
 
 use cranelift_entity::{packed_option::PackedOption, EntityRef, PrimaryMap, SecondaryMap};
@@ -23,14 +26,13 @@ pub use self::{
     printer::PrintOptions,
     select::{SelectionIter, Selector},
 };
-use crate::parser;
-use crate::diff::fragment::{
-    Root,
-    RootDiff,
-    RenderError,
-    FragmentMerge,
+use crate::{
+    diff::{
+        fragment::{FragmentMerge, RenderError, Root, RootDiff},
+        PatchResult,
+    },
+    parser,
 };
-use crate::diff::PatchResult;
 
 /// A `Document` represents a virtual DOM, and supports common operations typically performed against them.
 ///
@@ -211,9 +213,13 @@ impl Document {
         name: N,
     ) -> Option<Attribute> {
         let name = name.into();
-        self.attributes(node)
-            .iter()
-            .find_map(|attr| if attr.name == name { Some(attr.clone()) } else { None })
+        self.attributes(node).iter().find_map(|attr| {
+            if attr.name == name {
+                Some(attr.clone())
+            } else {
+                None
+            }
+        })
     }
 
     /// Returns the parent of `node`, if it has one
@@ -431,7 +437,10 @@ impl Document {
         name: K,
         value: V,
     ) -> bool {
-        if let NodeData::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
+        if let NodeData::NodeElement {
+            element: ref mut elem,
+        } = &mut self.nodes[node]
+        {
             let name = name.into();
             let value = value.into();
             elem.set_attribute(name, value);
@@ -443,7 +452,10 @@ impl Document {
 
     /// Removes the attribute `name` from `node`.
     pub fn remove_attribute<K: Into<AttributeName>>(&mut self, node: NodeRef, name: K) {
-        if let NodeData::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
+        if let NodeData::NodeElement {
+            element: ref mut elem,
+        } = &mut self.nodes[node]
+        {
             let name = name.into();
             elem.remove_attribute(&name);
         }
@@ -455,7 +467,10 @@ impl Document {
         node: NodeRef,
         attributes: Vec<Attribute>,
     ) -> Option<Vec<Attribute>> {
-        if let NodeData::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
+        if let NodeData::NodeElement {
+            element: ref mut elem,
+        } = &mut self.nodes[node]
+        {
             Some(mem::replace(&mut elem.attributes, attributes))
         } else {
             None
@@ -467,7 +482,10 @@ impl Document {
     where
         P: FnMut(&Attribute) -> bool,
     {
-        if let NodeData::NodeElement { element: ref mut elem } = &mut self.nodes[node] {
+        if let NodeData::NodeElement {
+            element: ref mut elem,
+        } = &mut self.nodes[node]
+        {
             elem.attributes.retain(predicate);
         }
     }
@@ -489,22 +507,16 @@ impl Document {
     }
 
     /// Parses a `RootDiff` and returns a `Document`
-    pub fn parse_fragment_json(
-        input: String,
-    ) -> Result<Self, RenderError> {
+    pub fn parse_fragment_json(input: String) -> Result<Self, RenderError> {
         let fragment: RootDiff = serde_json::from_str(&input).map_err(RenderError::from)?;
-        let root : Root = fragment.try_into()?;
-        let rendered : String = root.clone().try_into()?;
+        let root: Root = fragment.try_into()?;
+        let rendered: String = root.clone().try_into()?;
         let mut document = crate::parser::parse(&rendered)?;
         document.fragment_template = Some(root);
         Ok(document)
     }
 
-
-    pub fn merge_fragment_json(
-        &mut self,
-        json: String,
-    ) -> Result<(), RenderError> {
+    pub fn merge_fragment_json(&mut self, json: String) -> Result<(), RenderError> {
         let fragment: RootDiff = serde_json::from_str(&json).map_err(RenderError::from)?;
 
         let root = if let Some(root) = &self.fragment_template {
@@ -514,7 +526,7 @@ impl Document {
         };
         self.fragment_template = Some(root.clone());
 
-        let rendered_root : String = root.clone().try_into()?;
+        let rendered_root: String = root.clone().try_into()?;
         let new_doc = Self::parse(rendered_root)?;
 
         let patches = crate::diff::diff(self, &new_doc);
@@ -529,44 +541,24 @@ impl Document {
             let patch_result = patch.apply(&mut editor, &mut stack);
             match patch_result {
                 None => (),
-                Some(PatchResult::Add { node, parent, data}) => {
+                Some(PatchResult::Add { node, parent, data }) => {
                     if let Some(ref handler) = handler {
-                        handler.handle(
-                            ChangeType::Add,
-                            node.into(),
-                            data,
-                            Some(parent.into())
-                        );
+                        handler.handle(ChangeType::Add, node.into(), data, Some(parent.into()));
                     }
                 }
-                Some(PatchResult::Remove { node, parent, data}) => {
+                Some(PatchResult::Remove { node, parent, data }) => {
                     if let Some(ref handler) = handler {
-                        handler.handle(
-                            ChangeType::Remove,
-                            node.into(),
-                            data,
-                            Some(parent.into()),
-                        );
+                        handler.handle(ChangeType::Remove, node.into(), data, Some(parent.into()));
                     }
                 }
-                Some(PatchResult::Change { node, data}) => {
+                Some(PatchResult::Change { node, data }) => {
                     if let Some(ref handler) = handler {
-                        handler.handle(
-                            ChangeType::Change,
-                            node.into(),
-                            data,
-                            None
-                        );
+                        handler.handle(ChangeType::Change, node.into(), data, None);
                     }
                 }
-                Some(PatchResult::Replace { node, parent, data}) => {
+                Some(PatchResult::Replace { node, parent, data }) => {
                     if let Some(ref handler) = handler {
-                        handler.handle(
-                            ChangeType::Replace,
-                            node.into(),
-                            data,
-                            Some(parent.into()),
-                        );
+                        handler.handle(ChangeType::Replace, node.into(), data, Some(parent.into()));
                     }
                 }
             }
@@ -591,7 +583,7 @@ pub enum EventType {
 }
 
 #[uniffi::export(callback_interface)]
-pub trait DocumentChangeHandler : Send + Sync {
+pub trait DocumentChangeHandler: Send + Sync {
     fn handle(
         &self,
         change_type: ChangeType,
@@ -600,7 +592,6 @@ pub trait DocumentChangeHandler : Send + Sync {
         parent: Option<Arc<NodeRef>>,
     );
 }
-
 
 /// This trait is used to provide functionality common to construction/mutating documents
 pub trait DocumentBuilder {

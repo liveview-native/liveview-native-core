@@ -16,6 +16,19 @@ env:
   HOMEBREW_NO_AUTO_UPDATE: 1
 
 jobs:
+  fmt:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          components: rustfmt
+
+      - name: Cargo fmt
+        run: cargo fmt --all -- --check
+
   kotiln_integration_tests:
     runs-on: ${{ matrix.os }}
 
@@ -23,8 +36,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [
-          'macos-14',
-          'ubuntu-24.04',
+          macos-14,
+          ubuntu-24.04,
         ]
     steps:
       - uses: actions/checkout@v4

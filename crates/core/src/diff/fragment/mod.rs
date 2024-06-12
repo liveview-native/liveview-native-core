@@ -405,8 +405,8 @@ pub struct StreamItem {
 
 impl TryFrom<Vec<StreamAttribute>> for Stream {
     type Error = StreamConversionError;
-    fn try_from(stream_attrs : Vec<StreamAttribute>) -> Result<Self, Self::Error> {
-        let mut stream : Stream = Stream {
+    fn try_from(stream_attrs: Vec<StreamAttribute>) -> Result<Self, Self::Error> {
+        let mut stream: Stream = Stream {
             id: String::new(),
             stream_items: Vec::new(),
         };
@@ -414,7 +414,7 @@ impl TryFrom<Vec<StreamAttribute>> for Stream {
             match stream_attr {
                 StreamAttribute::StreamID(id) => {
                     stream.id = id.to_string();
-                },
+                }
                 StreamAttribute::Inserts(inserts) => {
                     for (stream_id, (index, limit)) in inserts.iter() {
                         stream.stream_items.push(StreamItem {
@@ -423,15 +423,15 @@ impl TryFrom<Vec<StreamAttribute>> for Stream {
                             limit: *limit,
                         });
                     }
-                },
+                }
                 StreamAttribute::DeleteIDs(_delete_ids) => {
                     log::error!("Deleting Stream IDs when converting from a fragmentdiff to a fragment should not occur");
-                },
+                }
                 StreamAttribute::ResetStream(reset) => {
                     if *reset {
                         stream.stream_items = Vec::new();
                     }
-                },
+                }
             }
         }
         Ok(stream)
@@ -492,7 +492,7 @@ impl TryFrom<FragmentDiff> for Fragment {
                     })
                     .collect::<Result<Vec<Vec<Child>>, MergeError>>()?;
                 let stream = if let Some(stream_updates) = stream {
-                    let stream : Stream = Stream::try_from(stream_updates)?;
+                    let stream: Stream = Stream::try_from(stream_updates)?;
                     Some(stream)
                 } else {
                     None
@@ -547,12 +547,14 @@ pub enum ChildDiff {
 impl Child {
     pub fn statics(&self) -> Option<Vec<String>> {
         match self {
-            Self::Fragment(Fragment::Regular { statics: Statics::Statics(statics), .. }) => {
-                Some(statics.clone())
-            },
-            Self::Fragment(Fragment::Comprehension { statics: Some(Statics::Statics(statics)), .. }) => {
-                Some(statics.clone())
-            }
+            Self::Fragment(Fragment::Regular {
+                statics: Statics::Statics(statics),
+                ..
+            }) => Some(statics.clone()),
+            Self::Fragment(Fragment::Comprehension {
+                statics: Some(Statics::Statics(statics)),
+                ..
+            }) => Some(statics.clone()),
             _ => None,
         }
     }
@@ -696,10 +698,8 @@ impl FragmentMerge for Fragment {
                     (None, None) => {
                         current_dynamics = new_dynamics;
                         None
-                    },
-                    (None, Some(stream_attrs)) => {
-                        Some(Stream::try_from(stream_attrs)?)
                     }
+                    (None, Some(stream_attrs)) => Some(Stream::try_from(stream_attrs)?),
                     (Some(stream), None) => Some(stream),
                     (Some(mut stream), Some(stream_update)) => {
                         for stream_attr in &stream_update {
@@ -708,43 +708,47 @@ impl FragmentMerge for Fragment {
                                     if stream.id != *stream_id {
                                         return Err(MergeError::StreamIDMisMatch);
                                     }
-                                },
+                                }
                                 StreamAttribute::Inserts(inserts) => {
                                     for (insert_id, (index, _limit)) in inserts.iter() {
-                                        if let Some(dynamic) = new_dynamics.iter().find(|children| {
-                                            children.iter().any(|child|
-                                                Child::String(format!(" id=\"{insert_id}\"")) == *child
-                                            )
-                                        }) {
+                                        if let Some(dynamic) =
+                                            new_dynamics.iter().find(|children| {
+                                                children.iter().any(|child| {
+                                                    Child::String(format!(" id=\"{insert_id}\""))
+                                                        == *child
+                                                })
+                                            })
+                                        {
                                             if *index == -1 {
                                                 current_dynamics.push(dynamic.clone());
                                             }
                                         }
                                     }
-                                },
+                                }
                                 StreamAttribute::DeleteIDs(delete_ids) => {
                                     for delete_id in delete_ids {
-                                        if let Some(index) = current_dynamics.iter()
-                                            .position(|children| {
-                                                children.iter().any(|child|
-                                                    Child::String(format!(" id=\"{delete_id}\"")) == *child
-                                                )
+                                        if let Some(index) =
+                                            current_dynamics.iter().position(|children| {
+                                                children.iter().any(|child| {
+                                                    Child::String(format!(" id=\"{delete_id}\""))
+                                                        == *child
+                                                })
                                             })
                                         {
                                             current_dynamics.remove(index);
                                         }
                                     }
-                                },
+                                }
                                 StreamAttribute::ResetStream(reset) => {
                                     if *reset {
                                         stream.stream_items = Vec::new();
                                         current_dynamics.clone_from(&new_dynamics)
                                     }
-                                },
+                                }
                             }
                         }
                         Some(stream)
-                    },
+                    }
                 };
                 Ok(Self::Comprehension {
                     dynamics: current_dynamics,
@@ -860,7 +864,10 @@ pub enum MergeError {
     #[error("There was a id mismatch when merging a stream")]
     StreamIDMisMatch,
     #[error("Stream Error {error}")]
-    Stream { #[from] error: StreamConversionError},
+    Stream {
+        #[from]
+        error: StreamConversionError,
+    },
 }
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]

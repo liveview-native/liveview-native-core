@@ -7,14 +7,13 @@ fn get_image(imgx: u32, imgy: u32, suffix: String) -> Vec<u8> {
     let mut img = RgbaImage::new(imgx, imgy);
     let tile = image::load_from_memory_with_format(
         include_bytes!("../../../tests/support/tinycross.png"),
-        image::ImageFormat::Png
-    ).expect("Failed to load example image");
+        image::ImageFormat::Png,
+    )
+    .expect("Failed to load example image");
 
     use tempfile::tempdir;
     let tmp_dir = tempdir().expect("Failed to get tempdir");
-    let file_path = tmp_dir
-        .path()
-        .join(format!("image-{imgx}-{imgy}.{suffix}"));
+    let file_path = tmp_dir.path().join(format!("image-{imgx}-{imgy}.{suffix}"));
 
     image::imageops::tile(&mut img, &tile);
     img.save(file_path.clone()).unwrap();
@@ -32,9 +31,9 @@ async fn single_chunk_file() {
 
     let url = format!("http://{HOST}/upload?_format=swiftui");
     let image_bytes = get_image(100, 100, "png".to_string());
-    let live_socket = LiveSocket::new(
-        url.to_string(),
-        TIME_OUT).await.expect("Failed to get liveview socket");
+    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT)
+        .await
+        .expect("Failed to get liveview socket");
     let live_channel = live_socket
         .join_liveview_channel()
         .await
@@ -49,10 +48,14 @@ async fn single_chunk_file() {
         "tile.png".to_string(),
         phx_input_id.clone(),
     );
-    let _ = live_channel.validate_upload(&gh_favicon)
+    let _ = live_channel
+        .validate_upload(&gh_favicon)
         .await
         .expect("Failed to validate upload");
-    live_channel.upload_file(&gh_favicon).await.expect("Failed to upload");
+    live_channel
+        .upload_file(&gh_favicon)
+        .await
+        .expect("Failed to upload");
 }
 
 #[tokio::test]
@@ -65,10 +68,9 @@ async fn multi_chunk_file() {
     let url = format!("http://{HOST}/upload?_format=swiftui");
     let image_bytes = get_image(2000, 2000, "png".to_string());
 
-    let live_socket = LiveSocket::new(
-        url.to_string(),
-        TIME_OUT
-    ).await.expect("Failed to get liveview socket");
+    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT)
+        .await
+        .expect("Failed to get liveview socket");
     let live_channel = live_socket
         .join_liveview_channel()
         .await
@@ -78,16 +80,19 @@ async fn multi_chunk_file() {
         .expect("Failed to get phx id from join payload");
 
     let me = LiveFile::new(
-        image_bytes.clone(), 
+        image_bytes.clone(),
         "png".to_string(),
-        "tile.png".to_string(), 
-        phx_input_id
+        "tile.png".to_string(),
+        phx_input_id,
     );
     let _ = live_channel
         .validate_upload(&me)
         .await
         .expect("Failed to validate upload");
-    live_channel.upload_file(&me).await.expect("Failed to upload");
+    live_channel
+        .upload_file(&me)
+        .await
+        .expect("Failed to upload");
 }
 
 #[tokio::test]
@@ -103,10 +108,9 @@ async fn error_file_too_large() {
     // For this file we want to use tiff because it's much biggger than a png.
     let image_bytes = get_image(2000, 2000, "tiff".to_string());
 
-    let live_socket = LiveSocket::new(
-        url.to_string(),
-        TIME_OUT
-    ).await.expect("Failed to get liveview socket");
+    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT)
+        .await
+        .expect("Failed to get liveview socket");
     let live_channel = live_socket
         .join_liveview_channel()
         .await
@@ -116,21 +120,25 @@ async fn error_file_too_large() {
         .expect("Failed to get phx id from join payload");
 
     let me = LiveFile::new(
-        image_bytes.clone(), 
+        image_bytes.clone(),
         "png".to_string(),
-        "tile.png".to_string(), 
-        phx_input_id
+        "tile.png".to_string(),
+        phx_input_id,
     );
     let _ = live_channel
         .validate_upload(&me)
         .await
         .expect("Failed to validate upload");
-    let out = live_channel.upload_file(&me)
+    let out = live_channel
+        .upload_file(&me)
         .await
         .expect_err("This file is too big and should have failed");
 
     // This hack is required because LiveSocketError doesn't derive from PartialEq
-    if let LiveSocketError::Upload{error: UploadError::FileTooLarge} = out {
+    if let LiveSocketError::Upload {
+        error: UploadError::FileTooLarge,
+    } = out
+    {
     } else {
         panic!("This should be a FileTooLarge Error");
     }
@@ -148,10 +156,9 @@ async fn error_incorrect_file_type() {
     // For this file we want to use tiff because it's much biggger than a png.
     let image_bytes = get_image(100, 100, "png".to_string());
 
-    let live_socket = LiveSocket::new(
-        url.to_string(),
-        TIME_OUT
-    ).await.expect("Failed to get liveview socket");
+    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT)
+        .await
+        .expect("Failed to get liveview socket");
     let live_channel = live_socket
         .join_liveview_channel()
         .await
@@ -161,12 +168,13 @@ async fn error_incorrect_file_type() {
         .expect("Failed to get phx id from join payload");
 
     let me = LiveFile::new(
-        image_bytes.clone(), 
+        image_bytes.clone(),
         "tiff".to_string(),
-        "tile.tiff".to_string(), 
-        phx_input_id
+        "tile.tiff".to_string(),
+        phx_input_id,
     );
-    let _ = live_channel.validate_upload(&me)
+    let _ = live_channel
+        .validate_upload(&me)
         .await
         .expect("Failed to validate upload");
     let out = live_channel
@@ -174,9 +182,11 @@ async fn error_incorrect_file_type() {
         .await
         .expect_err("This should b ean incorrect file error");
     // This hack is required because LiveSocketError doesn't derive from PartialEq
-    if let LiveSocketError::Upload{error: UploadError::FileNotAccepted} = out {
+    if let LiveSocketError::Upload {
+        error: UploadError::FileNotAccepted,
+    } = out
+    {
     } else {
         panic!("This should be a FileNotAccepted Error");
     }
 }
-

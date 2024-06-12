@@ -57,7 +57,12 @@ impl<'a> Printer<'a> {
                             let attrs = elem.attributes();
                             if !attrs.is_empty() {
                                 for attr in attrs.iter() {
-                                    write!(writer, " {}=\"{}\"", &attr.name, &attr.value.clone().unwrap_or_default())?
+                                    write!(
+                                        writer,
+                                        " {}=\"{}\"",
+                                        &attr.name,
+                                        &attr.value.clone().unwrap_or_default()
+                                    )?
                                 }
                             }
                             if self_closing {

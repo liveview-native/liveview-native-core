@@ -1,19 +1,12 @@
-use std::{
-    fmt,
-    sync::{
-        Arc,
-    },
-    cell::SyncUnsafeCell,
-};
+use std::{cell::SyncUnsafeCell, fmt, sync::Arc};
+
 pub use super::{
     attribute::Attribute,
-    node::{NodeData, NodeRef, Node},
+    node::{Node, NodeData, NodeRef},
     printer::PrintOptions,
     DocumentChangeHandler,
 };
-use crate::parser::ParseError;
-use crate::diff::fragment::RenderError;
-
+use crate::{diff::fragment::RenderError, parser::ParseError};
 
 #[derive(Clone, uniffi::Object)]
 pub struct Document {
@@ -23,7 +16,7 @@ pub struct Document {
 impl From<super::Document> for Document {
     fn from(doc: super::Document) -> Self {
         Self {
-            inner: Arc::new(SyncUnsafeCell::new(doc))
+            inner: Arc::new(SyncUnsafeCell::new(doc)),
         }
     }
 }
@@ -31,9 +24,7 @@ impl From<super::Document> for Document {
 #[uniffi::export]
 impl Document {
     #[uniffi::constructor]
-    pub fn parse(
-        input: String,
-    ) -> Result<Arc<Self>, ParseError> {
+    pub fn parse(input: String) -> Result<Arc<Self>, ParseError> {
         Ok(Arc::new(Self {
             inner: Arc::new(SyncUnsafeCell::new(super::Document::parse(input)?)),
         }))
@@ -47,25 +38,17 @@ impl Document {
     }
 
     #[uniffi::constructor]
-    pub fn parse_fragment_json(
-        input: String,
-    ) -> Result<Arc<Self>, RenderError> {
-        let inner = Arc::new(SyncUnsafeCell::new(super::Document::parse_fragment_json(input)?));
-        Ok(Arc::new(Self {
-            inner
-        }))
+    pub fn parse_fragment_json(input: String) -> Result<Arc<Self>, RenderError> {
+        let inner = Arc::new(SyncUnsafeCell::new(super::Document::parse_fragment_json(
+            input,
+        )?));
+        Ok(Arc::new(Self { inner }))
     }
-    pub fn set_event_handler(
-        &self,
-        handler: Box<dyn DocumentChangeHandler>
-    ) {
+    pub fn set_event_handler(&self, handler: Box<dyn DocumentChangeHandler>) {
         self.inner_mut().event_callback = Some(Arc::from(handler));
     }
 
-    pub fn merge_fragment_json(
-        &self,
-        json: String,
-    ) -> Result<(), RenderError> {
+    pub fn merge_fragment_json(&self, json: String) -> Result<(), RenderError> {
         self.inner_mut().merge_fragment_json(json)
     }
 
@@ -74,11 +57,17 @@ impl Document {
     }
 
     pub fn get_parent(&self, node_ref: Arc<NodeRef>) -> Option<Arc<NodeRef>> {
-        self.inner().parent(*node_ref).map(|node_ref| node_ref.into())
+        self.inner()
+            .parent(*node_ref)
+            .map(|node_ref| node_ref.into())
     }
 
     pub fn children(&self, node_ref: Arc<NodeRef>) -> Vec<Arc<NodeRef>> {
-        self.inner().children(*node_ref).iter().map(|node| Arc::new(*node)).collect()
+        self.inner()
+            .children(*node_ref)
+            .iter()
+            .map(|node| Arc::new(*node))
+            .collect()
     }
 
     pub fn get_attributes(&self, node_ref: Arc<NodeRef>) -> Vec<Attribute> {
@@ -97,7 +86,7 @@ impl Document {
 }
 impl Document {
     fn inner(&self) -> &super::Document {
-        unsafe {&*self.inner.get()}
+        unsafe { &*self.inner.get() }
     }
     #[allow(clippy::mut_from_ref)]
     fn inner_mut(&self) -> &mut super::Document {
@@ -116,8 +105,6 @@ impl Document {
 impl fmt::Display for Document {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
         self.inner().print(f, PrintOptions::Pretty)
     }
 }
-

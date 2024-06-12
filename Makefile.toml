@@ -447,7 +447,7 @@ args = [
     "-scheme",
     "LiveViewNativeCore",
     "-destination",
-    "name=Apple TV 4K (3rd generation),arch=x86_64",
+    "name=Apple TV 4K (3rd generation)",
     "-workspace",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "-derivedDataPath",
