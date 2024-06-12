@@ -223,10 +223,7 @@ impl Hash for InternedString {
 }
 impl PartialOrd<InternedString> for InternedString {
     fn partial_cmp(&self, other: &InternedString) -> Option<Ordering> {
-        if self.0 == other.0 {
-            return Some(Ordering::Equal);
-        }
-        self.as_str().partial_cmp(other.as_str())
+        Some(self.cmp(other))
     }
 }
 impl Ord for InternedString {
@@ -277,7 +274,7 @@ impl<'a> PartialEq<InternedString> for &'a String {
         self.as_str() == other.as_str()
     }
 }
-impl<'a, const N: usize> PartialEq<InternedString> for smallstr::SmallString<[u8; N]> {
+impl<const N: usize> PartialEq<InternedString> for smallstr::SmallString<[u8; N]> {
     fn eq(&self, other: &InternedString) -> bool {
         self.as_str() == other.as_str()
     }

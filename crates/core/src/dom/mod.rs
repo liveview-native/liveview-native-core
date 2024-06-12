@@ -62,7 +62,7 @@ use crate::{
 /// This structure is designed with a few specific goals in mind:
 ///
 /// * Be cache- and allocator-friendly, by which I mean that common operations generally can avoid chasing pointers,
-/// and performing allocations unless absolutely necessary.
+///   and performing allocations unless absolutely necessary.
 /// * Allow most operations to be performed in constant time
 ///
 #[derive(Clone)]

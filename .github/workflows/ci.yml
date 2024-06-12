@@ -29,6 +29,19 @@ jobs:
       - name: Cargo fmt
         run: cargo fmt --all -- --check
 
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          components: clippy
+
+      - name: Cargo fmt
+        run: cargo clippy -- -Dwarnings
+
   kotiln_integration_tests:
     runs-on: ${{ matrix.os }}
 
