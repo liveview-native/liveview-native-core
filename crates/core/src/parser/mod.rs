@@ -66,7 +66,7 @@ impl From<Infallible> for ParseError {
 impl From<html5gum::Error> for ParseError {
     #[inline(always)]
     fn from(err: html5gum::Error) -> Self {
-        Self::Tokenizer(err.into() )
+        Self::Tokenizer(err.into())
     }
 }
 

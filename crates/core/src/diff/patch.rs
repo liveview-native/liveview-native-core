@@ -93,13 +93,25 @@ pub enum Patch {
 #[derive(Debug)]
 pub enum PatchResult {
     /// The `node` has been added to the document as a child of `parent`.
-    Add { node: NodeRef, parent: NodeRef, data: NodeData},
+    Add {
+        node: NodeRef,
+        parent: NodeRef,
+        data: NodeData,
+    },
     /// The `node` has been removed from the document, having formerly been a child of `parent`.
-    Remove { node: NodeRef, parent: NodeRef, data: NodeData },
+    Remove {
+        node: NodeRef,
+        parent: NodeRef,
+        data: NodeData,
+    },
     /// The `node` has been changed in some other way.
     Change { node: NodeRef, data: NodeData },
     /// The `node` has been replaced
-    Replace { node: NodeRef, parent: NodeRef, data: NodeData},
+    Replace {
+        node: NodeRef,
+        parent: NodeRef,
+        data: NodeData,
+    },
 }
 
 impl Patch {
@@ -112,21 +124,21 @@ impl Patch {
         B: DocumentBuilder,
     {
         match self {
-            Self::InsertBefore { before, node: data} => {
+            Self::InsertBefore { before, node: data } => {
                 let node = doc.insert_before(data.clone(), before);
                 let parent = doc
                     .document()
                     .parent(node)
                     .expect("inserted node should have parent");
-                Some(PatchResult::Add { node, parent, data})
+                Some(PatchResult::Add { node, parent, data })
             }
-            Self::InsertAfter { after, node: data} => {
+            Self::InsertAfter { after, node: data } => {
                 let node = doc.insert_after(data.clone(), after);
                 let parent = doc
                     .document()
                     .parent(node)
                     .expect("inserted node should have parent");
-                Some(PatchResult::Add { node, parent, data})
+                Some(PatchResult::Add { node, parent, data })
             }
             Self::Create { node } => {
                 let node = doc.push_node(node);
@@ -175,7 +187,7 @@ impl Patch {
                 d.insert_before(node, before);
                 let parent = d.parent(before).expect("inserted node should have parent");
                 let data = d.get(node).clone();
-                Some(PatchResult::Add { node, parent, data})
+                Some(PatchResult::Add { node, parent, data })
             }
             Self::Append { node: data } => {
                 let node = doc.append(data.clone());
@@ -185,9 +197,9 @@ impl Patch {
                     data,
                 })
             }
-            Self::AppendTo { parent, node: data} => {
+            Self::AppendTo { parent, node: data } => {
                 let node = doc.append_child(parent, data.clone());
-                Some(PatchResult::Add { node, parent, data})
+                Some(PatchResult::Add { node, parent, data })
             }
             Self::AppendAfter { after } => {
                 let node = stack.pop().unwrap();
@@ -195,7 +207,7 @@ impl Patch {
                 d.insert_after(node, after);
                 let parent = d.parent(after).expect("inserted node should have parent");
                 let data = d.get(node).clone();
-                Some(PatchResult::Add { node, parent, data})
+                Some(PatchResult::Add { node, parent, data })
             }
             Self::Remove { node } => {
                 let data = doc.document().get(node).clone();
@@ -207,23 +219,20 @@ impl Patch {
                 let data = doc.document().get(node).clone();
                 let parent = doc.document_mut().parent(node)?;
                 doc.replace(node, replacement);
-                Some(PatchResult::Replace { node, parent, data})
+                Some(PatchResult::Replace { node, parent, data })
             }
             Self::AddAttribute { name, value } => {
                 doc.set_attribute(name, value);
-                let node =  doc.insertion_point();
+                let node = doc.insertion_point();
                 let data = doc.document().get(node).clone();
-                Some(PatchResult::Change {
-                    node,
-                    data,
-                })
+                Some(PatchResult::Change { node, data })
             }
             Self::AddAttributeTo { node, name, value } => {
                 let data = doc.document().get(node).clone();
                 let mut guard = doc.insert_guard();
                 guard.set_insertion_point(node);
                 guard.set_attribute(name, value);
-                Some(PatchResult::Change { node, data})
+                Some(PatchResult::Change { node, data })
             }
             Self::UpdateAttribute { node, name, value } => {
                 let data = doc.document().get(node).clone();

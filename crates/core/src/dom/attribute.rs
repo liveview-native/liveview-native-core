@@ -30,10 +30,7 @@ impl AttributeName {
     }
 
     #[inline]
-    pub fn new_with_namespace<NS: Into<String>, N: Into<String>>(
-        namespace: NS,
-        name: N,
-    ) -> Self {
+    pub fn new_with_namespace<NS: Into<String>, N: Into<String>>(namespace: NS, name: N) -> Self {
         Self {
             namespace: Some(namespace.into()),
             name: name.into(),
