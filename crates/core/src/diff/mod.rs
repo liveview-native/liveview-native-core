@@ -1,5 +1,5 @@
-mod morph;
 pub mod fragment;
+mod morph;
 mod patch;
 mod traversal;
 
