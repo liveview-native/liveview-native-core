@@ -23,3 +23,6 @@ Cargo.lock
 
 ### Elixir
 /.elixir_ls
+
+# From `cargo make uniffi-swift-test-visionos`
+xcode-build/

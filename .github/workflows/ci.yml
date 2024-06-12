@@ -11,8 +11,9 @@ env:
   CARGO_TERM_COLOR: always
   TOOLCHAIN: nightly
   CARGO_MAKE_TOOLCHAIN: nightly
-  ANDROID_API: 33
+  ANDROID_API: 34
   ANDROID_NDK_VERSION: 26.3.11579264
+  HOMEBREW_NO_AUTO_UPDATE: 1
 
 jobs:
   kotiln_integration_tests:
@@ -53,6 +54,16 @@ jobs:
       - name: Set up Elixir
         if: ${{ matrix.os == 'macos-14' }}
         run: brew install elixir
+
+      - name: Cache mix dependencies and build
+        if: ${{ matrix.os == 'macos-14' }}
+        uses: actions/cache@v4
+        id: mix-cache
+        with:
+          path: |
+            tests/support/test_server/_build/
+            tests/support/test_server/deps/
+          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
 
       - name: Install test server dependencies, compile and run in background
         if: ${{ matrix.os == 'macos-14' }}
@@ -193,12 +204,29 @@ jobs:
       - name: Set up Elixir
         run: brew install elixir
 
+      - name: Cache mix dependencies and build
+        uses: actions/cache@v4
+        id: mix-cache
+        with:
+          path: |
+            tests/support/test_server/_build/
+            tests/support/test_server/deps/
+          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
+
       - name: Install test server dependencies, compile and run in background
         working-directory: ./tests/support/test_server
         run: |
           mix deps.get
           mix compile
           mix phx.server &
+
+      - name: Cache xcode builds for ${{matrix.swift-test}}
+        uses: actions/cache@v4
+        id: xcode-build-cache
+        with:
+          path: |
+            xcode-build/
+          key: xcode-build-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{matrix.swift-test}}
 
       - name: Test swift package
         run: cargo make uniffi-swift-test-${{matrix.swift-test}}
@@ -224,6 +252,15 @@ jobs:
 
       - name: Set up Elixir
         run: brew install elixir
+
+      - name: Cache mix dependencies and build
+        uses: actions/cache@v4
+        id: mix-cache
+        with:
+          path: |
+            tests/support/test_server/_build/
+            tests/support/test_server/deps/
+          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
 
       - name: Install test server dependencies, compile and run in background
         working-directory: ./tests/support/test_server
@@ -267,6 +304,7 @@ jobs:
         with:
           toolchain: ${{ env.TOOLCHAIN }}
           components: rust-src
+          targets: aarch64-apple-ios-sim
       - name: Cache
         uses: actions/cache@v4
         with:
@@ -288,6 +326,15 @@ jobs:
       - name: Set up Elixir
         run: brew install elixir
 
+      - name: Cache mix dependencies and build
+        uses: actions/cache@v4
+        id: mix-cache
+        with:
+          path: |
+            tests/support/test_server/_build/
+            tests/support/test_server/deps/
+          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
+
       - name: Install test server dependencies, compile and run in background
         working-directory: ./tests/support/test_server
         run: |
@@ -295,15 +342,29 @@ jobs:
           mix compile
           mix phx.server &
 
-      - name: Build tests 
+      - name: Build tests
+        if: ${{ matrix.apple-sim == 'iOS' }}
+        run: cargo test --target ${{ matrix.rust-target }} --no-run
+
+      - name: Build tests
+        if: ${{ matrix.apple-sim == 'tvOS' || matrix.apple-sim == 'watchOS' }}
         run: cargo -Zbuild-std test --target ${{ matrix.rust-target }} --no-run
 
       - name: Run Rust tests on simulator for ${{ matrix.rust-target }}
+        if: ${{ matrix.apple-sim == 'tvOS' || matrix.apple-sim == 'watchOS' }}
         env:
           DINGHY_LOG: debug
         timeout-minutes: 30
         run: |
           cargo -Zbuild-std test --target ${{ matrix.rust-target }} -- --test-threads 1
+
+      - name: Run Rust tests on simulator for ${{ matrix.rust-target }}
+        if: ${{ matrix.apple-sim == 'iOS' }}
+        env:
+          DINGHY_LOG: debug
+        timeout-minutes: 30
+        run: |
+          cargo test --target ${{ matrix.rust-target }} -- --test-threads 1
 
   android_simulator_tests:
     # rust cross-compilation
@@ -336,6 +397,15 @@ jobs:
           elixir-version:  1.15
           otp-version: 25
 
+      - name: Cache mix dependencies and build
+        uses: actions/cache@v4
+        id: mix-cache
+        with:
+          path: |
+            tests/support/test_server/_build/
+            tests/support/test_server/deps/
+          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
+
       - name: Install test server dependencies, compile and run in background
         working-directory: ./tests/support/test_server
         run: |
@@ -365,11 +435,18 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-${{ env.ANDROID_API }}
+          key: avd-${{ env.ANDROID_API }}-${{ github.workflow }}-${{ github.job }}
+
+      - name: Create directory for avd
+        # This shouldn't be necesary but this is a work around for
+        # https://github.com/ReactiveCircus/android-emulator-runner/issues/197
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        run:
+          mkdir -p ~/.android/avd
 
       - name: Create AVD and generate snapshot for caching
         if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@v2.31.0
         with:
           api-level: ${{ env.ANDROID_API }}
           ndk: ${{ env.ANDROID_NDK_VERSION }}
@@ -381,7 +458,7 @@ jobs:
           script: echo "Generated AVD snapshot for caching."
 
       - name: Run tests in android emulator
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@v2.31.0
         env:
           RANLIB: "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
         with:
