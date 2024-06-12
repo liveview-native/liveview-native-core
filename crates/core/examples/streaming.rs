@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use liveview_native_core::live_socket::{LiveFile, LiveSocket};
+use liveview_native_core::live_socket::LiveSocket;
 
 #[cfg(target_os = "android")]
 const HOST: &str = "10.0.2.2:4001";

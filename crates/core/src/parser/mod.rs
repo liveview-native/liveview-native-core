@@ -130,12 +130,13 @@ impl PartialEq for Token {
 /// * Comments are dropped
 /// * All strings are interned
 /// * We allocate all nodes/attributes/etc via a Document during tokenization, then use
-/// the emitted tokens to construct the actual element tree (i.e. connect )
-/// construct the
+///   the emitted tokens to construct the actual element tree (i.e. connect )
+///   construct the
 struct DocumentEmitter {
     current_characters: SmallVec<[u8; 16]>,
     current_token: Option<Token>,
     current_tag: SmallVec<[u8; 16]>,
+    #[allow(clippy::type_complexity)]
     current_attribute: Option<(SmallVec<[u8; 16]>, SmallVec<[u8; 16]>)>,
     current_doctype: SmallVec<[u8; 16]>,
     last_start_tag: InternedString,

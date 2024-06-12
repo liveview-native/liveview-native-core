@@ -86,7 +86,7 @@ pub enum AttributeValue {
     String(SmallString<[u8; 16]>),
 }
 impl AttributeValue {
-    pub fn to_string(&self) -> String {
+    pub fn name(&self) -> String {
         match self {
             Self::None => String::new(),
             Self::String(s) => s.to_string(),
