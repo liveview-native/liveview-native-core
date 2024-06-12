@@ -14,4 +14,4 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-uniffi = { version = "0.27", features = ["cli"] }
+uniffi = { version = "0.28", features = ["cli"] }
