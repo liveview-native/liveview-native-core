@@ -25,9 +25,18 @@ updates:
       interval: "daily"
 
   - package-ecosystem: "swift" 
-    directory: "/" 
+    directory: "/"
     schedule:
       interval: "daily"
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"] # ignore patch updates
+
+  - package-ecosystem: "gradle" 
+    directory: "/crates/core/liveview-native-core-jetpack/" 
+    schedule:
+      interval: "daily"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch"] # ignore patch updates
+

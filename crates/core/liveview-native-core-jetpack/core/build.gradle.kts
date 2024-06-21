@@ -1,26 +1,30 @@
 plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android) 
     id("maven-publish")
-    id("org.mozilla.rust-android-gradle.rust-android")
+    alias(libs.plugins.rust.android.gradle) 
     // TODO: Add generated sources to dokka sourcesets
-    id("org.jetbrains.dokka") version "1.9.10" apply true
+    alias(libs.plugins.dokka) apply true
 }
 subprojects {
     apply(plugin = "org.jetbrains.dokka")
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
-    compileOnly("net.java.dev.jna:jna:5.14.0@aar")
+    implementation(libs.org.jetbrains.kotlinx.coroutines.core)
+    compileOnly(libs.net.java.dev.jna) {
+        artifact {
+            type = "aar"
+        }
+    }
+    testImplementation(libs.net.java.dev.jna)
 
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
 
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
-    testImplementation("net.java.dev.jna:jna:5.14.0")
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    testImplementation(libs.junit)
+    testImplementation(libs.org.jetbrains.kotlinx.coroutines.test)
+    coreLibraryDesugaring(libs.com.android.tools.desugar)
 }
 val uniffiPath = "${buildDir}/generated/source/uniffi/java"
 val os_name = System.getProperty("os.name").lowercase()
