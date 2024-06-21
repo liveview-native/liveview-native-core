@@ -11,14 +11,14 @@ subprojects {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-    implementation("net.java.dev.jna:jna:5.14.0@aar")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+    compileOnly("net.java.dev.jna:jna:5.14.0@aar")
 
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
     testImplementation("net.java.dev.jna:jna:5.14.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
@@ -41,8 +41,10 @@ android {
         getByName("release") {
             isMinifyEnabled = false
         }
+        /*
         create("releaseDesktop") {
         }
+        */
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -57,10 +59,12 @@ android {
             withSourcesJar()
             withJavadocJar()
         }
+        /*
         singleVariant("releaseDesktop") {
             withSourcesJar()
             withJavadocJar()
         }
+        */
     }
     ndkVersion = "26.3.11579264"
 
@@ -165,6 +169,7 @@ publishing {
             }
         }
     }
+    /*
     publications {
         register<MavenPublication>("releaseDesktop")  {
             groupId = "org.phoenixframework"
@@ -176,4 +181,5 @@ publishing {
             }
         }
     }
+    */
 }
