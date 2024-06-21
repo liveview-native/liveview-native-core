@@ -1,0 +1,27 @@
+[versions]
+android-gradle-plugin = "8.1.0"
+jna = "5.14.0"
+kotlinx-coroutines = "1.8.1"
+androidx-test-ext = "1.1.5"
+espresso-core = "3.5.1"
+junit = "4.13.2"
+desugar_jdk_libs = "2.0.4"
+jetbrains-kotlin-android = "1.9.0"
+rust-android-gradle = "0.9.3"
+dokka = "1.9.10" 
+
+[libraries]
+net-java-dev-jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna"}
+org-jetbrains-kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+org-jetbrains-kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-test-ext" }
+androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso-core" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+com-android-tools-desugar = {group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "android-gradle-plugin" }
+android-library = { id = "com.android.library", version.ref = "android-gradle-plugin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "jetbrains-kotlin-android" }
+rust-android-gradle = { id = "org.mozilla.rust-android-gradle.rust-android", version.ref = "rust-android-gradle" }
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
