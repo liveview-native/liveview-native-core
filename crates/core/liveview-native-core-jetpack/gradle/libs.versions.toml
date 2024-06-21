@@ -1,14 +1,14 @@
 [versions]
-android-gradle-plugin = "8.1.0"
+android-gradle-plugin = "8.3.0"
 jna = "5.14.0"
 kotlinx-coroutines = "1.8.1"
 androidx-test-ext = "1.1.5"
 espresso-core = "3.5.1"
 junit = "4.13.2"
 desugar_jdk_libs = "2.0.4"
-jetbrains-kotlin-android = "1.9.0"
+jetbrains-kotlin-android = "2.0.0"
 rust-android-gradle = "0.9.3"
-dokka = "1.9.10" 
+dokka = "1.9.20"
 
 [libraries]
 net-java-dev-jna = { group = "net.java.dev.jna", name = "jna", version.ref = "jna"}
