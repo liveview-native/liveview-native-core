@@ -14,7 +14,7 @@ const TIME_OUT: Duration = Duration::from_secs(2);
 async fn main() {
     let _ = env_logger::builder().parse_default_env().try_init();
 
-    let url = format!("http://{HOST}/simple_stream?_lvn[format]=swiftui");
+    let url = format!("http://{HOST}/simple_stream?_format=swiftui");
 
     let live_socket = LiveSocket::new(url.to_string(), TIME_OUT)
         .await

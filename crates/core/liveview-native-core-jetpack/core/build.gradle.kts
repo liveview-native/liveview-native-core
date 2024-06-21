@@ -11,14 +11,14 @@ subprojects {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
-    implementation("net.java.dev.jna:jna:5.14.0@aar")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+    compileOnly("net.java.dev.jna:jna:5.14.0@aar")
 
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
     testImplementation("net.java.dev.jna:jna:5.14.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
@@ -26,7 +26,7 @@ val uniffiPath = "${buildDir}/generated/source/uniffi/java"
 val os_name = System.getProperty("os.name").lowercase()
 val is_linux = os_name.contains("linux")
 val is_mac = os_name.contains("mac")
-val lvn_version = "0.4.0-alpha-3"
+val lvn_version = "0.4.0-alpha-4"
 
 android {
     namespace = "org.phoenixframework.liveview_native_core_jetpack"
