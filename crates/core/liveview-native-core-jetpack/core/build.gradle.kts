@@ -1,8 +1,8 @@
 plugins {
+    alias(libs.plugins.rust.android.gradle) 
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android) 
     id("maven-publish")
-    alias(libs.plugins.rust.android.gradle) 
     // TODO: Add generated sources to dokka sourcesets
     alias(libs.plugins.dokka) apply true
 }
@@ -158,6 +158,14 @@ tasks.configureEach {
     }
     if (name == "generateDebugUniFFIBindings") {
         dependsOn("buildDebugStaticLib")
+    }
+}
+// https://github.com/mozilla/rust-android-gradle/issues/118#issuecomment-1569407058
+tasks.whenObjectAdded {
+   if ((this.name == "mergeDebugJniLibFolders" || this.name == "mergeReleaseJniLibFolders")) {
+        this.dependsOn("cargoBuild")
+       // fix mergeDebugJniLibFolders  UP-TO-DATE
+        this.inputs.dir(buildDir.resolve("rustJniLibs/android"))
     }
 }
 
