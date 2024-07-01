@@ -13,7 +13,7 @@ defmodule TestServerWeb.SimpleLiveUpload do
   @impl true
   def render(assigns) do
     ~H"""
-    <.link href={~p"/simple_stream"}>Streaming Page</.link>
+    <.link href={~p"/stream"}>Streaming Page</.link>
     <p> THIS IS AN UPLOAD FORM </p>
     <form id="upload-form" phx-submit="save" phx-change="validate">
 

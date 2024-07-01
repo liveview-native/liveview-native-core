@@ -7,7 +7,7 @@ async fn streaming_connect() {
         .is_test(true)
         .try_init();
 
-    let url = format!("http://{HOST}/simple_stream?_format=swiftui");
+    let url = format!("http://{HOST}/stream?_format=swiftui");
 
     let live_socket = LiveSocket::new(url.to_string(), TIME_OUT)
         .await
