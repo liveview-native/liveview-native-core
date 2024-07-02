@@ -75,7 +75,7 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: ${{matrix.os}}-${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-${{ github.workflow }}-${{ github.job }}-${{runner.os}}-${{runner.arch}}-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Set up Elixir
         if: ${{ matrix.os == 'macos-14' }}
@@ -89,7 +89,7 @@ jobs:
           path: |
             tests/support/test_server/_build/
             tests/support/test_server/deps/
-          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
+          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{ hashFiles('**/mix.lock') }}
 
       - name: Install test server dependencies, compile and run in background
         if: ${{ matrix.os == 'macos-14' }}
@@ -164,7 +164,7 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-${{ github.workflow }}-${{ github.job }}-${{runner.os}}-${{runner.arch}}-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Generate the swift package
         run: cargo make uniffi-swift-package
@@ -237,7 +237,7 @@ jobs:
           path: |
             tests/support/test_server/_build/
             tests/support/test_server/deps/
-          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
+          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{ hashFiles('**/mix.lock') }}
 
       - name: Install test server dependencies, compile and run in background
         working-directory: ./tests/support/test_server
@@ -252,7 +252,7 @@ jobs:
         with:
           path: |
             xcode-build/
-          key: xcode-build-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{matrix.swift-test}}
+          key: xcode-build-${{ github.workflow }}-${{ github.job }}-${{ runner.os }}-${{runner.arch}}-${{matrix.swift-test}}
 
       - name: Test swift package
         run: cargo make uniffi-swift-test-${{matrix.swift-test}}
@@ -274,7 +274,7 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-${{ github.workflow }}-${{ github.job }}-${{runner.os}}-${{runner.arch}}-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Set up Elixir
         run: brew install elixir
@@ -286,7 +286,7 @@ jobs:
           path: |
             tests/support/test_server/_build/
             tests/support/test_server/deps/
-          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
+          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{ hashFiles('**/mix.lock') }}
 
       - name: Install test server dependencies, compile and run in background
         working-directory: ./tests/support/test_server
@@ -331,7 +331,8 @@ jobs:
           toolchain: ${{ env.TOOLCHAIN }}
           components: rust-src
           targets: aarch64-apple-ios-sim
-      - name: Cache
+
+      - name: Cargo Cache
         uses: actions/cache@v4
         with:
           path: |
@@ -339,7 +340,8 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: ${{ github.workflow }}-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-${{ github.workflow }}-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('**/Cargo.toml') }}
+
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-dinghy@0.7.1
@@ -359,7 +361,7 @@ jobs:
           path: |
             tests/support/test_server/_build/
             tests/support/test_server/deps/
-          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
+          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{ hashFiles('**/mix.lock') }}
 
       - name: Install test server dependencies, compile and run in background
         working-directory: ./tests/support/test_server
@@ -404,7 +406,8 @@ jobs:
         with:
           toolchain: ${{ env.TOOLCHAIN }}
           target: x86_64-linux-android
-      - name: Cache Cargo
+
+      - name: Cargo Cache
         uses: actions/cache@v4
         with:
           path: |
@@ -412,7 +415,7 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-${{ github.workflow }}-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('**/Cargo.toml') }}
 
       - uses: taiki-e/install-action@v2
         with:
@@ -430,7 +433,7 @@ jobs:
           path: |
             tests/support/test_server/_build/
             tests/support/test_server/deps/
-          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
+          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{ hashFiles('**/mix.lock') }}
 
       - name: Install test server dependencies, compile and run in background
         working-directory: ./tests/support/test_server
@@ -461,7 +464,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-${{ env.ANDROID_API }}-${{ github.workflow }}-${{ github.job }}
+          key: avd-${{ env.ANDROID_API }}-${{ github.workflow }}-${{ github.job }}-${{ runner.os }}-${{runner.arch}}
 
       - name: Create directory for avd
         # This shouldn't be necesary but this is a work around for
