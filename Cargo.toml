@@ -49,4 +49,4 @@ core-foundation-sys = { git = "https://github.com/servo/core-foundation-rs", rev
 mio = { git = "https://github.com/simlay/mio.git", rev = "7b8b2e605ad64bcabf1f0af4366aa404a8b6bbdc" }
 
 # https://github.com/rust-lang/socket2/pull/503
-socket2 = { git = "https://github.com/QuentinPerez/socket2.git", rev = "ca3a93088857b40c27e98d1690f242a7ba8da4dc" }
+socket2 = { git = "https://github.com/rust-lang/socket2.git", rev = "3a938932829ea6ee3025d2d7a86c7b095c76e6c3" }

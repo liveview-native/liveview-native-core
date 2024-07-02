@@ -40,7 +40,7 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-${{ github.workflow }}-${{ github.job }}-${{runner.os}}-${{runner.arch}}-${{ hashFiles('**/Cargo.toml') }}
 
       - uses: taiki-e/install-action@v2
         with:

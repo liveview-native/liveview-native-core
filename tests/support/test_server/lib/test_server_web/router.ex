@@ -24,7 +24,7 @@ defmodule TestServerWeb.Router do
     live "/thermostat", ThermostatLive
     live "/hello", HelloLive
     live "/upload", SimpleLiveUpload
-    live "/simple_stream", SimpleLiveStream
+    live "/stream", SimpleLiveStream
   end
 
   # Other scopes may use custom stacks.
