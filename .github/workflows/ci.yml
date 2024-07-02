@@ -190,7 +190,6 @@ jobs:
     needs:
       - swift_build_xcframework
     strategy:
-      fail-fast: false
       matrix:
         swift-test: [
           "package",
