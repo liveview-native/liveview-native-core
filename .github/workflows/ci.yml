@@ -259,12 +259,14 @@ jobs:
       - name: Show Test Coverage
         if: ${{ matrix.swift-test == 'package' }}
         run: |
-          xcrun llvm-cov report -instr-profile .build/arm64-apple-macosx/debug/codecov/default.profdata .build/arm64-apple-macosx/debug/LiveViewNativeCorePackageTests.xctest/Contents/MacOS/LiveViewNativeCorePackageTests 
-          xcrun llvm-cov report -instr-profile .build/arm64-apple-macosx/debug/codecov/default.profdata .build/arm64-apple-macosx/debug/LiveViewNativeCorePackageTests.xctest/Contents/MacOS/LiveViewNativeCorePackageTests --format lcov > ./swift-lcov.info
+          xcrun llvm-cov report -instr-profile .build/arm64-apple-macosx/debug/codecov/default.profdata .build/arm64-apple-macosx/debug/LiveViewNativeCorePackageTests.xctest/Contents/MacOS/LiveViewNativeCorePackageTests
+          xcrun llvm-cov export -instr-profile .build/arm64-apple-macosx/debug/codecov/default.profdata .build/arm64-apple-macosx/debug/LiveViewNativeCorePackageTests.xctest/Contents/MacOS/LiveViewNativeCorePackageTests --format lcov > ./swift-lcov.info
 
       - name: Install lcov
+        if: ${{ matrix.swift-test == 'package' }}
         run: brew install lcov
       - name: Report code coverage
+        if: ${{ matrix.swift-test == 'package' }}
         uses: zgosalvez/github-actions-report-lcov@v3
         with:
           coverage-files: ./swift-lcov.info
