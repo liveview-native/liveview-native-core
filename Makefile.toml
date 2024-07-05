@@ -436,6 +436,7 @@ args = [
     "test",
     "--package-path",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
+    "--enable-code-coverage"
 ]
 dependencies = []
 [tasks.uniffi-swift-test-tvos]

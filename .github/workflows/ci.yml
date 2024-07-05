@@ -256,6 +256,13 @@ jobs:
       - name: Test swift package
         run: cargo make uniffi-swift-test-${{matrix.swift-test}}
 
+      - name: Show Test Coverage
+        if: ${{ matrix.swift-test == 'package' }}
+        run: |
+          xcrun llvm-cov report -instr-profile .build/arm64-apple-macosx/debug/codecov/default.profdata .build/arm64-apple-macosx/debug/LiveViewNativeCorePackageTests.xctest/Contents/MacOS/LiveViewNativeCorePackageTests
+          echo '### Swift Test Coverage! 🚀' >> $GITHUB_STEP_SUMMARY
+          xcrun llvm-cov report -instr-profile .build/arm64-apple-macosx/debug/codecov/default.profdata .build/arm64-apple-macosx/debug/LiveViewNativeCorePackageTests.xctest/Contents/MacOS/LiveViewNativeCorePackageTests >> $GITHUB_STEP_SUMMARY
+
   integration_tests:
     runs-on: macos-14
 
@@ -300,12 +307,27 @@ jobs:
       - name: Build tests
         run: cargo test --no-run
 
-      - name: Run Test
+      - name: Run Tests
         timeout-minutes: 5
         run: cargo test
         env:
           # This is required for the kotlin uniffi tests
           CLASSPATH: "/Users/runner/work/liveview-native-core/liveview-native-core/jna-5.14.0.jar:/opt/homebrew/opt/kotlin/libexec/lib/kotlinx-coroutines-core-jvm.jar"
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Test Coverage
+        timeout-minutes: 5
+        run: |
+          cargo llvm-cov
+          cargo llvm-cov report
+          echo '### Rust Test Coverage! 🚀' >> $GITHUB_STEP_SUMMARY
+          cargo llvm-cov report >> $GITHUB_STEP_SUMMARY
+        env:
+          # This is required for the kotlin uniffi tests
+          CLASSPATH: "/Users/runner/work/liveview-native-core/liveview-native-core/jna-5.14.0.jar:/opt/homebrew/opt/kotlin/libexec/lib/kotlinx-coroutines-core-jvm.jar"
+
 
   apple_simulator_tests:
     # rust cross-compilation
