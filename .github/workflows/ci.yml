@@ -279,6 +279,7 @@ jobs:
         with:
           name: LiveViewNativeCore-Source
           path: ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore
+
       - uses: actions/download-artifact@v4
         with:
           name: swift-lcov.info
@@ -289,6 +290,10 @@ jobs:
       - run: |
           ls
           ls *
+
+      - name: Check artifact downloads
+        run: |
+          ls ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/ ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/*
 
       - name: Install lcov
         run: sudo apt-get -y install lcov
