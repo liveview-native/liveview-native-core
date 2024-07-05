@@ -261,6 +261,9 @@ jobs:
         run: |
           xcrun llvm-cov report -instr-profile .build/arm64-apple-macosx/debug/codecov/default.profdata .build/arm64-apple-macosx/debug/LiveViewNativeCorePackageTests.xctest/Contents/MacOS/LiveViewNativeCorePackageTests 
           xcrun llvm-cov report -instr-profile .build/arm64-apple-macosx/debug/codecov/default.profdata .build/arm64-apple-macosx/debug/LiveViewNativeCorePackageTests.xctest/Contents/MacOS/LiveViewNativeCorePackageTests --format lcov > ./swift-lcov.info
+
+      - name: Install lcov
+        run: brew install lcov
       - name: Report code coverage
         uses: zgosalvez/github-actions-report-lcov@v3
         with:
@@ -331,6 +334,8 @@ jobs:
         env:
           # This is required for the kotlin uniffi tests
           CLASSPATH: "/Users/runner/work/liveview-native-core/liveview-native-core/jna-5.14.0.jar:/opt/homebrew/opt/kotlin/libexec/lib/kotlinx-coroutines-core-jvm.jar"
+      - name: Install lcov
+        run: brew install lcov
       - name: Report code coverage
         uses: zgosalvez/github-actions-report-lcov@v3
         with:
