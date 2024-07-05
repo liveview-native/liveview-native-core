@@ -259,9 +259,15 @@ jobs:
       - name: Show Test Coverage
         if: ${{ matrix.swift-test == 'package' }}
         run: |
-          xcrun llvm-cov report -instr-profile .build/arm64-apple-macosx/debug/codecov/default.profdata .build/arm64-apple-macosx/debug/LiveViewNativeCorePackageTests.xctest/Contents/MacOS/LiveViewNativeCorePackageTests
-          echo '### Swift Test Coverage! 🚀' >> $GITHUB_STEP_SUMMARY
-          xcrun llvm-cov report -instr-profile .build/arm64-apple-macosx/debug/codecov/default.profdata .build/arm64-apple-macosx/debug/LiveViewNativeCorePackageTests.xctest/Contents/MacOS/LiveViewNativeCorePackageTests >> $GITHUB_STEP_SUMMARY
+          xcrun llvm-cov report -instr-profile .build/arm64-apple-macosx/debug/codecov/default.profdata .build/arm64-apple-macosx/debug/LiveViewNativeCorePackageTests.xctest/Contents/MacOS/LiveViewNativeCorePackageTests 
+          xcrun llvm-cov report -instr-profile .build/arm64-apple-macosx/debug/codecov/default.profdata .build/arm64-apple-macosx/debug/LiveViewNativeCorePackageTests.xctest/Contents/MacOS/LiveViewNativeCorePackageTests --format lcov > ./swift-lcov.info
+      - name: Report code coverage
+        uses: zgosalvez/github-actions-report-lcov@v3
+        with:
+          coverage-files: ./swift-lcov.info
+          artifact-name: swift-code-coverage-report
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          update-comment: true
 
   integration_tests:
     runs-on: macos-14
@@ -321,12 +327,17 @@ jobs:
         timeout-minutes: 5
         run: |
           cargo llvm-cov
-          cargo llvm-cov report
-          echo '### Rust Test Coverage! 🚀' >> $GITHUB_STEP_SUMMARY
-          cargo llvm-cov report >> $GITHUB_STEP_SUMMARY
+          cargo llvm-cov report --lcov  --output-path ./rust-lcov.info
         env:
           # This is required for the kotlin uniffi tests
           CLASSPATH: "/Users/runner/work/liveview-native-core/liveview-native-core/jna-5.14.0.jar:/opt/homebrew/opt/kotlin/libexec/lib/kotlinx-coroutines-core-jvm.jar"
+      - name: Report code coverage
+        uses: zgosalvez/github-actions-report-lcov@v3
+        with:
+          coverage-files: ./rust-lcov.info
+          artifact-name: rust-code-coverage-report
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          update-comment: true
 
 
   apple_simulator_tests:
