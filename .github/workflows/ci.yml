@@ -274,6 +274,11 @@ jobs:
       - swift_integration_tests
       - integration_tests
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: LiveViewNativeCore-Source
+          path: ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore
       - uses: actions/download-artifact@v4
         with:
           name: swift-lcov.info
