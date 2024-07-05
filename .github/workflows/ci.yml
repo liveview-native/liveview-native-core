@@ -185,7 +185,6 @@ jobs:
           path: ./target/uniffi/swift/liveview_native_core.xcframework
 
   swift_integration_tests:
-    continue-on-error: true
     runs-on: macos-14
     needs:
       - swift_build_xcframework
@@ -278,11 +277,13 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: swift-lcov.info
-          path: swift-lcov.info
       - uses: actions/download-artifact@v4
         with:
           name: rust-lcov.info
-          path: rust-lcov.info
+
+      - run: |
+          ls
+          ls *
 
       - name: Install lcov
         run: sudo apt-get -y install lcov
