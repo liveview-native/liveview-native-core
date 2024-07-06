@@ -1,0 +1,35 @@
+name: 'Hello World'
+description: 'Greet someone'
+inputs:
+  who-to-greet:  # id of input
+    description: 'Who to greet'
+    required: true
+    default: 'World'
+outputs:
+  random-number:
+    description: "Random number"
+    value: ${{ steps.random-number-generator.outputs.random-number }}
+runs:
+  using: "composite"
+  steps:
+    - name: Cache mix dependencies and build
+      uses: actions/cache@v4
+      id: mix-cache
+      with:
+        path: |
+          tests/support/test_server/_build/
+          tests/support/test_server/deps/
+        key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{ hashFiles('**/mix.lock') }}
+
+    - name: Set up Elixir
+      if: ${{ runner.os == 'macOS' }}
+      run: brew install elixir
+      shell: bash
+
+    - name: Install test server dependencies, compile and run in background
+      shell: bash
+      working-directory: ./tests/support/test_server
+      run: |
+        mix deps.get
+        mix compile
+        mix phx.server &
