@@ -1,0 +1,34 @@
+name: Setup and Start Phoenix Test Server
+
+on:
+  workflow_call:
+
+jobs:
+  setup-test-server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache mix dependencies and build
+        uses: actions/cache@v4
+        id: mix-cache
+        with:
+          path: |
+            tests/support/test_server/_build/
+            tests/support/test_server/deps/
+          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{ hashFiles('**/mix.lock') }}
+
+      - name: Set up Elixir
+        if: ${{ runner.os == 'macOS' }}
+        run: brew install elixir
+
+      - uses: erlef/setup-beam@v1
+        if: ${{ runner.os == 'Linux' }}
+        with:
+          elixir-version:  1.15
+          otp-version: 25
+
+      - name: Install test server dependencies, compile and run in background
+        working-directory: ./tests/support/test_server
+        run: |
+          mix deps.get
+          mix compile
+          mix phx.server &
