@@ -54,6 +54,8 @@ jobs:
         ]
     steps:
       - uses: actions/checkout@v4
+      - uses: ./tests/support/test_server/
+        if: ${{ matrix.os == 'macos-14' }}
       - name: Install Rust Nightly
         uses: dtolnay/rust-toolchain@master
         with:
@@ -76,28 +78,6 @@ jobs:
             ~/.cargo/registry
             target
           key: cargo-${{ github.workflow }}-${{ github.job }}-${{runner.os}}-${{runner.arch}}-${{ hashFiles('**/Cargo.toml') }}
-
-      - name: Set up Elixir
-        if: ${{ matrix.os == 'macos-14' }}
-        run: brew install elixir
-
-      - name: Cache mix dependencies and build
-        if: ${{ matrix.os == 'macos-14' }}
-        uses: actions/cache@v4
-        id: mix-cache
-        with:
-          path: |
-            tests/support/test_server/_build/
-            tests/support/test_server/deps/
-          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{ hashFiles('**/mix.lock') }}
-
-      - name: Install test server dependencies, compile and run in background
-        if: ${{ matrix.os == 'macos-14' }}
-        working-directory: ./tests/support/test_server
-        run: |
-          mix deps.get
-          mix compile
-          mix phx.server &
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -202,25 +182,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Elixir
-        run: brew install elixir
-
-      - name: Cache mix dependencies and build
-        uses: actions/cache@v4
-        id: mix-cache
-        with:
-          path: |
-            tests/support/test_server/_build/
-            tests/support/test_server/deps/
-          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{ hashFiles('**/mix.lock') }}
-
-      - name: Install test server dependencies, compile and run in background
-        working-directory: ./tests/support/test_server
-        run: |
-          mix deps.get
-          mix compile
-          mix phx.server &
+      - uses: ./tests/support/test_server/
 
       - uses: actions/download-artifact@v4
         with:
@@ -312,6 +274,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - uses: ./tests/support/test_server/
       - name: Install Rust Nightly
         uses: dtolnay/rust-toolchain@master
         with:
@@ -325,25 +288,6 @@ jobs:
             ~/.cargo/registry
             target
           key: cargo-${{ github.workflow }}-${{ github.job }}-${{runner.os}}-${{runner.arch}}-${{ hashFiles('**/Cargo.toml') }}
-
-      - name: Set up Elixir
-        run: brew install elixir
-
-      - name: Cache mix dependencies and build
-        uses: actions/cache@v4
-        id: mix-cache
-        with:
-          path: |
-            tests/support/test_server/_build/
-            tests/support/test_server/deps/
-          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{ hashFiles('**/mix.lock') }}
-
-      - name: Install test server dependencies, compile and run in background
-        working-directory: ./tests/support/test_server
-        run: |
-          mix deps.get
-          mix compile
-          mix phx.server &
 
       - name: Get the JNA jar for testing kotlin.
         run: wget 'https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.14.0/jna-5.14.0.jar'

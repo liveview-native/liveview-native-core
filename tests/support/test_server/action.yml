@@ -1,14 +1,5 @@
-name: 'Hello World'
-description: 'Greet someone'
-inputs:
-  who-to-greet:  # id of input
-    description: 'Who to greet'
-    required: true
-    default: 'World'
-outputs:
-  random-number:
-    description: "Random number"
-    value: ${{ steps.random-number-generator.outputs.random-number }}
+name: 'Setup Test Server'
+description: 'An action for setting up the test server'
 runs:
   using: "composite"
   steps:
@@ -25,6 +16,12 @@ runs:
       if: ${{ runner.os == 'macOS' }}
       run: brew install elixir
       shell: bash
+
+    - uses: erlef/setup-beam@v1
+      if: ${{ runner.os == 'Linux' }}
+      with:
+        elixir-version:  1.15
+        otp-version: 25
 
     - name: Install test server dependencies, compile and run in background
       shell: bash
