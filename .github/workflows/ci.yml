@@ -217,6 +217,13 @@ jobs:
       - name: Test swift package
         run: cargo make uniffi-swift-test-${{matrix.swift-test}}
 
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v1
+        with:
+          name: test-results
+          path: xcode-build/Logs/Test/
+
       - name: Show Test Coverage
         if: ${{ matrix.swift-test == 'package' }}
         run: |
@@ -261,15 +268,6 @@ jobs:
       - uses: livewing/lcov-job-summary@v1.1.0
         with:
           lcov: merged-lcov
-
-            #- name: Report code coverage
-            #  uses: zgosalvez/github-actions-report-lcov@v3
-            #  with:
-            #    coverage-files: ./merged-lcov.info
-            #    artifact-name: rust-code-coverage-report
-            #    github-token: ${{ secrets.GITHUB_TOKEN }}
-            #    update-comment: true
-
 
   integration_tests:
     runs-on: macos-14
@@ -321,7 +319,6 @@ jobs:
           retention-days: 5
           name: rust-lcov.info
           path: rust-lcov.info
-
 
   apple_simulator_tests:
     # rust cross-compilation
