@@ -249,13 +249,9 @@ jobs:
         with:
           name: rust-lcov.info
 
-      - run: |
-          ls
-          ls *
-
       - name: Check artifact downloads
         run: |
-          ls ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/ ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/*
+          ls $PWD/crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/ $PWD/crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/*
 
       - name: Install lcov
         run: sudo apt-get -y install lcov
