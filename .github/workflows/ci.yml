@@ -218,7 +218,7 @@ jobs:
         run: cargo make uniffi-swift-test-${{matrix.swift-test}}
 
       - name: Upload Test Results
-        if: always() && ${{ matrix.swift-test != 'package' }}
+        if: ${{ failure() && matrix.swift-test != 'package' }}
         uses: actions/upload-artifact@v1
         with:
           name: test-results
