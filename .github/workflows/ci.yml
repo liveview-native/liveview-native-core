@@ -255,14 +255,20 @@ jobs:
 
       - name: Install lcov
         run: sudo apt-get -y install lcov
+      - name: Merge coverage files
+        run: lcov -a rust-lcov.info -a swift-lcov.info -o merged-lcov.info
 
-      - name: Report code coverage
-        uses: zgosalvez/github-actions-report-lcov@v3
+      - uses: livewing/lcov-job-summary@v1.1.0
         with:
-          coverage-files: ./*-lcov.info
-          artifact-name: rust-code-coverage-report
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          update-comment: true
+          lcov: merged-lcov
+
+            #- name: Report code coverage
+            #  uses: zgosalvez/github-actions-report-lcov@v3
+            #  with:
+            #    coverage-files: ./merged-lcov.info
+            #    artifact-name: rust-code-coverage-report
+            #    github-token: ${{ secrets.GITHUB_TOKEN }}
+            #    update-comment: true
 
 
   integration_tests:
