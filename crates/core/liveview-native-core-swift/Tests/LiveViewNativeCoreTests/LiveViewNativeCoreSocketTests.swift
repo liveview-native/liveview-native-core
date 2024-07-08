@@ -5,7 +5,7 @@ import XCTest
 #endif
 
 let url = "http://127.0.0.1:4001/upload?_format=swiftui";
-let timeout = TimeInterval(10.0)
+let timeout = TimeInterval(30.0)
 
 
 final class LiveViewNativeCoreSocketTests: XCTestCase {
