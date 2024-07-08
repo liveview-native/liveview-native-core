@@ -267,7 +267,7 @@ jobs:
 
       - uses: livewing/lcov-job-summary@v1.1.0
         with:
-          lcov: merged-lcov
+          lcov: merged-lcov.info
 
   integration_tests:
     runs-on: macos-14
