@@ -23,10 +23,15 @@ runs:
         elixir-version:  1.15
         otp-version: 25
 
-    - name: Install test server dependencies, compile and run in background
+    - run: mix deps.get
+      working-directory: ./tests/support/test_server
+      shell: bash
+
+    - run: mix compile
+      working-directory: ./tests/support/test_server
+      shell: bash
+
+    - name: Run in background
       shell: bash
       working-directory: ./tests/support/test_server
-      run: |
-        mix deps.get
-        mix compile
-        mix phx.server &
+      run: mix phx.server &
