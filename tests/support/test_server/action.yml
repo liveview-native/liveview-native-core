@@ -34,4 +34,4 @@ runs:
     - name: Run in background
       shell: bash
       working-directory: ./tests/support/test_server
-      run: mix phx.server &
+      run: mix phx.server > server.stdout.txt 2> server.stderr.txt & disown

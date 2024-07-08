@@ -221,8 +221,18 @@ jobs:
         if: ${{ failure() && matrix.swift-test != 'package' }}
         uses: actions/upload-artifact@v1
         with:
-          name: test-results
+          name: xcode-test-results-${{ matrix.swift-test }}
           path: xcode-build/Logs/Test/
+
+      - name: Phx server logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v1
+        with:
+          name: phx-server-stdout-${{ matrix.swift-test }}
+          path: |
+            tests/support/test_server/server.stdout.txt
+            tests/support/test_server/server.stderr.txt
+
 
       - name: Show Test Coverage
         if: ${{ matrix.swift-test == 'package' }}
@@ -388,6 +398,15 @@ jobs:
         timeout-minutes: 30
         run: |
           cargo test --target ${{ matrix.rust-target }} -- --test-threads 1
+
+      - name: Phx server logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v1
+        with:
+          name: phx-server-stdout-${{ matrix.rust-target }}
+          path: |
+            tests/support/test_server/server.stdout.txt
+            tests/support/test_server/server.stderr.txt
 
   android_simulator_tests:
     # rust cross-compilation
