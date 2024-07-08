@@ -30,7 +30,7 @@ jobs:
         run: cargo fmt --all -- --check
 
   clippy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -54,6 +54,8 @@ jobs:
         ]
     steps:
       - uses: actions/checkout@v4
+      - uses: ./tests/support/test_server/
+        if: ${{ matrix.os == 'macos-14' }}
       - name: Install Rust Nightly
         uses: dtolnay/rust-toolchain@master
         with:
@@ -75,29 +77,7 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: ${{matrix.os}}-${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Set up Elixir
-        if: ${{ matrix.os == 'macos-14' }}
-        run: brew install elixir
-
-      - name: Cache mix dependencies and build
-        if: ${{ matrix.os == 'macos-14' }}
-        uses: actions/cache@v4
-        id: mix-cache
-        with:
-          path: |
-            tests/support/test_server/_build/
-            tests/support/test_server/deps/
-          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
-
-      - name: Install test server dependencies, compile and run in background
-        if: ${{ matrix.os == 'macos-14' }}
-        working-directory: ./tests/support/test_server
-        run: |
-          mix deps.get
-          mix compile
-          mix phx.server &
+          key: cargo-${{ github.workflow }}-${{ github.job }}-${{runner.os}}-${{runner.arch}}-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -164,7 +144,7 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-${{ github.workflow }}-${{ github.job }}-${{runner.os}}-${{runner.arch}}-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Generate the swift package
         run: cargo make uniffi-swift-package
@@ -185,12 +165,10 @@ jobs:
           path: ./target/uniffi/swift/liveview_native_core.xcframework
 
   swift_integration_tests:
-    continue-on-error: true
     runs-on: macos-14
     needs:
       - swift_build_xcframework
     strategy:
-      fail-fast: false
       matrix:
         swift-test: [
           "package",
@@ -204,6 +182,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - uses: ./tests/support/test_server/
 
       - uses: actions/download-artifact@v4
         with:
@@ -227,41 +206,85 @@ jobs:
         with:
           tool: cargo-make
 
-      - name: Set up Elixir
-        run: brew install elixir
-
-      - name: Cache mix dependencies and build
-        uses: actions/cache@v4
-        id: mix-cache
-        with:
-          path: |
-            tests/support/test_server/_build/
-            tests/support/test_server/deps/
-          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
-
-      - name: Install test server dependencies, compile and run in background
-        working-directory: ./tests/support/test_server
-        run: |
-          mix deps.get
-          mix compile
-          mix phx.server &
-
       - name: Cache xcode builds for ${{matrix.swift-test}}
         uses: actions/cache@v4
         id: xcode-build-cache
         with:
           path: |
             xcode-build/
-          key: xcode-build-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{matrix.swift-test}}
+          key: xcode-build-${{ github.workflow }}-${{ github.job }}-${{ runner.os }}-${{runner.arch}}-${{matrix.swift-test}}
 
       - name: Test swift package
         run: cargo make uniffi-swift-test-${{matrix.swift-test}}
+
+      - name: Upload Test Results
+        if: ${{ failure() && matrix.swift-test != 'package' }}
+        uses: actions/upload-artifact@v1
+        with:
+          name: xcode-test-results-${{ matrix.swift-test }}
+          path: xcode-build/Logs/Test/
+
+      - name: Phx server logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v1
+        with:
+          name: phx-server-stdout-${{ matrix.swift-test }}
+          path: |
+            tests/support/test_server/server.stdout.txt
+            tests/support/test_server/server.stderr.txt
+
+
+      - name: Show Test Coverage
+        if: ${{ matrix.swift-test == 'package' }}
+        run: |
+          xcrun llvm-cov report -instr-profile .build/arm64-apple-macosx/debug/codecov/default.profdata .build/arm64-apple-macosx/debug/LiveViewNativeCorePackageTests.xctest/Contents/MacOS/LiveViewNativeCorePackageTests
+          xcrun llvm-cov export -instr-profile .build/arm64-apple-macosx/debug/codecov/default.profdata .build/arm64-apple-macosx/debug/LiveViewNativeCorePackageTests.xctest/Contents/MacOS/LiveViewNativeCorePackageTests --format lcov > ./swift-lcov.info
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ matrix.swift-test == 'package' }}
+        with:
+          retention-days: 5
+          name: swift-lcov.info
+          path: swift-lcov.info
+
+  coverage_report:
+    runs-on: ubuntu-latest
+    needs:
+      - swift_integration_tests
+      - integration_tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: LiveViewNativeCore-Source
+          path: ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: swift-lcov.info
+      - uses: actions/download-artifact@v4
+        with:
+          name: rust-lcov.info
+
+      - name: Check artifact downloads
+        run: |
+          ls $PWD/crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/ $PWD/crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/*
+
+      - name: Install lcov
+        run: sudo apt-get -y install lcov
+      - name: Merge coverage files
+        run: lcov -a rust-lcov.info -a swift-lcov.info -o merged-lcov.info
+
+      - uses: livewing/lcov-job-summary@v1.1.0
+        with:
+          lcov: merged-lcov.info
 
   integration_tests:
     runs-on: macos-14
 
     steps:
       - uses: actions/checkout@v4
+      - uses: ./tests/support/test_server/
       - name: Install Rust Nightly
         uses: dtolnay/rust-toolchain@master
         with:
@@ -274,26 +297,7 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Set up Elixir
-        run: brew install elixir
-
-      - name: Cache mix dependencies and build
-        uses: actions/cache@v4
-        id: mix-cache
-        with:
-          path: |
-            tests/support/test_server/_build/
-            tests/support/test_server/deps/
-          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
-
-      - name: Install test server dependencies, compile and run in background
-        working-directory: ./tests/support/test_server
-        run: |
-          mix deps.get
-          mix compile
-          mix phx.server &
+          key: cargo-${{ github.workflow }}-${{ github.job }}-${{runner.os}}-${{runner.arch}}-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Get the JNA jar for testing kotlin.
         run: wget 'https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.14.0/jna-5.14.0.jar'
@@ -301,12 +305,30 @@ jobs:
       - name: Build tests
         run: cargo test --no-run
 
-      - name: Run Test
+      - name: Run Tests
         timeout-minutes: 5
         run: cargo test
         env:
           # This is required for the kotlin uniffi tests
           CLASSPATH: "/Users/runner/work/liveview-native-core/liveview-native-core/jna-5.14.0.jar:/opt/homebrew/opt/kotlin/libexec/lib/kotlinx-coroutines-core-jvm.jar"
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Test Coverage
+        timeout-minutes: 5
+        run: |
+          cargo llvm-cov
+          cargo llvm-cov report --lcov  --output-path ./rust-lcov.info
+        env:
+          # This is required for the kotlin uniffi tests
+          CLASSPATH: "/Users/runner/work/liveview-native-core/liveview-native-core/jna-5.14.0.jar:/opt/homebrew/opt/kotlin/libexec/lib/kotlinx-coroutines-core-jvm.jar"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          retention-days: 5
+          name: rust-lcov.info
+          path: rust-lcov.info
 
   apple_simulator_tests:
     # rust cross-compilation
@@ -331,7 +353,8 @@ jobs:
           toolchain: ${{ env.TOOLCHAIN }}
           components: rust-src
           targets: aarch64-apple-ios-sim
-      - name: Cache
+
+      - name: Cargo Cache
         uses: actions/cache@v4
         with:
           path: |
@@ -339,7 +362,8 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: ${{ github.workflow }}-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-${{ github.workflow }}-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('**/Cargo.toml') }}
+
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-dinghy@0.7.1
@@ -349,24 +373,7 @@ jobs:
         with:
           os: ${{ matrix.apple-sim }}
 
-      - name: Set up Elixir
-        run: brew install elixir
-
-      - name: Cache mix dependencies and build
-        uses: actions/cache@v4
-        id: mix-cache
-        with:
-          path: |
-            tests/support/test_server/_build/
-            tests/support/test_server/deps/
-          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
-
-      - name: Install test server dependencies, compile and run in background
-        working-directory: ./tests/support/test_server
-        run: |
-          mix deps.get
-          mix compile
-          mix phx.server &
+      - uses: ./tests/support/test_server/
 
       - name: Build tests
         if: ${{ matrix.apple-sim == 'iOS' }}
@@ -392,6 +399,15 @@ jobs:
         run: |
           cargo test --target ${{ matrix.rust-target }} -- --test-threads 1
 
+      - name: Phx server logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v1
+        with:
+          name: phx-server-stdout-${{ matrix.rust-target }}
+          path: |
+            tests/support/test_server/server.stdout.txt
+            tests/support/test_server/server.stderr.txt
+
   android_simulator_tests:
     # rust cross-compilation
     runs-on: ubuntu-24.04
@@ -404,7 +420,8 @@ jobs:
         with:
           toolchain: ${{ env.TOOLCHAIN }}
           target: x86_64-linux-android
-      - name: Cache Cargo
+
+      - name: Cargo Cache
         uses: actions/cache@v4
         with:
           path: |
@@ -412,32 +429,13 @@ jobs:
             ~/.cargo/git
             ~/.cargo/registry
             target
-          key: ${{ github.workflow }}-${{ github.job }}-toolchain-${{ env.TOOLCHAIN }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: cargo-${{ github.workflow }}-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('**/Cargo.toml') }}
 
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-dinghy@0.7.1
 
-      - uses: erlef/setup-beam@v1
-        with:
-          elixir-version:  1.15
-          otp-version: 25
-
-      - name: Cache mix dependencies and build
-        uses: actions/cache@v4
-        id: mix-cache
-        with:
-          path: |
-            tests/support/test_server/_build/
-            tests/support/test_server/deps/
-          key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}
-
-      - name: Install test server dependencies, compile and run in background
-        working-directory: ./tests/support/test_server
-        run: |
-          mix deps.get
-          mix compile
-          mix phx.server &
+      - uses: ./tests/support/test_server/
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -461,7 +459,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-${{ env.ANDROID_API }}-${{ github.workflow }}-${{ github.job }}
+          key: avd-${{ env.ANDROID_API }}-${{ github.workflow }}-${{ github.job }}-${{ runner.os }}-${{runner.arch}}
 
       - name: Create directory for avd
         # This shouldn't be necesary but this is a work around for

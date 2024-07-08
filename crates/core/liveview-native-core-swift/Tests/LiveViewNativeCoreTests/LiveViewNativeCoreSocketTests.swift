@@ -5,18 +5,18 @@ import XCTest
 #endif
 
 let url = "http://127.0.0.1:4001/upload?_format=swiftui";
-let timeout = TimeInterval(10.0)
+let timeout = TimeInterval(30.0)
 
 
 final class LiveViewNativeCoreSocketTests: XCTestCase {
     func testConnect() async throws {
         let live_socket = try await LiveSocket(url, timeout)
-        let _lvn_channel = try await live_socket.joinLiveviewChannel()
+        let _ = try await live_socket.joinLiveviewChannel()
     }
 
     func testStatus() async throws {
         let live_socket = try await LiveSocket(url, timeout)
-        let _lvn_channel = try await live_socket.joinLiveviewChannel()
+        let _ = try await live_socket.joinLiveviewChannel()
         let socket = live_socket.socket()
 
         var status = socket.status()
