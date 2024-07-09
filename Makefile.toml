@@ -454,6 +454,7 @@ args = [
     "-derivedDataPath",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/xcode-build",
     "-retry-tests-on-failure",
+    "-test-iterations", "5",
     "test"
 ]
 dependencies = []
@@ -473,6 +474,7 @@ args = [
     "-derivedDataPath",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/xcode-build",
     "-retry-tests-on-failure",
+    "-test-iterations", "5",
     "test"
 ]
 dependencies = []
@@ -492,6 +494,7 @@ args = [
     "-derivedDataPath",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/xcode-build",
     "-retry-tests-on-failure",
+    "-test-iterations", "5",
     "test"
 ]
 dependencies = []
@@ -511,6 +514,7 @@ args = [
     "-derivedDataPath",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/xcode-build",
     "-retry-tests-on-failure",
+    "-test-iterations", "5",
     "test"
 ]
 dependencies = []
@@ -530,6 +534,7 @@ args = [
     "-derivedDataPath",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/xcode-build",
     "-retry-tests-on-failure",
+    "-test-iterations", "5",
     "test"
 ]
 dependencies = []
