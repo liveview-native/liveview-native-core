@@ -151,7 +151,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          retention-days: 5
+          retention-days: 2
           name: LiveViewNativeCore-Source
           path: ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore
 
@@ -160,7 +160,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          retention-days: 5
+          retention-days: 2
           name: liveview_native_core.xcframework
           path: ./target/uniffi/swift/liveview_native_core.xcframework
 
@@ -219,20 +219,19 @@ jobs:
 
       - name: Upload Test Results
         if: ${{ failure() && matrix.swift-test != 'package' }}
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v4
         with:
           name: xcode-test-results-${{ matrix.swift-test }}
           path: xcode-build/Logs/Test/
 
       - name: Phx server logs
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v4
         with:
           name: phx-server-stdout-${{ matrix.swift-test }}
           path: |
             tests/support/test_server/server.stdout.txt
             tests/support/test_server/server.stderr.txt
-
 
       - name: Show Test Coverage
         if: ${{ matrix.swift-test == 'package' }}
@@ -243,7 +242,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ matrix.swift-test == 'package' }}
         with:
-          retention-days: 5
+          retention-days: 2
           name: swift-lcov.info
           path: swift-lcov.info
 
@@ -326,7 +325,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          retention-days: 5
+          retention-days: 2
           name: rust-lcov.info
           path: rust-lcov.info
 
@@ -401,7 +400,7 @@ jobs:
 
       - name: Phx server logs
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v1
+        uses: actions/upload-artifact@v4
         with:
           name: phx-server-stdout-${{ matrix.rust-target }}
           path: |
@@ -470,7 +469,7 @@ jobs:
 
       - name: Create AVD and generate snapshot for caching
         if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2.31.0
+        uses: reactivecircus/android-emulator-runner@v2.32.0
         with:
           api-level: ${{ env.ANDROID_API }}
           ndk: ${{ env.ANDROID_NDK_VERSION }}
@@ -482,7 +481,7 @@ jobs:
           script: echo "Generated AVD snapshot for caching."
 
       - name: Run tests in android emulator
-        uses: reactivecircus/android-emulator-runner@v2.31.0
+        uses: reactivecircus/android-emulator-runner@v2.32.0
         env:
           RANLIB: "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
         with:
