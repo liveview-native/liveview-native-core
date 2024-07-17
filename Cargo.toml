@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/core", "crates/uniffi-bindgen",
+    "crates/core", "crates/uniffi-bindgen", "crates/wasm",
 ]
 
 [workspace.package]
