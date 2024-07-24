@@ -45,8 +45,5 @@ security-framework-sys = { git = "https://github.com/kornelski/rust-security-fra
 # https://github.com/servo/core-foundation-rs/pull/679
 core-foundation-sys = { git = "https://github.com/servo/core-foundation-rs", rev = "fb8fd65eef1b2ef247055e944cf258d53f2a517a" }
 
-# https://github.com/tokio-rs/mio/pull/1773 and backport PR.
-mio = { git = "https://github.com/simlay/mio.git", rev = "7b8b2e605ad64bcabf1f0af4366aa404a8b6bbdc" }
-
 # https://github.com/rust-lang/socket2/pull/503
 socket2 = { git = "https://github.com/rust-lang/socket2.git", rev = "3a938932829ea6ee3025d2d7a86c7b095c76e6c3" }
