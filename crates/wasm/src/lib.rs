@@ -17,6 +17,25 @@ extern "C" {
     #[wasm_bindgen(js_namespace = console, js_name = log)]
     fn log_many(a: &str, b: &str);
 }
+
+#[wasm_bindgen(
+inline_js = "
+    export function map_to_object(map) { 
+        const out = Object.create(null); 
+        map.forEach((value, key) => { 
+            if (value instanceof Map) { 
+                out[key] = map_to_object(value) 
+            } else { 
+                out[key] = value 
+            } 
+        }); 
+        return out; 
+    }"
+    )
+]
+extern "C" {
+	fn map_to_object(map: JsValue) -> JsValue;
+}
 use liveview_native_core::diff::fragment::{
     FragmentDiff,
     FragmentMerge,
@@ -47,7 +66,8 @@ impl Rendered {
         todo!();
     }
     pub fn get(&self) -> JsValue {
-        todo!();
+        let map = serde_wasm_bindgen::to_value(&self.inner).unwrap();
+        map_to_object(map)
 
     }
     pub fn toString(&self) -> Vec<String> {

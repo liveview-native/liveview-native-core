@@ -296,10 +296,12 @@ fn test_replace() {
     let current = Fragment::Regular {
         children: HashMap::from([("1".into(), Child::String("a".into()))]),
         statics: Statics::Statics(vec!["b".into(), "c".into()]),
+        reply: None,
     };
     let new = Fragment::Regular {
         children: HashMap::from([("1".into(), Child::String("foo".into()))]),
         statics: Statics::Statics(vec!["bar".into(), "baz".into()]),
+        reply: None,
     };
     let diff = FragmentDiff::ReplaceCurrent(new.clone());
     let merge = current.merge(diff).expect("Failed to merge diff");
@@ -314,14 +316,15 @@ fn fragment_render_parse() {
                 ("1".into(), Child::ComponentID(1)),
             ]),
             statics: Statics::Statics(vec!["1".into(), "2".into(), "3".into()]),
+            reply: None,
         },
-        components: Some(HashMap::from([(
+        components: HashMap::from([(
             "1".into(),
             Component {
                 children: HashMap::from([("0".into(), Child::String("bar".into()))]),
                 statics: ComponentStatics::Statics(vec!["4".into(), "5".into()]),
             },
-        )])),
+        )]),
     };
     let expected = "1foo24bar53";
     let out: String = root.try_into().expect("Failed to render root");
@@ -722,6 +725,7 @@ fn simple() {
     let expected = FragmentDiff::UpdateRegular {
         children: HashMap::from([(1.to_string(), ChildDiff::String("baz".into()))]),
         statics: None,
+        reply: None,
     };
     assert_eq!(out, expected);
 }
@@ -760,6 +764,7 @@ fn test_decode_simple() {
             ("1".into(), ChildDiff::String("bar".into())),
         ]),
         statics: Some(Statics::Statics(vec!["a".into(), "b".into()])),
+        reply: None,
     };
     assert_eq!(out, expected);
 }
@@ -794,6 +799,7 @@ fn test_decode_comprehension_with_templates() {
             vec!["\\n    bar ".into(), "\\n  ".into()],
         )])),
         stream: None,
+        reply: None,
     };
     assert_eq!(out, expected);
 }
@@ -819,6 +825,7 @@ fn test_decode_comprehension_without_templates() {
         statics: None,
         templates: None,
         stream: None,
+        reply: None,
     };
     assert_eq!(out, expected);
 }
@@ -858,11 +865,13 @@ fn test_decode_component_diff() {
                 ChildDiff::Fragment(FragmentDiff::UpdateRegular {
                     children: HashMap::from([("0".into(), ChildDiff::ComponentID(1))]),
                     statics: None,
+                    reply: None,
                 }),
             )]),
             statics: None,
+            reply: None,
         },
-        components: Some(HashMap::from([(
+        components: HashMap::from([(
             "1".into(),
             ComponentDiff::UpdateRegular {
                 children: HashMap::from([(
@@ -881,10 +890,11 @@ fn test_decode_component_diff() {
                         statics: None,
                         templates: None,
                         stream: None,
+                        reply: None,
                     }),
                 )]),
             },
-        )])),
+        )]),
     };
     assert_eq!(out, expected);
 }
@@ -908,11 +918,13 @@ fn test_decode_root_diff() {
                 ChildDiff::Fragment(FragmentDiff::UpdateRegular {
                     children: HashMap::from([("0".into(), ChildDiff::ComponentID(1))]),
                     statics: None,
+                    reply: None,
                 }),
             )]),
             statics: None,
+            reply: None,
         },
-        components: None,
+        components: HashMap::new(),
     };
     assert_eq!(out, expected);
 }
