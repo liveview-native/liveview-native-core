@@ -22,6 +22,28 @@ pub struct Root {
     #[serde(rename = "c", default = "HashMap::new")]
     components: HashMap<String, Component>,
 }
+impl Root {
+    pub fn is_component_only_diff(&self) -> bool {
+        self.components.len() > 0 && self.fragment.is_empty()
+    }
+    pub fn is_new_fingerprint(&self) -> bool {
+        self.fragment.is_new_fingerprint()
+    }
+    pub fn get_component(&self, cid: i32) -> Option<Component> {
+        self.components.get(&format!("{cid}")).cloned()
+    }
+    pub fn component_cids(&self) -> Vec<u32> {
+
+        let keys: Vec<u32> = self
+            .components 
+            .keys()
+            .into_iter()
+            .filter_map(|key| key.parse::<u32>().ok())
+            .collect();
+
+        keys
+    }
+}
 
 impl TryFrom<RootDiff> for Root {
     type Error = MergeError;
@@ -93,7 +115,9 @@ impl Fragment {
     ) -> Result<String, RenderError> {
         let mut out = String::new();
         match &self {
-            Fragment::Regular { children, statics, .. } => {
+            Fragment::Regular {
+                children, statics, ..
+            } => {
                 match statics {
                     Statics::Statics(statics) => {
                         out.push_str(&statics[0]);
@@ -265,10 +289,7 @@ pub struct Component {
 }
 
 impl Component {
-    pub fn render(
-        &self,
-        components: &HashMap<String, Component>,
-    ) -> Result<String, RenderError> {
+    pub fn render(&self, components: &HashMap<String, Component>) -> Result<String, RenderError> {
         match &self.statics {
             ComponentStatics::Statics(statics) => {
                 let mut out = String::new();
@@ -400,6 +421,43 @@ pub enum Fragment {
     },
 }
 
+impl Fragment {
+    pub fn is_new_fingerprint(&self) -> bool {
+        match self {
+            Fragment::Regular { .. } => {
+                false
+            }
+            Fragment::Comprehension { statics, .. } => {
+                statics.is_some()
+            }
+        }
+    }
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Fragment::Regular {
+                statics,
+                reply,
+                children,
+            } => {
+                false
+            }
+            Fragment::Comprehension {
+                dynamics,
+                statics,
+                reply,
+                templates,
+                stream,
+            } => {
+                dynamics.is_empty()
+                    && statics.is_none()
+                    && reply.is_none()
+                    && templates.is_none()
+                    && stream.is_none()
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
 pub struct Stream {
@@ -475,7 +533,11 @@ impl TryFrom<FragmentDiff> for Fragment {
     type Error = MergeError;
     fn try_from(value: FragmentDiff) -> Result<Self, MergeError> {
         match value {
-            FragmentDiff::UpdateRegular { children, statics, reply } => {
+            FragmentDiff::UpdateRegular {
+                children,
+                statics,
+                reply,
+            } => {
                 let mut new_children: HashMap<String, Child> = HashMap::new();
                 for (key, cdiff) in children.into_iter() {
                     new_children.insert(key, cdiff.try_into()?);
@@ -883,12 +945,13 @@ impl FragmentMerge for HashMap<String, Child> {
     type DiffItem = HashMap<String, ChildDiff>;
 
     fn merge(self, diff: Self::DiffItem) -> Result<Self, MergeError> {
+        let (self_clone, diff_clone) = (self.clone(), diff.clone());
         let mut new_children = self;
         for (index, comp_diff) in diff.into_iter() {
             if let Some(child) = new_children.get_mut(&index) {
                 *child = child.clone().merge(comp_diff)?;
             } else {
-                return Err(MergeError::AddChildToExisting);
+                new_children.insert(index, comp_diff.try_into()?);
             }
         }
         Ok(new_children)
