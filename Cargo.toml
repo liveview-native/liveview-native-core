@@ -47,3 +47,6 @@ core-foundation-sys = { git = "https://github.com/servo/core-foundation-rs", rev
 
 # https://github.com/rust-lang/socket2/pull/503
 socket2 = { git = "https://github.com/rust-lang/socket2.git", rev = "3a938932829ea6ee3025d2d7a86c7b095c76e6c3" }
+
+tokio-tungstenite = { git = "https://github.com/simlay/tokio-tungstenite.git", branch = "add-browser-wasm-support"}
+tokio = { git = "https://github.com/simlay/tokio.git", branch = "use-web-time-on-wasm32-unknown-unknown" }
