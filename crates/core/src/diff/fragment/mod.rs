@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct RootDiff {
     #[serde(flatten)]
     fragment: FragmentDiff,
@@ -14,8 +13,7 @@ pub struct RootDiff {
     components: HashMap<String, ComponentDiff>,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Root {
     #[serde(flatten)]
     fragment: Fragment,
@@ -279,8 +277,7 @@ impl Child {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Component {
     #[serde(flatten)]
     children: HashMap<String, Child>,
@@ -364,8 +361,7 @@ impl Component {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum FragmentDiff {
     UpdateRegular {
@@ -395,8 +391,7 @@ type Templates = Option<HashMap<String, Vec<String>>>;
 type DynamicsDiff = Vec<Vec<ChildDiff>>;
 type Dynamics = Vec<Vec<Child>>;
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Fragment {
     Regular {
@@ -458,16 +453,14 @@ impl Fragment {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Stream {
     // This is actually a string wrapped integer.
     id: String,
     stream_items: Vec<StreamItem>,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct StreamItem {
     id: String,
     index: i32,
@@ -511,8 +504,7 @@ impl TryFrom<Vec<StreamAttribute>> for Stream {
 
 pub type StreamUpdate = Vec<StreamAttribute>;
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum StreamAttribute {
     StreamID(String),
@@ -521,8 +513,7 @@ pub enum StreamAttribute {
     ResetStream(bool),
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum StreamInsert {
     StreamAt(i32),
@@ -588,8 +579,7 @@ impl TryFrom<FragmentDiff> for Fragment {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Statics {
     Statics(Vec<String>),
@@ -610,8 +600,7 @@ impl FragmentMerge for Option<Statics> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Child {
     Fragment(Fragment),
@@ -619,8 +608,7 @@ pub enum Child {
     String(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum ChildDiff {
     Fragment(FragmentDiff),
@@ -671,8 +659,7 @@ impl TryFrom<ComponentDiff> for Component {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum ComponentDiff {
     ReplaceCurrent {
@@ -693,8 +680,7 @@ impl ComponentDiff {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-#[cfg_attr(target_family = "wasm", derive(serde::Serialize))]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum ComponentStatics {
     Statics(Vec<String>),
