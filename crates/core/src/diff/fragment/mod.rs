@@ -22,7 +22,7 @@ pub struct Root {
 }
 impl Root {
     pub fn is_component_only_diff(&self) -> bool {
-        self.components.len() > 0 && self.fragment.is_empty()
+        !self.components.is_empty() && self.fragment.is_empty()
     }
     pub fn is_new_fingerprint(&self) -> bool {
         self.fragment.is_new_fingerprint()
@@ -34,7 +34,6 @@ impl Root {
         let keys: Vec<u32> = self
             .components
             .keys()
-            .into_iter()
             .filter_map(|key| key.parse::<u32>().ok())
             .collect();
 

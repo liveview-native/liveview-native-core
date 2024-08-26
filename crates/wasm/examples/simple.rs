@@ -34,18 +34,18 @@ fn id() -> String {
 
 fn shared_secret_url(id: String) -> Url {
     Url::parse_with_params(
-        "ws://127.0.0.1:9002/socket/websocket".into(),
+        "ws://127.0.0.1:9002/socket/websocket",
         &[("shared_secret", "supersecret".to_string()), ("id", id)],
     )
     .unwrap()
 }
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
-use log::{info, Level};
+use log::info;
 use tokio::runtime::Builder;
 
 #[wasm_bindgen(main)]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    console_error_panic_hook::set_once();
+    let _ = console_error_panic_hook::set_once();
     console_log::init_with_level(log::Level::Debug);
     let rt = Builder::new_current_thread().enable_time().build()?;
     let id = id();
