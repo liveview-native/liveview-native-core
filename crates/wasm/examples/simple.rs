@@ -1,6 +1,5 @@
 //use wasm_bindgen_test::*;
 //wasm_bindgen_test_configure!(run_in_browser);
-use wasm_bindgen::prelude::*;
 use std::time::Duration;
 
 /*
@@ -17,7 +16,7 @@ use liveview_native_core::{
 use phoenix_channels_client::Socket;
 use url::Url;
 use uuid::Uuid;
-
+use wasm_bindgen::prelude::*;
 
 /*
 #[wasm_bindgen_test]
@@ -41,27 +40,27 @@ fn shared_secret_url(id: String) -> Url {
     .unwrap()
 }
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+use log::{info, Level};
 use tokio::runtime::Builder;
-use log::{
-    Level,
-    info,
-};
 
 #[wasm_bindgen(main)]
-async fn main() -> Result<(), Box<dyn std::error::Error>>  {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     console_error_panic_hook::set_once();
     console_log::init_with_level(log::Level::Debug);
-    let rt = Builder::new_current_thread()
-        .enable_time()
-        .build()?;
+    let rt = Builder::new_current_thread().enable_time().build()?;
     let id = id();
     let url = shared_secret_url(id);
     info!("URL: {url}");
 
     let local = tokio::task::LocalSet::new();
-    local.run_until( async move {
-        let socket = Socket::spawn(url, None).expect("Failed to spawn socket");
-        socket.connect(CONNECT_TIMEOUT).await.expect("Failed to connect to server");
-    }).await;
+    local
+        .run_until(async move {
+            let socket = Socket::spawn(url, None).expect("Failed to spawn socket");
+            socket
+                .connect(CONNECT_TIMEOUT)
+                .await
+                .expect("Failed to connect to server");
+        })
+        .await;
     Ok(())
 }

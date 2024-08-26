@@ -68,10 +68,7 @@ impl Default for UploadConfig {
     }
 }
 
-#[cfg_attr(
-    not(target_family = "wasm"),
-    uniffi::export(async_runtime = "tokio")
-)]
+#[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveChannel {
     pub async fn merge_diffs(&self) -> Result<(), LiveSocketError> {
         // TODO: This should probably take the event closure to send changes back to swift/kotlin
@@ -389,10 +386,7 @@ impl LiveChannel {
     }
 }
 
-#[cfg_attr(
-    not(target_family = "wasm"),
-    uniffi::export(async_runtime = "tokio")
-)]
+#[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveSocket {
     #[uniffi::constructor]
     pub async fn connect(url: String, timeout: Duration) -> Result<Self, LiveSocketError> {

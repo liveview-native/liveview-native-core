@@ -10,7 +10,6 @@ documentation.workspace = true
 categories.workspace = true
 keywords.workspace = true
 license.workspace = true
-license-file.workspace = true
 readme.workspace = true
 edition.workspace = true
 publish.workspace = true

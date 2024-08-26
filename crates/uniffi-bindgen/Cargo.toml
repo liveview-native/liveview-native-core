@@ -11,7 +11,8 @@ categories.workspace = true
 keywords.workspace = true
 readme.workspace = true
 edition.workspace = true
+license.workspace = true
 publish = false
 
 [dependencies]
-uniffi = { version = "0.28", features = ["cli"] }
+uniffi = { workspace = true, features = ["cli"] }

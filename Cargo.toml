@@ -18,11 +18,14 @@ homepage = "https://github.com/liveview-native/liveview-native-core"
 documentation = "https://github.com/liveview-native/liveview-native-core"
 categories = ["API bindings", "GUI"]
 keywords = ["liveview", "phoenix"]
-license = "Apache-2.0"
+license = "MIT"
 license-file = "LICENSE.md"
 readme = "README.md"
 edition = "2021"
 publish = false
+
+[workspace.dependencies]
+uniffi = "0.28.0" 
 
 [profile.dev]
 split-debuginfo = "unpacked"

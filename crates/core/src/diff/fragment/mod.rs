@@ -31,9 +31,8 @@ impl Root {
         self.components.get(&format!("{cid}")).cloned()
     }
     pub fn component_cids(&self) -> Vec<u32> {
-
         let keys: Vec<u32> = self
-            .components 
+            .components
             .keys()
             .into_iter()
             .filter_map(|key| key.parse::<u32>().ok())
@@ -419,23 +418,13 @@ pub enum Fragment {
 impl Fragment {
     pub fn is_new_fingerprint(&self) -> bool {
         match self {
-            Fragment::Regular { .. } => {
-                false
-            }
-            Fragment::Comprehension { statics, .. } => {
-                statics.is_some()
-            }
+            Fragment::Regular { .. } => false,
+            Fragment::Comprehension { statics, .. } => statics.is_some(),
         }
     }
     pub fn is_empty(&self) -> bool {
         match self {
-            Fragment::Regular {
-                statics,
-                reply,
-                children,
-            } => {
-                false
-            }
+            Fragment::Regular { .. } => false,
             Fragment::Comprehension {
                 dynamics,
                 statics,
@@ -931,7 +920,6 @@ impl FragmentMerge for HashMap<String, Child> {
     type DiffItem = HashMap<String, ChildDiff>;
 
     fn merge(self, diff: Self::DiffItem) -> Result<Self, MergeError> {
-        let (self_clone, diff_clone) = (self.clone(), diff.clone());
         let mut new_children = self;
         for (index, comp_diff) in diff.into_iter() {
             if let Some(child) = new_children.get_mut(&index) {
