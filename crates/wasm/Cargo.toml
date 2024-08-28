@@ -22,8 +22,7 @@ wasm-bindgen = "0.2.93"
 serde-wasm-bindgen = "0.6.5"
 serde = { version = "1.0", features = ["derive"] }
 liveview-native-core = { path = "../core/", default-features = false, features = ["browser"]}
-#liveview-native-core = { path = "../core/", default-features = false }
-phoenix_channels_client = { path = "../../../phoenix-channels-client/", default-features = false, features = ["browser"]}
+phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client.git", branch = "simlay/webassembly-support", default-features = false, features = ["browser"]}
 tokio = { version = "1.39.2", features = ["macros", "rt", "time"] }
 console_error_panic_hook = { version = "0.1.7" }
 console_log = { version = "1", features = ["color"] }
@@ -36,5 +35,3 @@ url = "2.5"
 uuid = { version = "1.10.0", features = ["v4"] }
 wasm-bindgen-test = "0.3.42"
 wasm-bindgen-futures = { version = "0.4.31", features = ["futures-core-03-stream"] }
-#wasm-bindgen-test = "0.3.42"
-#phoenix_channels_client = { path = "../../../phoenix-channels-client/", optional = true }
