@@ -11,6 +11,41 @@ env:
   CARGO_MAKE_TOOLCHAIN: nightly
 
 jobs:
+  build-wasm:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust Nightly
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          targets:
+            wasm32-unknown-unknown
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+
+      - name: Builb wasm for nodesjs
+        working-directory: ./crates/wasm
+        run: ./build.sh nodejs
+
+      - name: Builb wasm for web
+        working-directory: ./crates/wasm
+        run: ./build.sh web
+
+      - uses: actions/upload-artifact@v4
+        with:
+          retention-days: 5
+          name: liveview-native-core-wasm-web
+          path: ./crates/wasm/liveview-native-core-wasm-web/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          retention-days: 5
+          name: liveview-native-core-wasm-nodejs
+          path: ./crates/wasm/liveview-native-core-wasm-nodejs/
+
   build-xcframework:
     runs-on: macos-14
 
@@ -84,6 +119,15 @@ jobs:
           name: liveview_native_core.xcframework.zip
           path: ./target/uniffi/swift/
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: liveview-native-core-wasm-web
+          path: ./crates/wasm/liveview-native-core-wasm-web/
+      - uses: actions/download-artifact@v4
+        with:
+          name: liveview-native-core-wasm-nodejs
+          path: ./crates/wasm/liveview-native-core-wasm-nodejs/
+
       - name: Update version and checksum of xcframework in Package.swift
         run: |
           ls -lah ./target/uniffi/swift/
@@ -105,12 +149,14 @@ jobs:
           git tag -fa ${{ github.event.release.tag_name }} -m "Swift Package Release ${{ github.event.release.tag_name }}"
           git push origin ${{ github.event.release.tag_name }} --force
 
-
       - name: Release
         uses: softprops/action-gh-release@v2
         if: github.event_name == 'release'
         with:
-          files: ./target/uniffi/swift/liveview_native_core.xcframework.zip
+          files: |
+            ./target/uniffi/swift/liveview_native_core.xcframework.zip
+            ./crates/wasm/liveview-native-core-wasm-web
+            ./crates/wasm/liveview-native-core-wasm-nodejs
           draft: true
           prerelease: true
           tag_name: ${{ github.event.release.tag_name }}
