@@ -46,6 +46,9 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-pack
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen
 
       - name: Builb wasm for nodesjs
         working-directory: ./crates/wasm
