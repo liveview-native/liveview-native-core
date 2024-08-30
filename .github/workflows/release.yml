@@ -125,11 +125,12 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: liveview-native-core-wasm-web
-          path: ./crates/wasm/liveview-native-core-wasm-web.tgz
+          path: ./crates/wasm/
       - uses: actions/download-artifact@v4
         with:
           name: liveview-native-core-wasm-nodejs
-          path: ./crates/wasm/liveview-native-core-wasm-nodejs.tgz
+          path: ./crates/wasm/
+
       - run: ls ./crates/wasm/ ./crates/wasm/*
 
       - name: Update version and checksum of xcframework in Package.swift
