@@ -41,13 +41,13 @@ jobs:
         with:
           retention-days: 5
           name: liveview-native-core-wasm-web
-          path: ./crates/wasm/liveview-native-core-wasm-web/
+          path: ./crates/wasm/liveview-native-core-wasm-web.tgz
 
       - uses: actions/upload-artifact@v4
         with:
           retention-days: 5
           name: liveview-native-core-wasm-nodejs
-          path: ./crates/wasm/liveview-native-core-wasm-nodejs/
+          path: ./crates/wasm/liveview-native-core-wasm-nodejs.tgz
 
   build-xcframework:
     runs-on: macos-14
@@ -158,8 +158,8 @@ jobs:
         with:
           files: |
             ./target/uniffi/swift/liveview_native_core.xcframework.zip
-            ./crates/wasm/liveview-native-core-wasm-web
-            ./crates/wasm/liveview-native-core-wasm-nodejs
+            ./crates/wasm/liveview-native-core-wasm-web.tgz
+            ./crates/wasm/liveview-native-core-wasm-nodejs.tgz
           draft: true
           prerelease: true
           tag_name: ${{ github.event.release.tag_name }}
