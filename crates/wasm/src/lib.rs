@@ -82,7 +82,7 @@ impl Rendered {
         let root: Root = diff.try_into()?;
         Ok(root.component_cids())
     }
-    #[wasm_bindgen(js_name = "get_component")]
+    #[wasm_bindgen(js_name = "getComponent")]
     pub fn get_component(&self, diff: JsValue, cid: i32) -> Result<JsValue, JsError> {
         let diff: RootDiff = serde_wasm_bindgen::from_value(diff)?;
         let root: Root = diff.try_into()?;
