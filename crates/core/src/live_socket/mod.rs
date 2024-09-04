@@ -70,6 +70,9 @@ impl Default for UploadConfig {
 
 #[uniffi::export(async_runtime = "tokio")]
 impl LiveChannel {
+    pub fn channel(&self) -> Arc<Channel> {
+        self.channel.clone()
+    }
     pub async fn merge_diffs(&self) -> Result<(), LiveSocketError> {
         // TODO: This should probably take the event closure to send changes back to swift/kotlin
         let mut document = self.document.clone();
