@@ -35,9 +35,11 @@ liveview-channels-tls = [
     "phoenix_channels_client/native-tls",
     "phoenix_channels_client/default",
 ]
+
+# This is for support of phoenix-channnels-client in for wasm.
 browser = [
-    "liveview-channels",
-    "phoenix_channels_client/browser",
+#"liveview-channels",
+#"phoenix_channels_client/browser",
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -56,7 +58,9 @@ thiserror = "1.0"
 log = "0.4"
 reqwest = { version = "0.12.3", default-features = false, optional = true }
 uniffi = { workspace = true }
-phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client.git", branch = "simlay/webassembly-support", optional = true, default-features = false }
+phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client.git", branch = "main", optional = true, default-features = false }
+# This is for wasm support on phoenix-channels-client
+#phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client.git", branch = "simlay/webassembly-support", optional = true, default-features = false }
 
 [build-dependencies]
 Inflector = "0.11"

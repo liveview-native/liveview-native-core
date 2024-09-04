@@ -22,13 +22,13 @@ wasm-bindgen = "0.2.93"
 serde-wasm-bindgen = "0.6.5"
 serde = { version = "1.0", features = ["derive"] }
 liveview-native-core = { path = "../core/", default-features = false, features = ["browser"] }
-phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client.git", branch = "simlay/webassembly-support", default-features = false, features = ["browser"]}
-tokio = { version = "1.39.2", features = ["macros", "rt", "time"] }
 console_error_panic_hook = { version = "0.1.7" }
 console_log = { version = "1", features = ["color"] }
 log = "0.4"
-getrandom = { version = "0.2", features = ["js"] }
 js-sys = "0.3.69"
+
+# This is needed just for the js feature flag to be enabled on getrandom.
+getrandom = { version = "0.2", features = ["js"] }
 
 [dev-dependencies]
 url = "2.5"
