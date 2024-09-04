@@ -1,0 +1,37 @@
+[package]
+name = "liveview_native_core_wasm"
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+categories.workspace = true
+keywords.workspace = true
+license.workspace = true
+readme.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2.93"
+serde-wasm-bindgen = "0.6.5"
+serde = { version = "1.0", features = ["derive"] }
+liveview-native-core = { path = "../core/", default-features = false, features = ["browser"] }
+console_error_panic_hook = { version = "0.1.7" }
+console_log = { version = "1", features = ["color"] }
+log = "0.4"
+js-sys = "0.3.69"
+
+# This is needed just for the js feature flag to be enabled on getrandom.
+getrandom = { version = "0.2", features = ["js"] }
+
+[dev-dependencies]
+url = "2.5"
+uuid = { version = "1.10.0", features = ["v4"] }
+wasm-bindgen-test = "0.3.42"
+wasm-bindgen-futures = { version = "0.4.31", features = ["futures-core-03-stream"] }

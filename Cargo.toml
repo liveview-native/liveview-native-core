@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/core", "crates/uniffi-bindgen",
+    "crates/core", "crates/uniffi-bindgen", "crates/wasm",
 ]
 
 [workspace.package]
@@ -18,11 +18,14 @@ homepage = "https://github.com/liveview-native/liveview-native-core"
 documentation = "https://github.com/liveview-native/liveview-native-core"
 categories = ["API bindings", "GUI"]
 keywords = ["liveview", "phoenix"]
-license = "Apache-2.0"
+license = "MIT"
 license-file = "LICENSE.md"
 readme = "README.md"
 edition = "2021"
 publish = false
+
+[workspace.dependencies]
+uniffi = "0.28.0" 
 
 [profile.dev]
 split-debuginfo = "unpacked"
@@ -47,3 +50,6 @@ core-foundation-sys = { git = "https://github.com/servo/core-foundation-rs", rev
 
 # https://github.com/rust-lang/socket2/pull/503
 socket2 = { git = "https://github.com/rust-lang/socket2.git", rev = "3a938932829ea6ee3025d2d7a86c7b095c76e6c3" }
+
+#tokio-tungstenite = { git = "https://github.com/simlay/tokio-tungstenite.git", branch = "add-browser-wasm-support"}
+#tokio = { git = "https://github.com/simlay/tokio.git", branch = "use-web-time-on-wasm32-unknown-unknown" }

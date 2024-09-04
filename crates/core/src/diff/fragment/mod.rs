@@ -1,29 +1,54 @@
 use std::collections::HashMap;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct RootDiff {
     #[serde(flatten)]
     fragment: FragmentDiff,
-    #[serde(rename = "c")]
-    components: Option<HashMap<String, ComponentDiff>>,
+    #[serde(rename = "c", default = "HashMap::new")]
+    components: HashMap<String, ComponentDiff>,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Root {
     #[serde(flatten)]
     fragment: Fragment,
-    #[serde(rename = "c")]
-    components: Option<HashMap<String, Component>>,
+    #[serde(rename = "c", default = "HashMap::new")]
+    components: HashMap<String, Component>,
+}
+impl Root {
+    pub fn is_component_only_diff(&self) -> bool {
+        !self.components.is_empty() && self.fragment.is_empty()
+    }
+    pub fn is_new_fingerprint(&self) -> bool {
+        self.fragment.is_new_fingerprint()
+    }
+    pub fn get_component(&self, cid: i32) -> Option<Component> {
+        self.components.get(&format!("{cid}")).cloned()
+    }
+    pub fn component_cids(&self) -> Vec<u32> {
+        let keys: Vec<u32> = self
+            .components
+            .keys()
+            .filter_map(|key| key.parse::<u32>().ok())
+            .collect();
+
+        keys
+    }
 }
 
 impl TryFrom<RootDiff> for Root {
     type Error = MergeError;
     fn try_from(value: RootDiff) -> Result<Self, MergeError> {
+        let mut components: HashMap<String, Component> = HashMap::new();
+        for (key, value) in value.components.into_iter() {
+            components.insert(key, value.try_into()?);
+        }
+        /*
         let components = if let Some(components) = value.components {
             let mut out: HashMap<String, Component> = HashMap::new();
             for (key, value) in components.into_iter() {
@@ -33,6 +58,7 @@ impl TryFrom<RootDiff> for Root {
         } else {
             None
         };
+        */
         Ok(Self {
             fragment: value.fragment.try_into()?,
             components,
@@ -79,13 +105,15 @@ pub enum RenderError {
 impl Fragment {
     pub fn render(
         &self,
-        components: &Option<HashMap<String, Component>>,
+        components: &HashMap<String, Component>,
         cousin_statics: Option<Vec<String>>,
         parent_templates: Templates,
     ) -> Result<String, RenderError> {
         let mut out = String::new();
         match &self {
-            Fragment::Regular { children, statics } => {
+            Fragment::Regular {
+                children, statics, ..
+            } => {
                 match statics {
                     Statics::Statics(statics) => {
                         out.push_str(&statics[0]);
@@ -229,21 +257,17 @@ impl Fragment {
 impl Child {
     pub fn render(
         &self,
-        components: &Option<HashMap<String, Component>>,
+        components: &HashMap<String, Component>,
         statics: Option<Vec<String>>,
         templates: Templates,
     ) -> Result<String, RenderError> {
         match self {
             Child::Fragment(fragment) => fragment.render(components, statics, templates),
             Child::ComponentID(cid) => {
-                if let Some(inner_components) = components {
-                    if let Some(component) = inner_components.get(&cid.to_string()) {
-                        component.render(components)
-                    } else {
-                        Err(RenderError::ComponentNotFound(*cid))
-                    }
+                if let Some(component) = components.get(&cid.to_string()) {
+                    component.render(components)
                 } else {
-                    Err(RenderError::NoComponents)
+                    Err(RenderError::ComponentNotFound(*cid))
                 }
             }
             Child::String(inner) => Ok(inner.to_string()),
@@ -251,7 +275,7 @@ impl Child {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Component {
     #[serde(flatten)]
     children: HashMap<String, Child>,
@@ -260,10 +284,7 @@ pub struct Component {
 }
 
 impl Component {
-    pub fn render(
-        &self,
-        components: &Option<HashMap<String, Component>>,
-    ) -> Result<String, RenderError> {
+    pub fn render(&self, components: &HashMap<String, Component>) -> Result<String, RenderError> {
         match &self.statics {
             ComponentStatics::Statics(statics) => {
                 let mut out = String::new();
@@ -288,23 +309,19 @@ impl Component {
                 let outer_statics: Vec<String>;
                 let cousin_component: Component;
                 loop {
-                    if let Some(inner_components) = components {
-                        if let Some(component) = inner_components.get(&cid.to_string()) {
-                            match &component.statics {
-                                ComponentStatics::Statics(s) => {
-                                    outer_statics = s.to_vec();
-                                    cousin_component = component.clone();
-                                    break;
-                                }
-                                ComponentStatics::ComponentRef(bread_crumb_cid) => {
-                                    cid = *bread_crumb_cid;
-                                }
+                    if let Some(component) = components.get(&cid.to_string()) {
+                        match &component.statics {
+                            ComponentStatics::Statics(s) => {
+                                outer_statics = s.to_vec();
+                                cousin_component = component.clone();
+                                break;
                             }
-                        } else {
-                            return Err(RenderError::ComponentNotFound(cid));
+                            ComponentStatics::ComponentRef(bread_crumb_cid) => {
+                                cid = *bread_crumb_cid;
+                            }
                         }
                     } else {
-                        return Err(RenderError::NoComponents);
+                        return Err(RenderError::ComponentNotFound(cid));
                     }
                 }
                 let mut out = String::new();
@@ -342,7 +359,7 @@ impl Component {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum FragmentDiff {
     UpdateRegular {
@@ -350,6 +367,8 @@ pub enum FragmentDiff {
         children: HashMap<String, ChildDiff>,
         #[serde(rename = "s")]
         statics: Option<Statics>,
+        #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
+        reply: Option<i8>,
     },
     UpdateComprehension {
         #[serde(rename = "d")]
@@ -358,6 +377,8 @@ pub enum FragmentDiff {
         templates: Templates,
         #[serde(rename = "s")]
         statics: Option<Statics>,
+        #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
+        reply: Option<i8>,
         #[serde(rename = "stream")]
         stream: Option<StreamUpdate>,
     },
@@ -368,12 +389,14 @@ type Templates = Option<HashMap<String, Vec<String>>>;
 type DynamicsDiff = Vec<Vec<ChildDiff>>;
 type Dynamics = Vec<Vec<Child>>;
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Fragment {
     Regular {
         #[serde(rename = "s")]
         statics: Statics,
+        #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
+        reply: Option<i8>,
         #[serde(flatten)]
         children: HashMap<String, Child>,
     },
@@ -382,21 +405,50 @@ pub enum Fragment {
         dynamics: Dynamics,
         #[serde(rename = "s")]
         statics: Option<Statics>,
-        #[serde(rename = "p")]
+        #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
+        reply: Option<i8>,
+        #[serde(rename = "p", skip_serializing_if = "Option::is_none")]
         templates: Templates,
-        #[serde(rename = "stream")]
+        #[serde(rename = "stream", skip_serializing_if = "Option::is_none")]
         stream: Option<Stream>,
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+impl Fragment {
+    pub fn is_new_fingerprint(&self) -> bool {
+        match self {
+            Fragment::Regular { .. } => false,
+            Fragment::Comprehension { statics, .. } => statics.is_some(),
+        }
+    }
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Fragment::Regular { .. } => false,
+            Fragment::Comprehension {
+                dynamics,
+                statics,
+                reply,
+                templates,
+                stream,
+            } => {
+                dynamics.is_empty()
+                    && statics.is_none()
+                    && reply.is_none()
+                    && templates.is_none()
+                    && stream.is_none()
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Stream {
     // This is actually a string wrapped integer.
     id: String,
     stream_items: Vec<StreamItem>,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct StreamItem {
     id: String,
     index: i32,
@@ -440,7 +492,7 @@ impl TryFrom<Vec<StreamAttribute>> for Stream {
 
 pub type StreamUpdate = Vec<StreamAttribute>;
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum StreamAttribute {
     StreamID(String),
@@ -449,7 +501,7 @@ pub enum StreamAttribute {
     ResetStream(bool),
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum StreamInsert {
     StreamAt(i32),
@@ -460,7 +512,11 @@ impl TryFrom<FragmentDiff> for Fragment {
     type Error = MergeError;
     fn try_from(value: FragmentDiff) -> Result<Self, MergeError> {
         match value {
-            FragmentDiff::UpdateRegular { children, statics } => {
+            FragmentDiff::UpdateRegular {
+                children,
+                statics,
+                reply,
+            } => {
                 let mut new_children: HashMap<String, Child> = HashMap::new();
                 for (key, cdiff) in children.into_iter() {
                     new_children.insert(key, cdiff.try_into()?);
@@ -473,6 +529,7 @@ impl TryFrom<FragmentDiff> for Fragment {
                 Ok(Self::Regular {
                     children: new_children,
                     statics,
+                    reply,
                 })
             }
             FragmentDiff::ReplaceCurrent(fragment) => Ok(fragment),
@@ -481,6 +538,7 @@ impl TryFrom<FragmentDiff> for Fragment {
                 templates,
                 statics,
                 stream,
+                reply,
             } => {
                 let dynamics: Dynamics = dynamics
                     .into_iter()
@@ -502,13 +560,14 @@ impl TryFrom<FragmentDiff> for Fragment {
                     statics,
                     templates,
                     stream,
+                    reply,
                 })
             }
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Statics {
     Statics(Vec<String>),
@@ -529,7 +588,7 @@ impl FragmentMerge for Option<Statics> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Child {
     Fragment(Fragment),
@@ -537,7 +596,7 @@ pub enum Child {
     String(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum ChildDiff {
     Fragment(FragmentDiff),
@@ -588,7 +647,7 @@ impl TryFrom<ComponentDiff> for Component {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum ComponentDiff {
     ReplaceCurrent {
@@ -609,7 +668,7 @@ impl ComponentDiff {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum ComponentStatics {
     Statics(Vec<String>),
@@ -626,6 +685,8 @@ impl FragmentMerge for Root {
 
     fn merge(self, diff: Self::DiffItem) -> Result<Self, MergeError> {
         let fragment = self.fragment.merge(diff.fragment)?;
+        let components = self.components.merge(diff.components)?;
+        /*
         let components = match (self.components, diff.components) {
             (None, None) => None,
             (None, Some(component_diff)) => {
@@ -640,6 +701,7 @@ impl FragmentMerge for Root {
                 Some(new_components.merge(component_diff)?)
             }
         };
+        */
         Ok(Self {
             fragment,
             components,
@@ -657,16 +719,25 @@ impl FragmentMerge for Fragment {
                 Fragment::Regular {
                     children: current_children,
                     statics: current_statics,
+                    reply: current_reply,
                 },
                 FragmentDiff::UpdateRegular {
                     children: children_diffs,
+                    reply: new_reply,
                     ..
                 },
             ) => {
                 let new_children = current_children.merge(children_diffs)?;
+                let new_reply = match (current_reply, new_reply) {
+                    (None, None) => None,
+                    (None, Some(r)) => Some(r),
+                    (Some(r), None) => Some(r),
+                    (Some(_old), Some(new)) => Some(new),
+                };
                 Ok(Self::Regular {
                     children: new_children,
                     statics: current_statics,
+                    reply: new_reply,
                 })
             }
             (
@@ -675,14 +746,22 @@ impl FragmentMerge for Fragment {
                     statics: current_statics,
                     templates: current_templates,
                     stream: current_stream,
+                    reply: current_reply,
                 },
                 FragmentDiff::UpdateComprehension {
                     dynamics: new_dynamics,
                     templates: new_templates,
                     statics: new_statics,
                     stream: new_stream,
+                    reply: new_reply,
                 },
             ) => {
+                let new_reply = match (current_reply, new_reply) {
+                    (None, None) => None,
+                    (None, Some(r)) => Some(r),
+                    (Some(r), None) => Some(r),
+                    (Some(_old), Some(new)) => Some(new),
+                };
                 let templates = current_templates.merge(new_templates)?;
                 let statics = current_statics.merge(new_statics)?;
                 let new_dynamics: Vec<Vec<Child>> = new_dynamics
@@ -755,6 +834,7 @@ impl FragmentMerge for Fragment {
                     statics,
                     templates,
                     stream,
+                    reply: new_reply,
                 })
             }
 
@@ -844,7 +924,7 @@ impl FragmentMerge for HashMap<String, Child> {
             if let Some(child) = new_children.get_mut(&index) {
                 *child = child.clone().merge(comp_diff)?;
             } else {
-                return Err(MergeError::AddChildToExisting);
+                new_children.insert(index, comp_diff.try_into()?);
             }
         }
         Ok(new_children)

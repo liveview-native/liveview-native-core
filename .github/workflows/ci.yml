@@ -29,6 +29,35 @@ jobs:
       - name: Cargo fmt
         run: cargo fmt --all -- --check
 
+  wasm:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./tests/support/test_server/
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          targets: wasm32-unknown-unknown
+
+      - name: Builb wasm
+        run: cargo build --target wasm32-unknown-unknown -p liveview_native_core_wasm
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen
+
+      - name: Builb wasm for nodesjs
+        working-directory: ./crates/wasm
+        run: ./build.sh nodejs
+
+      - name: Builb wasm for web
+        working-directory: ./crates/wasm
+        run: ./build.sh web
+
   clippy:
     runs-on: ubuntu-24.04
     steps:

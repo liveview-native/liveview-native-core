@@ -9,7 +9,7 @@ homepage.workspace = true
 documentation.workspace = true
 categories.workspace = true
 keywords.workspace = true
-license-file.workspace = true
+license.workspace = true
 readme.workspace = true
 publish.workspace = true
 
@@ -33,6 +33,13 @@ liveview-channels-tls = [
     "liveview-channels",
     "reqwest/native-tls-vendored",
     "phoenix_channels_client/native-tls",
+    "phoenix_channels_client/default",
+]
+
+# This is for support of phoenix-channnels-client in for wasm.
+browser = [
+#"liveview-channels",
+#"phoenix_channels_client/browser",
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -50,8 +57,10 @@ smallvec = { version = "1.10", features = ["union", "const_generics", "specializ
 thiserror = "1.0"
 log = "0.4"
 reqwest = { version = "0.12.3", default-features = false, optional = true }
-uniffi = { version = "0.28" }
-phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client", branch = "main", optional = true }
+uniffi = { workspace = true }
+phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client.git", branch = "main", optional = true, default-features = false }
+# This is for wasm support on phoenix-channels-client
+#phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client.git", branch = "simlay/webassembly-support", optional = true, default-features = false }
 
 [build-dependencies]
 Inflector = "0.11"
@@ -60,7 +69,7 @@ Inflector = "0.11"
 paste = { version = "1.0" }
 pretty_assertions = { version = "1.4.0" }
 text-diff = { version = "0.4.0" }
-uniffi = { version = "0.28", features = ["bindgen-tests", "tokio"]}
+uniffi = { workspace = true, features = ["bindgen-tests", "tokio"]}
 tokio = { version = "1.40", features = ["full"] }
 env_logger = "0.11.1"
 
