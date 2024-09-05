@@ -29,13 +29,13 @@ async fn single_chunk_file() {
         .is_test(true)
         .try_init();
 
-    let url = format!("http://{HOST}/upload?_format=swiftui");
+    let url = format!("http://{HOST}/upload");
     let image_bytes = get_image(100, 100, "png".to_string());
-    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT)
+    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT, "swiftui".into())
         .await
         .expect("Failed to get liveview socket");
     let live_channel = live_socket
-        .join_liveview_channel()
+        .join_liveview_channel(None)
         .await
         .expect("Failed to join the liveview channel");
     let phx_input_id = live_channel
@@ -65,14 +65,14 @@ async fn multi_chunk_file() {
         .is_test(true)
         .try_init();
 
-    let url = format!("http://{HOST}/upload?_format=swiftui");
+    let url = format!("http://{HOST}/upload");
     let image_bytes = get_image(2000, 2000, "png".to_string());
 
-    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT)
+    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT, "swiftui".into())
         .await
         .expect("Failed to get liveview socket");
     let live_channel = live_socket
-        .join_liveview_channel()
+        .join_liveview_channel(None)
         .await
         .expect("Failed to join the liveview channel");
     let phx_input_id = live_channel
@@ -103,16 +103,16 @@ async fn error_file_too_large() {
         .is_test(true)
         .try_init();
 
-    let url = format!("http://{HOST}/upload?_format=swiftui");
+    let url = format!("http://{HOST}/upload");
 
     // For this file we want to use tiff because it's much biggger than a png.
     let image_bytes = get_image(2000, 2000, "tiff".to_string());
 
-    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT)
+    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT, "swiftui".into())
         .await
         .expect("Failed to get liveview socket");
     let live_channel = live_socket
-        .join_liveview_channel()
+        .join_liveview_channel(None)
         .await
         .expect("Failed to join the liveview channel");
     let phx_input_id = live_channel
@@ -151,16 +151,16 @@ async fn error_incorrect_file_type() {
         .is_test(true)
         .try_init();
 
-    let url = format!("http://{HOST}/upload?_format=swiftui");
+    let url = format!("http://{HOST}/upload");
 
     // For this file we want to use tiff because it's much biggger than a png.
     let image_bytes = get_image(100, 100, "png".to_string());
 
-    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT)
+    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT, "swiftui".into())
         .await
         .expect("Failed to get liveview socket");
     let live_channel = live_socket
-        .join_liveview_channel()
+        .join_liveview_channel(None)
         .await
         .expect("Failed to join the liveview channel");
     let phx_input_id = live_channel

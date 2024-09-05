@@ -17,12 +17,12 @@ async fn join_live_view() {
         .is_test(true)
         .try_init();
 
-    let url = format!("http://{HOST}/hello?_format=swiftui");
-    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT)
+    let url = format!("http://{HOST}/hello");
+    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT, "swiftui".into())
         .await
         .expect("Failed to get liveview socket");
     let live_channel = live_socket
-        .join_liveview_channel()
+        .join_liveview_channel(None)
         .await
         .expect("Failed to join channel");
     let _phx_input_id = live_channel.get_phx_ref_from_upload_join_payload();

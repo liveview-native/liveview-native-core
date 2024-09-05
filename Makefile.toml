@@ -538,3 +538,23 @@ args = [
     "test"
 ]
 dependencies = []
+
+[tasks.uniffi-swift-docs-macos]
+workspace = false
+category = "Packaging"
+description = "Generates the LiveViewNativeCore.xcframework package"
+command = "xcodebuild"
+args = [
+    "-scheme",
+    "LiveViewNativeCore",
+    "-destination",
+    "platform=macOS",
+    "-workspace",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
+    "-derivedDataPath",
+    "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/xcode-build",
+    "docbuild"
+]
+dependencies = [
+    "uniffi-swift-package",
+]

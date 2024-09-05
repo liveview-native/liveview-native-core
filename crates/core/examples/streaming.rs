@@ -14,13 +14,13 @@ const TIME_OUT: Duration = Duration::from_secs(2);
 async fn main() {
     let _ = env_logger::builder().parse_default_env().try_init();
 
-    let url = format!("http://{HOST}/stream?_format=swiftui");
+    let url = format!("http://{HOST}/stream");
 
-    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT)
+    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT, "swiftui".into())
         .await
         .expect("Failed to get liveview socket");
     let live_channel = live_socket
-        .join_liveview_channel()
+        .join_liveview_channel(None)
         .await
         .expect("Failed to join the liveview channel");
     live_channel

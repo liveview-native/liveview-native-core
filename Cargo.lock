@@ -1196,7 +1196,7 @@ checksum = "78b3ae25bc7c8c38cec158d1f2757ee79e9b3740fbc7ccf0e59e4b08d793fa89"
 
 [[package]]
 name = "liveview-native-core"
-version = "0.4.0-alpha-4"
+version = "0.4.0-alpha-6"
 dependencies = [
  "Inflector",
  "cranelift-entity",
@@ -1224,7 +1224,7 @@ dependencies = [
 
 [[package]]
 name = "liveview_native_core_wasm"
-version = "0.4.0-alpha-4"
+version = "0.4.0-alpha-6"
 dependencies = [
  "console_error_panic_hook",
  "console_log",
@@ -1550,7 +1550,7 @@ dependencies = [
 [[package]]
 name = "phoenix_channels_client"
 version = "0.9.0"
-source = "git+https://github.com/liveview-native/phoenix-channels-client?branch=main#2141971c0dcda8a41d8455e714b622133439cdd7"
+source = "git+https://github.com/liveview-native/phoenix-channels-client.git?branch=main#2141971c0dcda8a41d8455e714b622133439cdd7"
 dependencies = [
  "arc-swap",
  "atomic-take",
@@ -2528,7 +2528,7 @@ dependencies = [
 
 [[package]]
 name = "uniffi-bindgen"
-version = "0.4.0-alpha-4"
+version = "0.4.0-alpha-6"
 dependencies = [
  "uniffi",
 ]
