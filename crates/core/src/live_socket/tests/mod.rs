@@ -9,6 +9,7 @@ const HOST: &str = "10.0.2.2:4001";
 const HOST: &str = "127.0.0.1:4001";
 
 const TIME_OUT: Duration = Duration::from_secs(10);
+use pretty_assertions::assert_eq;
 
 #[tokio::test]
 async fn join_live_view() {
@@ -25,5 +26,16 @@ async fn join_live_view() {
         .join_liveview_channel(None)
         .await
         .expect("Failed to join channel");
+    let join_doc = live_channel
+        .join_document()
+        .expect("Failed to render join payload");
+    let rendered = format!("{}", join_doc.to_string());
+    let expected = r#"<Group id="flash-group" />
+<VStack>
+    <Text>
+        Hello SwiftUI!
+    </Text>
+</VStack>"#;
+    assert_eq!(expected, rendered);
     let _phx_input_id = live_channel.get_phx_ref_from_upload_join_payload();
 }

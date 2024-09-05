@@ -5,7 +5,7 @@ use phoenix_channels_client::{url::Url, Channel, Event, Number, Payload, Socket,
 
 use crate::{
     diff::fragment::{FragmentMerge, Root, RootDiff},
-    dom::{AttributeName, ElementName, Selector},
+    dom::{AttributeName, Document, ElementName, Selector},
     parser::parse,
 };
 
@@ -22,6 +22,8 @@ pub struct LiveSocket {
     pub phx_id: String,
     pub phx_static: String,
     pub phx_session: String,
+    pub url: Url,
+    pub format: String,
     timeout: Duration,
 }
 #[derive(uniffi::Object)]
@@ -67,6 +69,31 @@ impl Default for UploadConfig {
         }
     }
 }
+// For non FFI functions
+impl LiveChannel {
+    pub fn join_document(&self) -> Result<Document, LiveSocketError> {
+        let new_root = match self.join_payload {
+            Payload::JSONPayload {
+                json: JSON::Object { ref object },
+            } => {
+                if let Some(rendered) = object.get("rendered") {
+                    let rendered = rendered.to_string();
+                    let root: RootDiff = serde_json::from_str(rendered.as_str())?;
+                    let root: Root = root.try_into()?;
+                    let root: String = root.try_into()?;
+                    let document = parse(&root)?;
+                    Some(document)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+        let document = new_root.ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
+        debug!("Join payload render: {document}");
+        Ok(document)
+    }
+}
 
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveChannel {
@@ -96,26 +123,7 @@ impl LiveChannel {
         self.join_payload.clone()
     }
     pub fn get_phx_ref_from_upload_join_payload(&self) -> Result<String, LiveSocketError> {
-        let new_root = match self.join_payload {
-            Payload::JSONPayload {
-                json: JSON::Object { ref object },
-            } => {
-                if let Some(rendered) = object.get("rendered") {
-                    let rendered = rendered.to_string();
-                    let root: RootDiff = serde_json::from_str(rendered.as_str())?;
-                    let root: Root = root.try_into()?;
-                    let root: String = root.try_into()?;
-                    let document = parse(&root)?;
-                    Some(document)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
-        let document = new_root.ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
-        debug!("Join payload render: {document}");
-
+        let document = self.join_document()?;
         let phx_input_id = document
             .select(Selector::Attribute(AttributeName {
                 namespace: None,
@@ -498,7 +506,7 @@ impl LiveSocket {
             .unwrap_or("".to_string());
         let host = url.host_str().ok_or(LiveSocketError::NoHostInURL)?;
         let websocket_url = format!(
-            "{}://{}{}/live/websocket?_csrf_token={}&vsn=2.0.0&_mount={mounts}&_format={}",
+            "{}://{}{}/live/websocket?_csrf_token={}&vsn=2.0.0&_mounts={mounts}&_format={}",
             websocket_scheme, host, port, csrf_token, format
         );
         debug!("websocket url: {websocket_url}");
@@ -513,6 +521,8 @@ impl LiveSocket {
             phx_static,
             phx_session,
             timeout,
+            url,
+            format,
         })
     }
 
@@ -520,7 +530,6 @@ impl LiveSocket {
         &self,
         join_params: Option<HashMap<String, JSON>>,
     ) -> Result<LiveChannel, LiveSocketError> {
-        // TODO: use the params object
         self.socket.connect(self.timeout).await?;
         let mut collected_join_params = HashMap::from([
             (
@@ -533,6 +542,12 @@ impl LiveSocket {
                 "_csrf_token".to_string(),
                 JSON::Str {
                     string: self.csrf_token.clone(),
+                },
+            ),
+            (
+                "_format".to_string(),
+                JSON::Str {
+                    string: self.format.clone(),
                 },
             ),
         ]);
@@ -558,6 +573,12 @@ impl LiveSocket {
                     ),
                     // TODO: Add redirect key. Swift code:
                     // (redirect ? "redirect": "url"): self.url.absoluteString,
+                    (
+                        "url".to_string(),
+                        JSON::Str {
+                            string: self.url.to_string(),
+                        },
+                    ),
                     (
                         "params".to_string(),
                         // TODO: Merge join_params with this simple object.
