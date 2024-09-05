@@ -20,8 +20,8 @@ import org.phoenixframework.liveviewnative.core.LiveFile;
 class SocketTest {
     @Test
     fun simple_connect() = runTest {
-        var live_socket = LiveSocket.connect("http://127.0.0.1:4001/upload?_format=jetpack", Duration.ofDays(10));
-        var live_channel = live_socket.joinLiveviewChannel()
+        var live_socket = LiveSocket.connect("http://127.0.0.1:4001/upload", Duration.ofDays(10), "jetpack");
+        var live_channel = live_socket.joinLiveviewChannel(null)
         var phx_id = live_channel.getPhxRefFromUploadJoinPayload()
         // This is a PNG located at crates/core/tests/support/tinycross.png
         var base64TileImg = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4gEdFQog0ycfAgAAAIJJREFUOMulU0EOwCAIK2T/f/LYwWAAgZGtJzS1BbVEuEVAAACCQOsKlkOrEicwgeVz5tC5R1yrDdnKuo6j6J5ydgd+npOUHfaGEJkQq+6cQNVqP1oQiCJxvAjGT3Dn3l1sKpAdfhPhqXP5xDYLXz7SkYUuUNnrcBWULkRlFqZxtvwH8zGCEN6LErUAAAAASUVORK5CYII="

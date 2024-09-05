@@ -73,6 +73,7 @@ impl LiveChannel {
     pub fn channel(&self) -> Arc<Channel> {
         self.channel.clone()
     }
+
     pub async fn merge_diffs(&self) -> Result<(), LiveSocketError> {
         // TODO: This should probably take the event closure to send changes back to swift/kotlin
         let mut document = self.document.clone();
@@ -90,6 +91,7 @@ impl LiveChannel {
             }
         }
     }
+
     pub fn join_payload(&self) -> Payload {
         self.join_payload.clone()
     }
@@ -391,16 +393,30 @@ impl LiveChannel {
 
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveSocket {
+    // This is just for the jetpack client. This is an associated function constructor.
     #[uniffi::constructor]
-    pub async fn connect(url: String, timeout: Duration) -> Result<Self, LiveSocketError> {
-        Self::new(url, timeout).await
+    pub async fn connect(
+        url: String,
+        timeout: Duration,
+        format: String,
+    ) -> Result<Self, LiveSocketError> {
+        Self::new(url, timeout, format).await
     }
 
     #[uniffi::constructor]
-    pub async fn new(url: String, timeout: Duration) -> Result<Self, LiveSocketError> {
-        let url = url.parse::<Url>()?;
+    pub async fn new(
+        url: String,
+        timeout: Duration,
+        format: String,
+    ) -> Result<Self, LiveSocketError> {
+        // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
+        // it does maybe we don't need to do a full dead render.
+        let mut url = url.parse::<Url>()?;
+        url.set_query(Some(&format!("_format={format}")));
+        // todo: Use the format in the query param to the deadrender.
         let resp = reqwest::get(url.clone()).await?;
         let resp_headers = resp.headers();
+
         let mut cookies: Vec<String> = Vec::new();
         for cookie in resp_headers.get_all("set-cookie") {
             cookies.push(cookie.to_str().expect("Cookie is not ASCII").to_string());
@@ -424,6 +440,7 @@ impl LiveSocket {
         let mut phx_id: Option<String> = None;
         let mut phx_static: Option<String> = None;
         let mut phx_session: Option<String> = None;
+
         let main_div_attributes = document
             .select(Selector::Attribute(AttributeName {
                 namespace: None,
@@ -481,8 +498,8 @@ impl LiveSocket {
             .unwrap_or("".to_string());
         let host = url.host_str().ok_or(LiveSocketError::NoHostInURL)?;
         let websocket_url = format!(
-            "{}://{}{}/live/websocket?_csrf_token={}&vsn=2.0.0&_mount={mounts}",
-            websocket_scheme, host, port, csrf_token,
+            "{}://{}{}/live/websocket?_csrf_token={}&vsn=2.0.0&_mount={mounts}&_format={}",
+            websocket_scheme, host, port, csrf_token, format
         );
         debug!("websocket url: {websocket_url}");
 
@@ -499,8 +516,31 @@ impl LiveSocket {
         })
     }
 
-    pub async fn join_liveview_channel(&self) -> Result<LiveChannel, LiveSocketError> {
+    pub async fn join_liveview_channel(
+        &self,
+        join_params: Option<HashMap<String, JSON>>,
+    ) -> Result<LiveChannel, LiveSocketError> {
+        // TODO: use the params object
         self.socket.connect(self.timeout).await?;
+        let mut collected_join_params = HashMap::from([
+            (
+                "_mounts".to_string(),
+                JSON::Numb {
+                    number: Number::PosInt { pos: 0 },
+                },
+            ),
+            (
+                "_csrf_token".to_string(),
+                JSON::Str {
+                    string: self.csrf_token.clone(),
+                },
+            ),
+        ]);
+        if let Some(join_params) = join_params {
+            for (key, value) in &join_params {
+                collected_join_params.insert(key.clone(), value.clone());
+            }
+        }
         let join_payload = Payload::JSONPayload {
             json: JSON::Object {
                 object: HashMap::from([
@@ -516,23 +556,13 @@ impl LiveSocket {
                             string: self.phx_session.clone(),
                         },
                     ),
+                    // TODO: Add redirect key. Swift code:
+                    // (redirect ? "redirect": "url"): self.url.absoluteString,
                     (
                         "params".to_string(),
+                        // TODO: Merge join_params with this simple object.
                         JSON::Object {
-                            object: HashMap::from([
-                                (
-                                    "_mounts".to_string(),
-                                    JSON::Numb {
-                                        number: Number::PosInt { pos: 0 },
-                                    },
-                                ),
-                                (
-                                    "_csrf_token".to_string(),
-                                    JSON::Str {
-                                        string: self.csrf_token.clone(),
-                                    },
-                                ),
-                            ]),
+                            object: collected_join_params,
                         },
                     ),
                 ]),
