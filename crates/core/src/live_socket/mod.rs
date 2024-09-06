@@ -90,7 +90,7 @@ impl LiveChannel {
             _ => None,
         };
         let document = new_root.ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
-        debug!("Join payload render: {document}");
+        debug!("Join payload render:\n{document}");
         Ok(document)
     }
 }
@@ -434,6 +434,42 @@ impl LiveSocket {
         let document = parse(&resp_text)?;
         debug!("document:\n{document}\n\n\n");
 
+        // HTML responses have
+        // <meta name="csrf-token"
+        // content="PBkccxQnXREEHjJhOksCJ1cVESUiRgtBYZxJSKpAEMJ0tfivopcul5Eq">
+        let meta_csrf_token: Option<String> = document
+            .select(Selector::Tag(ElementName {
+                namespace: None,
+                name: "meta".into(),
+            }))
+            .map(|node_ref| document.get(node_ref))
+            // We need the node of the element with a "name" attribute that equals "csrf-token"
+            .filter(|node| {
+                node.attributes()
+                    .iter()
+                    .filter(|attr| {
+                        attr.name.name == *"name"
+                            && attr.value == Some("csrf-token".to_string())
+                    })
+                    .last()
+                    .is_some()
+            })
+            // We now need the "content" value
+            .map(|node| {
+                node.attributes()
+                    .iter()
+                    .filter(|attr| attr.name.name == *"content")
+                    .map(|attr| attr.value.clone())
+                    .last()
+                    .flatten()
+            })
+            .last()
+            .flatten();
+
+        debug!("META CSRF TOKEN: {meta_csrf_token:#?}");
+
+        // LiveView Native responses have:
+        // <csrf-token value="CgpDGHsSYUUxHxdQDSVVc1dmchgRYhMUXlqANTR3uQBdzHmK5R9mW5wu" />
         let csrf_token = document
             .select(Selector::Tag(ElementName {
                 namespace: None,
@@ -443,6 +479,7 @@ impl LiveSocket {
             .map(|node_ref| document.get(node_ref))
             .and_then(|node| node.attributes().first().map(|attr| attr.value.clone()))
             .flatten()
+            .or(meta_csrf_token)
             .ok_or(LiveSocketError::CSFRTokenMissing)?;
 
         let mut phx_id: Option<String> = None;
@@ -451,8 +488,8 @@ impl LiveSocket {
 
         let main_div_attributes = document
             .select(Selector::Attribute(AttributeName {
-                namespace: None,
                 name: "data-phx-main".into(),
+                namespace: None,
             }))
             .last();
         debug!("MAIN DIV: {main_div_attributes:?}");
