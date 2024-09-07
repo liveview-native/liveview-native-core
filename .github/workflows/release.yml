@@ -166,6 +166,6 @@ jobs:
             ./target/uniffi/swift/liveview_native_core.xcframework.zip
             ./crates/wasm/liveview-native-core-wasm-web.tgz
             ./crates/wasm/liveview-native-core-wasm-nodejs.tgz
-          draft: true
+          draft: false
           prerelease: true
           tag_name: ${{ github.event.release.tag_name }}
