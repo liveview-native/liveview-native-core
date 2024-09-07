@@ -448,8 +448,7 @@ impl LiveSocket {
                 node.attributes()
                     .iter()
                     .filter(|attr| {
-                        attr.name.name == *"name"
-                            && attr.value == Some("csrf-token".to_string())
+                        attr.name.name == *"name" && attr.value == Some("csrf-token".to_string())
                     })
                     .last()
                     .is_some()
