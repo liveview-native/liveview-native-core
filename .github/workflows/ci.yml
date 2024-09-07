@@ -15,6 +15,15 @@ env:
   ANDROID_NDK_VERSION: 26.3.11579264
   HOMEBREW_NO_AUTO_UPDATE: 1
 
+  # https://doc.rust-lang.org/cargo/guide/cargo-home.html#caching-the-cargo-home-in-ci
+  CARGO_CACHE_PATH: |
+    ~/.cargo/.crates.toml
+    ~/.cargo/.crates2.json
+    ~/.cargo/bin/
+    ~/.cargo/registry/index/
+    ~/.cargo/registry/cache/
+    ~/.cargo/git/db/
+
 jobs:
   fmt:
     runs-on: ubuntu-24.04
@@ -101,11 +110,7 @@ jobs:
       - name: Cache
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/git
-            ~/.cargo/registry
-            target
+          path: ${{ env.CARGO_CACHE_PATH }}
           key: cargo-${{ github.workflow }}-${{ github.job }}-${{runner.os}}-${{runner.arch}}-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Set up JDK 17
@@ -168,11 +173,7 @@ jobs:
       - name: Cache
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/git
-            ~/.cargo/registry
-            target
+          path: ${{ env.CARGO_CACHE_PATH }}
           key: cargo-${{ github.workflow }}-${{ github.job }}-${{runner.os}}-${{runner.arch}}-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Generate the swift package
@@ -320,11 +321,7 @@ jobs:
       - name: Cache
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/git
-            ~/.cargo/registry
-            target
+          path: ${{ env.CARGO_CACHE_PATH }}
           key: cargo-${{ github.workflow }}-${{ github.job }}-${{runner.os}}-${{runner.arch}}-${{ hashFiles('**/Cargo.toml') }}
 
       - name: Get the JNA jar for testing kotlin.
@@ -385,11 +382,7 @@ jobs:
       - name: Cargo Cache
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/git
-            ~/.cargo/registry
-            target
+          path: ${{ env.CARGO_CACHE_PATH }}
           key: cargo-${{ github.workflow }}-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('**/Cargo.toml') }}
 
       - uses: taiki-e/install-action@v2
@@ -452,11 +445,7 @@ jobs:
       - name: Cargo Cache
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/git
-            ~/.cargo/registry
-            target
+          path: ${{ env.CARGO_CACHE_PATH }}
           key: cargo-${{ github.workflow }}-${{ runner.os }}-${{ runner.arch }}-${{ github.job }}-${{ hashFiles('**/Cargo.toml') }}
 
       - uses: taiki-e/install-action@v2

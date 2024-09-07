@@ -5,7 +5,7 @@ use phoenix_channels_client::{url::Url, Channel, Event, Number, Payload, Socket,
 
 use crate::{
     diff::fragment::{FragmentMerge, Root, RootDiff},
-    dom::{AttributeName, ElementName, Selector},
+    dom::{AttributeName, Document, ElementName, Selector},
     parser::parse,
 };
 
@@ -22,6 +22,8 @@ pub struct LiveSocket {
     pub phx_id: String,
     pub phx_static: String,
     pub phx_session: String,
+    pub url: Url,
+    pub format: String,
     timeout: Duration,
 }
 #[derive(uniffi::Object)]
@@ -67,6 +69,31 @@ impl Default for UploadConfig {
         }
     }
 }
+// For non FFI functions
+impl LiveChannel {
+    pub fn join_document(&self) -> Result<Document, LiveSocketError> {
+        let new_root = match self.join_payload {
+            Payload::JSONPayload {
+                json: JSON::Object { ref object },
+            } => {
+                if let Some(rendered) = object.get("rendered") {
+                    let rendered = rendered.to_string();
+                    let root: RootDiff = serde_json::from_str(rendered.as_str())?;
+                    let root: Root = root.try_into()?;
+                    let root: String = root.try_into()?;
+                    let document = parse(&root)?;
+                    Some(document)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+        let document = new_root.ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
+        debug!("Join payload render:\n{document}");
+        Ok(document)
+    }
+}
 
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveChannel {
@@ -96,26 +123,7 @@ impl LiveChannel {
         self.join_payload.clone()
     }
     pub fn get_phx_ref_from_upload_join_payload(&self) -> Result<String, LiveSocketError> {
-        let new_root = match self.join_payload {
-            Payload::JSONPayload {
-                json: JSON::Object { ref object },
-            } => {
-                if let Some(rendered) = object.get("rendered") {
-                    let rendered = rendered.to_string();
-                    let root: RootDiff = serde_json::from_str(rendered.as_str())?;
-                    let root: Root = root.try_into()?;
-                    let root: String = root.try_into()?;
-                    let document = parse(&root)?;
-                    Some(document)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
-        let document = new_root.ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
-        debug!("Join payload render: {document}");
-
+        let document = self.join_document()?;
         let phx_input_id = document
             .select(Selector::Attribute(AttributeName {
                 namespace: None,
@@ -426,6 +434,41 @@ impl LiveSocket {
         let document = parse(&resp_text)?;
         debug!("document:\n{document}\n\n\n");
 
+        // HTML responses have
+        // <meta name="csrf-token"
+        // content="PBkccxQnXREEHjJhOksCJ1cVESUiRgtBYZxJSKpAEMJ0tfivopcul5Eq">
+        let meta_csrf_token: Option<String> = document
+            .select(Selector::Tag(ElementName {
+                namespace: None,
+                name: "meta".into(),
+            }))
+            .map(|node_ref| document.get(node_ref))
+            // We need the node of the element with a "name" attribute that equals "csrf-token"
+            .filter(|node| {
+                node.attributes()
+                    .iter()
+                    .filter(|attr| {
+                        attr.name.name == *"name" && attr.value == Some("csrf-token".to_string())
+                    })
+                    .last()
+                    .is_some()
+            })
+            // We now need the "content" value
+            .map(|node| {
+                node.attributes()
+                    .iter()
+                    .filter(|attr| attr.name.name == *"content")
+                    .map(|attr| attr.value.clone())
+                    .last()
+                    .flatten()
+            })
+            .last()
+            .flatten();
+
+        debug!("META CSRF TOKEN: {meta_csrf_token:#?}");
+
+        // LiveView Native responses have:
+        // <csrf-token value="CgpDGHsSYUUxHxdQDSVVc1dmchgRYhMUXlqANTR3uQBdzHmK5R9mW5wu" />
         let csrf_token = document
             .select(Selector::Tag(ElementName {
                 namespace: None,
@@ -435,6 +478,7 @@ impl LiveSocket {
             .map(|node_ref| document.get(node_ref))
             .and_then(|node| node.attributes().first().map(|attr| attr.value.clone()))
             .flatten()
+            .or(meta_csrf_token)
             .ok_or(LiveSocketError::CSFRTokenMissing)?;
 
         let mut phx_id: Option<String> = None;
@@ -443,8 +487,8 @@ impl LiveSocket {
 
         let main_div_attributes = document
             .select(Selector::Attribute(AttributeName {
-                namespace: None,
                 name: "data-phx-main".into(),
+                namespace: None,
             }))
             .last();
         debug!("MAIN DIV: {main_div_attributes:?}");
@@ -498,7 +542,7 @@ impl LiveSocket {
             .unwrap_or("".to_string());
         let host = url.host_str().ok_or(LiveSocketError::NoHostInURL)?;
         let websocket_url = format!(
-            "{}://{}{}/live/websocket?_csrf_token={}&vsn=2.0.0&_mount={mounts}&_format={}",
+            "{}://{}{}/live/websocket?_csrf_token={}&vsn=2.0.0&_mounts={mounts}&_format={}",
             websocket_scheme, host, port, csrf_token, format
         );
         debug!("websocket url: {websocket_url}");
@@ -513,6 +557,8 @@ impl LiveSocket {
             phx_static,
             phx_session,
             timeout,
+            url,
+            format,
         })
     }
 
@@ -520,7 +566,6 @@ impl LiveSocket {
         &self,
         join_params: Option<HashMap<String, JSON>>,
     ) -> Result<LiveChannel, LiveSocketError> {
-        // TODO: use the params object
         self.socket.connect(self.timeout).await?;
         let mut collected_join_params = HashMap::from([
             (
@@ -533,6 +578,12 @@ impl LiveSocket {
                 "_csrf_token".to_string(),
                 JSON::Str {
                     string: self.csrf_token.clone(),
+                },
+            ),
+            (
+                "_format".to_string(),
+                JSON::Str {
+                    string: self.format.clone(),
                 },
             ),
         ]);
@@ -558,6 +609,12 @@ impl LiveSocket {
                     ),
                     // TODO: Add redirect key. Swift code:
                     // (redirect ? "redirect": "url"): self.url.absoluteString,
+                    (
+                        "url".to_string(),
+                        JSON::Str {
+                            string: self.url.to_string(),
+                        },
+                    ),
                     (
                         "params".to_string(),
                         // TODO: Merge join_params with this simple object.

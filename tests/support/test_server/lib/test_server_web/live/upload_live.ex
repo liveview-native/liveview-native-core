@@ -52,26 +52,27 @@ defmodule TestServerWeb.SimpleLiveUpload do
   defp error_to_string(:too_many_files), do: "You have selected too many files"
   defp error_to_string(:not_accepted), do: "You have selected an unacceptable file type"
 end
+
 defmodule TestServerWeb.SimpleLiveUpload.SwiftUI do
   use TestServerNative, [:render_component, format: :swiftui]
-  #use Phoenix.Component.live_component
 
   def render(assigns, _interface) do
-      # <.live_file_input upload={@uploads.avatar} />
     ~LVN"""
     <UploadForm>
+      <Phoenix.Component.live_file_input upload={@uploads.avatar} />
     </UploadForm>
     """
   end
 end
 
 defmodule TestServerWeb.SimpleLiveUpload.Jetpack do
-  use TestServerNative, [:render_component, format: :swiftui]
+  use TestServerNative, [:render_component, format: :jetpack]
 
   def render(assigns, _) do
     ~LVN"""
     <Box size="fill" background="system-blue">
       <Text align="Center">Upload from Jetpack</Text>
+      <Phoenix.Component.live_file_input upload={@uploads.avatar} />
     </Box>
     """
   end

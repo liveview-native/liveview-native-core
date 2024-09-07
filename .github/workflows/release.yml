@@ -9,6 +9,14 @@ env:
   CARGO_TERM_COLOR: always
   TOOLCHAIN: nightly
   CARGO_MAKE_TOOLCHAIN: nightly
+  # https://doc.rust-lang.org/cargo/guide/cargo-home.html#caching-the-cargo-home-in-ci
+  CARGO_CACHE_PATH: |
+    ~/.cargo/.crates.toml
+    ~/.cargo/.crates2.json
+    ~/.cargo/bin/
+    ~/.cargo/registry/index/
+    ~/.cargo/registry/cache/
+    ~/.cargo/git/db/
 
 jobs:
   build-wasm:
@@ -73,11 +81,7 @@ jobs:
       - name: Cache
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/git
-            ~/.cargo/registry
-            target
+          path: ${{ env.CARGO_CACHE_PATH }}
           key: cargo-${{ github.workflow }}-${{ github.job }}-${{runner.os}}-${{runner.arch}}-${{ hashFiles('**/Cargo.toml') }}
 
       - uses: taiki-e/install-action@v2
@@ -162,6 +166,6 @@ jobs:
             ./target/uniffi/swift/liveview_native_core.xcframework.zip
             ./crates/wasm/liveview-native-core-wasm-web.tgz
             ./crates/wasm/liveview-native-core-wasm-nodejs.tgz
-          draft: true
+          draft: false
           prerelease: true
           tag_name: ${{ github.event.release.tag_name }}
