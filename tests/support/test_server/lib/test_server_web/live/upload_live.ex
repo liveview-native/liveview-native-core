@@ -72,6 +72,7 @@ defmodule TestServerWeb.SimpleLiveUpload.Jetpack do
     ~LVN"""
     <Box size="fill" background="system-blue">
       <Text align="Center">Upload from Jetpack</Text>
+      <Phoenix.Component.live_file_input upload={@uploads.avatar} />
     </Box>
     """
   end
