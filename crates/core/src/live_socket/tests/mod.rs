@@ -38,4 +38,8 @@ async fn join_live_view() {
 </VStack>"#;
     assert_eq!(expected, rendered);
     let _phx_input_id = live_channel.get_phx_ref_from_upload_join_payload();
+    let style_urls = live_channel.style_urls();
+    let expected_style_urls = vec!["/assets/app.swiftui.styles".to_string()];
+    assert_eq!(style_urls, expected_style_urls);
+
 }

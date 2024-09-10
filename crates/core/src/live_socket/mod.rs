@@ -4,8 +4,11 @@ use log::{debug, error};
 use phoenix_channels_client::{url::Url, Channel, Event, Number, Payload, Socket, Topic, JSON};
 
 use crate::{
-    diff::fragment::{FragmentMerge, Root, RootDiff},
-    dom::{AttributeName, Document, ElementName, Selector},
+    diff::fragment::{Root, RootDiff},
+    dom::{
+        ffi::{Document as FFiDocument, DocumentChangeHandler},
+        AttributeName, Document, ElementName, Selector,
+    },
     parser::parse,
 };
 
@@ -24,14 +27,8 @@ pub struct LiveSocket {
     pub phx_session: String,
     pub url: Url,
     pub format: String,
-    timeout: Duration,
-}
-#[derive(uniffi::Object)]
-pub struct LiveChannel {
-    pub channel: Arc<Channel>,
-    pub socket: Arc<Socket>,
-    pub join_payload: Payload,
-    document: Root,
+    pub dead_render: Document,
+    pub style_urls: Vec<String>,
     timeout: Duration,
 }
 #[derive(uniffi::Object)]
@@ -69,6 +66,16 @@ impl Default for UploadConfig {
         }
     }
 }
+#[derive(uniffi::Object)]
+pub struct LiveChannel {
+    pub channel: Arc<Channel>,
+    pub socket: Arc<Socket>,
+    pub join_payload: Payload,
+    document: FFiDocument,
+    dead_render: FFiDocument,
+    style_urls: Vec<String>,
+    timeout: Duration,
+}
 // For non FFI functions
 impl LiveChannel {
     pub fn join_document(&self) -> Result<Document, LiveSocketError> {
@@ -97,25 +104,44 @@ impl LiveChannel {
 
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveChannel {
+    pub fn document(&self) -> FFiDocument {
+        self.document.clone()
+    }
+
+    pub fn dead_render(&self) -> FFiDocument {
+        self.dead_render.clone()
+    }
+
     pub fn channel(&self) -> Arc<Channel> {
         self.channel.clone()
+    }
+    pub fn style_urls(&self) -> Vec<String> {
+        self.style_urls.clone()
+    }
+    pub fn set_event_handler(&self, handler: Box<dyn DocumentChangeHandler>) {
+        self.document.set_event_handler(handler);
     }
 
     pub async fn merge_diffs(&self) -> Result<(), LiveSocketError> {
         // TODO: This should probably take the event closure to send changes back to swift/kotlin
-        let mut document = self.document.clone();
+        let document = self.document.clone();
         let events = self.channel.events();
         loop {
             let event = events.event().await?;
-            if let Event::User { user: user_event } = event.event {
-                if user_event == "diff" {
-                    let payload = event.payload.to_string();
-                    debug!("PAYLOAD: {payload}");
-                    let diff: RootDiff = serde_json::from_str(payload.as_str())?;
-                    debug!("diff: {diff:#?}");
-                    document = document.merge(diff)?;
+            match event.event {
+                Event::Phoenix { .. } => {
+                    todo!();
                 }
-            }
+                Event::User { user } => {
+                    if user == "diff" {
+                        let payload = event.payload.to_string();
+                        debug!("PAYLOAD: {payload}");
+                        // This function merges and uses the event handler set in `set_event_handler`
+                        // which will call back into the Swift/Kotlin.
+                        document.merge_fragment_json(payload)?;
+                    }
+                }
+            };
         }
     }
 
@@ -431,18 +457,18 @@ impl LiveSocket {
         }
         let resp_text = resp.text().await?;
 
-        let document = parse(&resp_text)?;
-        debug!("document:\n{document}\n\n\n");
+        let dead_render = parse(&resp_text)?;
+        debug!("document:\n{dead_render}\n\n\n");
 
         // HTML responses have
         // <meta name="csrf-token"
         // content="PBkccxQnXREEHjJhOksCJ1cVESUiRgtBYZxJSKpAEMJ0tfivopcul5Eq">
-        let meta_csrf_token: Option<String> = document
+        let meta_csrf_token: Option<String> = dead_render
             .select(Selector::Tag(ElementName {
                 namespace: None,
                 name: "meta".into(),
             }))
-            .map(|node_ref| document.get(node_ref))
+            .map(|node_ref| dead_render.get(node_ref))
             // We need the node of the element with a "name" attribute that equals "csrf-token"
             .filter(|node| {
                 node.attributes()
@@ -469,13 +495,13 @@ impl LiveSocket {
 
         // LiveView Native responses have:
         // <csrf-token value="CgpDGHsSYUUxHxdQDSVVc1dmchgRYhMUXlqANTR3uQBdzHmK5R9mW5wu" />
-        let csrf_token = document
+        let csrf_token = dead_render
             .select(Selector::Tag(ElementName {
                 namespace: None,
                 name: "csrf-token".into(),
             }))
             .last()
-            .map(|node_ref| document.get(node_ref))
+            .map(|node_ref| dead_render.get(node_ref))
             .and_then(|node| node.attributes().first().map(|attr| attr.value.clone()))
             .flatten()
             .or(meta_csrf_token)
@@ -485,20 +511,20 @@ impl LiveSocket {
         let mut phx_static: Option<String> = None;
         let mut phx_session: Option<String> = None;
 
-        let main_div_attributes = document
+        let main_div_attributes = dead_render
             .select(Selector::Attribute(AttributeName {
                 name: "data-phx-main".into(),
                 namespace: None,
             }))
             .last();
         debug!("MAIN DIV: {main_div_attributes:?}");
-        let main_div_attributes = document
+        let main_div_attributes = dead_render
             .select(Selector::Attribute(AttributeName {
                 namespace: None,
                 name: "data-phx-main".into(),
             }))
             .last()
-            .map(|node_ref| document.get(node_ref))
+            .map(|node_ref| dead_render.get(node_ref))
             .map(|main_div| main_div.attributes())
             .ok_or(LiveSocketError::PhoenixMainMissing)?;
 
@@ -515,6 +541,25 @@ impl LiveSocket {
         let phx_static = phx_static.ok_or(LiveSocketError::PhoenixStaticMissing)?;
         let phx_session = phx_session.ok_or(LiveSocketError::PhoenixSessionMissing)?;
         debug!("phx_id = {phx_id:?}, session = {phx_session:?}, static = {phx_static:?}");
+        
+
+        // A Style looks like:
+        // <Style url="/assets/app.swiftui.styles" />
+        let style_urls : Vec<String> = dead_render
+            .select(Selector::Tag(ElementName {
+                namespace: None,
+                name: "Style".into(),
+            }))
+        .map(|node_ref| {
+            dead_render.get(node_ref)
+        })
+        .map(|node| {
+            let url = node.attributes().iter().filter(|attr| attr.name.name == "url").map(|attr| attr.value.clone()).last().flatten();
+            url
+        })
+        .filter_map(|url| url)
+        .collect()
+        ;
 
         // NEED:
         // these from inside data-phx-main
@@ -550,6 +595,7 @@ impl LiveSocket {
         let websocket_url = websocket_url.parse::<Url>()?;
         let socket = Socket::spawn(websocket_url.clone(), Some(cookies))?;
 
+
         Ok(Self {
             socket,
             csrf_token,
@@ -558,6 +604,8 @@ impl LiveSocket {
             phx_session,
             timeout,
             url,
+            dead_render,
+            style_urls,
             format,
         })
     }
@@ -636,7 +684,7 @@ impl LiveSocket {
         let join_payload = channel.join(self.timeout).await?;
 
         debug!("Join payload: {join_payload:#?}");
-        let root = match join_payload {
+        let document = match join_payload {
             Payload::JSONPayload {
                 json: JSON::Object { ref object },
             } => {
@@ -645,7 +693,10 @@ impl LiveSocket {
                     let root: RootDiff = serde_json::from_str(rendered.as_str())?;
                     debug!("root diff: {root:#?}");
                     let root: Root = root.try_into()?;
-                    Some(root)
+                    let rendered: String = root.clone().try_into()?;
+                    let mut document = crate::parser::parse(&rendered)?;
+                    document.fragment_template = Some(root);
+                    Some(document)
                 } else {
                     None
                 }
@@ -693,7 +744,9 @@ impl LiveSocket {
             channel,
             join_payload,
             socket: self.socket.clone(),
-            document: root,
+            document: document.into(),
+            dead_render: self.dead_render.clone().into(),
+            style_urls: self.style_urls.clone(),
             timeout: self.timeout,
         })
     }
