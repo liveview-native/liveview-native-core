@@ -72,8 +72,6 @@ pub struct LiveChannel {
     pub socket: Arc<Socket>,
     pub join_payload: Payload,
     document: FFiDocument,
-    dead_render: FFiDocument,
-    style_urls: Vec<String>,
     timeout: Duration,
 }
 // For non FFI functions
@@ -107,16 +105,8 @@ impl LiveChannel {
     pub fn document(&self) -> FFiDocument {
         self.document.clone()
     }
-
-    pub fn dead_render(&self) -> FFiDocument {
-        self.dead_render.clone()
-    }
-
     pub fn channel(&self) -> Arc<Channel> {
         self.channel.clone()
-    }
-    pub fn style_urls(&self) -> Vec<String> {
-        self.style_urls.clone()
     }
     pub fn set_event_handler(&self, handler: Box<dyn DocumentChangeHandler>) {
         self.document.set_event_handler(handler);
@@ -149,6 +139,42 @@ impl LiveChannel {
         self.join_payload.clone()
     }
     pub fn get_phx_ref_from_upload_join_payload(&self) -> Result<String, LiveSocketError> {
+        /* Okay join response looks like: To do an upload we need the new `data-phx-upload-ref`
+        {
+          "rendered": {
+            "0": {
+              "0": " id=\"phx-F6rhEydz8YniGqoB\"",
+              "1": " name=\"avatar\"",
+              "2": " accept=\".jpg,.jpeg,.ico\"",
+              "3": " data-phx-upload-ref=\"phx-F6rhEydz8YniGqoB\"",
+              "4": " data-phx-active-refs=\"\"",
+              "5": " data-phx-done-refs=\"\"",
+              "6": " data-phx-preflighted-refs=\"\"",
+              "7": "",
+              "8": " multiple",
+              "s": [
+                "<input",
+                " type=\"file\"",
+                "",
+                " data-phx-hook=\"Phoenix.LiveFileUpload\" data-phx-update=\"ignore\"",
+                "",
+                "",
+                "",
+                "",
+                "",
+                ">"
+              ],
+              "r": 1
+            },
+            "s": [
+              "<p> THIS IS AN UPLOAD FORM </p>\n<form id=\"upload-form\" phx-submit=\"save\" phx-change=\"validate\">\n\n  ",
+              "\n\n  <button type=\"submit\">Upload</button>\n</form>"
+            ]
+          }
+        }
+        */
+        // As silly as it sounds, rendering this diff and parsing the dom for the
+        // data-phx-upload-ref seems like the most stable way.
         let document = self.join_document()?;
         let phx_input_id = document
             .select(Selector::Attribute(AttributeName {
@@ -541,25 +567,24 @@ impl LiveSocket {
         let phx_static = phx_static.ok_or(LiveSocketError::PhoenixStaticMissing)?;
         let phx_session = phx_session.ok_or(LiveSocketError::PhoenixSessionMissing)?;
         debug!("phx_id = {phx_id:?}, session = {phx_session:?}, static = {phx_static:?}");
-        
 
         // A Style looks like:
         // <Style url="/assets/app.swiftui.styles" />
-        let style_urls : Vec<String> = dead_render
+        let style_urls: Vec<String> = dead_render
             .select(Selector::Tag(ElementName {
                 namespace: None,
                 name: "Style".into(),
             }))
-        .map(|node_ref| {
-            dead_render.get(node_ref)
-        })
-        .map(|node| {
-            let url = node.attributes().iter().filter(|attr| attr.name.name == "url").map(|attr| attr.value.clone()).last().flatten();
-            url
-        })
-        .filter_map(|url| url)
-        .collect()
-        ;
+            .map(|node_ref| dead_render.get(node_ref))
+            .filter_map(|node| {
+                node.attributes()
+                    .iter()
+                    .filter(|attr| attr.name.name == "url")
+                    .map(|attr| attr.value.clone())
+                    .last()
+                    .flatten()
+            })
+            .collect();
 
         // NEED:
         // these from inside data-phx-main
@@ -595,7 +620,6 @@ impl LiveSocket {
         let websocket_url = websocket_url.parse::<Url>()?;
         let socket = Socket::spawn(websocket_url.clone(), Some(cookies))?;
 
-
         Ok(Self {
             socket,
             csrf_token,
@@ -608,6 +632,14 @@ impl LiveSocket {
             style_urls,
             format,
         })
+    }
+
+    pub fn dead_render(&self) -> FFiDocument {
+        self.dead_render.clone().into()
+    }
+
+    pub fn style_urls(&self) -> Vec<String> {
+        self.style_urls.clone()
     }
 
     pub async fn join_liveview_channel(
@@ -704,49 +736,12 @@ impl LiveSocket {
             _ => None,
         }
         .ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
-        /* Okay join response looks like: To do an upload we need the new `data-phx-upload-ref`
-        {
-          "rendered": {
-            "0": {
-              "0": " id=\"phx-F6rhEydz8YniGqoB\"",
-              "1": " name=\"avatar\"",
-              "2": " accept=\".jpg,.jpeg,.ico\"",
-              "3": " data-phx-upload-ref=\"phx-F6rhEydz8YniGqoB\"",
-              "4": " data-phx-active-refs=\"\"",
-              "5": " data-phx-done-refs=\"\"",
-              "6": " data-phx-preflighted-refs=\"\"",
-              "7": "",
-              "8": " multiple",
-              "s": [
-                "<input",
-                " type=\"file\"",
-                "",
-                " data-phx-hook=\"Phoenix.LiveFileUpload\" data-phx-update=\"ignore\"",
-                "",
-                "",
-                "",
-                "",
-                "",
-                ">"
-              ],
-              "r": 1
-            },
-            "s": [
-              "<p> THIS IS AN UPLOAD FORM </p>\n<form id=\"upload-form\" phx-submit=\"save\" phx-change=\"validate\">\n\n  ",
-              "\n\n  <button type=\"submit\">Upload</button>\n</form>"
-            ]
-          }
-        }
-                 */
-        // As silly as it sounds, rendering this diff and parsing the dom for the
-        // data-phx-upload-ref seems like the most stable way.
+
         Ok(LiveChannel {
             channel,
             join_payload,
             socket: self.socket.clone(),
             document: document.into(),
-            dead_render: self.dead_render.clone().into(),
-            style_urls: self.style_urls.clone(),
             timeout: self.timeout,
         })
     }
