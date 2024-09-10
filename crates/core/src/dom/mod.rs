@@ -1,5 +1,5 @@
 mod attribute;
-mod ffi;
+pub(crate) mod ffi;
 mod node;
 mod printer;
 mod select;
