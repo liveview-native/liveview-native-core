@@ -10,12 +10,12 @@ let connect_url = "http://127.0.0.1:4001/hello";
 final class LiveViewNativeCoreSocketTests: XCTestCase {
     func testConnect() async throws {
         let live_socket = try await LiveSocket(connect_url, timeout, "swiftui")
-        let _ = try await live_socket.joinLiveviewChannel(.none)
+        let _ = try await live_socket.joinLiveviewChannel(.none, .none)
     }
 
     func testStatus() async throws {
         let live_socket = try await LiveSocket(connect_url, timeout, "swiftui")
-        let _ = try await live_socket.joinLiveviewChannel(.none)
+        let _ = try await live_socket.joinLiveviewChannel(.none, .none)
         let socket = live_socket.socket()
 
         var status = socket.status()
@@ -38,7 +38,7 @@ let upload_url = "http://127.0.0.1:4001/upload";
 final class LiveViewNativeCoreUploadTests: XCTestCase {
     func testUpload() async throws {
         let live_socket = try await LiveSocket(upload_url, timeout, "swiftui")
-        let live_channel = try await live_socket.joinLiveviewChannel(.none)
+        let live_channel = try await live_socket.joinLiveviewChannel(.none, .none)
 
         let phx_id = try live_channel.getPhxRefFromUploadJoinPayload()
         let image : Data! = Data(base64Encoded: base64TileImg)
