@@ -20,7 +20,7 @@ async fn main() {
         .await
         .expect("Failed to get liveview socket");
     let live_channel = live_socket
-        .join_liveview_channel(None)
+        .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
     live_channel

@@ -35,7 +35,7 @@ async fn single_chunk_file() {
         .await
         .expect("Failed to get liveview socket");
     let live_channel = live_socket
-        .join_liveview_channel(None)
+        .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
     let phx_input_id = live_channel
@@ -72,7 +72,7 @@ async fn multi_chunk_file() {
         .await
         .expect("Failed to get liveview socket");
     let live_channel = live_socket
-        .join_liveview_channel(None)
+        .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
     let phx_input_id = live_channel
@@ -112,7 +112,7 @@ async fn error_file_too_large() {
         .await
         .expect("Failed to get liveview socket");
     let live_channel = live_socket
-        .join_liveview_channel(None)
+        .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
     let phx_input_id = live_channel
@@ -160,7 +160,7 @@ async fn error_incorrect_file_type() {
         .await
         .expect("Failed to get liveview socket");
     let live_channel = live_socket
-        .join_liveview_channel(None)
+        .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
     let phx_input_id = live_channel

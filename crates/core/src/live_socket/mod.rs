@@ -29,6 +29,7 @@ pub struct LiveSocket {
     pub format: String,
     pub dead_render: Document,
     pub style_urls: Vec<String>,
+    pub live_reload_socket: Option<Arc<Socket>>,
     timeout: Duration,
 }
 #[derive(uniffi::Object)]
@@ -119,8 +120,8 @@ impl LiveChannel {
         loop {
             let event = events.event().await?;
             match event.event {
-                Event::Phoenix { .. } => {
-                    todo!();
+                Event::Phoenix { phoenix } => {
+                    error!("Phoenix Event for {phoenix:?} is unimplemented");
                 }
                 Event::User { user } => {
                     if user == "diff" {
@@ -586,6 +587,7 @@ impl LiveSocket {
             })
             .collect();
 
+
         // NEED:
         // these from inside data-phx-main
         // data-phx-session,
@@ -618,7 +620,41 @@ impl LiveSocket {
         debug!("websocket url: {websocket_url}");
 
         let websocket_url = websocket_url.parse::<Url>()?;
-        let socket = Socket::spawn(websocket_url.clone(), Some(cookies))?;
+        let socket = Socket::spawn(websocket_url.clone(), Some(cookies.clone())).await?;
+
+        // The iframe portion looks like:
+        // <iframe hidden height="0" width="0" src="/phoenix/live_reload/frame"></iframe>
+        let live_reload_iframe: Option<String> = dead_render
+            .select(Selector::Tag(ElementName {
+                namespace: None,
+                name: "iframe".into(),
+            }))
+            .map(|node_ref| dead_render.get(node_ref))
+            .filter_map(|node| {
+                node.attributes()
+                    .iter()
+                    .filter(|attr| attr.name.name == "src")
+                    .map(|attr| attr.value.clone())
+                    .last()
+                    .flatten()
+            })
+            .filter(|iframe_src| {
+                iframe_src == "/phoenix/live_reload/frame"
+            })
+            .last();
+        let live_reload_socket: Option<Arc<Socket>> = if live_reload_iframe.is_some() {
+                let websocket_url = format!(
+                    "{}://{}{}/phoenix/live_reload/socket/websocket",
+                    websocket_scheme, host, port
+                );
+                let websocket_url = websocket_url.parse::<Url>()?;
+                Some(Socket::spawn(websocket_url, Some(cookies.clone())).await?)
+        } else {
+            None
+        };
+
+
+        debug!("iframe src: {live_reload_iframe:?}");
 
         Ok(Self {
             socket,
@@ -630,6 +666,7 @@ impl LiveSocket {
             url,
             dead_render,
             style_urls,
+            live_reload_socket,
             format,
         })
     }
@@ -641,10 +678,58 @@ impl LiveSocket {
     pub fn style_urls(&self) -> Vec<String> {
         self.style_urls.clone()
     }
+    pub async fn join_livereload_channel(
+        &self,
+        redirect: Option<String>,
+    ) -> Result<LiveChannel, LiveSocketError> {
+        let redirect_or_url : (String, JSON) = if let Some(redirect) = redirect {
+            (
+                "redirect".to_string(),
+                JSON::Str {
+                    string: redirect
+                },
+            )
+        } else {
+            (
+                "url".to_string(),
+                JSON::Str {
+                    string: self.url.to_string(),
+                },
+            )
+        };
+        let join_payload = Payload::JSONPayload {
+            json: JSON::Object {
+                object: HashMap::from([
+                            redirect_or_url
+                ])
+            }
+        };
+        let channel = self
+            .live_reload_socket.as_ref().ok_or(LiveSocketError::NoLiveReloadURL)?
+            .channel(
+                Topic::from_string(format!("phoenix:live_reload")),
+                Some(join_payload),
+            )
+            .await?;
+        let join_payload = channel.join(self.timeout).await?;
+        let document = Document::empty();
+
+        debug!("Join payload: {join_payload:#?}");
+
+        Ok(LiveChannel {
+            channel,
+            join_payload,
+            socket: self.socket.clone(),
+            document: document.into(),
+            timeout: self.timeout,
+        })
+
+    }
 
     pub async fn join_liveview_channel(
         &self,
         join_params: Option<HashMap<String, JSON>>,
+        redirect: Option<String>
     ) -> Result<LiveChannel, LiveSocketError> {
         self.socket.connect(self.timeout).await?;
         let mut collected_join_params = HashMap::from([
@@ -672,6 +757,21 @@ impl LiveSocket {
                 collected_join_params.insert(key.clone(), value.clone());
             }
         }
+        let redirect_or_url : (String, JSON) = if let Some(redirect) = redirect {
+            (
+                "redirect".to_string(),
+                JSON::Str {
+                    string: redirect
+                },
+            )
+        } else {
+            (
+                "url".to_string(),
+                JSON::Str {
+                    string: self.url.to_string(),
+                },
+            )
+        };
         let join_payload = Payload::JSONPayload {
             json: JSON::Object {
                 object: HashMap::from([
@@ -689,12 +789,7 @@ impl LiveSocket {
                     ),
                     // TODO: Add redirect key. Swift code:
                     // (redirect ? "redirect": "url"): self.url.absoluteString,
-                    (
-                        "url".to_string(),
-                        JSON::Str {
-                            string: self.url.to_string(),
-                        },
-                    ),
+                    redirect_or_url,
                     (
                         "params".to_string(),
                         // TODO: Merge join_params with this simple object.
@@ -748,5 +843,9 @@ impl LiveSocket {
 
     pub fn socket(&self) -> Arc<Socket> {
         self.socket.clone()
+    }
+
+    pub fn live_reload_socket(&self) -> Option<Arc<Socket>> {
+        self.live_reload_socket.clone()
     }
 }

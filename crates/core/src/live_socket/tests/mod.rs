@@ -28,7 +28,7 @@ async fn join_live_view() {
     assert_eq!(style_urls, expected_style_urls);
 
     let live_channel = live_socket
-        .join_liveview_channel(None)
+        .join_liveview_channel(None, None)
         .await
         .expect("Failed to join channel");
     let join_doc = live_channel
@@ -43,4 +43,9 @@ async fn join_live_view() {
 </VStack>"#;
     assert_eq!(expected, rendered);
     let _phx_input_id = live_channel.get_phx_ref_from_upload_join_payload();
+
+    let _live_channel = live_socket
+        .join_livereload_channel(None)
+        .await
+        .expect("Failed to join channel");
 }

@@ -43,6 +43,9 @@ pub enum LiveSocketError {
     #[error("Failed to retrieve an upload token.")]
     NoUploadToken,
 
+    #[error("Failed to find live reload url from deadrender.")]
+    NoLiveReloadURL,
+
     #[error("Liveview Scheme not supported! {scheme}")]
     SchemeNotSupported { scheme: String },
 
