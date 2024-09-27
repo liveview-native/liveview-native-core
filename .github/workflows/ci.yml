@@ -353,7 +353,7 @@ jobs:
       fail-fast: false
       matrix:
         rust-target: ["aarch64-apple-ios-sim" ]
-        apple-sim: [ "iPhone 16" ]
+        apple-sim: [ "iPhone 15" ]
         build-std: [""]
         include:
           - rust-target: "aarch64-apple-tvos-sim"
@@ -367,7 +367,7 @@ jobs:
       - name: Start Simulator
         run: |
           xcrun simctl list devices available
-          xcrun simctl boot ${{ matrix.apple-sim }}
+          xcrun simctl boot "${{ matrix.apple-sim }}"
 
       - uses: dtolnay/rust-toolchain@master
         with:
