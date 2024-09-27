@@ -365,7 +365,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Start Simulator
-        run: xcrun simctl boot "${{ matrix.apple-sim }}"
+        run: |
+          xcrun simctl list devices available
+          xcrun simctl boot ${{ matrix.apple-sim }}
 
       - uses: dtolnay/rust-toolchain@master
         with:
