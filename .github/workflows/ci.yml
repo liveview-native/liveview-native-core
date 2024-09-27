@@ -205,7 +205,6 @@ jobs:
           "visionos",
         ]
 
-
     steps:
       - uses: actions/checkout@v4
       - uses: ./tests/support/test_server/
@@ -269,7 +268,7 @@ jobs:
           path: swift-lcov.info
 
   coverage_report:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs:
       - swift_integration_tests
       - integration_tests
@@ -349,25 +348,25 @@ jobs:
 
   apple_simulator_tests:
     # rust cross-compilation
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-14
     strategy:
       fail-fast: false
       matrix:
         rust-target: ["aarch64-apple-ios-sim" ]
-        apple-sim: [ "iOS" ]
-        os: [ macos-14 ]
+        apple-sim: [ "iPhone 16" ]
         build-std: [""]
         include:
           - rust-target: "aarch64-apple-tvos-sim"
-            os: macos-14
-            apple-sim: "tvOS"
+            apple-sim: "Apple TV 4K (3rd generation)"
             build-std: "-Zbuild-std"
           - rust-target: "aarch64-apple-watchos-sim"
-            os: macos-14
-            apple-sim: "watchOS"
+            apple-sim: "Apple Watch Ultra 2 (49mm)"
             build-std: "-Zbuild-std"
     steps:
       - uses: actions/checkout@v4
+      - name: Start Simulator
+        run: xcrun simctl boot "${{ matrix.apple-sim }}"
+
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.TOOLCHAIN }}
@@ -383,11 +382,6 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-dinghy@0.7.1
-
-      - name: Start Simulator
-        uses: futureware-tech/simulator-action@v3
-        with:
-          os: ${{ matrix.apple-sim }}
 
       - uses: ./tests/support/test_server/
 
