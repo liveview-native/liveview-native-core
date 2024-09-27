@@ -364,13 +364,16 @@ jobs:
         rust-target: ["aarch64-apple-ios-sim" ]
         apple-sim: [ "iOS" ]
         os: [ macos-14 ]
+        build-std: [""]
         include:
           - rust-target: "aarch64-apple-tvos-sim"
             os: macos-14
             apple-sim: "tvOS"
+            build-std: "-Zbuild-std"
           - rust-target: "aarch64-apple-watchos-sim"
             os: macos-14
             apple-sim: "watchOS"
+            build-std: "-Zbuild-std"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
@@ -397,37 +400,26 @@ jobs:
       - uses: ./tests/support/test_server/
 
       - name: Build tests
-        if: ${{ matrix.apple-sim == 'iOS' }}
-        run: cargo test --target ${{ matrix.rust-target }} --no-run
-
-      - name: Build tests
-        if: ${{ matrix.apple-sim == 'tvOS' || matrix.apple-sim == 'watchOS' }}
-        run: cargo -Zbuild-std test --target ${{ matrix.rust-target }} --no-run
+        run: cargo ${{ matrix.build-std }} test --target ${{ matrix.rust-target }} --no-run
 
       - name: Run Rust tests on simulator for ${{ matrix.rust-target }}
-        if: ${{ matrix.apple-sim == 'tvOS' || matrix.apple-sim == 'watchOS' }}
         env:
           DINGHY_LOG: debug
+          SIMCTL_CHILD_RUST_LOG: trace
+          SIMCTL_CHILD_RUST_BACKTRACE: full
         timeout-minutes: 30
         run: |
-          cargo -Zbuild-std test --target ${{ matrix.rust-target }} -- --test-threads 1
-
-      - name: Run Rust tests on simulator for ${{ matrix.rust-target }}
-        if: ${{ matrix.apple-sim == 'iOS' }}
-        env:
-          DINGHY_LOG: debug
-        timeout-minutes: 30
-        run: |
-          cargo test --target ${{ matrix.rust-target }} -- --test-threads 1
+          cargo ${{ matrix.build-std }} test --target ${{ matrix.rust-target }} -- --test-threads 1
 
       - name: Phx server logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: phx-server-stdout-${{ matrix.rust-target }}
+          name: ${{ github.job }}-${{ matrix.rust-target }}
           path: |
             tests/support/test_server/server.stdout.txt
             tests/support/test_server/server.stderr.txt
+            /Users/runner/Library/Developer/CoreSimulator/Devices/*/data/Containers/Bundle/Application/*/Dinghy.app/stdout
 
   android_simulator_tests:
     # rust cross-compilation

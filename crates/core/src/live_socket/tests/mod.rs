@@ -51,3 +51,35 @@ async fn join_live_view() {
         .expect("Failed to join channel");
     */
 }
+
+#[tokio::test]
+async fn redirect() {
+    let _ = env_logger::builder()
+        .parse_default_env()
+        .is_test(true)
+        .try_init();
+
+    let url = format!("http://{HOST}/hello");
+    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT, "swiftui".into())
+        .await
+        .expect("Failed to get liveview socket");
+
+    let live_channel = live_socket
+        .join_liveview_channel(None, None)
+        .await
+        .expect("Failed to join channel");
+
+    //live_channel.channel().shutdown().await.expect("Failed to leave live channel");
+    //
+    // Leave should be: ["4","13","lv:phx-F_azBZxXhBqPjAAm","phx_leave",{}]
+    live_channel
+        .channel()
+        .leave()
+        .await
+        .expect("Failed to leave live channel");
+    let redirect = format!("http://{HOST}/upload");
+    let _live_channel = live_socket
+        .join_liveview_channel(None, Some(redirect))
+        .await
+        .expect("Failed to join channel");
+}
