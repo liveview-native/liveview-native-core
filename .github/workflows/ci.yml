@@ -42,8 +42,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: ./tests/support/test_server/
-
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.TOOLCHAIN }}
@@ -55,6 +53,7 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-pack
+
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-bindgen
@@ -94,6 +93,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./tests/support/test_server/
         if: ${{ matrix.os == 'macos-15' }}
+
       - name: Install Rust Nightly
         uses: dtolnay/rust-toolchain@master
         with:
