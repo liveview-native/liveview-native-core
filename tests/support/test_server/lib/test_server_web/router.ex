@@ -5,7 +5,7 @@ defmodule TestServerWeb.Router do
     plug :accepts, ["html", "swiftui", "jetpack"]
     plug :fetch_session
     plug :fetch_live_flash
-    plug :put_root_layout, 
+    plug :put_root_layout,
       html: {TestServerWeb.Layouts, :root},
       swiftui: {TestServerWeb.Layouts.SwiftUI, :root},
       jetpack: {TestServerWeb.Layouts.Jetpack, :root}

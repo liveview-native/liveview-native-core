@@ -42,8 +42,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: ./tests/support/test_server/
-
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.TOOLCHAIN }}
@@ -55,6 +53,7 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-pack
+
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-bindgen
@@ -87,13 +86,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [
-          macos-14,
+          macos-15,
           ubuntu-24.04,
         ]
     steps:
       - uses: actions/checkout@v4
       - uses: ./tests/support/test_server/
-        if: ${{ matrix.os == 'macos-14' }}
+        if: ${{ matrix.os == 'macos-15' }}
+
       - name: Install Rust Nightly
         uses: dtolnay/rust-toolchain@master
         with:
@@ -122,7 +122,7 @@ jobs:
       - name: Install gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # https://github.com/actions/runner-images/blob/5a9870800dc54127d22ee36c303b47314d231c69/images/macos/macos-14-arm64-Readme.md
+      # https://github.com/actions/runner-images/blob/5a9870800dc54127d22ee36c303b47314d231c69/images/macos/macos-15-arm64-Readme.md
       # Python is required to build OpenSSL but there's no python in the m1
       # macos runners.
       - uses: actions/setup-python@v5
@@ -130,7 +130,7 @@ jobs:
           python-version: '3.12'
 
       - name: Run build with Gradle wrapper
-        if: ${{ matrix.os == 'macos-14' }}
+        if: ${{ matrix.os == 'macos-15' }}
         working-directory: ./crates/core/liveview-native-core-jetpack/
         env:
           RANLIB: "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-ranlib"
@@ -146,7 +146,7 @@ jobs:
            ./gradlew build --scan -x test
 
   swift_build_xcframework:
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - uses: actions/checkout@v4
@@ -161,10 +161,6 @@ jobs:
             x86_64-apple-ios
             aarch64-apple-darwin
             x86_64-apple-darwin
-
-      - uses: maxim-lobanov/setup-xcode@v1.6.0
-        with:
-          xcode-version: latest-stable
 
       - uses: taiki-e/install-action@v2
         with:
@@ -195,7 +191,7 @@ jobs:
           path: ./target/uniffi/swift/liveview_native_core.xcframework
 
   swift_integration_tests:
-    runs-on: macos-14
+    runs-on: macos-15
     needs:
       - swift_build_xcframework
     strategy:
@@ -208,7 +204,6 @@ jobs:
           "ios",
           "visionos",
         ]
-
 
     steps:
       - uses: actions/checkout@v4
@@ -227,10 +222,6 @@ jobs:
       - name: Check artifact downloads
         run: |
           ls ./target/uniffi/swift/ ./target/uniffi/swift/liveview_native_core.xcframework ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/ ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore/*
-
-      - uses: maxim-lobanov/setup-xcode@v1.6.0
-        with:
-          xcode-version: latest-stable
 
       - uses: taiki-e/install-action@v2
         with:
@@ -277,7 +268,7 @@ jobs:
           path: swift-lcov.info
 
   coverage_report:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs:
       - swift_integration_tests
       - integration_tests
@@ -309,7 +300,7 @@ jobs:
           lcov: merged-lcov.info
 
   integration_tests:
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - uses: actions/checkout@v4
@@ -357,22 +348,27 @@ jobs:
 
   apple_simulator_tests:
     # rust cross-compilation
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-15
     strategy:
       fail-fast: false
       matrix:
         rust-target: ["aarch64-apple-ios-sim" ]
-        apple-sim: [ "iOS" ]
-        os: [ macos-14 ]
+        apple-sim: [ "iPhone 16" ]
+        build-std: [""]
         include:
           - rust-target: "aarch64-apple-tvos-sim"
-            os: macos-14
-            apple-sim: "tvOS"
+            apple-sim: "Apple TV 4K (3rd generation)"
+            build-std: "-Zbuild-std"
           - rust-target: "aarch64-apple-watchos-sim"
-            os: macos-14
-            apple-sim: "watchOS"
+            apple-sim: "Apple Watch Ultra 2 (49mm)"
+            build-std: "-Zbuild-std"
     steps:
       - uses: actions/checkout@v4
+      - name: Start Simulator
+        run: |
+          xcrun simctl list devices available
+          xcrun simctl boot "${{ matrix.apple-sim }}"
+
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.TOOLCHAIN }}
@@ -389,45 +385,29 @@ jobs:
         with:
           tool: cargo-dinghy@0.7.1
 
-      - name: Start Simulator
-        uses: futureware-tech/simulator-action@v3
-        with:
-          os: ${{ matrix.apple-sim }}
-
       - uses: ./tests/support/test_server/
 
       - name: Build tests
-        if: ${{ matrix.apple-sim == 'iOS' }}
-        run: cargo test --target ${{ matrix.rust-target }} --no-run
-
-      - name: Build tests
-        if: ${{ matrix.apple-sim == 'tvOS' || matrix.apple-sim == 'watchOS' }}
-        run: cargo -Zbuild-std test --target ${{ matrix.rust-target }} --no-run
+        run: cargo ${{ matrix.build-std }} test --target ${{ matrix.rust-target }} --no-run
 
       - name: Run Rust tests on simulator for ${{ matrix.rust-target }}
-        if: ${{ matrix.apple-sim == 'tvOS' || matrix.apple-sim == 'watchOS' }}
         env:
           DINGHY_LOG: debug
+          SIMCTL_CHILD_RUST_LOG: trace
+          SIMCTL_CHILD_RUST_BACKTRACE: full
         timeout-minutes: 30
         run: |
-          cargo -Zbuild-std test --target ${{ matrix.rust-target }} -- --test-threads 1
-
-      - name: Run Rust tests on simulator for ${{ matrix.rust-target }}
-        if: ${{ matrix.apple-sim == 'iOS' }}
-        env:
-          DINGHY_LOG: debug
-        timeout-minutes: 30
-        run: |
-          cargo test --target ${{ matrix.rust-target }} -- --test-threads 1
+          cargo ${{ matrix.build-std }} test --target ${{ matrix.rust-target }} -- --test-threads 1
 
       - name: Phx server logs
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: phx-server-stdout-${{ matrix.rust-target }}
+          name: ${{ github.job }}-${{ matrix.rust-target }}
           path: |
             tests/support/test_server/server.stdout.txt
             tests/support/test_server/server.stderr.txt
+            /Users/runner/Library/Developer/CoreSimulator/Devices/*/data/Containers/Bundle/Application/*/Dinghy.app/stdout
 
   android_simulator_tests:
     # rust cross-compilation
