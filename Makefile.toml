@@ -468,7 +468,7 @@ args = [
     "-scheme",
     "LiveViewNativeCore",
     "-destination",
-    "name=iPhone 15",
+    "name=iPhone 16",
     "-workspace",
     "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}",
     "-derivedDataPath",
