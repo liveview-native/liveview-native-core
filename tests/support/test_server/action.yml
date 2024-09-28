@@ -25,11 +25,7 @@ runs:
         key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{ hashFiles('**/mix.lock') }}
 
     - run: |
-        mix local.rebar --force
-        mix local.hex --force
         mix deps.get
-        mix deps.compile
-      if: steps.mix-cache.outputs.cache-hit != 'true'
       working-directory: ./tests/support/test_server
       shell: bash
 
