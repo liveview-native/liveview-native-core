@@ -21,9 +21,12 @@ runs:
       with:
         path: |
           tests/support/test_server/deps/
+          tests/support/test_server/_build/
         key: mix-${{ github.workflow }}-${{ runner.os }}-${{runner.arch}}-${{ hashFiles('**/mix.lock') }}
 
-    - run: mix deps.get
+    - run: |
+        mix deps.get
+        mix deps.compile
       if: steps.mix-cache.outputs.cache-hit != 'true'
       working-directory: ./tests/support/test_server
       shell: bash

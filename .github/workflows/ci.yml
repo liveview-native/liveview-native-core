@@ -353,7 +353,7 @@ jobs:
       fail-fast: false
       matrix:
         rust-target: ["aarch64-apple-ios-sim" ]
-        apple-sim: [ "iPhone 15" ]
+        apple-sim: [ "iPhone 16" ]
         build-std: [""]
         include:
           - rust-target: "aarch64-apple-tvos-sim"
