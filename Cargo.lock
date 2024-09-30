@@ -1549,7 +1549,7 @@ dependencies = [
 [[package]]
 name = "phoenix_channels_client"
 version = "0.9.0"
-source = "git+https://github.com/liveview-native/phoenix-channels-client.git?branch=main#795f8e7d25f7d987d7aaa0e113a6e9f7f3c254bf"
+source = "git+https://github.com/liveview-native/phoenix-channels-client.git?branch=main#0fb10ab8c7b39242913b160bdb3722b83eefb834"
 dependencies = [
  "arc-swap",
  "atomic-take",
