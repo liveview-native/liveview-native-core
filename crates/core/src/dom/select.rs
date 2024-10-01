@@ -32,7 +32,7 @@ pub enum Selector<'a> {
 }
 impl<'a> Selector<'a> {
     /// Returns true if this selection can match at most one node, which is only true when an identified
-    /// node is selected or is selected using a combinator that implies exlusion. For example, selecting
+    /// node is selected or is selected using a combinator that implies exclusion. For example, selecting
     /// an identified node as a descendant/child of an arbitrary selector is guaranteed to be unique,
     /// because the selection as a whole can only produce a single result, or none.
     pub fn is_unique(&self) -> bool {

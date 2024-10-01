@@ -18,7 +18,7 @@ LiveView server.
 ## Status
 
 This library is not quite ready for production use yet, as there are still some details of the API being finalized, and much testing remains to
-be done. We'll plan to announce the library more publically when it is ready for the community to build with.
+be done. We'll plan to announce the library more publicly when it is ready for the community to build with.
 
 ## License
 

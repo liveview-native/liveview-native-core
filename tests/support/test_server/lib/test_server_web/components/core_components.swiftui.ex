@@ -14,7 +14,7 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
   Icons are referenced by a system name. Read more about the [Xcode Asset Manager](https://developer.apple.com/documentation/xcode/asset-management)
   to learn how to include different assets in your LiveView Native applications. In addition, you can also use [SF Symbols](https://developer.apple.com/sf-symbols/).
   On any MacOS open Spotlight and search `SF Symbols`. The catalog application will provide a reference name that can be used. All SF Symbols
-  are incuded with all SwiftUI applications.
+  are included with all SwiftUI applications.
 
   Most of this documentation was "borrowed" from the analog Phoenix generated file to ensure this project is expressing the same behavior.
   """
