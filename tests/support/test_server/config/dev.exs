@@ -13,7 +13,7 @@ config :test_server, TestServerWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "p3kccsHPe2TBCKQjkLIf8x22bHhdS7V1POUeUrrdxE9G5sQeQKBjLbCDFa7uvOP5",
+  secret_key_base: "p3kccsHPe2TBCKQjkLIf8x22bHhdS7V1POdeUrrdxE9G5sQeQKBjLbCDFa7uvOP5",
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}

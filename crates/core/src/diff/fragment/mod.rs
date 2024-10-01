@@ -785,7 +785,7 @@ impl FragmentMerge for Fragment {
                             match stream_attr {
                                 StreamAttribute::StreamID(stream_id) => {
                                     if stream.id != *stream_id {
-                                        return Err(MergeError::StreamIDMisMatch);
+                                        return Err(MergeError::StreamIDMismatch);
                                     }
                                 }
                                 StreamAttribute::Inserts(inserts) => {
@@ -942,7 +942,7 @@ pub enum MergeError {
     #[error("Add child to existing")]
     AddChildToExisting,
     #[error("There was a id mismatch when merging a stream")]
-    StreamIDMisMatch,
+    StreamIDMismatch,
     #[error("Stream Error {error}")]
     Stream {
         #[from]

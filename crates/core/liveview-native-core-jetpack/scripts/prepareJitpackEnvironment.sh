@@ -2,7 +2,7 @@
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 # After install Rust, need to the environment variables
 source "$HOME/.cargo/env"
-# Rust code is using nigthly channel
+# Rust code is using nightly channel
 rustup install nightly
 rustup default nightly
 # Adding the target architectures to compile Rust code

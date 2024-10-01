@@ -42,7 +42,7 @@ config :mime, :types, %{
 }
 
 # LVN - Required, you must configure LiveView Native Stylesheets
-# on where class names shoudl be extracted from
+# on where class names should be extracted from
 config :live_view_native_stylesheet,
   content: [
     swiftui: [

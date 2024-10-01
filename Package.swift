@@ -5,7 +5,7 @@ import PackageDescription
 
 let liveview_native_core_framework: Target
 
-// To relase, toggle this to `false`
+// To release, toggle this to `false`
 let useLocalFramework = true
 if useLocalFramework {
     liveview_native_core_framework = .binaryTarget(

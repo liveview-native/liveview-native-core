@@ -8,8 +8,8 @@ defmodule TestServerWeb.Styles.App.Jetpack do
   """
 
   # If you need to have greater control over how your style rules are created
-  # you can use the function defintion style which is more verbose but allows
-  # for more fine-grained controled
+  # you can use the function definition style which is more verbose but allows
+  # for more fine-grained controlled
   #
   # This example shows what is not possible within the more concise ~SHEET
   # use `<Text class="frame:w100:h200" />` allows for a setting
