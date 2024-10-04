@@ -473,8 +473,9 @@ dependencies = [
 
 [[package]]
 name = "core-foundation-sys"
-version = "0.8.6"
-source = "git+https://github.com/servo/core-foundation-rs?rev=fb8fd65eef1b2ef247055e944cf258d53f2a517a#fb8fd65eef1b2ef247055e944cf258d53f2a517a"
+version = "0.8.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
 name = "cpufeatures"
@@ -1549,7 +1550,7 @@ dependencies = [
 [[package]]
 name = "phoenix_channels_client"
 version = "0.9.0"
-source = "git+https://github.com/liveview-native/phoenix-channels-client.git?branch=main#0fb10ab8c7b39242913b160bdb3722b83eefb834"
+source = "git+https://github.com/liveview-native/phoenix-channels-client.git?branch=main#95e865545362e0667d5a7ce3d41ba6f621ae69bb"
 dependencies = [
  "arc-swap",
  "atomic-take",
@@ -1956,8 +1957,9 @@ dependencies = [
 
 [[package]]
 name = "security-framework"
-version = "2.11.0"
-source = "git+https://github.com/kornelski/rust-security-framework.git?rev=ea683f291bb8dff51d3239e556c3236e09274c16#ea683f291bb8dff51d3239e556c3236e09274c16"
+version = "2.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "897b2245f0b511c87893af39b033e5ca9cce68824c4d7e7630b5a1d339658d02"
 dependencies = [
  "bitflags 2.6.0",
  "core-foundation",
@@ -1968,8 +1970,9 @@ dependencies = [
 
 [[package]]
 name = "security-framework-sys"
-version = "2.11.0"
-source = "git+https://github.com/kornelski/rust-security-framework.git?rev=ea683f291bb8dff51d3239e556c3236e09274c16#ea683f291bb8dff51d3239e556c3236e09274c16"
+version = "2.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea4a292869320c0272d7bc55a5a6aafaff59b4f63404a003887b679a2e05b4b6"
 dependencies = [
  "core-foundation-sys",
  "libc",
@@ -2128,7 +2131,8 @@ checksum = "b7c388c1b5e93756d0c740965c41e8822f866621d41acbdf6336a6a168f8840c"
 [[package]]
 name = "socket2"
 version = "0.5.7"
-source = "git+https://github.com/rust-lang/socket2.git?rev=3a938932829ea6ee3025d2d7a86c7b095c76e6c3#3a938932829ea6ee3025d2d7a86c7b095c76e6c3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce305eb0b4296696835b71df73eb912e0f1ffd2556a501fcede6e0c50349191c"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
