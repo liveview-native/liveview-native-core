@@ -38,3 +38,7 @@ codegen-units = 1   # Reduce number of codegen units to increase optimizations
 strip = 'debuginfo'        # Strip symbols from binary*
 split-debuginfo = "packed"
 debug = 1
+
+[patch.crates-io]
+# https://github.com/rust-lang/socket2/pull/503
+socket2 = { git = "https://github.com/rust-lang/socket2.git", rev = "3a938932829ea6ee3025d2d7a86c7b095c76e6c3" }

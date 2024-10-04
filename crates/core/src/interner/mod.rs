@@ -249,7 +249,7 @@ impl PartialEq<InternedString> for InternedString {
         self.0 == other.0
     }
 }
-impl<'a> PartialEq<&'a InternedString> for InternedString {
+impl PartialEq<&InternedString> for InternedString {
     fn eq(&self, other: &&InternedString) -> bool {
         self.0 == other.0
     }
@@ -259,7 +259,7 @@ impl PartialEq<InternedString> for str {
         self == other.as_str()
     }
 }
-impl<'a> PartialEq<InternedString> for &'a str {
+impl PartialEq<InternedString> for &str {
     fn eq(&self, other: &InternedString) -> bool {
         *self == other.as_str()
     }
@@ -269,7 +269,7 @@ impl PartialEq<InternedString> for String {
         self.as_str() == other.as_str()
     }
 }
-impl<'a> PartialEq<InternedString> for &'a String {
+impl PartialEq<InternedString> for &String {
     fn eq(&self, other: &InternedString) -> bool {
         self.as_str() == other.as_str()
     }
