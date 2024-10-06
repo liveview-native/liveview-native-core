@@ -373,7 +373,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: phx-server-stdout-${{ matrix.swift-test }}
+          name: phx-server-stdout-${{ github.job }}-${{ runner.os }}
           path: |
             tests/support/test_server/server.stdout.txt
             tests/support/test_server/server.stderr.txt
@@ -531,7 +531,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: phx-server-stdout-${{ matrix.swift-test }}
+          name: phx-server-stdout-${{ github.job }}-${{ runner.os }}
           path: |
             tests/support/test_server/server.stdout.txt
             tests/support/test_server/server.stderr.txt
