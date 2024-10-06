@@ -369,6 +369,15 @@ jobs:
           name: rust-lcov.info
           path: rust-lcov.info
 
+      - name: Phx server logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: phx-server-stdout-${{ matrix.swift-test }}
+          path: |
+            tests/support/test_server/server.stdout.txt
+            tests/support/test_server/server.stderr.txt
+
   apple_simulator_tests:
     # rust cross-compilation
     runs-on: macos-15
@@ -517,3 +526,12 @@ jobs:
             cargo dinghy all-platforms
             cargo dinghy all-devices
             cargo dinghy -p auto-android-x86_64-api${ANDROID_API} test -- --test-threads 1
+
+      - name: Phx server logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: phx-server-stdout-${{ matrix.swift-test }}
+          path: |
+            tests/support/test_server/server.stdout.txt
+            tests/support/test_server/server.stderr.txt
