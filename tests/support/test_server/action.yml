@@ -17,7 +17,7 @@ runs:
 
     - name: Set up inotify-tools
       if: ${{ runner.os == 'Linux' }}
-      run: apt-get install inotify-tools
+      run: sudo apt-get install inotify-tools
       shell: bash
 
     - name: Cache mix dependencies and build
