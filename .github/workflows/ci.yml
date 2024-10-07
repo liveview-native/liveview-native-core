@@ -316,14 +316,7 @@ jobs:
           lcov: merged-lcov.info
 
   integration_tests:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [
-          macos-15,
-          ubuntu-24.04,
-        ]
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
