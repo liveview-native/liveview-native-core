@@ -5,7 +5,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.4.0-alpha-10"
+version = "0.4.0-alpha-11"
 rust-version = "1.64"
 authors = [
     "Paul Schoenfelder <paulschoenfelder@gmail.com>",
@@ -25,7 +25,7 @@ edition = "2021"
 publish = false
 
 [workspace.dependencies]
-uniffi = "0.28.0" 
+uniffi = "0.28.0"
 
 [profile.dev]
 split-debuginfo = "unpacked"
@@ -39,17 +39,6 @@ strip = 'debuginfo'        # Strip symbols from binary*
 split-debuginfo = "packed"
 debug = 1
 
-
 [patch.crates-io]
-# https://github.com/kornelski/rust-security-framework/pull/201
-security-framework =     { git = "https://github.com/kornelski/rust-security-framework.git", rev = "ea683f291bb8dff51d3239e556c3236e09274c16" }
-security-framework-sys = { git = "https://github.com/kornelski/rust-security-framework.git", rev = "ea683f291bb8dff51d3239e556c3236e09274c16" }
-
-# https://github.com/servo/core-foundation-rs/pull/679
-core-foundation-sys = { git = "https://github.com/servo/core-foundation-rs", rev = "fb8fd65eef1b2ef247055e944cf258d53f2a517a" }
-
 # https://github.com/rust-lang/socket2/pull/503
 socket2 = { git = "https://github.com/rust-lang/socket2.git", rev = "3a938932829ea6ee3025d2d7a86c7b095c76e6c3" }
-
-#tokio-tungstenite = { git = "https://github.com/simlay/tokio-tungstenite.git", branch = "add-browser-wasm-support"}
-#tokio = { git = "https://github.com/simlay/tokio.git", branch = "use-web-time-on-wasm32-unknown-unknown" }

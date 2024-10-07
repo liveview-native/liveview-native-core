@@ -12,8 +12,13 @@ runs:
     - uses: erlef/setup-beam@v1
       if: ${{ runner.os == 'Linux' }}
       with:
-        elixir-version:  1.15
-        otp-version: 25
+        elixir-version:  1.17
+        otp-version: 27
+
+    - name: Set up inotify-tools
+      if: ${{ runner.os == 'Linux' }}
+      run: sudo apt-get install inotify-tools
+      shell: bash
 
     - name: Cache mix dependencies and build
       uses: actions/cache@v4
@@ -36,4 +41,6 @@ runs:
     - name: Run in background
       shell: bash
       working-directory: ./tests/support/test_server
+      env:
+        MIX_ENV: dev
       run: mix phx.server > server.stdout.txt 2> server.stderr.txt & disown

@@ -794,13 +794,13 @@ pub struct InsertionGuard<'a, T: DocumentBuilder + 'a> {
     ip: NodeRef,
     builder: &'a mut T,
 }
-impl<'a, T: DocumentBuilder> Drop for InsertionGuard<'a, T> {
+impl<T: DocumentBuilder> Drop for InsertionGuard<'_, T> {
     #[inline]
     fn drop(&mut self) {
         self.builder.set_insertion_point(self.ip);
     }
 }
-impl<'a, T: DocumentBuilder> Deref for InsertionGuard<'a, T> {
+impl<T: DocumentBuilder> Deref for InsertionGuard<'_, T> {
     type Target = T;
 
     #[inline]
@@ -808,7 +808,7 @@ impl<'a, T: DocumentBuilder> Deref for InsertionGuard<'a, T> {
         self.builder
     }
 }
-impl<'a, T: DocumentBuilder> DerefMut for InsertionGuard<'a, T> {
+impl<T: DocumentBuilder> DerefMut for InsertionGuard<'_, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.builder
@@ -879,7 +879,7 @@ impl<'a> Editor<'a> {
     #[inline(always)]
     pub fn finish(self) {}
 }
-impl<'a> DocumentBuilder for Editor<'a> {
+impl DocumentBuilder for Editor<'_> {
     #[inline(always)]
     fn document(&self) -> &Document {
         self.doc
@@ -1080,7 +1080,7 @@ impl<'a> NodeIdentifiers<'a> {
         Self { doc, stack }
     }
 }
-impl<'a> Iterator for NodeIdentifiers<'a> {
+impl Iterator for NodeIdentifiers<'_> {
     type Item = NodeRef;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1094,7 +1094,7 @@ impl<'a> Iterator for NodeIdentifiers<'a> {
         }
     }
 }
-impl<'a> core::iter::FusedIterator for NodeIdentifiers<'a> {}
+impl core::iter::FusedIterator for NodeIdentifiers<'_> {}
 
 /// An iterator over node ids + data in a Document which are attached to the tree
 pub struct NodeReferences<'a>(NodeIdentifiers<'a>);
@@ -1128,7 +1128,7 @@ impl<'a> EdgeReferences<'a> {
         Self { doc, stack }
     }
 }
-impl<'a> Iterator for EdgeReferences<'a> {
+impl Iterator for EdgeReferences<'_> {
     type Item = EdgeRef;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1149,7 +1149,7 @@ pub struct Neighbors<'a> {
     parent: Option<NodeRef>,
     children: Option<&'a [NodeRef]>,
 }
-impl<'a> Iterator for Neighbors<'a> {
+impl Iterator for Neighbors<'_> {
     type Item = NodeRef;
 
     fn next(&mut self) -> Option<NodeRef> {
