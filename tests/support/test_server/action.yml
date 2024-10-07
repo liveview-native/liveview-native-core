@@ -15,6 +15,11 @@ runs:
         elixir-version:  1.17
         otp-version: 27
 
+    - name: Set up inotify-tools
+      if: ${{ runner.os == 'Linux' }}
+      run: apt-get install inotify-tools
+      shell: bash
+
     - name: Cache mix dependencies and build
       uses: actions/cache@v4
       id: mix-cache
