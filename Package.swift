@@ -6,7 +6,7 @@ import PackageDescription
 let liveview_native_core_framework: Target
 
 // To release, toggle this to `false`
-let useLocalFramework = true
+let useLocalFramework = false
 if useLocalFramework {
     liveview_native_core_framework = .binaryTarget(
         name: "liveview_native_core",
@@ -14,7 +14,7 @@ if useLocalFramework {
     )
 } else {
     let releaseTag = "0.4.0-alpha-11"
-    let releaseChecksum = "f3972f4d40732c884c98426b28550376abaff20a3490b73367ad170f1f0bcca9"
+    let releaseChecksum = "36b2e93717f8d014eaff47545e3980ff074454787056f7c9cbee850fe2f54507"
     liveview_native_core_framework = .binaryTarget(
         name: "liveview_native_core",
         url: "https://github.com/liveview-native/liveview-native-core/releases/download/\(releaseTag)/liveview_native_core.xcframework.zip",
