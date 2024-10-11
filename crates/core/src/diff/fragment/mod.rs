@@ -121,7 +121,7 @@ impl Fragment {
                         // templates and statics are suppose to wrap the inner
                         // contents of the children.
                         for (i, static_item) in statics.iter().enumerate().skip(1) {
-                            if let Some(child) = children .get(&(i - 1).to_string()) {
+                            if let Some(child) = children.get(&(i - 1).to_string()) {
                                 let val = child.render(
                                     components,
                                     cousin_statics.clone(),
@@ -155,8 +155,7 @@ impl Fragment {
                             out.push_str(template_item);
                         }
                     }
-                    Statics::String(_) => {
-                    }
+                    Statics::String(_) => {}
                 }
             }
             Fragment::Comprehension {
@@ -243,8 +242,7 @@ impl Fragment {
                                     return Err(RenderError::NoTemplates);
                                 }
                             }
-                            Statics::String(_) => {
-                            }
+                            Statics::String(_) => {}
                         }
                     }
                     (Some(_statics), Some(_cousin_templates)) => {
