@@ -121,15 +121,14 @@ impl Fragment {
                         // templates and statics are suppose to wrap the inner
                         // contents of the children.
                         for (i, static_item) in statics.iter().enumerate().skip(1) {
-                            let child = children
-                                .get(&(i - 1).to_string())
-                                .ok_or(RenderError::ChildNotFoundForStatic((i - 1) as i32))?;
-                            let val = child.render(
-                                components,
-                                cousin_statics.clone(),
-                                parent_templates.clone(),
-                            )?;
-                            out.push_str(&val);
+                            if let Some(child) = children .get(&(i - 1).to_string()) {
+                                let val = child.render(
+                                    components,
+                                    cousin_statics.clone(),
+                                    parent_templates.clone(),
+                                )?;
+                                out.push_str(&val);
+                            }
                             out.push_str(static_item);
                         }
                     }
@@ -155,6 +154,8 @@ impl Fragment {
                             out.push_str(&val);
                             out.push_str(template_item);
                         }
+                    }
+                    Statics::String(_) => {
                     }
                 }
             }
@@ -241,6 +242,8 @@ impl Fragment {
                                 } else {
                                     return Err(RenderError::NoTemplates);
                                 }
+                            }
+                            Statics::String(_) => {
                             }
                         }
                     }
@@ -403,7 +406,7 @@ pub enum Fragment {
     Comprehension {
         #[serde(rename = "d")]
         dynamics: Dynamics,
-        #[serde(rename = "s")]
+        #[serde(rename = "s", skip_serializing_if = "Option::is_none")]
         statics: Option<Statics>,
         #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
         reply: Option<i8>,
@@ -570,6 +573,7 @@ impl TryFrom<FragmentDiff> for Fragment {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Statics {
+    String(String),
     Statics(Vec<String>),
     TemplateRef(i32),
 }
@@ -686,22 +690,6 @@ impl FragmentMerge for Root {
     fn merge(self, diff: Self::DiffItem) -> Result<Self, MergeError> {
         let fragment = self.fragment.merge(diff.fragment)?;
         let components = self.components.merge(diff.components)?;
-        /*
-        let components = match (self.components, diff.components) {
-            (None, None) => None,
-            (None, Some(component_diff)) => {
-                let mut components: HashMap<String, Component> = HashMap::new();
-                for (key, comp) in component_diff.into_iter() {
-                    components.insert(key, comp.to_new_component()?);
-                }
-                Some(components)
-            }
-            (Some(components), None) => Some(components),
-            (Some(new_components), Some(component_diff)) => {
-                Some(new_components.merge(component_diff)?)
-            }
-        };
-        */
         Ok(Self {
             fragment,
             components,
@@ -718,11 +706,12 @@ impl FragmentMerge for Fragment {
             (
                 Fragment::Regular {
                     children: current_children,
-                    statics: current_statics,
+                    statics: mut current_statics,
                     reply: current_reply,
                 },
                 FragmentDiff::UpdateRegular {
                     children: children_diffs,
+                    statics: new_statics,
                     reply: new_reply,
                     ..
                 },
@@ -733,6 +722,9 @@ impl FragmentMerge for Fragment {
                     (None, Some(r)) => Some(r),
                     (Some(r), None) => Some(r),
                     (Some(_old), Some(new)) => Some(new),
+                };
+                if let Some(new_statics) = new_statics {
+                    current_statics = new_statics;
                 };
                 Ok(Self::Regular {
                     children: new_children,

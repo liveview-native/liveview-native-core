@@ -1,28 +1,14 @@
 use liveview_native_core::diff::fragment::{FragmentMerge, Root, RootDiff};
+use serde::Serialize;
 use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen(inline_js = "
-    export function map_to_object(map) {
-        const out = Object.create(null);
-        map.forEach((value, key) => {
-            if (value instanceof Map) {
-                out[key] = map_to_object(value)
-            } else {
-                out[key] = value
-            }
-        });
-        return out;
-    }")]
-extern "C" {
-    fn map_to_object(map: JsValue) -> JsValue;
-}
 
 #[wasm_bindgen]
 pub struct Rendered {
     inner: Root,
+    view_id: String,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug)]
 pub struct RenderedExtractedInput {
     #[serde(rename = "r")]
     reply: Option<bool>,
@@ -30,10 +16,12 @@ pub struct RenderedExtractedInput {
     title: Option<String>,
     #[serde(rename = "e", default = "Vec::new")]
     events: Vec<String>,
+    #[serde(rename = "fingerprint")]
+    _finger_print: Option<i32>,
     #[serde(flatten)]
     diff: RootDiff,
 }
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Debug)]
 pub struct RenderedExtractedOutput {
     reply: Option<bool>,
     title: Option<String>,
@@ -50,23 +38,27 @@ impl From<RenderedExtractedInput> for RenderedExtractedOutput {
         }
     }
 }
+use log::{info, debug};
 
 #[wasm_bindgen]
 impl Rendered {
     #[wasm_bindgen(constructor)]
-    pub fn new(_view_id: i32, rendered: JsValue) -> Result<Rendered, JsError> {
+    pub fn new(view_id: String, rendered: JsValue) -> Result<Rendered, JsError> {
         console_error_panic_hook::set_once();
         let _ = console_log::init_with_level(log::Level::Debug);
+        debug!("New rendered: {rendered:?}");
         let root_diff: RootDiff = serde_wasm_bindgen::from_value(rendered)?;
         let root: Root = root_diff.try_into()?;
-        Ok(Rendered { inner: root })
+        Ok(Rendered { inner: root, view_id })
     }
     #[wasm_bindgen(js_name = "mergeDiff")]
     pub fn merge_diff(&mut self, diff: JsValue) -> Result<(), JsError> {
+        debug!("Merging diff: {diff:?}");
         let diff: RootDiff = serde_wasm_bindgen::from_value(diff)?;
-        log::info!("DIFF: {diff:#?}");
+        info!("DIFF: {diff:#?}");
+        info!("BEFORE MERGE: {:#?}", self.inner);
         self.inner = self.inner.clone().merge(diff)?;
-        log::info!("MERGED: {:#?}", self.inner);
+        info!("MERGED: {:#?}", self.inner);
         Ok(())
     }
     #[wasm_bindgen(js_name = "isComponentOnlyDiff")]
@@ -82,6 +74,12 @@ impl Rendered {
         let root: Root = diff.try_into()?;
         Ok(root.component_cids())
     }
+
+    #[wasm_bindgen(js_name = "resetRender")]
+    pub fn reset_render(&self, _cid: i32) -> Result<JsValue, JsError> {
+        todo!()
+    }
+
     #[wasm_bindgen(js_name = "getComponent")]
     pub fn get_component(&self, diff: JsValue, cid: i32) -> Result<JsValue, JsError> {
         let diff: RootDiff = serde_wasm_bindgen::from_value(diff)?;
@@ -108,12 +106,14 @@ impl Rendered {
         root.is_new_fingerprint()
     }
     pub fn get(&self) -> Result<JsValue, JsError> {
-        let map = serde_wasm_bindgen::to_value(&self.inner)?;
-        Ok(map_to_object(map))
+        let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+        let map = self.inner.serialize(&serializer).expect("Failed to serialize");
+        Ok(map)
     }
     #[wasm_bindgen(js_name = "toString")]
     pub fn to_string(&self) -> Result<JsValue, JsError> {
         let out = js_sys::Array::new();
+        let _ = console_log::init_with_level(log::Level::Debug);
         let rendered: String = self.inner.clone().try_into()?;
         out.push(&rendered.into());
         let streams = js_sys::Set::default();
@@ -121,10 +121,20 @@ impl Rendered {
 
         Ok(out.into())
     }
+    #[wasm_bindgen(js_name = "parentViewId")]
+    pub fn parent_view_id(&self) -> String {
+        self.view_id.clone()
+    }
+
     pub fn extract(diff: JsValue) -> Result<JsValue, JsError> {
         let extracted: RenderedExtractedInput = serde_wasm_bindgen::from_value(diff)?;
         let extracted: RenderedExtractedOutput = extracted.into();
-        let map = serde_wasm_bindgen::to_value(&extracted)?;
-        Ok(map)
+        // This is needed because various fields in RootDiff won't be included.
+        // The json compatible serializer is a bit more costly.
+        // https://github.com/RReverser/serde-wasm-bindgen?tab=readme-ov-file#supported-types
+        let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+
+        let out = extracted.serialize(&serializer).expect("Failed to serialize");
+        Ok(out)
     }
 }
