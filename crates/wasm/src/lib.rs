@@ -38,7 +38,7 @@ impl From<RenderedExtractedInput> for RenderedExtractedOutput {
         }
     }
 }
-use log::{info, debug};
+use log::{debug, info};
 
 #[wasm_bindgen]
 impl Rendered {
@@ -49,7 +49,10 @@ impl Rendered {
         debug!("New rendered: {rendered:?}");
         let root_diff: RootDiff = serde_wasm_bindgen::from_value(rendered)?;
         let root: Root = root_diff.try_into()?;
-        Ok(Rendered { inner: root, view_id })
+        Ok(Rendered {
+            inner: root,
+            view_id,
+        })
     }
     #[wasm_bindgen(js_name = "mergeDiff")]
     pub fn merge_diff(&mut self, diff: JsValue) -> Result<(), JsError> {
@@ -107,7 +110,10 @@ impl Rendered {
     }
     pub fn get(&self) -> Result<JsValue, JsError> {
         let serializer = serde_wasm_bindgen::Serializer::json_compatible();
-        let map = self.inner.serialize(&serializer).expect("Failed to serialize");
+        let map = self
+            .inner
+            .serialize(&serializer)
+            .expect("Failed to serialize");
         Ok(map)
     }
     #[wasm_bindgen(js_name = "toString")]
@@ -134,7 +140,9 @@ impl Rendered {
         // https://github.com/RReverser/serde-wasm-bindgen?tab=readme-ov-file#supported-types
         let serializer = serde_wasm_bindgen::Serializer::json_compatible();
 
-        let out = extracted.serialize(&serializer).expect("Failed to serialize");
+        let out = extracted
+            .serialize(&serializer)
+            .expect("Failed to serialize");
         Ok(out)
     }
 }
