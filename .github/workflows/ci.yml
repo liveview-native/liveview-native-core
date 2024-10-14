@@ -9,7 +9,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # change to stable when we remove unstable features
+  # Change to stable when features stabilize
   CARGO_MAKE_TOOLCHAIN: nightly
   CARGO_MAKE_CI: true
   ANDROID_API: 34
