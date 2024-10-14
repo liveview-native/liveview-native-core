@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(test)]
 mod tests;
 
+// This is the diff coming across the wire for an update to the UI. This can be
+// converted directly into a Root or merged into a Root itself.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct RootDiff {
     #[serde(flatten)]
@@ -13,6 +15,7 @@ pub struct RootDiff {
     components: HashMap<String, ComponentDiff>,
 }
 
+// This is the struct representation of the whole tree.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Root {
     #[serde(flatten)]
@@ -20,6 +23,7 @@ pub struct Root {
     #[serde(rename = "c", default = "HashMap::new")]
     components: HashMap<String, Component>,
 }
+// These are used in the wasm build.
 impl Root {
     pub fn is_component_only_diff(&self) -> bool {
         !self.components.is_empty() && self.fragment.is_empty()
@@ -41,6 +45,7 @@ impl Root {
     }
 }
 
+// This is a direct conversion from RootDiff to Root.
 impl TryFrom<RootDiff> for Root {
     type Error = MergeError;
     fn try_from(value: RootDiff) -> Result<Self, MergeError> {
@@ -48,17 +53,6 @@ impl TryFrom<RootDiff> for Root {
         for (key, value) in value.components.into_iter() {
             components.insert(key, value.try_into()?);
         }
-        /*
-        let components = if let Some(components) = value.components {
-            let mut out: HashMap<String, Component> = HashMap::new();
-            for (key, value) in components.into_iter() {
-                out.insert(key, value.try_into()?);
-            }
-            Some(out)
-        } else {
-            None
-        };
-        */
         Ok(Self {
             fragment: value.fragment.try_into()?,
             components,
@@ -66,6 +60,7 @@ impl TryFrom<RootDiff> for Root {
     }
 }
 
+// This is to render the Root as an XML tree in String form.
 impl TryInto<String> for Root {
     type Error = RenderError;
 
@@ -373,7 +368,7 @@ pub enum FragmentDiff {
     UpdateComprehension {
         #[serde(rename = "d")]
         dynamics: DynamicsDiff,
-        #[serde(rename = "p")]
+        #[serde(rename = "p", skip_serializing_if = "Option::is_none")]
         templates: Templates,
         #[serde(rename = "s")]
         statics: Option<Statics>,
@@ -468,7 +463,7 @@ impl TryFrom<Vec<StreamAttribute>> for Stream {
                     stream.id = id.to_string();
                 }
                 StreamAttribute::Inserts(inserts) => {
-                    for (stream_id, (index, limit)) in inserts.iter() {
+                    for (stream_id, index, limit) in inserts.iter() {
                         stream.stream_items.push(StreamItem {
                             id: stream_id.to_string(),
                             index: *index,
@@ -496,7 +491,7 @@ pub type StreamUpdate = Vec<StreamAttribute>;
 #[serde(untagged)]
 pub enum StreamAttribute {
     StreamID(String),
-    Inserts(HashMap<String, (i32, Option<i32>)>),
+    Inserts(Vec<(String, i32, Option<i32>)>),
     DeleteIDs(Vec<String>),
     ResetStream(bool),
 }
@@ -789,7 +784,7 @@ impl FragmentMerge for Fragment {
                                     }
                                 }
                                 StreamAttribute::Inserts(inserts) => {
-                                    for (insert_id, (index, _limit)) in inserts.iter() {
+                                    for (insert_id, index, _limit) in inserts.iter() {
                                         if let Some(dynamic) =
                                             new_dynamics.iter().find(|children| {
                                                 children.iter().any(|child| {

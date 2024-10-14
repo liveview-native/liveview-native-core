@@ -3,16 +3,18 @@
         "1": {
             "stream": [
                 "0",
-                {
-                    "songs-0": [
+                [
+                  [
+                        "songs-0",
                         -1,
                         null
-                    ],
-                    "songs-1": [
+                  ],
+                  [
+                        "songs-1",
                         -1,
                         null
                     ]
-                },
+                ],
                 [],
                 true
             ],
