@@ -73,6 +73,16 @@ defmodule TestServerWeb.SimpleLiveStream do
     <.link href={~p"/upload"}>Upload Page</.link>
     <button phx-click="reset-stream" phx-value-id="0">Reset Stream</button>
     <button phx-click="add-fancy-song" phx-value-id="9999">Add fancy song</button>
+      <tbody id="songs_other" phx-update="stream">
+        <tr
+          :for={{id, song} <- @streams.songs_other}
+            id={id}
+        >
+          <td><%= song.title %></td>
+          <td><button phx-click="delete-song" phx-value-id={song.id}>delete</button></td>
+          <td><button phx-click="increment-song" phx-value-id={song.id}>increment</button></td>
+        </tr>
+      </tbody>
     """
   end
 #  def render(assigns) do
