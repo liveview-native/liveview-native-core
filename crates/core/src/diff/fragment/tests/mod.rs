@@ -2,6 +2,45 @@ use pretty_assertions::assert_eq;
 
 use super::*;
 mod stream;
+#[test]
+fn stream_parsing() {
+    let initial = r#"
+        {
+          "1": {
+            "0": {
+              "d": [
+                [
+                  " id=\"songs_other-486\"",
+                  "song 486",
+                  " phx-value-id=\"486\"",
+                  " phx-value-id=\"486\""
+                ]
+              ],
+              "s": [
+                "<tr",
+                ">\n      <td>",
+                "</td>\n      <td><button phx-click=\"delete-song\"",
+                ">delete</button></td>\n      <td><button phx-click=\"increment-song\"",
+                ">increment</button></td>\n    </tr>"
+              ],
+              "stream": [
+                "1",
+                [
+                  [
+                    "songs_other-486",
+                    -1,
+                    null
+                  ]
+                ],
+                []
+              ]
+            }
+          }
+        }
+        "#;
+    let root: RootDiff = serde_json::from_str(initial).expect("Failed to deserialize fragment");
+    let _root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
+}
 
 #[test]
 fn jetpack_more_edge_cases() {
