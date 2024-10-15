@@ -517,7 +517,7 @@ impl Document {
     }
 
     pub fn merge_fragment_json(&mut self, json: &str) -> Result<(), RenderError> {
-        let fragment: RootDiff = serde_json::from_str(&json).map_err(RenderError::from)?;
+        let fragment: RootDiff = serde_json::from_str(json).map_err(RenderError::from)?;
 
         let root = if let Some(root) = &self.fragment_template {
             root.clone().merge(fragment)?
