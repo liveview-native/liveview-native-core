@@ -46,12 +46,12 @@ async fn streaming_connect() -> Result<(), String> {
 
     let live_socket = LiveSocket::new(url.to_string(), TIME_OUT, "swiftui".into())
         .await
-        .expect("Failed to get liveview socket");
+        .map_err(|e| format!("Failed to get liveview socket {e}"))?;
 
     let live_channel = live_socket
         .join_liveview_channel(None, None)
         .await
-        .expect("Failed to join the liveview channel");
+        .map_err(|e| format!("Failed to join the liveview channel {e}"))?;
 
     let (tx, mut rx) = oneshot::channel();
     live_channel.set_event_handler(Box::new(Inspector {
@@ -69,14 +69,18 @@ async fn streaming_connect() -> Result<(), String> {
     for _ in 0..MAX_TRIES {
         match rx.try_recv() {
             Ok(_) => {
-                chan_clone.leave().await.expect("could not leave channel");
+                chan_clone
+                    .leave()
+                    .await
+                    .map_err(|e| format!("Failed to leave channel {e}"))?;
+
                 return Ok(());
             }
             Err(oneshot::error::TryRecvError::Empty) => {
                 tokio::time::sleep(Duration::from_millis(MS_DELAY)).await;
             }
             Err(_) => {
-                return Err(format!("Merging Panicked"));
+                return Err(String::from("Merging Panicked"));
             }
         }
     }

@@ -60,7 +60,7 @@ impl LiveChannel {
     }
 
     // Blocks indefinitely, processing changes to the document using the user provided callback
-    // In `set_even_handler`
+    // In `set_event_handler`
     pub async fn merge_diffs(&self) -> Result<(), LiveSocketError> {
         // TODO: This should probably take the event closure to send changes back to swift/kotlin
         let document = self.document.clone();
