@@ -29,7 +29,7 @@ pub use self::{
 use crate::{
     diff::{
         fragment::{FragmentMerge, RenderError, Root, RootDiff},
-        PatchResult,
+        Patch, PatchResult,
     },
     parser,
 };
@@ -71,6 +71,9 @@ pub struct Document {
     /// The fragment template.
     pub fragment_template: Option<Root>,
     pub event_callback: Option<Arc<dyn DocumentChangeHandler>>,
+    /// A trait object for inspecting the list of patches
+    /// during debug, profiling, and testing.
+    pub patch_inspector: Option<Arc<dyn PatchInspector>>,
     /// A map from node reference to node data
     nodes: PrimaryMap<NodeRef, NodeData>,
     /// A map from a node to its parent node, if it currently has one
@@ -130,6 +133,7 @@ impl Document {
             ids: Default::default(),
             fragment_template: None,
             event_callback: None,
+            patch_inspector: None,
         }
     }
 
@@ -516,7 +520,7 @@ impl Document {
         Ok(document)
     }
 
-    pub fn merge_fragment_json(&mut self, json: String) -> Result<(), RenderError> {
+    pub fn merge_fragment_json(&mut self, json: &str) -> Result<(), RenderError> {
         let fragment: RootDiff = serde_json::from_str(&json).map_err(RenderError::from)?;
 
         let root = if let Some(root) = &self.fragment_template {
@@ -530,17 +534,21 @@ impl Document {
         let new_doc = Self::parse(rendered_root)?;
 
         let patches = crate::diff::diff(self, &new_doc);
+        if let Some(ref inspector) = self.patch_inspector.as_ref() {
+            inspector.inspect(&patches);
+        }
+
         if patches.is_empty() {
             return Ok(());
         }
-        let handler = self.event_callback.clone();
 
+        let handler = self.event_callback.clone();
         let mut stack = vec![];
         let mut editor = self.edit();
         for patch in patches.into_iter() {
             let patch_result = patch.apply(&mut editor, &mut stack);
             match patch_result {
-                None => (),
+                None => {}
                 Some(PatchResult::Add { node, parent, data }) => {
                     if let Some(ref handler) = handler {
                         handler.handle(ChangeType::Add, node.into(), data, Some(parent.into()));
@@ -584,6 +592,8 @@ pub enum EventType {
 
 #[uniffi::export(callback_interface)]
 pub trait DocumentChangeHandler: Send + Sync {
+    /// This callback should implement your dom manipulation logic
+    /// after receiveing patches from LVN.
     fn handle(
         &self,
         change_type: ChangeType,
@@ -591,6 +601,11 @@ pub trait DocumentChangeHandler: Send + Sync {
         node_data: NodeData,
         parent: Option<Arc<NodeRef>>,
     );
+}
+
+/// Trait for types that instrument diffs during testing and profiling.
+pub trait PatchInspector: Send + Sync {
+    fn inspect(&self, patches: &[Patch]);
 }
 
 /// This trait is used to provide functionality common to construction/mutating documents
