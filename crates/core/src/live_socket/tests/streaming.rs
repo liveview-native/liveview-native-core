@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use tokio::sync::oneshot::*;
+use tokio::sync::oneshot::{self, *};
 
 use super::*;
 use crate::dom::{ChangeType, DocumentChangeHandler, NodeData, NodeRef};
@@ -53,12 +53,13 @@ async fn streaming_connect() -> Result<(), String> {
         .await
         .expect("Failed to join the liveview channel");
 
-    let (tx, mut rx) = tokio::sync::oneshot::channel();
+    let (tx, mut rx) = oneshot::channel();
     live_channel.set_event_handler(Box::new(Inspector {
         tx: Mutex::new(Some(tx)),
     }));
 
-    let handle = tokio::spawn(async move {
+    let chan_clone = live_channel.channel().clone();
+    tokio::spawn(async move {
         live_channel
             .merge_diffs()
             .await
@@ -68,9 +69,10 @@ async fn streaming_connect() -> Result<(), String> {
     for _ in 0..MAX_TRIES {
         match rx.try_recv() {
             Ok(_) => {
+                chan_clone.leave().await.expect("could not leave channel");
                 return Ok(());
             }
-            Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
+            Err(oneshot::error::TryRecvError::Empty) => {
                 tokio::time::sleep(Duration::from_millis(MS_DELAY)).await;
             }
             Err(_) => {
@@ -78,8 +80,6 @@ async fn streaming_connect() -> Result<(), String> {
             }
         }
     }
-
-    handle.abort();
 
     Err(format!(
         "Exceeded {MAX_TRIES} Max tries, waited {} ms",
