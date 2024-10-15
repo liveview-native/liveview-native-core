@@ -59,6 +59,8 @@ impl LiveChannel {
         self.document.set_event_handler(handler);
     }
 
+    // Blocks indefinitely, processing changes to the document using the user provided callback
+    // In `set_event_handler`
     pub async fn merge_diffs(&self) -> Result<(), LiveSocketError> {
         // TODO: This should probably take the event closure to send changes back to swift/kotlin
         let document = self.document.clone();
@@ -75,7 +77,7 @@ impl LiveChannel {
                         debug!("PAYLOAD: {payload}");
                         // This function merges and uses the event handler set in `set_event_handler`
                         // which will call back into the Swift/Kotlin.
-                        document.merge_fragment_json(payload)?;
+                        document.merge_fragment_json(&payload)?;
                     }
                 }
             };

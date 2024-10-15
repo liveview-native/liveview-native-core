@@ -44,11 +44,12 @@ impl Document {
         )?));
         Ok(Arc::new(Self { inner }))
     }
+
     pub fn set_event_handler(&self, handler: Box<dyn DocumentChangeHandler>) {
         self.inner_mut().event_callback = Some(Arc::from(handler));
     }
 
-    pub fn merge_fragment_json(&self, json: String) -> Result<(), RenderError> {
+    pub fn merge_fragment_json(&self, json: &str) -> Result<(), RenderError> {
         self.inner_mut().merge_fragment_json(json)
     }
 
@@ -92,6 +93,7 @@ impl Document {
     fn inner_mut(&self) -> &mut super::Document {
         unsafe { &mut *self.inner.get() }
     }
+
     pub fn print_node(
         &self,
         node: NodeRef,

@@ -516,8 +516,8 @@ impl Document {
         Ok(document)
     }
 
-    pub fn merge_fragment_json(&mut self, json: String) -> Result<(), RenderError> {
-        let fragment: RootDiff = serde_json::from_str(&json).map_err(RenderError::from)?;
+    pub fn merge_fragment_json(&mut self, json: &str) -> Result<(), RenderError> {
+        let fragment: RootDiff = serde_json::from_str(json).map_err(RenderError::from)?;
 
         let root = if let Some(root) = &self.fragment_template {
             root.clone().merge(fragment)?
@@ -534,7 +534,6 @@ impl Document {
             return Ok(());
         }
         let handler = self.event_callback.clone();
-
         let mut stack = vec![];
         let mut editor = self.edit();
         for patch in patches.into_iter() {
@@ -584,6 +583,8 @@ pub enum EventType {
 
 #[uniffi::export(callback_interface)]
 pub trait DocumentChangeHandler: Send + Sync {
+    /// This callback should implement your dom manipulation logic
+    /// after receiving patches from LVN.
     fn handle(
         &self,
         change_type: ChangeType,
