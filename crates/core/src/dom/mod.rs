@@ -540,7 +540,7 @@ impl Document {
         for patch in patches.into_iter() {
             let patch_result = patch.apply(&mut editor, &mut stack);
             match patch_result {
-                None => {}
+                None => (),
                 Some(PatchResult::Add { node, parent, data }) => {
                     if let Some(ref handler) = handler {
                         handler.handle(ChangeType::Add, node.into(), data, Some(parent.into()));
@@ -569,7 +569,7 @@ impl Document {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, uniffi::Enum, Debug)]
+#[derive(Copy, Clone, uniffi::Enum)]
 pub enum ChangeType {
     Change = 0,
     Add = 1,

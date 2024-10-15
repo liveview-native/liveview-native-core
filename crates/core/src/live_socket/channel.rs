@@ -14,9 +14,6 @@ use crate::{
 };
 
 #[derive(uniffi::Object)]
-pub enum DiffResult {}
-
-#[derive(uniffi::Object)]
 pub struct LiveChannel {
     pub channel: Arc<Channel>,
     pub socket: Arc<Socket>,
