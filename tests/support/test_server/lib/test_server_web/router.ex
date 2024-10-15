@@ -2,29 +2,33 @@ defmodule TestServerWeb.Router do
   use TestServerWeb, :router
 
   pipeline :browser do
-    plug :accepts, ["html", "swiftui", "jetpack"]
-    plug :fetch_session
-    plug :fetch_live_flash
-    plug :put_root_layout,
+    plug(:accepts, ["html", "swiftui", "jetpack"])
+    plug(:fetch_session)
+    plug(:fetch_live_flash)
+
+    plug(:put_root_layout,
       html: {TestServerWeb.Layouts, :root},
       swiftui: {TestServerWeb.Layouts.SwiftUI, :root},
       jetpack: {TestServerWeb.Layouts.Jetpack, :root}
-    plug :protect_from_forgery
-    plug :put_secure_browser_headers
+    )
+
+    plug(:protect_from_forgery)
+    plug(:put_secure_browser_headers)
   end
 
   pipeline :api do
-    plug :accepts, ["json"]
+    plug(:accepts, ["json"])
   end
 
   scope "/", TestServerWeb do
-    pipe_through :browser
+    pipe_through(:browser)
 
-    get "/", PageController, :home
-    live "/thermostat", ThermostatLive
-    live "/hello", HelloLive
-    live "/upload", SimpleLiveUpload
-    live "/stream", SimpleLiveStream
+    get("/", PageController, :home)
+    live("/thermostat", ThermostatLive)
+    live("/android_bug", AndroidBug)
+    live("/hello", HelloLive)
+    live("/upload", SimpleLiveUpload)
+    live("/stream", SimpleLiveStream)
   end
 
   # Other scopes may use custom stacks.
@@ -42,10 +46,10 @@ defmodule TestServerWeb.Router do
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
-      pipe_through :browser
+      pipe_through(:browser)
 
-      live_dashboard "/dashboard", metrics: TestServerWeb.Telemetry
-      forward "/mailbox", Plug.Swoosh.MailboxPreview
+      live_dashboard("/dashboard", metrics: TestServerWeb.Telemetry)
+      forward("/mailbox", Plug.Swoosh.MailboxPreview)
     end
   end
 end
