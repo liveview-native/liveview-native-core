@@ -8,7 +8,7 @@ use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{
         ffi::{Document as FFiDocument, DocumentChangeHandler},
-        AttributeName, Document, PatchInspector, Selector,
+        AttributeName, Document, Selector,
     },
     parser::parse,
 };
@@ -47,10 +47,6 @@ impl LiveChannel {
         let document = new_root.ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
         debug!("Join payload render:\n{document}");
         Ok(document)
-    }
-
-    pub fn set_patch_inspector(&self, handler: Box<dyn PatchInspector>) {
-        self.document.set_patch_inspector(handler);
     }
 }
 

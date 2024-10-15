@@ -19,10 +19,12 @@ async fn main() {
     let live_socket = LiveSocket::new(url.to_string(), TIME_OUT, "swiftui".into())
         .await
         .expect("Failed to get liveview socket");
+
     let live_channel = live_socket
         .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
+
     live_channel
         .merge_diffs()
         .await

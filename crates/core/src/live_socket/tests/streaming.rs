@@ -1,25 +1,36 @@
-use tokio::sync::mpsc::{
-    channel,
-    error::{TryRecvError, TrySendError},
-    Sender,
-};
+use std::sync::{Arc, Mutex};
+
+use tokio::sync::oneshot::*;
 
 use super::*;
-use crate::dom::PatchInspector;
+use crate::dom::{ChangeType, DocumentChangeHandler, NodeData, NodeRef};
 
 // As of this commit the server sends a
 // stream even every 10_000 ms
 // This sampling interval should catch one
-const MAX_TRIES: u64 = 200;
+const MAX_TRIES: u64 = 120;
 const MS_DELAY: u64 = 100;
 
 struct Inspector {
-    tx: Sender<()>,
+    tx: std::sync::Mutex<Option<Sender<()>>>,
 }
 
-impl PatchInspector for Inspector {
-    fn inspect(&self, _patches: &[crate::diff::Patch]) {
-        while let Err(TrySendError::Full(_)) = self.tx.try_send(()) {}
+impl DocumentChangeHandler for Inspector {
+    fn handle(
+        &self,
+        _change_type: ChangeType,
+        _node_ref: Arc<NodeRef>,
+        _node_data: NodeData,
+        _parent: Option<Arc<NodeRef>>,
+    ) {
+        let tx = self
+            .tx
+            .lock()
+            .expect("lock poison")
+            .take()
+            .expect("Channel was None.");
+
+        tx.send(()).expect("Message Never Received.");
     }
 }
 
@@ -42,10 +53,12 @@ async fn streaming_connect() -> Result<(), String> {
         .await
         .expect("Failed to join the liveview channel");
 
-    let (tx, mut rx) = channel(1);
-    live_channel.set_patch_inspector(Box::new(Inspector { tx }));
+    let (tx, mut rx) = tokio::sync::oneshot::channel();
+    live_channel.set_event_handler(Box::new(Inspector {
+        tx: Mutex::new(Some(tx)),
+    }));
 
-    let _ = tokio::spawn(async move {
+    let handle = tokio::spawn(async move {
         live_channel
             .merge_diffs()
             .await
@@ -57,7 +70,7 @@ async fn streaming_connect() -> Result<(), String> {
             Ok(_) => {
                 return Ok(());
             }
-            Err(TryRecvError::Empty) => {
+            Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
                 tokio::time::sleep(Duration::from_millis(MS_DELAY)).await;
             }
             Err(_) => {
@@ -66,56 +79,7 @@ async fn streaming_connect() -> Result<(), String> {
         }
     }
 
-    Err(format!(
-        "Exceeded {MAX_TRIES} Max tries, waited {} ms",
-        MAX_TRIES * MS_DELAY
-    ))
-}
-
-const INITIAL_STATE: &str = "";
-
-// asserts that streaming applies at least one diff
-#[tokio::test]
-async fn streaming_update() -> Result<(), String> {
-    let _ = env_logger::builder()
-        .parse_default_env()
-        .is_test(true)
-        .try_init();
-
-    let url = format!("http://{HOST}/stream");
-
-    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT, "swiftui".into())
-        .await
-        .expect("Failed to get liveview socket");
-
-    let live_channel = live_socket
-        .join_liveview_channel(None, None)
-        .await
-        .expect("Failed to join the liveview channel");
-
-    let (tx, mut rx) = channel(1);
-    live_channel.set_patch_inspector(Box::new(Inspector { tx }));
-
-    let _ = tokio::spawn(async move {
-        live_channel
-            .merge_diffs()
-            .await
-            .expect("Failed to merge diffs");
-    });
-
-    for _ in 0..MAX_TRIES {
-        match rx.try_recv() {
-            Ok(_) => {
-                return Ok(());
-            }
-            Err(TryRecvError::Empty) => {
-                tokio::time::sleep(Duration::from_millis(MS_DELAY)).await;
-            }
-            Err(_) => {
-                return Err(format!("Merging Panicked"));
-            }
-        }
-    }
+    handle.abort();
 
     Err(format!(
         "Exceeded {MAX_TRIES} Max tries, waited {} ms",

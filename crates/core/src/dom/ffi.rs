@@ -1,6 +1,5 @@
 use std::{cell::SyncUnsafeCell, fmt, sync::Arc};
 
-use super::PatchInspector;
 pub use super::{
     attribute::Attribute,
     node::{Node, NodeData, NodeRef},
@@ -93,10 +92,6 @@ impl Document {
     #[allow(clippy::mut_from_ref)]
     fn inner_mut(&self) -> &mut super::Document {
         unsafe { &mut *self.inner.get() }
-    }
-
-    pub fn set_patch_inspector(&self, handler: Box<dyn PatchInspector>) {
-        self.inner_mut().patch_inspector = Some(Arc::from(handler));
     }
 
     pub fn print_node(
