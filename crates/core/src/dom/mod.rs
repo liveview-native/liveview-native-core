@@ -585,7 +585,7 @@ pub enum EventType {
 #[uniffi::export(callback_interface)]
 pub trait DocumentChangeHandler: Send + Sync {
     /// This callback should implement your dom manipulation logic
-    /// after receiveing patches from LVN.
+    /// after receiving patches from LVN.
     fn handle(
         &self,
         change_type: ChangeType,
