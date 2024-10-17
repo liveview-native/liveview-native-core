@@ -1,5 +1,4 @@
 defmodule TestServerWeb.ThermostatLive do
-  use Phoenix.LiveView
   use TestServerWeb, :live_view
   use TestServerNative, :live_view
 
@@ -17,7 +16,7 @@ defmodule TestServerWeb.ThermostatLive do
     {:noreply,
      socket
      |> update(:temperature, fn x -> x + 1 end)
-     |> update(:temperatures, fn x -> x ++ [1] end)}
+     |> update(:temperatures, fn x -> x ++ [socket.assigns.temperature] end)}
   end
 
   def render(%{} = assigns) do

@@ -3,6 +3,7 @@ use pretty_assertions::assert_eq;
 use super::*;
 use crate::dom::Document;
 mod stream;
+
 #[test]
 fn stream_parsing() {
     let initial = r#"

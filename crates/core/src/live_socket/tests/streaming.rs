@@ -59,6 +59,7 @@ async fn streaming_connect() -> Result<(), String> {
     }));
 
     let chan_clone = live_channel.channel().clone();
+
     tokio::spawn(async move {
         live_channel
             .merge_diffs()
