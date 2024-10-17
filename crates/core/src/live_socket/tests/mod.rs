@@ -41,8 +41,9 @@ async fn thermostat_playback() {
 #[tokio::test]
 async fn android_show_dialog() {
     let mut playback =
-        FixturePlayback::record("fixtures/test_2.fixture", "jetpack", "android_bug").await;
+        FixturePlayback::playback("fixtures/test_2.fixture", "jetpack", "android_bug").await;
 
+    // Click show dialog
     let user_event = Event::from_string("event".to_owned());
     let payload = json_payload!({"type": "click", "event": "showDialog", "value": {}});
 
@@ -51,6 +52,7 @@ async fn android_show_dialog() {
         .await
         .expect("Message send error");
 
+    // Click close dialog
     let user_event = Event::from_string("event".to_owned());
     let payload = json_payload!({"type": "click", "event": "hideDialog", "value": {}});
 
