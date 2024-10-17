@@ -181,10 +181,12 @@ impl FixturePlayback {
             .as_object()
             .ok_or(String::from("Return was not and object"))?;
 
-        self.chan
-            .document()
-            .merge_fragment_json(&obj["diff"].to_string())
-            .unwrap();
+        if let Some(diff) = &obj.get("diff") {
+            self.chan
+                .document()
+                .merge_fragment_json(&diff.to_string())
+                .unwrap();
+        }
 
         self.transaction_ct += 1;
         let rendered = self.set_or_check_next_document()?;

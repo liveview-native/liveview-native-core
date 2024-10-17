@@ -32,8 +32,26 @@ async fn thermostat_playback() {
     let mut playback = support::playback!("fixtures/test_1.fixture", "swiftui", "thermostat");
 
     // click the increment temperature button
-    let payload =
-        json_payload!({"type": "click", "event": "inc_temperature", "value": {"value": ""}});
+    let payload = json_payload!({"type": "click", "event": "inc_temperature", "value": {}});
+
+    let user_event = Event::from_string("event".to_owned());
+
+    playback
+        .send_message(user_event, payload)
+        .await
+        .expect("Message send error");
+}
+
+#[tokio::test]
+async fn android_mismerge_repro() {
+    let _ = env_logger::builder()
+        .parse_default_env()
+        .is_test(true)
+        .try_init();
+
+    let mut playback = support::playback!("fixtures/test_2.fixture", "jetpack", "android_bug");
+
+    let payload = json_payload!({"type": "click", "event": "showDialog", "value": {"value": ""}});
 
     let user_event = Event::from_string("event".to_owned());
 
