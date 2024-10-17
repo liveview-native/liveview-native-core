@@ -533,6 +533,7 @@ impl Document {
         if patches.is_empty() {
             return Ok(());
         }
+
         let handler = self.event_callback.clone();
         let mut stack = vec![];
         let mut editor = self.edit();
@@ -562,6 +563,7 @@ impl Document {
                 }
             }
         }
+
         editor.finish();
         Ok(())
     }

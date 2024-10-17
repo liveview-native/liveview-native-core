@@ -1,5 +1,4 @@
 defmodule TestServerWeb.ThermostatLive do
-  use Phoenix.LiveView
   use TestServerWeb, :live_view
   use TestServerNative, :live_view
 
@@ -16,16 +15,15 @@ defmodule TestServerWeb.ThermostatLive do
   def handle_event("inc_temperature", _params, socket) do
     {:noreply,
      socket
-     |> update(:temperature, &(&1 + 1))
-     |> update(:temperatures, &(&1 ++ [1]))}
+     |> update(:temperature, fn x -> x + 1 end)
+     |> update(:temperatures, fn x -> x ++ [socket.assigns.temperature] end)}
   end
 
   def render(%{} = assigns) do
     ~H"""
-    Current temperature: <%= @temperature %>°F
-    <button phx-click="inc_temperature">+</button>
+    Current temperature: <%= @temperature %>°F <button phx-click="inc_temperature">+</button>
     <%= for temp  <- @temperatures do %>
-      <p> temp: <%= temp %> </p>
+      <p>temp: <%= temp %></p>
     <% end %>
     """
   end
