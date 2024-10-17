@@ -15,21 +15,17 @@ const TIME_OUT: Duration = std::time::Duration::from_secs(10);
 
 use phoenix_channels_client::Event;
 use pretty_assertions::assert_eq;
-use support::json_payload;
+use support::{json_payload, FixturePlayback};
 
 // records a session with the test server, writing the returned schema to disk
 // for later verification.
 // PROTIP: set the environment variable RECORD_ALL_FIXTURES="true" to set every fixture to record mode.
 #[tokio::test]
 async fn thermostat_playback() {
-    let _ = env_logger::builder()
-        .parse_default_env()
-        .is_test(true)
-        .try_init();
-
     // args: fixture file directory, format (swiftui | jetpack | html), test server url
     // set the macro to record! or playback! depending on what stage of testing you are in
-    let mut playback = support::playback!("fixtures/test_1.fixture", "swiftui", "thermostat");
+    let mut playback =
+        FixturePlayback::playback("fixtures/test_1.fixture", "swiftui", "thermostat").await;
 
     // click the increment temperature button
     let payload = json_payload!({"type": "click", "event": "inc_temperature", "value": {}});
@@ -43,17 +39,20 @@ async fn thermostat_playback() {
 }
 
 #[tokio::test]
-async fn android_mismerge_repro() {
-    let _ = env_logger::builder()
-        .parse_default_env()
-        .is_test(true)
-        .try_init();
-
-    let mut playback = support::playback!("fixtures/test_2.fixture", "jetpack", "android_bug");
-
-    let payload = json_payload!({"type": "click", "event": "showDialog", "value": {"value": ""}});
+async fn android_show_dialog() {
+    let mut playback =
+        FixturePlayback::record("fixtures/test_2.fixture", "jetpack", "android_bug").await;
 
     let user_event = Event::from_string("event".to_owned());
+    let payload = json_payload!({"type": "click", "event": "showDialog", "value": {}});
+
+    playback
+        .send_message(user_event, payload)
+        .await
+        .expect("Message send error");
+
+    let user_event = Event::from_string("event".to_owned());
+    let payload = json_payload!({"type": "click", "event": "hideDialog", "value": {}});
 
     playback
         .send_message(user_event, payload)

@@ -5,6 +5,10 @@ use log::debug;
 use phoenix_channels_client::{Event, Payload};
 
 use super::TIME_OUT;
+use crate::{
+    dom::Document,
+    live_socket::{LiveChannel, LiveSocket},
+};
 
 macro_rules! json_payload {
     ($json:tt) => {{
@@ -13,71 +17,6 @@ macro_rules! json_payload {
     }};
 }
 pub(super) use json_payload;
-
-// shared set up logic for playback tests
-macro_rules! shared_setup {
-    ($fixture_dir:expr, $format:expr, $url:expr, $recording:expr) => {{
-        use std::path::PathBuf;
-
-        use tests::support::FixturePlayback;
-
-        #[cfg(target_os = "android")]
-        const HOST: &str = "10.0.2.2:4001";
-        #[cfg(not(target_os = "android"))]
-        const HOST: &str = "127.0.0.1:4001";
-
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let fixture_path = root.join(format!("src/live_socket/tests/{}", $fixture_dir));
-
-        if $recording {
-            std::fs::create_dir_all(&fixture_path).expect("could not create fixture dir");
-        } else {
-            assert!(fixture_path.exists(), "fixture path not created yet");
-        }
-
-        let url = format!("http://{HOST}/{}", $url);
-
-        let live_socket = LiveSocket::new(url.to_string(), TIME_OUT, $format.into())
-            .await
-            .expect("Failed to get liveview socket");
-
-        let channel = live_socket.join_liveview_channel(None, None).await.unwrap();
-
-        let out = FixturePlayback::new(fixture_path, channel, $recording);
-
-        out.set_or_check_next_document()
-            .expect("first transaction failed");
-
-        out
-    }};
-}
-
-pub(crate) use shared_setup;
-
-#[allow(unused_macros)]
-/// The same as playback, except sets this fixture test to recording mode
-/// you can run it individually to generate a new set of blessed fixtures.
-macro_rules! record {
-    ($fixture_dir:expr, $format:expr, $url:expr) => {{
-        tests::support::shared_setup!($fixture_dir, $format, $url, true)
-    }};
-}
-
-/// args: fixture file directory, format (swiftui | jetpack | html), test server url
-/// set the macro to record! or playback! depending on what stage of testing you are in
-/// PROTIP: set the environment variable RECORD_ALL_FIXTURES="true" to set every fixture to record mode.
-macro_rules! playback {
-    ($fixture_dir:expr, $format:expr, $url:expr) => {{
-        let testing_mode = false || option_env!("RECORD_ALL_FIXTURES") == Some("true");
-        tests::support::shared_setup!($fixture_dir, $format, $url, testing_mode)
-    }};
-}
-
-pub(crate) use playback;
-#[allow(unused_imports)]
-pub(crate) use record;
-
-use super::LiveChannel;
 
 /// plays back and applies a series of messages and signals with the test
 /// server. confirms that the change set between each message is what is expected.
@@ -101,13 +40,64 @@ fn pretty_print(payload: &Payload) -> String {
 }
 
 impl FixturePlayback {
-    pub fn new(fixture_path: PathBuf, chan: LiveChannel, recording_mode: bool) -> Self {
-        Self {
+    #[allow(dead_code)]
+    pub async fn record(fixture_path: &str, format: &str, url_ext: &str) -> Self {
+        Self::new(fixture_path, format, url_ext, true).await
+    }
+
+    /// args: fixture file directory, format (swiftui | jetpack | html), test server url
+    /// set the constructor to [FixturePlayback::record] or [FixturePlayback::playback] depending on what stage of testing you are in
+    /// PROTIP: set the environment variable RECORD_ALL_FIXTURES="true" to set every fixture to record mode.
+    pub async fn playback(fixture_path: &str, format: &str, url_ext: &str) -> Self {
+        let record_mode = false || option_env!("RECORD_ALL_FIXTURES") == Some("true");
+        Self::new(fixture_path, format, url_ext, record_mode).await
+    }
+
+    pub async fn new(
+        fixture_path: &str,
+        format: &str,
+        url_ext: &str,
+        recording_mode: bool,
+    ) -> Self {
+        let _ = env_logger::builder()
+            .parse_default_env()
+            .is_test(true)
+            .try_init();
+
+        #[cfg(target_os = "android")]
+        const HOST: &str = "10.0.2.2:4001";
+        #[cfg(not(target_os = "android"))]
+        const HOST: &str = "127.0.0.1:4001";
+
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let fixture_path = root.join("src/live_socket/tests/").join(fixture_path);
+
+        if recording_mode {
+            std::fs::create_dir_all(&fixture_path).expect("could not create fixture dir");
+        } else {
+            assert!(fixture_path.exists(), "fixture path not created yet");
+        }
+
+        let url = format!("http://{HOST}/{}", url_ext);
+
+        log::error!("{url}");
+        let live_socket = LiveSocket::new(url.to_string(), TIME_OUT, format.to_owned())
+            .await
+            .expect("Failed to get liveview socket");
+
+        let chan = live_socket.join_liveview_channel(None, None).await.unwrap();
+
+        let out = Self {
             recording_mode,
             fixture_path,
             chan,
             transaction_ct: 0,
-        }
+        };
+
+        out.set_or_check_next_document()
+            .expect("first transaction failed");
+
+        out
     }
 
     pub fn set_or_check_next_return_payload(&self, pay_load: &Payload) -> Result<(), String> {
@@ -140,11 +130,12 @@ impl FixturePlayback {
         if self.recording_mode {
             std::fs::write(path, &rendered)
                 .map_err(|e| format!("Writing document failed: {e:?}"))?;
-
             Ok(rendered)
         } else {
-            let golden_xml = std::fs::read_to_string(path).map_err(|e| format!("{e:?}"))?;
-            pretty_assertions::assert_eq!(golden_xml, rendered);
+            let golden_doc =
+                Document::parse_file(path).map_err(|e| format!("Error Parsing doc: {e}"))?;
+
+            pretty_assertions::assert_eq!(golden_doc.to_string(), rendered);
             Ok(rendered)
         }
     }

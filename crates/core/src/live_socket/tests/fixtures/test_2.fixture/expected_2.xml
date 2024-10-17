@@ -7,25 +7,6 @@
             Show Dialog
         </Text>
     </OutlinedButton>
-    <AlertDialog phx-click="hideDialog">
-        <ConfirmButton>
-            <TextButton phx-click="hideDialog">
-                <Text>
-                    Confirm
-                </Text>
-            </TextButton>
-        </ConfirmButton>
-          <DismissButton>
-            <OutlinedButton phx-click="hideDialog">
-              <Text>Dismiss</Text>
-            </OutlinedButton>
-          </DismissButton>
-          <Icon imageVector="filled:Add" />
-          <Title>Alert Title</Title>
-          <Content>
-              <Text>Alert message</Text>
-          </Content>
-    </AlertDialog>
     <Box size="100" contentAlignment="center">
         <BadgeBox containerColor="#FF0000FF" contentColor="#FFFF0000">
             <Badge>
