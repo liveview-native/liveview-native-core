@@ -84,7 +84,10 @@ impl FixturePlayback {
             .await
             .expect("Failed to get liveview socket");
 
-        let chan = live_socket.join_liveview_channel(None, None).await.unwrap();
+        let chan = live_socket
+            .join_liveview_channel(None, None)
+            .await
+            .expect("Could not connect to channel");
 
         let out = Self {
             recording_mode,
