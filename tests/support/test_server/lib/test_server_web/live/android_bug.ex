@@ -16,8 +16,13 @@ defmodule TestServerWeb.AndroidBug do
 
   def render(assigns) do
     ~H"""
-    <p>try again on andoird</p>
+    <p>try again on android</p>
     <p>The dialog toggle is <%= @showDialog %></p>
+    <%= if @showDialog do %>
+      <button phx-click="hideDialog"> Hide </button>
+    <% else %>
+      <button phx-click="showDialog"> Show </button>
+    <% end %>
     """
   end
 end
@@ -27,9 +32,6 @@ defmodule TestServerWeb.AndroidBug.Jetpack do
 
   def render(assigns, _) do
     ~LVN"""
-      <FloatingActionButton phx-click="inc">
-        <Icon imageVector="filled:Add" />
-      </FloatingActionButton>
       <Column width="fill" verticalArrangement="center" horizontalAlignment="center" scroll="vertical">
         <OutlinedButton phx-click="showDialog"><Text>Show Dialog</Text></OutlinedButton>
         <%= if @showDialog do %>
@@ -56,16 +58,7 @@ defmodule TestServerWeb.AndroidBug.Jetpack do
           </Content>
         </AlertDialog>
         <% end %>
-        <Box size="100" contentAlignment="center">
-          <BadgeBox containerColor="#FF0000FF" contentColor="#FFFF0000">
-            <Badge><Text>+99</Text></Badge>
-            <Icon imageVector="filled:Add" />
-          </BadgeBox>
-        </Box>
-        <ElevatedButton phx-click="showDialog"><Text>ElevatedButton</Text></ElevatedButton>
-        <FilledTonalButton phx-click="showDialog"><Text>FilledTonalButton</Text></FilledTonalButton>
-        <TextButton phx-click="showDialog"><Text>TextButton</Text></TextButton>
-
+        <Box size="100" contentAlignment="center" />
       </Column>
     """
   end

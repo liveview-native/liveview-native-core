@@ -17,49 +17,65 @@ use phoenix_channels_client::Event;
 use pretty_assertions::assert_eq;
 use support::{json_payload, FixturePlayback};
 
+#[derive(Debug)]
+struct AnyPanic;
+
+// A fairly hacky way to provide stack traces in tests which
+// return an error.
+impl<E: std::fmt::Display> From<E> for AnyPanic {
+    #[track_caller]
+    fn from(err: E) -> Self {
+        panic!("{}", err);
+    }
+}
+
 // records a session with the test server, writing the returned schema to disk
 // for later verification.
 // PROTIP: set the environment variable RECORD_ALL_FIXTURES="true" to set every fixture to record mode.
 #[tokio::test]
-async fn thermostat_playback() {
+async fn thermostat_playback() -> Result<(), AnyPanic> {
     // args: fixture file directory, format (swiftui | jetpack | html), test server url
     // set the macro to record! or playback! depending on what stage of testing you are in
     let mut playback =
         FixturePlayback::playback("fixtures/test_1.fixture", "swiftui", "thermostat").await;
 
+    // validate initial state
+    playback.validate_document()?;
+
     // click the increment temperature button
     let payload = json_payload!({"type": "click", "event": "inc_temperature", "value": {}});
-
     let user_event = Event::from_string("event".to_owned());
 
-    playback
-        .send_message(user_event, payload)
-        .await
-        .expect("Message send error");
+    playback.send_message(user_event, payload).await?;
+    playback.validate_document()?;
+
+    Ok(())
 }
 
 #[tokio::test]
-async fn android_show_dialog() {
+async fn android_show_dialog_playback() -> Result<(), AnyPanic> {
     let mut playback =
         FixturePlayback::playback("fixtures/test_2.fixture", "jetpack", "android_bug").await;
+
+    playback.validate_document()?;
 
     // Click show dialog
     let user_event = Event::from_string("event".to_owned());
     let payload = json_payload!({"type": "click", "event": "showDialog", "value": {}});
 
-    playback
-        .send_message(user_event, payload)
-        .await
-        .expect("Message send error");
+    //playback.start_logging_patch_events();
+    playback.send_message(user_event, payload).await?;
+    playback.validate_document()?;
+    //playback.stop_logging_patch_events();
 
     // Click close dialog
     let user_event = Event::from_string("event".to_owned());
     let payload = json_payload!({"type": "click", "event": "hideDialog", "value": {}});
 
-    playback
-        .send_message(user_event, payload)
-        .await
-        .expect("Message send error");
+    playback.send_message(user_event, payload).await?;
+    playback.validate_document()?;
+
+    Ok(())
 }
 
 #[tokio::test]

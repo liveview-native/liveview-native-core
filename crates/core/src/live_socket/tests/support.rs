@@ -1,12 +1,37 @@
 // supporting code for generating fixtures and recorded scenarios.
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use log::debug;
 use phoenix_channels_client::{Event, Payload};
+use pretty_assertions::private::CreateComparison;
+
+struct EventLogger<T: std::fmt::Display + Send + Sync> {
+    // dom::Document type is not public so we have to smuggle it in a generic
+    document: T,
+    log_patch_events: Arc<Mutex<bool>>,
+}
+
+impl<T: std::fmt::Display + Send + Sync> DocumentChangeHandler for EventLogger<T> {
+    fn handle(
+        &self,
+        change_type: ChangeType,
+        node_ref: std::sync::Arc<NodeRef>,
+        node_data: NodeData,
+        _parent: Option<std::sync::Arc<NodeRef>>,
+    ) {
+        if *self.log_patch_events.lock().unwrap() {
+            log::info!("applied patch {change_type:#?} - {node_ref} - {node_data:#?}");
+            log::info!("\n\n{}\n\n", self.document);
+        }
+    }
+}
 
 use super::TIME_OUT;
 use crate::{
-    dom::Document,
+    dom::{ChangeType, Document, DocumentChangeHandler, NodeData, NodeRef},
     live_socket::{LiveChannel, LiveSocket},
 };
 
@@ -23,13 +48,31 @@ pub(super) use json_payload;
 /// All fixtures are laid out in /tests/fixtures/fixture_name.fixture
 /// with expected_0.xml being the deadrender
 pub struct FixturePlayback {
+    log_patch_events: Arc<Mutex<bool>>,
     // if recording, write the transactions to a *.fixture directory
     recording_mode: bool,
     // path to the fixture directory containing the change set recording
     fixture_path: PathBuf,
     // the socket that does the communication
     chan: LiveChannel,
+    // current step in the playback/recording process
     transaction_ct: u32,
+}
+
+fn pretty_diff(r: &str, l: &str) -> Result<(), String> {
+    if r == l {
+        Ok(())
+    } else {
+        log::error!(
+            "assertion failed: `(left == right)`\
+            \n\
+            \n{}\
+            \n",
+            (r, l).create_comparison()
+        );
+
+        Err("Comparing with golden document failed".to_owned())
+    }
 }
 
 fn pretty_print(payload: &Payload) -> String {
@@ -43,6 +86,18 @@ impl FixturePlayback {
     #[allow(dead_code)]
     pub async fn record(fixture_path: &str, format: &str, url_ext: &str) -> Self {
         Self::new(fixture_path, format, url_ext, true).await
+    }
+
+    #[allow(dead_code)]
+    /// start fine grained logging of patch application
+    pub fn start_logging_patch_events(&mut self) {
+        *self.log_patch_events.lock().unwrap() = true;
+    }
+
+    #[allow(dead_code)]
+    /// end fine grained logging of patch application
+    pub fn stop_logging_patch_events(&mut self) {
+        *self.log_patch_events.lock().unwrap() = false;
     }
 
     /// args: fixture file directory, format (swiftui | jetpack | html), test server url
@@ -89,20 +144,24 @@ impl FixturePlayback {
             .await
             .expect("Could not connect to channel");
 
+        let fine_grained_log = Arc::new(Mutex::new(false));
+        chan.document().set_event_handler(Box::new(EventLogger {
+            document: chan.document().clone(),
+            log_patch_events: fine_grained_log.clone(),
+        }));
+
         let out = Self {
             recording_mode,
             fixture_path,
             chan,
             transaction_ct: 0,
+            log_patch_events: fine_grained_log,
         };
-
-        out.set_or_check_next_document()
-            .expect("first transaction failed");
 
         out
     }
 
-    pub fn set_or_check_next_return_payload(&self, pay_load: &Payload) -> Result<(), String> {
+    pub fn validate_json_payload(&self, pay_load: &Payload) -> Result<(), String> {
         let path = self
             .fixture_path
             .join(format!("return_payload_{}.json", self.transaction_ct));
@@ -115,12 +174,14 @@ impl FixturePlayback {
         } else {
             let golden_json =
                 std::fs::read_to_string(path).map_err(|e| format!("reading demo failed: {e:?}"))?;
-            pretty_assertions::assert_eq!(golden_json, rendered);
+
+            pretty_diff(&golden_json, &rendered)
+                .map_err(|e| format!("{e} : return_payload_{}.json", self.transaction_ct))?;
         }
         Ok(())
     }
 
-    pub fn set_or_check_next_document(&self) -> Result<String, String> {
+    pub fn validate_document(&self) -> Result<(), String> {
         let path = self
             .fixture_path
             .join(format!("expected_{}.xml", self.transaction_ct));
@@ -129,17 +190,23 @@ impl FixturePlayback {
 
         let rendered = doc.render();
 
+        log::trace!(
+            "rendering doc after transaction #{} \n {rendered} \n",
+            self.transaction_ct
+        );
+
         if self.recording_mode {
             std::fs::write(path, &rendered)
                 .map_err(|e| format!("Writing document failed: {e:?}"))?;
-            Ok(rendered)
         } else {
             let golden_doc =
-                Document::parse_file(path).map_err(|e| format!("Error Parsing doc: {e}"))?;
+                Document::parse_file(&path).map_err(|e| format!("Error Parsing doc: {e}"))?;
 
-            pretty_assertions::assert_eq!(golden_doc.to_string(), rendered);
-            Ok(rendered)
+            pretty_diff(&golden_doc.to_string(), &rendered)
+                .map_err(|e| format!("{e} : expected_{}.xml", self.transaction_ct))?;
         }
+
+        Ok(())
     }
 
     pub async fn send_message(&mut self, event: Event, payload: Payload) -> Result<(), String> {
@@ -174,6 +241,10 @@ impl FixturePlayback {
             .as_object()
             .ok_or(String::from("Return was not and object"))?;
 
+        if *self.log_patch_events.lock().unwrap() {
+            log::info!("Document Prior to changes:\n\n{}\n\n", self.chan.document());
+        }
+
         if let Some(diff) = &obj.get("diff") {
             self.chan
                 .document()
@@ -182,13 +253,7 @@ impl FixturePlayback {
         }
 
         self.transaction_ct += 1;
-        let rendered = self.set_or_check_next_document()?;
-        self.set_or_check_next_return_payload(&return_payload)?;
-
-        log::trace!(
-            "{msg} : rendering doc after transaction #{} \n {rendered} \n",
-            self.transaction_ct
-        );
+        self.validate_json_payload(&return_payload)?;
 
         Ok(())
     }
