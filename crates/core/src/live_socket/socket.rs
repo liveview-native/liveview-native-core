@@ -25,6 +25,7 @@ pub struct LiveSocket {
     cookies: Vec<String>,
     timeout: Duration,
 }
+
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveSocket {
     // This is just for the jetpack client. This is an associated function constructor.

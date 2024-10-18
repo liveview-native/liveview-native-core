@@ -1,0 +1,9 @@
+<Group id="flash-group" />
+<VStack>
+    <Text>
+        Current temperature: 70°F
+    </Text>
+    <Button phx-click="inc_temperature">
+        +
+    </Button>
+</VStack>
