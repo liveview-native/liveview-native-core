@@ -41,11 +41,6 @@ defmodule TestServerWeb.AndroidBug.Jetpack do
                 <Text>Confirm</Text>
               </TextButton>
           </ConfirmButton>
-          <ConfirmButton>
-              <TextButton  phx-click="hideDialog">
-                <Text>Confirm</Text>
-              </TextButton>
-          </ConfirmButton>
           <DismissButton>
             <OutlinedButton phx-click="hideDialog">
               <Text>Dismiss</Text>

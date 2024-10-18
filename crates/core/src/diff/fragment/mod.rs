@@ -65,10 +65,7 @@ impl TryInto<String> for Root {
     type Error = RenderError;
 
     fn try_into(self) -> Result<String, Self::Error> {
-        let mut out = String::new();
-        let inner = self.fragment.render(&self.components, None, None)?;
-        out.push_str(&inner);
-        Ok(out)
+        self.fragment.render(&self.components, None, None)
     }
 }
 

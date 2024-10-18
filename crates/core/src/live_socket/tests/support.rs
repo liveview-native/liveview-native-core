@@ -83,6 +83,7 @@ fn pretty_print(payload: &Payload) -> String {
 }
 
 impl FixturePlayback {
+    /// use this in place of [FixturePlayback::playback] when generating xml to validate against.
     #[allow(dead_code)]
     pub async fn record(fixture_path: &str, format: &str, url_ext: &str) -> Self {
         Self::new(fixture_path, format, url_ext, true).await
@@ -217,7 +218,7 @@ impl FixturePlayback {
         };
 
         debug!(
-            "{msg} : sending message #{}\n Event: {event:?}\n {}",
+            "{msg} : sending message #{}\n {}",
             self.transaction_ct + 1,
             pretty_print(&payload)
         );
@@ -245,6 +246,8 @@ impl FixturePlayback {
             log::info!("Document Prior to changes:\n\n{}\n\n", self.chan.document());
         }
 
+        // TODO: structured messages and handling of
+        // all returns
         if let Some(diff) = &obj.get("diff") {
             self.chan
                 .document()

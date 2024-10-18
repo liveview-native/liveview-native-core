@@ -3,7 +3,7 @@
     "0": {
       "0": {
         "s": [
-          "\n    <AlertDialog phx-click=\"hideDialog\">\n      <ConfirmButton>\n          <TextButton phx-click=\"hideDialog\">\n            <Text>Confirm</Text>\n          </TextButton>\n      </ConfirmButton>\n      <ConfirmButton>\n          <TextButton phx-click=\"hideDialog\">\n            <Text>Confirm</Text>\n          </TextButton>\n      </ConfirmButton>\n      <DismissButton>\n        <OutlinedButton phx-click=\"hideDialog\">\n          <Text>Dismiss</Text>\n        </OutlinedButton>\n      </DismissButton>\n      <Icon imageVector=\"filled:Add\"></Icon>\n      <Title>Alert Title</Title>\n      <Content>\n          <Text>Alert message</Text>\n      </Content>\n    </AlertDialog>\n    "
+          "\n    <AlertDialog phx-click=\"hideDialog\">\n      <ConfirmButton>\n          <TextButton phx-click=\"hideDialog\">\n            <Text>Confirm</Text>\n          </TextButton>\n      </ConfirmButton>\n      <DismissButton>\n        <OutlinedButton phx-click=\"hideDialog\">\n          <Text>Dismiss</Text>\n        </OutlinedButton>\n      </DismissButton>\n      <Icon imageVector=\"filled:Add\"></Icon>\n      <Title>Alert Title</Title>\n      <Content>\n          <Text>Alert message</Text>\n      </Content>\n    </AlertDialog>\n    "
         ]
       }
     }
