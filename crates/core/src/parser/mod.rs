@@ -273,14 +273,14 @@ impl Emitter for DocumentEmitter {
                         element: element.clone(),
                         self_closing,
                     }));
-                    html5gum::naive_next_state(self.last_start_tag.as_str().as_bytes())
+                    None
                 }
             }
             Token::End(_) => {
                 assert!(!self.current_tag.is_empty());
                 let t = smallvec_to_smallstr(mem::take(&mut self.current_tag));
                 self.emit_token(Token::End(t.as_str().into()));
-                html5gum::naive_next_state(self.last_start_tag.as_str().as_bytes())
+                None
             }
             other => invalid_state("invalid state in which to emit tag", Some(&other)),
         }

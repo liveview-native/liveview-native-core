@@ -61,6 +61,21 @@ fn dom_builder_example() {
     assert_eq!(buffer.as_str(), expected);
 }
 
+#[test]
+fn iframe_closing_tag_roundtrip() {
+    let orig_body = r#"<arb>
+    <iframe>
+    </iframe>
+</arb>"#;
+
+    let min_body = r#"<arb>
+    <iframe />
+</arb>"#;
+
+    let doc = Document::parse(orig_body).expect("invalid document");
+    pretty_assertions::assert_eq!(min_body, doc.to_string());
+}
+
 /*
  * TODO: https://github.com/liveview-native/liveview-native-core/issues/58
 #[test]
