@@ -63,8 +63,8 @@ fn dom_builder_example() {
 
 #[test]
 fn closing_tags_roundtrip() {
-    let body = r#"<compiled-lvn-stylesheet body="%{}">
-    <compiled-lvn-stylesheet body="%{}">
+    let body = r#"<compiled-lvn-stylesheet body="1">
+    <compiled-lvn-stylesheet body="2">
         <Color name="system-blue" />
         <Text>
             This is Page 2
