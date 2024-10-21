@@ -62,14 +62,18 @@ fn dom_builder_example() {
 }
 
 #[test]
-fn closing_tags_roundtrip() {
-    let body = r#"<compiled-lvn-stylesheet>
+fn iframe_closing_tag_roundtrip() {
+    let orig_body = r#"<arb>
     <iframe>
-        </iframe>
-</compiled-lvn-stylesheet>"#;
+    </iframe>
+</arb>"#;
 
-    let doc = Document::parse(body).expect("invalid document");
-    pretty_assertions::assert_eq!(body, doc.to_string());
+    let min_body = r#"<arb>
+    <iframe/ >
+</arb>"#;
+
+    let doc = Document::parse(orig_body).expect("invalid document");
+    pretty_assertions::assert_eq!(min_body, doc.to_string());
 }
 
 /*
