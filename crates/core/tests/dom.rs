@@ -69,7 +69,6 @@ fn closing_tags_roundtrip() {
 </compiled-lvn-stylesheet>"#;
 
     let doc = Document::parse(body).expect("invalid document");
-    panic!("{doc:?}");
     pretty_assertions::assert_eq!(body, doc.to_string());
 }
 
