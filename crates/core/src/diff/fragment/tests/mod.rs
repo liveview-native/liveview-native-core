@@ -322,7 +322,6 @@ fn jetpack_show_dialog() {
     assert_eq!(document.to_string(), document_expected);
 }
 
-
 #[test]
 fn jetpack_more_edge_cases() {
     let initial = r#"{
