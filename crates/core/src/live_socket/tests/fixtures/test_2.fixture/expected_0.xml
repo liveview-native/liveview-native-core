@@ -1,0 +1,8 @@
+<Column width="fill" verticalArrangement="center" horizontalAlignment="center" scroll="vertical">
+    <OutlinedButton phx-click="showDialog">
+        <Text>
+            Show Dialog
+        </Text>
+    </OutlinedButton>
+    <Box size="100" contentAlignment="center" />
+</Column>
