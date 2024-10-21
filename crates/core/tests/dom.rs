@@ -70,7 +70,10 @@ fn closing_tags_roundtrip() {
             This is Page 2
         </Text>
     </compiled-lvn-stylesheet>
+    <iframe src="/phoenix/live_reload/frame">
+        </iframe>
 </compiled-lvn-stylesheet>"#;
+
     let doc = Document::parse(body).expect("invalid document");
     pretty_assertions::assert_eq!(body, doc.to_string());
 }
