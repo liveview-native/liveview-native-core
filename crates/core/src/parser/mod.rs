@@ -34,6 +34,7 @@ where
                 current_node = document.parent(current_node).unwrap();
             }
             Token::String(content) => {
+                panic!("{content}");
                 let node = document.push_node(content);
                 document.append_child(current_node, node);
             }
