@@ -69,7 +69,7 @@ fn iframe_closing_tag_roundtrip() {
 </arb>"#;
 
     let min_body = r#"<arb>
-    <iframe/ >
+    <iframe />
 </arb>"#;
 
     let doc = Document::parse(orig_body).expect("invalid document");
