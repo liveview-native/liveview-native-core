@@ -277,16 +277,20 @@ fn jetpack_show_dialog() {
                 </TextButton>
             </ConfirmButton>
             <DismissButton>
-              <OutlinedButton phx-click="hideDialog">
-                <Text>
-                    Dismiss
-                </Text>
-              </OutlinedButton>
+                <OutlinedButton phx-click="hideDialog">
+                    <Text>
+                        Dismiss
+                    </Text>
+                </OutlinedButton>
             </DismissButton>
-            <Icon imageVector="filled:Add"></Icon>
-            <Title>Alert Title</Title>
+            <Icon imageVector="filled:Add" />
+            <Title>
+                Alert Title
+            </Title>
             <Content>
-                <Text>Alert message</Text>
+                <Text>
+                    Alert message
+                </Text>
             </Content>
         </AlertDialog>
         <Box size="100" contentAlignment="center">
