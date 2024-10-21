@@ -63,18 +63,13 @@ fn dom_builder_example() {
 
 #[test]
 fn closing_tags_roundtrip() {
-    let body = r#"<compiled-lvn-stylesheet body="1">
-    <compiled-lvn-stylesheet body="2">
-        <Color name="system-blue" />
-        <Text>
-            This is Page 2
-        </Text>
-    </compiled-lvn-stylesheet>
-    <iframe src="/phoenix/live_reload/frame">
+    let body = r#"<compiled-lvn-stylesheet>
+    <iframe>
         </iframe>
 </compiled-lvn-stylesheet>"#;
 
     let doc = Document::parse(body).expect("invalid document");
+    panic!("{doc:?}");
     pretty_assertions::assert_eq!(body, doc.to_string());
 }
 
