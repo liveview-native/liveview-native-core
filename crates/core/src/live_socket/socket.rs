@@ -1,7 +1,8 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, str::FromStr, sync::Arc, time::Duration};
 
 use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, Topic, JSON};
+use reqwest::Method;
 
 use super::{LiveChannel, LiveSocketError};
 use crate::{
@@ -9,6 +10,24 @@ use crate::{
     dom::{ffi::Document as FFiDocument, AttributeName, Document, ElementName, Selector},
     parser::parse,
 };
+
+#[derive(uniffi::Record)]
+pub struct ConnectOpts {
+    pub headers: HashMap<String, String>,
+    pub body: Option<String>,
+    #[uniffi(default = "GET")]
+    pub method: String,
+}
+
+impl Default for ConnectOpts {
+    fn default() -> Self {
+        Self {
+            headers: HashMap::default(),
+            body: None,
+            method: String::from("GET"),
+        }
+    }
+}
 
 #[derive(uniffi::Object)]
 pub struct LiveSocket {
@@ -33,8 +52,9 @@ impl LiveSocket {
         url: String,
         timeout: Duration,
         format: String,
+        options: ConnectOpts,
     ) -> Result<Self, LiveSocketError> {
-        Self::new(url, timeout, format).await
+        Self::new(url, timeout, format, options).await
     }
 
     #[uniffi::constructor]
@@ -42,13 +62,42 @@ impl LiveSocket {
         url: String,
         timeout: Duration,
         format: String,
+        options: ConnectOpts,
     ) -> Result<Self, LiveSocketError> {
+        let ConnectOpts {
+            headers,
+            body,
+            method,
+        } = options;
+
         // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
         // it does maybe we don't need to do a full dead render.
         let mut url = url.parse::<Url>()?;
         url.set_query(Some(&format!("_format={format}")));
-        // todo: Use the format in the query param to the deadrender.
-        let resp = reqwest::get(url.clone()).await?;
+
+        let method = Method::from_str(&method)
+            .map_err(|_| LiveSocketError::InvalidMethod { error: method })?;
+
+        let headers = (&headers)
+            .try_into()
+            .map_err(|e| LiveSocketError::InvalidHeader {
+                error: format!("{e:?}"),
+            })?;
+
+        let client = reqwest::Client::default();
+        let req = reqwest::Request::new(method, url.clone());
+        let builder = reqwest::RequestBuilder::from_parts(client, req);
+
+        let builder = if let Some(body) = body {
+            builder.body(body)
+        } else {
+            builder
+        };
+
+        let (client, result) = builder.timeout(timeout).headers(headers).build_split();
+
+        let req = result?;
+        let resp = client.execute(req).await?;
         let resp_headers = resp.headers();
 
         let mut cookies: Vec<String> = Vec::new();
