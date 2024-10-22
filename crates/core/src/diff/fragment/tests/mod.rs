@@ -43,6 +43,286 @@ fn stream_parsing() {
 }
 
 #[test]
+fn jetpack_show_dialog() {
+    /*
+       * Diffs coming from this template:
+    @impl true
+    @spec render(any) :: Phoenix.LiveView.Rendered.t()
+    def render(%{platform_id: :jetpack} = assigns) do
+      ~JETPACK"""
+      <Scaffold>
+        <TopAppBar>
+          <Title><Text>Hello</Text></Title>
+        </TopAppBar>
+        <FloatingActionButton phx-click="inc">
+          <Icon imageVector="filled:Add" />
+        </FloatingActionButton>
+        <Column width="fill" verticalArrangement="center" horizontalAlignment="center" scroll="vertical">
+          <OutlinedButton phx-click="showDialog"><Text>Show Dialog</Text></OutlinedButton>
+          <%= if @showDialog do %>
+          <AlertDialog phx-click="hideDialog">
+            <ConfirmButton>
+                <TextButton  phx-click="hideDialog">
+                  <Text>Confirm</Text>
+                </TextButton>
+            </ConfirmButton>
+            <DismissButton>
+              <OutlinedButton phx-click="hideDialog">
+                <Text>Dismiss</Text>
+              </OutlinedButton>
+            </DismissButton>
+            <Icon imageVector="filled:Add" />
+            <Title>Alert Title</Title>
+            <Content>
+                <Text>Alert message</Text>
+            </Content>
+          </AlertDialog>
+          <% end %>
+          <Box size="100" contentAlignment="center">
+            <BadgeBox containerColor="#FF0000FF" contentColor="#FFFF0000">
+              <Badge><Text>+99</Text></Badge>
+              <Icon imageVector="filled:Add" />
+            </BadgeBox>
+          </Box>
+          <ElevatedButton phx-click="showDialog"><Text>ElevatedButton</Text></ElevatedButton>
+          <FilledTonalButton phx-click="showDialog"><Text>FilledTonalButton</Text></FilledTonalButton>
+          <TextButton phx-click="showDialog"><Text>TextButton</Text></TextButton>
+
+        </Column>
+      </Scaffold>
+      """
+    end
+
+      */
+    let initial = r#"{
+    "0":"",
+    "s":[
+      "<Scaffold>\n  <TopAppBar>\n    <Title><Text>Hello</Text></Title>\n  </TopAppBar>\n  <FloatingActionButton phx-click=\"inc\">\n    <Icon imageVector=\"filled:Add\"></Icon>\n  </FloatingActionButton>\n  <Column width=\"fill\" verticalArrangement=\"center\" horizontalAlignment=\"center\" scroll=\"vertical\">\n    <OutlinedButton phx-click=\"showDialog\"><Text>Show Dialog</Text></OutlinedButton>\n",
+      "\n    <Box size=\"100\" contentAlignment=\"center\">\n      <BadgeBox containerColor=\"\\#FF0000FF\" contentColor=\"\\#FFFF0000\">\n        <Badge><Text>+99</Text></Badge>\n        <Icon imageVector=\"filled:Add\"></Icon>\n      </BadgeBox>\n    </Box>\n    <ElevatedButton phx-click=\"showDialog\"><Text>ElevatedButton</Text></ElevatedButton>\n    <FilledTonalButton phx-click=\"showDialog\"><Text>FilledTonalButton</Text></FilledTonalButton>\n    <TextButton phx-click=\"showDialog\"><Text>TextButton</Text></TextButton>\n\n  </Column>\n</Scaffold>"
+      ]
+      }
+    "#;
+    let root: RootDiff = serde_json::from_str(initial).expect("Failed to deserialize fragment");
+    let root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
+    let out: String = root
+        .clone()
+        .try_into()
+        .expect("Failed to render root as string");
+    let expected = r#"<Scaffold>
+  <TopAppBar>
+    <Title><Text>Hello</Text></Title>
+  </TopAppBar>
+  <FloatingActionButton phx-click="inc">
+    <Icon imageVector="filled:Add"></Icon>
+  </FloatingActionButton>
+  <Column width="fill" verticalArrangement="center" horizontalAlignment="center" scroll="vertical">
+    <OutlinedButton phx-click="showDialog"><Text>Show Dialog</Text></OutlinedButton>
+
+    <Box size="100" contentAlignment="center">
+      <BadgeBox containerColor="\#FF0000FF" contentColor="\#FFFF0000">
+        <Badge><Text>+99</Text></Badge>
+        <Icon imageVector="filled:Add"></Icon>
+      </BadgeBox>
+    </Box>
+    <ElevatedButton phx-click="showDialog"><Text>ElevatedButton</Text></ElevatedButton>
+    <FilledTonalButton phx-click="showDialog"><Text>FilledTonalButton</Text></FilledTonalButton>
+    <TextButton phx-click="showDialog"><Text>TextButton</Text></TextButton>
+
+  </Column>
+</Scaffold>"#;
+    assert_eq!(expected, out);
+
+    let mut document = crate::dom::Document::parse_fragment_json(initial.to_owned())
+        .expect("Document failed to parse fragment json");
+    // This is the same as above with minor styling changes.
+    let document_expected = r#"<Scaffold>
+    <TopAppBar>
+        <Title>
+            <Text>
+                Hello
+            </Text>
+        </Title>
+    </TopAppBar>
+    <FloatingActionButton phx-click="inc">
+        <Icon imageVector="filled:Add" />
+    </FloatingActionButton>
+    <Column width="fill" verticalArrangement="center" horizontalAlignment="center" scroll="vertical">
+        <OutlinedButton phx-click="showDialog">
+            <Text>
+                Show Dialog
+            </Text>
+        </OutlinedButton>
+        <Box size="100" contentAlignment="center">
+            <BadgeBox containerColor="\#FF0000FF" contentColor="\#FFFF0000">
+                <Badge>
+                    <Text>
+                        +99
+                    </Text>
+                </Badge>
+                <Icon imageVector="filled:Add" />
+            </BadgeBox>
+        </Box>
+        <ElevatedButton phx-click="showDialog">
+            <Text>
+                ElevatedButton
+            </Text>
+        </ElevatedButton>
+        <FilledTonalButton phx-click="showDialog">
+            <Text>
+                FilledTonalButton
+            </Text>
+        </FilledTonalButton>
+        <TextButton phx-click="showDialog">
+            <Text>
+                TextButton
+            </Text>
+        </TextButton>
+    </Column>
+</Scaffold>"#;
+    assert_eq!(document_expected, document.to_string());
+
+    let increment = r#"{
+    "0":{
+        "s":["\n    <AlertDialog phx-click=\"hideDialog\">\n      <ConfirmButton>\n          <TextButton phx-click=\"hideDialog\">\n            <Text>Confirm</Text>\n          </TextButton>\n      </ConfirmButton>\n      <DismissButton>\n        <OutlinedButton phx-click=\"hideDialog\">\n          <Text>Dismiss</Text>\n        </OutlinedButton>\n      </DismissButton>\n      <Icon imageVector=\"filled:Add\"></Icon>\n      <Title>Alert Title</Title>\n      <Content>\n          <Text>Alert message</Text>\n      </Content>\n    </AlertDialog>\n"
+        ]
+    }
+}
+"#;
+    let diff: RootDiff = serde_json::from_str(increment).expect("Failed to deserialize fragment");
+
+    let root = root.merge(diff).expect("Failed to merge diff");
+    let out: String = root
+        .clone()
+        .try_into()
+        .expect("Failed to render root as string");
+    let expected = r#"<Scaffold>
+  <TopAppBar>
+    <Title><Text>Hello</Text></Title>
+  </TopAppBar>
+  <FloatingActionButton phx-click="inc">
+    <Icon imageVector="filled:Add"></Icon>
+  </FloatingActionButton>
+  <Column width="fill" verticalArrangement="center" horizontalAlignment="center" scroll="vertical">
+    <OutlinedButton phx-click="showDialog"><Text>Show Dialog</Text></OutlinedButton>
+
+    <AlertDialog phx-click="hideDialog">
+      <ConfirmButton>
+          <TextButton phx-click="hideDialog">
+            <Text>Confirm</Text>
+          </TextButton>
+      </ConfirmButton>
+      <DismissButton>
+        <OutlinedButton phx-click="hideDialog">
+          <Text>Dismiss</Text>
+        </OutlinedButton>
+      </DismissButton>
+      <Icon imageVector="filled:Add"></Icon>
+      <Title>Alert Title</Title>
+      <Content>
+          <Text>Alert message</Text>
+      </Content>
+    </AlertDialog>
+
+    <Box size="100" contentAlignment="center">
+      <BadgeBox containerColor="\#FF0000FF" contentColor="\#FFFF0000">
+        <Badge><Text>+99</Text></Badge>
+        <Icon imageVector="filled:Add"></Icon>
+      </BadgeBox>
+    </Box>
+    <ElevatedButton phx-click="showDialog"><Text>ElevatedButton</Text></ElevatedButton>
+    <FilledTonalButton phx-click="showDialog"><Text>FilledTonalButton</Text></FilledTonalButton>
+    <TextButton phx-click="showDialog"><Text>TextButton</Text></TextButton>
+
+  </Column>
+</Scaffold>"#;
+    assert_eq!(out, expected);
+    let new_document = crate::dom::Document::parse(out).expect("Failed to parse rendered dom");
+    let patches = crate::diff::diff(&document, &new_document);
+    if patches.is_empty() {
+        return;
+    }
+
+    let mut editor = document.edit();
+    let mut stack = vec![];
+    for patch in patches.into_iter() {
+        let _ = patch.apply(&mut editor, &mut stack);
+    }
+    editor.finish();
+    //document.merge_fragment(diff.clone()).expect("Failed to merge in diff with document");
+    let document_expected = r#"<Scaffold>
+    <TopAppBar>
+        <Title>
+            <Text>
+                Hello
+            </Text>
+        </Title>
+    </TopAppBar>
+    <FloatingActionButton phx-click="inc">
+        <Icon imageVector="filled:Add" />
+    </FloatingActionButton>
+    <Column width="fill" verticalArrangement="center" horizontalAlignment="center" scroll="vertical">
+        <OutlinedButton phx-click="showDialog">
+            <Text>
+                Show Dialog
+            </Text>
+        </OutlinedButton>
+        <AlertDialog phx-click="hideDialog">
+            <ConfirmButton>
+                <TextButton phx-click="hideDialog">
+                    <Text>
+                        Confirm
+                    </Text>
+                </TextButton>
+            </ConfirmButton>
+            <DismissButton>
+                <OutlinedButton phx-click="hideDialog">
+                    <Text>
+                        Dismiss
+                    </Text>
+                </OutlinedButton>
+            </DismissButton>
+            <Icon imageVector="filled:Add" />
+            <Title>
+                Alert Title
+            </Title>
+            <Content>
+                <Text>
+                    Alert message
+                </Text>
+            </Content>
+        </AlertDialog>
+        <Box size="100" contentAlignment="center">
+            <BadgeBox containerColor="\#FF0000FF" contentColor="\#FFFF0000">
+                <Badge>
+                    <Text>
+                        +99
+                    </Text>
+                </Badge>
+                <Icon imageVector="filled:Add" />
+            </BadgeBox>
+        </Box>
+        <ElevatedButton phx-click="showDialog">
+            <Text>
+                ElevatedButton
+            </Text>
+        </ElevatedButton>
+        <FilledTonalButton phx-click="showDialog">
+            <Text>
+                FilledTonalButton
+            </Text>
+        </FilledTonalButton>
+        <TextButton phx-click="showDialog">
+            <Text>
+                TextButton
+            </Text>
+        </TextButton>
+    </Column>
+</Scaffold>"#;
+
+    assert_eq!(document.to_string(), document_expected);
+}
+
+#[test]
 fn jetpack_more_edge_cases() {
     let initial = r#"{
   "0":"0",

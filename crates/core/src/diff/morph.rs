@@ -469,7 +469,7 @@ impl Iterator for Morph<'_> {
                             Op::Patch(Patch::PrependBefore { before: from.node }),
                             // Set newly inserted node as append parent
                             Op::Patch(Patch::PushCurrent),
-                            Op::Append {
+                            Op::AppendSiblings {
                                 from: from.clone(),
                                 cursor: cursor.fork(),
                             },
