@@ -11,7 +11,7 @@ use crate::{
     parser::parse,
 };
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct ConnectOpts {
     #[uniffi(default = None)]
     pub headers: Option<HashMap<String, String>>,
@@ -19,6 +19,8 @@ pub struct ConnectOpts {
     pub body: Option<String>,
     #[uniffi(default = "GET")]
     pub method: String,
+    #[uniffi(default = 30_000)]
+    pub timeout_ms: u64,
 }
 
 impl Default for ConnectOpts {
@@ -27,6 +29,7 @@ impl Default for ConnectOpts {
             headers: None,
             body: None,
             method: String::from("GET"),
+            timeout_ms: 30_000,
         }
     }
 }
@@ -52,17 +55,15 @@ impl LiveSocket {
     #[uniffi::constructor]
     pub async fn connect(
         url: String,
-        timeout: Duration,
         format: String,
         options: Option<ConnectOpts>,
     ) -> Result<Self, LiveSocketError> {
-        Self::new(url, timeout, format, options).await
+        Self::new(url, format, options).await
     }
 
     #[uniffi::constructor]
     pub async fn new(
         url: String,
-        timeout: Duration,
         format: String,
         options: Option<ConnectOpts>,
     ) -> Result<Self, LiveSocketError> {
@@ -70,6 +71,7 @@ impl LiveSocket {
             headers,
             body,
             method,
+            timeout_ms,
         } = options.unwrap_or_default();
 
         // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
@@ -96,6 +98,7 @@ impl LiveSocket {
             builder
         };
 
+        let timeout = Duration::from_millis(timeout_ms);
         let (client, result) = builder.timeout(timeout).headers(headers).build_split();
 
         let req = result?;

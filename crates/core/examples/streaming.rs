@@ -16,14 +16,9 @@ async fn main() {
 
     let url = format!("http://{HOST}/stream");
 
-    let live_socket = LiveSocket::new(
-        url.to_string(),
-        TIME_OUT,
-        "swiftui".into(),
-        Default::default(),
-    )
-    .await
-    .expect("Failed to get liveview socket");
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+        .await
+        .expect("Failed to get liveview socket");
     let live_channel = live_socket
         .join_liveview_channel(None, None)
         .await
