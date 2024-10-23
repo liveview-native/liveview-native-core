@@ -364,16 +364,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        toolchain: ["stable"]
         rust-target: ["aarch64-apple-ios-sim"]
         apple-sim: ["iPhone 16"]
         build-std: [""]
         include:
           - rust-target: "aarch64-apple-tvos-sim"
             apple-sim: "Apple TV 4K (3rd generation)"
-            build-std: "+nightly -Zbuild-std"
+            build-std: "-Zbuild-std"
+            toolchain: "nightly"
           - rust-target: "aarch64-apple-watchos-sim"
             apple-sim: "Apple Watch Ultra 2 (49mm)"
-            build-std: "+nightly -Zbuild-std"
+            build-std: "-Zbuild-std"
+            toolchain: "nightly"
 
     steps:
       - uses: actions/checkout@v4
@@ -384,13 +387,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
-          components: rust-src
-          targets: aarch64-apple-ios-sim
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly
+          toolchain: "${{matrix.toolchain}}"
           components: rust-src
           targets: aarch64-apple-ios-sim
 

@@ -47,21 +47,24 @@ impl Document {
     }
 
     pub fn set_event_handler(&self, handler: Box<dyn DocumentChangeHandler>) {
-        self.inner.lock().unwrap().event_callback = Some(Arc::from(handler));
+        self.inner.lock().expect("lock poisoned!").event_callback = Some(Arc::from(handler));
     }
 
     pub fn merge_fragment_json(&self, json: &str) -> Result<(), RenderError> {
-        self.inner.lock().unwrap().merge_fragment_json(json)
+        self.inner
+            .lock()
+            .expect("lock poisoned!")
+            .merge_fragment_json(json)
     }
 
     pub fn root(&self) -> Arc<NodeRef> {
-        self.inner.lock().unwrap().root().into()
+        self.inner.lock().expect("lock poisoned!").root().into()
     }
 
     pub fn get_parent(&self, node_ref: Arc<NodeRef>) -> Option<Arc<NodeRef>> {
         self.inner
             .lock()
-            .unwrap()
+            .expect("lock poisoned!")
             .parent(*node_ref)
             .map(|node_ref| node_ref.into())
     }
@@ -69,7 +72,7 @@ impl Document {
     pub fn children(&self, node_ref: Arc<NodeRef>) -> Vec<Arc<NodeRef>> {
         self.inner
             .lock()
-            .unwrap()
+            .expect("lock poisoned!")
             .children(*node_ref)
             .iter()
             .map(|node| Arc::new(*node))
@@ -77,11 +80,19 @@ impl Document {
     }
 
     pub fn get_attributes(&self, node_ref: Arc<NodeRef>) -> Vec<Attribute> {
-        self.inner.lock().unwrap().attributes(*node_ref).to_vec()
+        self.inner
+            .lock()
+            .expect("lock poisoned!")
+            .attributes(*node_ref)
+            .to_vec()
     }
 
     pub fn get(&self, node_ref: Arc<NodeRef>) -> NodeData {
-        self.inner.lock().unwrap().get(*node_ref).clone()
+        self.inner
+            .lock()
+            .expect("lock poisoned!")
+            .get(*node_ref)
+            .clone()
     }
 
     pub fn get_node(&self, node_ref: Arc<NodeRef>) -> Node {
