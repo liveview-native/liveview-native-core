@@ -1,30 +1,35 @@
-
-
+import java.time.Duration
+import java.util.Base64
+import kotlin.coroutines.*
+import kotlin.system.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Test
-import org.junit.Assert.assertEquals;
-import org.phoenixframework.liveviewnative.core.Document;
-import org.phoenixframework.liveviewnative.core.DocumentChangeHandler;
-import org.phoenixframework.liveviewnative.core.ChangeType;
-import org.phoenixframework.liveviewnative.core.NodeRef;
-import org.phoenixframework.liveviewnative.core.NodeData;
+import org.phoenixframework.liveviewnative.core.ChangeType
+import org.phoenixframework.liveviewnative.core.ConnectOpts
+import org.phoenixframework.liveviewnative.core.Document
+import org.phoenixframework.liveviewnative.core.DocumentChangeHandler
+import org.phoenixframework.liveviewnative.core.LiveFile
+import org.phoenixframework.liveviewnative.core.LiveSocket
+import org.phoenixframework.liveviewnative.core.NodeData
+import org.phoenixframework.liveviewnative.core.NodeRef
 
-import java.time.Duration;
-import kotlinx.coroutines.*;
-import kotlin.coroutines.*;
-import kotlinx.coroutines.test.runTest;
-import kotlin.system.*;
-import java.util.Base64;
-
-import org.phoenixframework.liveviewnative.core.LiveSocket;
-import org.phoenixframework.liveviewnative.core.LiveFile;
 class SocketTest {
     @Test
     fun simple_connect() = runTest {
-        var live_socket = LiveSocket.connect("http://127.0.0.1:4001/upload", Duration.ofDays(10), "jetpack");
+        var live_socket =
+                LiveSocket.connect(
+                        "http://127.0.0.1:4001/upload",
+                        Duration.ofDays(10),
+                        "jetpack",
+                        null
+                )
         var live_channel = live_socket.joinLiveviewChannel(null, null)
         var phx_id = live_channel.getPhxRefFromUploadJoinPayload()
         // This is a PNG located at crates/core/tests/support/tinycross.png
-        var base64TileImg = "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4gEdFQog0ycfAgAAAIJJREFUOMulU0EOwCAIK2T/f/LYwWAAgZGtJzS1BbVEuEVAAACCQOsKlkOrEicwgeVz5tC5R1yrDdnKuo6j6J5ydgd+npOUHfaGEJkQq+6cQNVqP1oQiCJxvAjGT3Dn3l1sKpAdfhPhqXP5xDYLXz7SkYUuUNnrcBWULkRlFqZxtvwH8zGCEN6LErUAAAAASUVORK5CYII="
+        var base64TileImg =
+                "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4gEdFQog0ycfAgAAAIJJREFUOMulU0EOwCAIK2T/f/LYwWAAgZGtJzS1BbVEuEVAAACCQOsKlkOrEicwgeVz5tC5R1yrDdnKuo6j6J5ydgd+npOUHfaGEJkQq+6cQNVqP1oQiCJxvAjGT3Dn3l1sKpAdfhPhqXP5xDYLXz7SkYUuUNnrcBWULkRlFqZxtvwH8zGCEN6LErUAAAAASUVORK5CYII="
 
         val contents = Base64.getDecoder().decode(base64TileImg)
         var live_file = LiveFile(contents, "png", "foobar.png", phx_id)
@@ -32,15 +37,37 @@ class SocketTest {
     }
 }
 
-class SimpleChangeHandler: DocumentChangeHandler {
-    constructor() {
+class SocketTestOpts {
+    @Test
+    fun connect_with_opts() = runTest {
+        var opts = ConnectOpts()
+        var live_socket =
+                LiveSocket.connect(
+                        "http://127.0.0.1:4001/upload",
+                        Duration.ofDays(10),
+                        "jetpack",
+                        opts
+                )
+        var live_channel = live_socket.joinLiveviewChannel(null, null)
+        var phx_id = live_channel.getPhxRefFromUploadJoinPayload()
+        // This is a PNG located at crates/core/tests/support/tinycross.png
+        var base64TileImg =
+                "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4gEdFQog0ycfAgAAAIJJREFUOMulU0EOwCAIK2T/f/LYwWAAgZGtJzS1BbVEuEVAAACCQOsKlkOrEicwgeVz5tC5R1yrDdnKuo6j6J5ydgd+npOUHfaGEJkQq+6cQNVqP1oQiCJxvAjGT3Dn3l1sKpAdfhPhqXP5xDYLXz7SkYUuUNnrcBWULkRlFqZxtvwH8zGCEN6LErUAAAAASUVORK5CYII="
+
+        val contents = Base64.getDecoder().decode(base64TileImg)
+        var live_file = LiveFile(contents, "png", "foobar.png", phx_id)
+        live_channel.uploadFile(live_file)
     }
+}
+
+class SimpleChangeHandler : DocumentChangeHandler {
+    constructor() {}
 
     override fun `handle`(
-        `changeType`: ChangeType,
-        `nodeRef`: NodeRef,
-        `nodeData`: NodeData,
-        `optionNodeRef`: NodeRef?,
+            `changeType`: ChangeType,
+            `nodeRef`: NodeRef,
+            `nodeData`: NodeData,
+            `optionNodeRef`: NodeRef?,
     ) {
         println("${changeType}")
     }
@@ -50,8 +77,10 @@ class DocumentTest {
 
     @Test
     fun document_parse() {
-        // The formatting of this multi line string is very specific such that it matches the expected output.
-        var input = """<VStack modifiers="">
+        // The formatting of this multi line string is very specific such that it matches the
+        // expected output.
+        var input =
+                """<VStack modifiers="">
     <VStack>
         <LiveForm id="login" phx-submit="login">
             <TextField name="email" modifiers="">
@@ -65,14 +94,15 @@ class DocumentTest {
         </LiveForm>
     </VStack>
 </VStack>"""
-        var doc = Document.parse(input);
-        var rendered = doc.render();
+        var doc = Document.parse(input)
+        var rendered = doc.render()
         assertEquals(input, rendered)
     }
     @Test
     fun json_merging_from_empty() {
-        var doc = Document.empty();
-        var input = """
+        var doc = Document.empty()
+        var input =
+                """
         {
           "0":"0",
           "1":"0",
@@ -86,7 +116,8 @@ class DocumentTest {
         }
         """
         doc.mergeFragmentJson(input)
-        var expected = """<Column>
+        var expected =
+                """<Column>
     <Button phx-click="inc">
         <Text>
             Increment
@@ -107,13 +138,14 @@ class DocumentTest {
         Counter 2: 0
     </Text>
 </Column>"""
-        var rendered = doc.render();
+        var rendered = doc.render()
         assertEquals(expected, rendered)
     }
 
     @Test
     fun json_merging() {
-        var input = """
+        var input =
+                """
         {
           "0":"0",
           "1":"0",
@@ -127,7 +159,8 @@ class DocumentTest {
         }
         """
         var doc = Document.parseFragmentJson(input)
-        var expected = """<Column>
+        var expected =
+                """<Column>
     <Button phx-click="inc">
         <Text>
             Increment
@@ -148,9 +181,10 @@ class DocumentTest {
         Counter 2: 0
     </Text>
 </Column>"""
-        var rendered = doc.render();
+        var rendered = doc.render()
         assertEquals(expected, rendered)
-        var first_increment = """{
+        var first_increment =
+                """{
   "0":"1",
   "1":"1",
   "2":{
@@ -183,11 +217,12 @@ class DocumentTest {
   }
 }
         """
-        var simple = SimpleChangeHandler();
-        doc.setEventHandler(simple);
-        doc.mergeFragmentJson(first_increment);
-        rendered = doc.render();
-        expected = """<Column>
+        var simple = SimpleChangeHandler()
+        doc.setEventHandler(simple)
+        doc.mergeFragmentJson(first_increment)
+        rendered = doc.render()
+        expected =
+                """<Column>
     <Button phx-click="inc">
         <Text>
             Increment

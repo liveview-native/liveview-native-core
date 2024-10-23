@@ -13,7 +13,9 @@ use crate::{
 
 #[derive(uniffi::Record)]
 pub struct ConnectOpts {
-    pub headers: HashMap<String, String>,
+    #[uniffi(default = None)]
+    pub headers: Option<HashMap<String, String>>,
+    #[uniffi(default = None)]
     pub body: Option<String>,
     #[uniffi(default = "GET")]
     pub method: String,
@@ -22,7 +24,7 @@ pub struct ConnectOpts {
 impl Default for ConnectOpts {
     fn default() -> Self {
         Self {
-            headers: HashMap::default(),
+            headers: None,
             body: None,
             method: String::from("GET"),
         }
@@ -52,7 +54,7 @@ impl LiveSocket {
         url: String,
         timeout: Duration,
         format: String,
-        options: ConnectOpts,
+        options: Option<ConnectOpts>,
     ) -> Result<Self, LiveSocketError> {
         Self::new(url, timeout, format, options).await
     }
@@ -62,13 +64,13 @@ impl LiveSocket {
         url: String,
         timeout: Duration,
         format: String,
-        options: ConnectOpts,
+        options: Option<ConnectOpts>,
     ) -> Result<Self, LiveSocketError> {
         let ConnectOpts {
             headers,
             body,
             method,
-        } = options;
+        } = options.unwrap_or_default();
 
         // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
         // it does maybe we don't need to do a full dead render.
@@ -78,11 +80,11 @@ impl LiveSocket {
         let method = Method::from_str(&method)
             .map_err(|_| LiveSocketError::InvalidMethod { error: method })?;
 
-        let headers = (&headers)
-            .try_into()
-            .map_err(|e| LiveSocketError::InvalidHeader {
+        let headers = (&headers.unwrap_or_default()).try_into().map_err(|e| {
+            LiveSocketError::InvalidHeader {
                 error: format!("{e:?}"),
-            })?;
+            }
+        })?;
 
         let client = reqwest::Client::default();
         let req = reqwest::Request::new(method, url.clone());
