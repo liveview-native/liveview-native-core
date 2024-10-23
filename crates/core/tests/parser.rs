@@ -1,7 +1,3 @@
-#![feature(assert_matches)]
-
-use std::assert_matches::assert_matches;
-
 use liveview_native_core::{
     dom::{AttributeName, NodeData},
     parser, InternedString,
@@ -10,7 +6,7 @@ use liveview_native_core::{
 #[test]
 fn parser_simple() {
     let result = parser::parse("<html lang=\"en\"><head><meta charset=\"utf-8\"/><meta name=\"title\" content=\"Test\"/></head><body><a href=\"about:blank\">Hello World!</a></body></html>");
-    assert_matches!(result, Ok(_));
+    assert!(result.is_ok());
     let document = result.unwrap();
     let root = document.root();
     let html = document.children(root)[0];
@@ -38,7 +34,7 @@ fn parser_whitespace_handling() {
 </html>
 "#,
     );
-    assert_matches!(result, Ok(_));
+    assert!(result.is_ok());
     let document = result.unwrap();
     let root = document.root();
     let children = document.children(root);
@@ -50,7 +46,7 @@ fn parser_whitespace_handling() {
     let children = document.children(body);
     assert_eq!(children.len(), 1);
     let content = document.get(children[0]);
-    assert_matches!(content, NodeData::Leaf { .. });
+    assert!(matches!(content, NodeData::Leaf { .. }));
     let NodeData::Leaf { value: content } = content else {
         unreachable!()
     };
@@ -60,7 +56,7 @@ fn parser_whitespace_handling() {
 #[test]
 fn parser_preserve_upcase() {
     let result = parser::parse("<Component id=5><SubComponent id=7><a href=\"about:blank\">Hello World!</a></SubComponent></Component>");
-    assert_matches!(result, Ok(_));
+    assert!(result.is_ok());
     let document = result.unwrap();
     let root = document.root();
     let component = document.children(root)[0];

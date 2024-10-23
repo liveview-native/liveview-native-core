@@ -1150,13 +1150,22 @@ pub struct Neighbors<'a> {
     parent: Option<NodeRef>,
     children: Option<&'a [NodeRef]>,
 }
+
+// In place of the nightly feature `slice_take`
+// https://github.com/rust-lang/rust/issues/62280
+fn take_first<T: Copy>(bytes: &mut &[T]) -> Option<T> {
+    let (first, rest) = (*bytes).split_first()?;
+    *bytes = rest;
+    Some(*first)
+}
+
 impl Iterator for Neighbors<'_> {
     type Item = NodeRef;
 
     fn next(&mut self) -> Option<NodeRef> {
         // Visit outgoing first, then incoming
         if let Some(children) = self.children.as_mut() {
-            while let Some(next) = children.take_first().copied() {
+            while let Some(next) = take_first(children) {
                 // Skip the node for which we're iterating neighbors
                 if next == self.skip {
                     continue;
