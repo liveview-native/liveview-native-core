@@ -9,8 +9,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # Change to stable when features stabilize
-  CARGO_MAKE_TOOLCHAIN: nightly
+  CARGO_MAKE_TOOLCHAIN: stable
   CARGO_MAKE_CI: true
   ANDROID_API: 34
   ANDROID_NDK_VERSION: 26.3.11579264
@@ -164,7 +163,8 @@ jobs:
       - name: Install Rust Nightly
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ env.CARGO_MAKE_TOOLCHAIN }}
+          # nightly needed for t3
+          toolchain: nightly
           components: rust-src
           targets: aarch64-apple-ios-sim
             aarch64-apple-ios
@@ -308,7 +308,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./tests/support/test_server/
-      - name: Install Rust Nightly
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.CARGO_MAKE_TOOLCHAIN }}
@@ -370,10 +370,11 @@ jobs:
         include:
           - rust-target: "aarch64-apple-tvos-sim"
             apple-sim: "Apple TV 4K (3rd generation)"
-            build-std: "-Zbuild-std"
+            build-std: "+nightly -Zbuild-std"
           - rust-target: "aarch64-apple-watchos-sim"
             apple-sim: "Apple Watch Ultra 2 (49mm)"
-            build-std: "-Zbuild-std"
+            build-std: "+nightly -Zbuild-std"
+
     steps:
       - uses: actions/checkout@v4
       - name: Start Simulator
@@ -383,7 +384,13 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{ env.CARGO_MAKE_TOOLCHAIN }}
+          toolchain: stable
+          components: rust-src
+          targets: aarch64-apple-ios-sim
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
           components: rust-src
           targets: aarch64-apple-ios-sim
 
@@ -428,7 +435,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust Nightly
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.CARGO_MAKE_TOOLCHAIN }}

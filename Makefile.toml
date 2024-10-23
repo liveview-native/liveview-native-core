@@ -11,7 +11,7 @@ CARGO_MAKE_RUST_SCRIPT_PROVIDER = "rust-script"
 CARGO_MAKE_USE_WORKSPACE_PROFILE = true
 CARGO_MAKE_CARGO_BUILD_TEST_FLAGS = "--no-fail-fast"
 CARGO_TARGET_DIR = { value = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/target", condition = { env_not_set = ["CARGO_TARGET_DIR"] } }
-CARGO_MAKE_TOOLCHAIN = { value = "nightly", condition = { env_not_set = ["CARGO_MAKE_TOOLCHAIN"] } }
+CARGO_MAKE_TOOLCHAIN = { value = "stable", condition = { env_not_set = ["CARGO_MAKE_TOOLCHAIN"] } }
 CARGO_BUILD_TYPE = { source = "${CARGO_MAKE_PROFILE}", default_value = "debug", mapping = { "development" = "debug", "release" = "release" } }
 CARGO_PROFILE = { source = "${CARGO_BUILD_TYPE}", mapping = { "debug" = "dev", "release" = "release" } }
 BACKTRACE_DEFAULT = { source = "${CARGO_MAKE_CI}", mapping = { "true" = "1", "false" = "0" } }
@@ -138,7 +138,7 @@ category = "Build"
 description = "Compiles for all targets needed to produce a universal library for watchOS and tvOS"
 command = "rustup"
 args = [
-    "run", "${CARGO_MAKE_TOOLCHAIN}",
+    "run", "nightly", #nightly needed for -Z build-std 
     "cargo", "build",
     "--profile", "${CARGO_PROFILE}",
     "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)",

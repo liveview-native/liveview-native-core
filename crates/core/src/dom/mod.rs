@@ -1156,14 +1156,21 @@ impl Iterator for Neighbors<'_> {
     fn next(&mut self) -> Option<NodeRef> {
         // Visit outgoing first, then incoming
         if let Some(children) = self.children.as_mut() {
-            while let Some(next) = children.take_first().copied() {
-                // Skip the node for which we're iterating neighbors
-                if next == self.skip {
-                    continue;
+            loop {
+                match children {
+                    [next, rest @ ..] => {
+                        *children = rest;
+                        if *next == self.skip {
+                            continue;
+                        }
+                        return Some(*next);
+                    }
+                    [] => {
+                        self.children = None;
+                        break;
+                    }
                 }
-                return Some(next);
             }
-            self.children = None;
         }
 
         self.parent.take()
