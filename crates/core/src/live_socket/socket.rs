@@ -11,6 +11,10 @@ use crate::{
     parser::parse,
 };
 
+// If you change this also change the
+// default below in the proc macro
+const DEFAULT_TIMEOUT: u64 = 30_000;
+
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct ConnectOpts {
     #[uniffi(default = None)]
@@ -29,7 +33,7 @@ impl Default for ConnectOpts {
             headers: None,
             body: None,
             method: String::from("GET"),
-            timeout_ms: 30_000,
+            timeout_ms: DEFAULT_TIMEOUT,
         }
     }
 }
