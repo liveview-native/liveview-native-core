@@ -1,4 +1,3 @@
-import java.time.Duration
 import java.util.Base64
 import kotlin.coroutines.*
 import kotlin.system.*
@@ -18,13 +17,7 @@ import org.phoenixframework.liveviewnative.core.NodeRef
 class SocketTest {
     @Test
     fun simple_connect() = runTest {
-        var live_socket =
-                LiveSocket.connect(
-                        "http://127.0.0.1:4001/upload",
-                        Duration.ofDays(10),
-                        "jetpack",
-                        null
-                )
+        var live_socket = LiveSocket.connect("http://127.0.0.1:4001/upload", "jetpack", null)
         var live_channel = live_socket.joinLiveviewChannel(null, null)
         var phx_id = live_channel.getPhxRefFromUploadJoinPayload()
         // This is a PNG located at crates/core/tests/support/tinycross.png
@@ -41,13 +34,7 @@ class SocketTestOpts {
     @Test
     fun connect_with_opts() = runTest {
         var opts = ConnectOpts()
-        var live_socket =
-                LiveSocket.connect(
-                        "http://127.0.0.1:4001/upload",
-                        Duration.ofDays(10),
-                        "jetpack",
-                        opts
-                )
+        var live_socket = LiveSocket.connect("http://127.0.0.1:4001/upload", "jetpack", opts)
         var live_channel = live_socket.joinLiveviewChannel(null, null)
         var phx_id = live_channel.getPhxRefFromUploadJoinPayload()
         // This is a PNG located at crates/core/tests/support/tinycross.png
