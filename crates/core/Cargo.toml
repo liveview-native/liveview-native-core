@@ -45,7 +45,7 @@ browser = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cranelift-entity = { version = "0.112" }
+cranelift-entity = { version = "0.113" }
 fixedbitset = { version = "0.4" }
 fxhash = { version = "0.2" }
 html5gum = { git = "https://github.com/liveviewnative/html5gum", branch = "lvn" }
@@ -70,7 +70,7 @@ paste = { version = "1.0" }
 pretty_assertions = { version = "1.4.0" }
 text-diff = { version = "0.4.0" }
 uniffi = { workspace = true, features = ["bindgen-tests", "tokio"]}
-tokio = { version = "1.40", features = ["full"] }
+tokio = { version = "1.41", features = ["full"] }
 env_logger = "0.11.1"
 
 # For image generation for tests

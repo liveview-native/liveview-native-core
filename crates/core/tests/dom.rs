@@ -1,5 +1,3 @@
-#![feature(assert_matches)]
-
 use liveview_native_core::dom::*;
 
 #[test]

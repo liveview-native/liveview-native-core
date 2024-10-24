@@ -1,7 +1,4 @@
-use std::{
-    assert_matches::assert_matches, borrow::Cow, collections::VecDeque, convert::Infallible, fmt,
-    mem,
-};
+use std::{borrow::Cow, collections::VecDeque, convert::Infallible, fmt, mem};
 
 use html5gum::{Emitter, Error, Readable, Reader, State, Tokenizer};
 use smallstr::SmallString;
@@ -292,7 +289,10 @@ impl Emitter for DocumentEmitter {
     }
 
     fn emit_current_doctype(&mut self) {
-        assert_matches!(self.current_token.take().unwrap(), Token::Doctype(_));
+        assert!(matches!(
+            self.current_token.take().unwrap(),
+            Token::Doctype(_)
+        ));
         let doctype = smallvec_to_smallstr(mem::take(&mut self.current_doctype));
         self.emit_token(Token::Doctype(doctype.into()));
     }
