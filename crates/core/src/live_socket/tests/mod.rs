@@ -10,7 +10,6 @@ const HOST: &str = "10.0.2.2:4001";
 #[cfg(not(target_os = "android"))]
 const HOST: &str = "127.0.0.1:4001";
 
-const TIME_OUT: Duration = Duration::from_secs(10);
 use pretty_assertions::assert_eq;
 
 #[tokio::test]
@@ -21,7 +20,7 @@ async fn join_live_view() {
         .try_init();
 
     let url = format!("http://{HOST}/hello");
-    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT, "swiftui".into())
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
         .await
         .expect("Failed to get liveview socket");
 
@@ -60,7 +59,7 @@ async fn redirect() {
         .try_init();
 
     let url = format!("http://{HOST}/hello");
-    let live_socket = LiveSocket::new(url.to_string(), TIME_OUT, "swiftui".into())
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
         .await
         .expect("Failed to get liveview socket");
 

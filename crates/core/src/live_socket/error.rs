@@ -11,6 +11,10 @@ use crate::{
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum LiveSocketError {
+    #[error("Invalid Header - {error}")]
+    InvalidHeader { error: String },
+    #[error("Invalid Method - {error}")]
+    InvalidMethod { error: String },
     #[error("Phoenix Socket Error - {error}")]
     Phoenix { error: String },
     #[error("Reqwest Error - {error}")]

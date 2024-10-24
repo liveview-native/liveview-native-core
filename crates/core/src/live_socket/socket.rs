@@ -1,7 +1,8 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, str::FromStr, sync::Arc, time::Duration};
 
 use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, Topic, JSON};
+use reqwest::Method;
 
 use super::{LiveChannel, LiveSocketError};
 use crate::{
@@ -9,6 +10,33 @@ use crate::{
     dom::{ffi::Document as FFiDocument, AttributeName, Document, ElementName, Selector},
     parser::parse,
 };
+
+// If you change this also change the
+// default below in the proc macro
+const DEFAULT_TIMEOUT: u64 = 30_000;
+
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct ConnectOpts {
+    #[uniffi(default = None)]
+    pub headers: Option<HashMap<String, String>>,
+    #[uniffi(default = None)]
+    pub body: Option<String>,
+    #[uniffi(default = "GET")]
+    pub method: String,
+    #[uniffi(default = 30_000)]
+    pub timeout_ms: u64,
+}
+
+impl Default for ConnectOpts {
+    fn default() -> Self {
+        Self {
+            headers: None,
+            body: None,
+            method: String::from("GET"),
+            timeout_ms: DEFAULT_TIMEOUT,
+        }
+    }
+}
 
 #[derive(uniffi::Object)]
 pub struct LiveSocket {
@@ -31,24 +59,54 @@ impl LiveSocket {
     #[uniffi::constructor]
     pub async fn connect(
         url: String,
-        timeout: Duration,
         format: String,
+        options: Option<ConnectOpts>,
     ) -> Result<Self, LiveSocketError> {
-        Self::new(url, timeout, format).await
+        Self::new(url, format, options).await
     }
 
     #[uniffi::constructor]
     pub async fn new(
         url: String,
-        timeout: Duration,
         format: String,
+        options: Option<ConnectOpts>,
     ) -> Result<Self, LiveSocketError> {
+        let ConnectOpts {
+            headers,
+            body,
+            method,
+            timeout_ms,
+        } = options.unwrap_or_default();
+
         // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
         // it does maybe we don't need to do a full dead render.
         let mut url = url.parse::<Url>()?;
         url.set_query(Some(&format!("_format={format}")));
-        // todo: Use the format in the query param to the deadrender.
-        let resp = reqwest::get(url.clone()).await?;
+
+        let method = Method::from_str(&method)
+            .map_err(|_| LiveSocketError::InvalidMethod { error: method })?;
+
+        let headers = (&headers.unwrap_or_default()).try_into().map_err(|e| {
+            LiveSocketError::InvalidHeader {
+                error: format!("{e:?}"),
+            }
+        })?;
+
+        let client = reqwest::Client::default();
+        let req = reqwest::Request::new(method, url.clone());
+        let builder = reqwest::RequestBuilder::from_parts(client, req);
+
+        let builder = if let Some(body) = body {
+            builder.body(body)
+        } else {
+            builder
+        };
+
+        let timeout = Duration::from_millis(timeout_ms);
+        let (client, result) = builder.timeout(timeout).headers(headers).build_split();
+
+        let req = result?;
+        let resp = client.execute(req).await?;
         let resp_headers = resp.headers();
 
         let mut cookies: Vec<String> = Vec::new();
