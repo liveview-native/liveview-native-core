@@ -46,7 +46,6 @@ async fn streaming_connect() -> Result<(), String> {
 
     let live_socket = LiveSocket::new(
         url.to_string(),
-        TIME_OUT,
         "swiftui".into(),
         Default::default(),
     )
