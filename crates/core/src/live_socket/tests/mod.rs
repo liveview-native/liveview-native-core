@@ -32,6 +32,7 @@ async fn join_live_view() {
         .join_liveview_channel(None, None)
         .await
         .expect("Failed to join channel");
+
     let join_doc = live_channel
         .join_document()
         .expect("Failed to render join payload");

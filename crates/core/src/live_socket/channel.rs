@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use log::{debug, error};
 use phoenix_channels_client::{Channel, Event, Number, Payload, Socket, Topic, JSON};
 
-use super::{LiveFile, LiveSocketError, UploadConfig, UploadError};
+use super::{protocol, LiveSocketError, UploadConfig, UploadError};
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{
@@ -23,6 +23,17 @@ pub struct LiveChannel {
     /// unique file upload ID for this view
     pub file_upload_id: Option<String>,
 }
+
+#[derive(uniffi::Object)]
+pub struct LiveFile {
+    contents: Vec<u8>,
+    mime_type: String,
+    path: String,
+    phx_target_name: String,
+    upload_id: String,
+    ref_id: u64,
+}
+
 // For non FFI functions
 impl LiveChannel {
     pub fn join_document(&self) -> Result<Document, LiveSocketError> {
@@ -55,11 +66,41 @@ impl LiveChannel {
     pub fn document(&self) -> FFiDocument {
         self.document.clone()
     }
+
     pub fn channel(&self) -> Arc<Channel> {
         self.channel.clone()
     }
+
     pub fn set_event_handler(&self, handler: Box<dyn DocumentChangeHandler>) {
         self.document.set_event_handler(handler);
+    }
+
+    pub fn construct_upload(
+        &self,
+        contents: Vec<u8>,
+        mime_type: String,
+        file_path: String,
+        phx_target_name: String,
+    ) -> Result<LiveFile, LiveSocketError> {
+        // this is not great but we have to mimic constructing
+        // this ad hoc object to send to the server
+        // https://github.com/phoenixframework/phoenix_live_view/blob/b59bede3fcec6995f1d5876a520af8badc4bb7fb/priv/static/phoenix_live_view.js#L1315
+        let ref_id = self.document().next_upload_id();
+
+        let upload_id = self
+            .file_upload_id
+            .as_ref()
+            .ok_or(LiveSocketError::NoInputRefInDocument)?
+            .clone();
+
+        Ok(LiveFile {
+            contents,
+            mime_type,
+            path: file_path,
+            phx_target_name,
+            upload_id,
+            ref_id,
+        })
     }
 
     // Blocks indefinitely, processing changes to the document using the user provided callback
@@ -92,32 +133,29 @@ impl LiveChannel {
     }
 
     pub async fn validate_upload(&self, file: &LiveFile) -> Result<Payload, LiveSocketError> {
-        // this is not great but we have to mimic constructing
-        // this ad hoc object to send to the server
-        // https://github.com/phoenixframework/phoenix_live_view/blob/b59bede3fcec6995f1d5876a520af8badc4bb7fb/priv/static/phoenix_live_view.js#L1315
-        let ref_id = self.document().next_upload_id();
-
-        let upload_id = self
-            .file_upload_id
-            .as_ref()
-            .ok_or(LiveSocketError::NoInputRefInDocument)?;
-
         let validate_event_payload = serde_json::json!(
         {
           "type" : "form",
           "event" : "validate",
           "value" : format!("_target={}", file.phx_target_name),
           "uploads" : {
-              upload_id.clone() : [{
-                  "path" : file.phx_target_name,
-                  "ref" : ref_id,
-                  "name" : file.path,
-                  "relative_path" : "", // only needed with multiple uploads
-                  "type" : file.mime_type,
-                  "size" : file.contents.len(),
+              file.upload_id.clone() : [{
+                  "relative_path" : "", // only needed with multiple uploads, fully qualified path
+                  "path" : file.phx_target_name, // poorly, poorly named field. refers to an atom
+                  "ref" :  file.ref_id, // uniformly increasing id issued by current client
+                  "name" : file.path, // the actual file name - potentially just the root
+                  "type" : file.mime_type, // www3 mime string
+                  "size" : file.contents.len(), // byte length
               }]
           },
         });
+
+        let mime_type: mime::Mime =
+            file.mime_type
+                .parse()
+                .map_err(|e| LiveSocketError::MimeType {
+                    error: format!("{e}"),
+                })?;
 
         let validate_event: Event = Event::User {
             user: "event".to_string(),
@@ -125,14 +163,25 @@ impl LiveChannel {
         let validate_event_payload: Payload = Payload::JSONPayload {
             json: JSON::from(validate_event_payload),
         };
+
         let validate_resp = self
             .channel
             .call(validate_event, validate_event_payload, self.timeout)
             .await?;
+
+        let Payload::JSONPayload { json } = &validate_resp else {
+            panic!()
+        };
+
+        let sj = serde_json::Value::from(json.clone());
+        //panic!("{}", serde_json::to_string_pretty(&sj).unwrap());
+
+        let s: protocol::ValidateResponse = serde_json::from_value(sj).unwrap();
+
         /* Validate "okay" response looks like:
         {
         "diff": {
-            "0": {
+            "0": { // The file upload id
                 "2": " accept=\".jpg,.jpeg,.ico\"",
                 "4": " data-phx-active-refs=\"0\"",
                 "5": " data-phx-done-refs=\"\"",
@@ -140,7 +189,8 @@ impl LiveChannel {
                 "8": " multiple"
             }
         }
-                 */
+        */
+
         // TODO: Use the validate response.
         Ok(validate_resp)
     }

@@ -41,16 +41,20 @@ async fn single_chunk_file() {
         .await
         .expect("Failed to join the liveview channel");
 
-    let gh_favicon = LiveFile::new(
-        image_bytes.clone(),
-        "image/png".to_string(),
-        "tile.png".to_string(),
-        "avatar".to_string(),
-    );
+    let gh_favicon = live_channel
+        .construct_upload(
+            image_bytes.clone(),
+            "image/png".to_string(),
+            "tile.png".to_string(),
+            "avatar".to_string(),
+        )
+        .expect("Could not construct file.");
+
     let _ = live_channel
         .validate_upload(&gh_favicon)
         .await
         .expect("Failed to validate upload");
+
     live_channel
         .upload_file(&gh_favicon)
         .await
@@ -70,21 +74,26 @@ async fn multi_chunk_file() {
     let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
         .await
         .expect("Failed to get liveview socket");
+
     let live_channel = live_socket
         .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
 
-    let me = LiveFile::new(
-        image_bytes.clone(),
-        "image/png".to_string(),
-        "tile.png".to_string(),
-        "avatar".to_string(),
-    );
+    let me = live_channel
+        .construct_upload(
+            image_bytes.clone(),
+            "image/tiff".to_string(),
+            "tile.tiff".to_string(),
+            "avatar".to_string(),
+        )
+        .expect("Could not construct file.");
+
     let _ = live_channel
         .validate_upload(&me)
         .await
         .expect("Failed to validate upload");
+
     live_channel
         .upload_file(&me)
         .await
@@ -113,12 +122,15 @@ async fn error_file_too_large() {
         .await
         .expect("Failed to join the liveview channel");
 
-    let me = LiveFile::new(
-        image_bytes.clone(),
-        "image/png".to_string(),
-        "tile.png".to_string(),
-        "avatar".to_string(),
-    );
+    let me = live_channel
+        .construct_upload(
+            image_bytes.clone(),
+            "image/tiff".to_string(),
+            "tile.tiff".to_string(),
+            "avatar".to_string(),
+        )
+        .expect("Could not construct file.");
+
     let _ = live_channel
         .validate_upload(&me)
         .await
@@ -159,12 +171,15 @@ async fn error_incorrect_file_type() {
         .await
         .expect("Failed to join the liveview channel");
 
-    let me = LiveFile::new(
-        image_bytes.clone(),
-        "image/tiff".to_string(),
-        "tile.tiff".to_string(),
-        "avatar".to_string(),
-    );
+    let me = live_channel
+        .construct_upload(
+            image_bytes.clone(),
+            "image/tiff".to_string(),
+            "tile.tiff".to_string(),
+            "avatar".to_string(),
+        )
+        .expect("Could not construct file.");
+
     let _ = live_channel
         .validate_upload(&me)
         .await
@@ -172,7 +187,7 @@ async fn error_incorrect_file_type() {
     let out = live_channel
         .upload_file(&me)
         .await
-        .expect_err("This should b ean incorrect file error");
+        .expect_err("This should be an incorrect file error");
     // This hack is required because LiveSocketError doesn't derive from PartialEq
     if let LiveSocketError::Upload {
         error: UploadError::FileNotAccepted,

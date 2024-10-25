@@ -5,9 +5,9 @@ defmodule TestServerWeb.SimpleLiveUpload do
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     {:ok,
-      socket
-      |> assign(:uploaded_files, [])
-      |> allow_upload(:avatar, accept: ~w(.png), max_entries: 2)}
+     socket
+     |> assign(:uploaded_files, [])
+     |> allow_upload(:avatar, accept: ~w(.png), max_entries: 2)}
   end
 
   @impl true
@@ -40,7 +40,7 @@ defmodule TestServerWeb.SimpleLiveUpload do
       consume_uploaded_entries(socket, :avatar, fn %{path: path}, _entry ->
         dest = Path.join([:code.priv_dir(:test_server), "static", "uploads", Path.basename(path)])
         dest = "#{dest}.png"
-        IO.puts ("HANDLING SAVE EVENT: #{path} - #{dest}")
+        IO.puts("HANDLING SAVE EVENT: #{path} - #{dest}")
         File.cp!(path, dest)
         {:ok, ~p"/uploads/#{Path.basename(dest)}"}
       end)

@@ -1,5 +1,6 @@
 mod channel;
 mod error;
+mod protocol;
 mod socket;
 
 #[cfg(test)]
@@ -9,31 +10,6 @@ pub use channel::LiveChannel;
 use error::{LiveSocketError, UploadError};
 pub use socket::LiveSocket;
 
-#[derive(uniffi::Object)]
-pub struct LiveFile {
-    contents: Vec<u8>,
-    mime_type: String,
-    path: String,
-    phx_target_name: String,
-}
-
-#[uniffi::export]
-impl LiveFile {
-    #[uniffi::constructor]
-    pub fn new(
-        contents: Vec<u8>,
-        mime_type: String,
-        file_path: String,
-        phx_target_name: String,
-    ) -> Self {
-        Self {
-            contents,
-            mime_type,
-            path: file_path,
-            phx_target_name,
-        }
-    }
-}
 pub struct UploadConfig {
     chunk_size: u64,
     max_file_size: u64,

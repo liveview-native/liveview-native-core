@@ -1206,6 +1206,7 @@ dependencies = [
  "html5gum",
  "image",
  "log",
+ "mime",
  "paste",
  "petgraph",
  "phoenix_channels_client",
