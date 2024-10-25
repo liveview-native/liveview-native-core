@@ -57,6 +57,10 @@ impl Document {
             .merge_fragment_json(json)
     }
 
+    pub fn next_upload_id(&self) -> u64 {
+        self.inner.lock().expect("lock poisoned!").next_upload_id()
+    }
+
     pub fn root(&self) -> Arc<NodeRef> {
         self.inner.lock().expect("lock poisoned!").root().into()
     }

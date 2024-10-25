@@ -8,7 +8,7 @@ use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{
         ffi::{Document as FFiDocument, DocumentChangeHandler},
-        AttributeName, Document, Selector,
+        Document,
     },
     parser::parse,
 };
@@ -20,6 +20,8 @@ pub struct LiveChannel {
     pub join_payload: Payload,
     pub document: FFiDocument,
     pub timeout: Duration,
+    /// unique file upload ID for this view
+    pub file_upload_id: Option<String>,
 }
 // For non FFI functions
 impl LiveChannel {
@@ -34,6 +36,7 @@ impl LiveChannel {
                     let root: Root = root.try_into()?;
                     let root: String = root.try_into()?;
                     let document = parse(&root)?;
+
                     Some(document)
                 } else {
                     None
@@ -87,95 +90,45 @@ impl LiveChannel {
     pub fn join_payload(&self) -> Payload {
         self.join_payload.clone()
     }
-    pub fn get_phx_ref_from_upload_join_payload(&self) -> Result<String, LiveSocketError> {
-        /* Okay join response looks like: To do an upload we need the new `data-phx-upload-ref`
-        {
-          "rendered": {
-            "0": {
-              "0": " id=\"phx-F6rhEydz8YniGqoB\"",
-              "1": " name=\"avatar\"",
-              "2": " accept=\".jpg,.jpeg,.ico\"",
-              "3": " data-phx-upload-ref=\"phx-F6rhEydz8YniGqoB\"",
-              "4": " data-phx-active-refs=\"\"",
-              "5": " data-phx-done-refs=\"\"",
-              "6": " data-phx-preflighted-refs=\"\"",
-              "7": "",
-              "8": " multiple",
-              "s": [
-                "<input",
-                " type=\"file\"",
-                "",
-                " data-phx-hook=\"Phoenix.LiveFileUpload\" data-phx-update=\"ignore\"",
-                "",
-                "",
-                "",
-                "",
-                "",
-                ">"
-              ],
-              "r": 1
-            },
-            "s": [
-              "<p> THIS IS AN UPLOAD FORM </p>\n<form id=\"upload-form\" phx-submit=\"save\" phx-change=\"validate\">\n\n  ",
-              "\n\n  <button type=\"submit\">Upload</button>\n</form>"
-            ]
-          }
-        }
-        */
-        // As silly as it sounds, rendering this diff and parsing the dom for the
-        // data-phx-upload-ref seems like the most stable way.
-        let document = self.join_document()?;
-        let phx_input_id = document
-            .select(Selector::Attribute(AttributeName {
-                namespace: None,
-                name: "data-phx-upload-ref".into(),
-            }))
-            .last()
-            .map(|node_ref| document.get(node_ref))
-            .and_then(|input_div| {
-                input_div
-                    .attributes()
-                    .iter()
-                    .filter(|attr| attr.name.name == "id")
-                    .map(|attr| attr.value.clone())
-                    .collect::<Option<String>>()
-            })
-            .ok_or(LiveSocketError::NoInputRefInDocument);
-        phx_input_id
-    }
+
     pub async fn validate_upload(&self, file: &LiveFile) -> Result<Payload, LiveSocketError> {
-        // Validate the inputs
-        //let phx_upload_id = phx_input_id.clone().unwrap();
-        let validate_event_string = format!(
-            r#"{{
-            "type":"form",
-            "event":"validate",
-            "value":"_target=avatar",
-            "uploads":{{
-            "{}":[{{
-                    "path":"avatar",
-                    "ref":"0",
-                    "name":"{}",
-                    "relative_path":"",
-                    "type":"{}",
-                    "size":{}
-                }}
-            ]}}
-        }}"#,
-            file.phx_id,
-            file.name,
-            file.file_type,
-            file.contents.len()
-        );
+        // this is not great but we have to mimic constructing
+        // this ad hoc object to send to the server
+        // https://github.com/phoenixframework/phoenix_live_view/blob/b59bede3fcec6995f1d5876a520af8badc4bb7fb/priv/static/phoenix_live_view.js#L1315
+        let ref_id = self.document().next_upload_id();
+
+        let upload_id = self
+            .file_upload_id
+            .as_ref()
+            .ok_or(LiveSocketError::NoInputRefInDocument)?;
+
+        let validate_event_payload = serde_json::json!(
+        {
+          "type" : "form",
+          "event" : "validate",
+          "value" : format!("_target={}", file.phx_target_name),
+          "uploads" : {
+              upload_id.clone() : [{
+                  "path" : file.phx_target_name,
+                  "ref" : ref_id,
+                  "name" : file.path,
+                  "relative_path" : "", // only needed with multiple uploads
+                  "type" : file.mime_type,
+                  "size" : file.contents.len(),
+              }]
+          },
+        });
 
         let validate_event: Event = Event::User {
             user: "event".to_string(),
         };
-        let validate_event_payload: Payload = Payload::json_from_serialized(validate_event_string)?;
+        let validate_event_payload: Payload = Payload::JSONPayload {
+            json: JSON::from(validate_event_payload),
+        };
         let validate_resp = self
             .channel
             .call(validate_event, validate_event_payload, self.timeout)
-            .await;
+            .await?;
         /* Validate "okay" response looks like:
         {
         "diff": {
@@ -189,7 +142,7 @@ impl LiveChannel {
         }
                  */
         // TODO: Use the validate response.
-        Ok(validate_resp?)
+        Ok(validate_resp)
     }
 
     pub async fn upload_file(&self, file: &LiveFile) -> Result<(), LiveSocketError> {
@@ -197,6 +150,12 @@ impl LiveChannel {
         let upload_event: Event = Event::User {
             user: "allow_upload".to_string(),
         };
+
+        let upload_id = self
+            .file_upload_id
+            .as_ref()
+            .ok_or(LiveSocketError::NoInputRefInDocument)?;
+
         let event_string = format!(
             r#"{{
             "ref":"{}",
@@ -210,10 +169,10 @@ impl LiveChannel {
                 }}
             ]
             }}"#,
-            file.phx_id,
-            file.name,
+            upload_id,
+            file.path,
             file.contents.len(),
-            file.file_type
+            file.mime_type
         );
 
         let event_payload: Payload = Payload::json_from_serialized(event_string)?;
@@ -351,7 +310,7 @@ impl LiveChannel {
             // We must inform the server we've reached 100% upload via the progress.
             let progress_event_string = format!(
                 r#"{{"event":null, "ref":"{}", "entry_ref":"0", "progress":{} }}"#,
-                file.phx_id, progress,
+                upload_id, progress,
             );
 
             let progress_event: Event = Event::User {
@@ -370,7 +329,7 @@ impl LiveChannel {
         // We must inform the server we've reached 100% upload via the progress.
         let progress_event_string = format!(
             r#"{{"event":null, "ref":"{}", "entry_ref":"0", "progress":100 }}"#,
-            file.phx_id,
+            upload_id
         );
 
         let progress_event: Event = Event::User {

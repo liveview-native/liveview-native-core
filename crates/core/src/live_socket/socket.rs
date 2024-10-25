@@ -324,6 +324,22 @@ impl LiveSocket {
         let join_payload = channel.join(self.timeout).await?;
         let document = Document::empty();
 
+        let file_upload_id = document
+            .select(Selector::Attribute(AttributeName {
+                namespace: None,
+                name: "data-phx-upload-ref".into(),
+            }))
+            .nth(0)
+            .map(|node_ref| document.get(node_ref))
+            .and_then(|input_div| {
+                input_div
+                    .attributes()
+                    .iter()
+                    .filter(|attr| attr.name.name == "id")
+                    .map(|attr| attr.value.clone())
+                    .collect::<Option<String>>()
+            });
+
         debug!("Join payload: {join_payload:#?}");
 
         Ok(LiveChannel {
@@ -332,6 +348,7 @@ impl LiveSocket {
             socket: self.socket.clone(),
             document: document.into(),
             timeout: self.timeout,
+            file_upload_id,
         })
     }
 
@@ -436,12 +453,29 @@ impl LiveSocket {
         }
         .ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
 
+        let file_upload_id = document
+            .select(Selector::Attribute(AttributeName {
+                namespace: None,
+                name: "data-phx-upload-ref".into(),
+            }))
+            .nth(0)
+            .map(|node_ref| document.get(node_ref))
+            .and_then(|input_div| {
+                input_div
+                    .attributes()
+                    .iter()
+                    .filter(|attr| attr.name.name == "id")
+                    .map(|attr| attr.value.clone())
+                    .collect::<Option<String>>()
+            });
+
         Ok(LiveChannel {
             channel,
             join_payload,
             socket: self.socket.clone(),
             document: document.into(),
             timeout: self.timeout,
+            file_upload_id,
         })
     }
 

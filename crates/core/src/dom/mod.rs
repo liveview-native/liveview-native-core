@@ -82,6 +82,8 @@ pub struct Document {
     /// This allows for looking up a node directly and modifying it, rather than needing to traverse the
     /// document.
     ids: BTreeMap<SmallString<[u8; 16]>, NodeRef>,
+    /// A count of the number of uploads, the server expects each upload to have an acending unique ID.
+    upload_ct: u64,
 }
 impl fmt::Debug for Document {
     #[inline]
@@ -130,6 +132,7 @@ impl Document {
             ids: Default::default(),
             fragment_template: None,
             event_callback: None,
+            upload_ct: 0,
         }
     }
 
@@ -146,6 +149,14 @@ impl Document {
     /// Parses a `Document` from a file at the given path
     pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<Self, parser::ParseError> {
         parser::parse(std::fs::File::open(path)?)
+    }
+
+    /// Returns an ascending `ref` id
+    ///  replicates the behavior found at the following
+    /// https://github.com/phoenixframework/phoenix_live_view/blob/b59bede3fcec6995f1d5876a520af8badc4bb7fb/assets/js/phoenix_live_view/live_uploader.js#L13-L24
+    pub fn next_upload_id(&mut self) -> u64 {
+        self.upload_ct += 1;
+        self.upload_ct
     }
 
     /// Obtains a `DocumentBuilder` with which you can extend/modify this document

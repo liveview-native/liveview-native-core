@@ -12,19 +12,25 @@ pub use socket::LiveSocket;
 #[derive(uniffi::Object)]
 pub struct LiveFile {
     contents: Vec<u8>,
-    file_type: String,
-    name: String,
-    phx_id: String,
+    mime_type: String,
+    path: String,
+    phx_target_name: String,
 }
+
 #[uniffi::export]
 impl LiveFile {
     #[uniffi::constructor]
-    pub fn new(contents: Vec<u8>, file_type: String, name: String, phx_id: String) -> Self {
+    pub fn new(
+        contents: Vec<u8>,
+        mime_type: String,
+        file_path: String,
+        phx_target_name: String,
+    ) -> Self {
         Self {
             contents,
-            file_type,
-            name,
-            phx_id,
+            mime_type,
+            path: file_path,
+            phx_target_name,
         }
     }
 }

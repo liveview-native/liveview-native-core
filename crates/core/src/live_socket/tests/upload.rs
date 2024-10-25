@@ -31,22 +31,21 @@ async fn single_chunk_file() {
 
     let url = format!("http://{HOST}/upload");
     let image_bytes = get_image(100, 100, "png".to_string());
+
     let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
         .await
         .expect("Failed to get liveview socket");
+
     let live_channel = live_socket
         .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
-    let phx_input_id = live_channel
-        .get_phx_ref_from_upload_join_payload()
-        .expect("Failed to get phx id from join payload");
 
     let gh_favicon = LiveFile::new(
         image_bytes.clone(),
-        "png".to_string(),
+        "image/png".to_string(),
         "tile.png".to_string(),
-        phx_input_id.clone(),
+        "avatar".to_string(),
     );
     let _ = live_channel
         .validate_upload(&gh_favicon)
@@ -75,15 +74,12 @@ async fn multi_chunk_file() {
         .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
-    let phx_input_id = live_channel
-        .get_phx_ref_from_upload_join_payload()
-        .expect("Failed to get phx id from join payload");
 
     let me = LiveFile::new(
         image_bytes.clone(),
-        "png".to_string(),
+        "image/png".to_string(),
         "tile.png".to_string(),
-        phx_input_id,
+        "avatar".to_string(),
     );
     let _ = live_channel
         .validate_upload(&me)
@@ -111,19 +107,17 @@ async fn error_file_too_large() {
     let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
         .await
         .expect("Failed to get liveview socket");
+
     let live_channel = live_socket
         .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
-    let phx_input_id = live_channel
-        .get_phx_ref_from_upload_join_payload()
-        .expect("Failed to get phx id from join payload");
 
     let me = LiveFile::new(
         image_bytes.clone(),
-        "png".to_string(),
+        "image/png".to_string(),
         "tile.png".to_string(),
-        phx_input_id,
+        "avatar".to_string(),
     );
     let _ = live_channel
         .validate_upload(&me)
@@ -164,15 +158,12 @@ async fn error_incorrect_file_type() {
         .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
-    let phx_input_id = live_channel
-        .get_phx_ref_from_upload_join_payload()
-        .expect("Failed to get phx id from join payload");
 
     let me = LiveFile::new(
         image_bytes.clone(),
-        "tiff".to_string(),
+        "image/tiff".to_string(),
         "tile.tiff".to_string(),
-        phx_input_id,
+        "avatar".to_string(),
     );
     let _ = live_channel
         .validate_upload(&me)
