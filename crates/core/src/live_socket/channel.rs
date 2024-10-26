@@ -161,6 +161,7 @@ impl LiveChannel {
     }
 
     pub async fn validate_upload(&self, file: &LiveFile) -> Result<Payload, LiveSocketError> {
+        // TODO: move this into protocol
         let validate_event_payload = serde_json::json!(
         {
           "type" : "form",
@@ -178,7 +179,7 @@ impl LiveChannel {
           },
         });
 
-        let mime_type: mime::Mime =
+        let _mime_type: mime::Mime =
             file.mime_type
                 .parse()
                 .map_err(|e| LiveSocketError::MimeType {
@@ -205,6 +206,7 @@ impl LiveChannel {
         let value = serde_json::Value::from(json.clone());
         let _s: protocol::ValidateResponse = serde_json::from_value(value)?;
 
+        // TODO: move this into protocol
         /* Validate "okay" response looks like:
         {
         "diff": {
@@ -233,6 +235,7 @@ impl LiveChannel {
             .as_ref()
             .ok_or(LiveSocketError::NoInputRefInDocument)?;
 
+        // TODO: move this into protocol
         let event_string = format!(
             r#"{{
             "ref":"{}",
@@ -293,6 +296,7 @@ impl LiveChannel {
             "errors":[["0", "too_large"]],
         }
                 */
+        // TODO: move this into protocol
         let mut upload_config = UploadConfig::default();
         let upload_token = match allow_upload_resp {
             Payload::JSONPayload {
@@ -398,6 +402,7 @@ impl LiveChannel {
 
             if progress < 100 {
                 // We must inform the server we've reached 100% upload via the progress.
+                // TODO: move this into protocol
                 let progress_event_string = format!(
                     r#"{{"event":null, "ref":"{}", "entry_ref":"{}", "progress":{} }}"#,
                     upload_id, file.ref_id, progress,
@@ -420,7 +425,7 @@ impl LiveChannel {
             }
         }
 
-        // We must inform the server we've reached 100% upload via the progress.
+        // TODO: move this into protocol
         let progress_event_string = format!(
             r#"{{"event":null, "ref":"{}", "entry_ref":"{}", "progress": 100 }}"#,
             upload_id, file.ref_id,
