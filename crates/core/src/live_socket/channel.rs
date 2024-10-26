@@ -8,7 +8,7 @@ use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{
         ffi::{Document as FFiDocument, DocumentChangeHandler},
-        Document,
+        AttributeName, AttributeValue, Document, Selector,
     },
     parser::parse,
 };
@@ -87,11 +87,39 @@ impl LiveChannel {
         // https://github.com/phoenixframework/phoenix_live_view/blob/b59bede3fcec6995f1d5876a520af8badc4bb7fb/priv/static/phoenix_live_view.js#L1315
         let ref_id = self.document().next_upload_id();
 
-        let upload_id = self
-            .file_upload_id
-            .as_ref()
-            .ok_or(LiveSocketError::NoInputRefInDocument)?
-            .clone();
+        // find the upload with target equal to phx_target_name
+        // retrieve the security token
+        let node_ref = self
+            .document()
+            .inner()
+            .lock()
+            .expect("lock poison!")
+            .select(Selector::And(
+                Box::new(Selector::Attribute(AttributeName {
+                    namespace: None,
+                    name: "data-phx-upload-ref".into(),
+                })),
+                Box::new(Selector::AttributeValue(
+                    AttributeName {
+                        namespace: None,
+                        name: "name".into(),
+                    },
+                    AttributeValue::String(phx_target_name.clone().into()),
+                )),
+            ))
+            .nth(0);
+
+        let upload_id = node_ref
+            .map(|node_ref| self.document().get(node_ref.into()))
+            .and_then(|input_div| {
+                input_div
+                    .attributes()
+                    .iter()
+                    .filter(|attr| attr.name.name == "id")
+                    .map(|attr| attr.value.clone())
+                    .collect::<Option<String>>()
+            })
+            .ok_or(LiveSocketError::NoInputRefInDocument)?;
 
         Ok(LiveFile {
             contents,
@@ -142,7 +170,7 @@ impl LiveChannel {
               file.upload_id.clone() : [{
                   "relative_path" : "", // only needed with multiple uploads, fully qualified path
                   "path" : file.phx_target_name, // poorly, poorly named field. refers to an atom
-                  "ref" :  file.ref_id, // uniformly increasing id issued by current client
+                  "ref" :  file.ref_id.to_string(), // uniformly increasing id issued by current client
                   "name" : file.path, // the actual file name - potentially just the root
                   "type" : file.mime_type, // www3 mime string
                   "size" : file.contents.len(), // byte length
@@ -160,6 +188,7 @@ impl LiveChannel {
         let validate_event: Event = Event::User {
             user: "event".to_string(),
         };
+
         let validate_event_payload: Payload = Payload::JSONPayload {
             json: JSON::from(validate_event_payload),
         };
@@ -170,13 +199,11 @@ impl LiveChannel {
             .await?;
 
         let Payload::JSONPayload { json } = &validate_resp else {
-            panic!()
+            return Err(LiveSocketError::PayloadNotJson);
         };
 
-        let sj = serde_json::Value::from(json.clone());
-        //panic!("{}", serde_json::to_string_pretty(&sj).unwrap());
-
-        let s: protocol::ValidateResponse = serde_json::from_value(sj).unwrap();
+        let value = serde_json::Value::from(json.clone());
+        let _s: protocol::ValidateResponse = serde_json::from_value(value)?;
 
         /* Validate "okay" response looks like:
         {
@@ -215,21 +242,25 @@ impl LiveChannel {
                     "relative_path":"",
                     "size":{},
                     "type":"{}",
-                    "ref":"0"
+                    "ref":"{}"
                 }}
             ]
             }}"#,
             upload_id,
             file.path,
             file.contents.len(),
-            file.mime_type
+            file.mime_type,
+            file.ref_id
         );
 
         let event_payload: Payload = Payload::json_from_serialized(event_string)?;
+        // TODO: Create a configurable, introspectable upload interface so control
+        // timeouts
         let allow_upload_resp = self
             .channel
             .call(upload_event, event_payload, self.timeout)
             .await?;
+
         debug!("allow_upload RESP: {allow_upload_resp:#?}");
 
         /*
@@ -288,6 +319,7 @@ impl LiveChannel {
                     }
                 }
                 if let Some(JSON::Array { array }) = object.get("error") {
+                    // TODO: search for the actual ID from the live file
                     if let Some(JSON::Array { array }) = array.first() {
                         if let Some(JSON::Str {
                             string: error_string,
@@ -307,7 +339,7 @@ impl LiveChannel {
                     }
                 }
                 if let Some(JSON::Object { object }) = object.get("entries") {
-                    if let Some(JSON::Str { string }) = object.get("0") {
+                    if let Some(JSON::Str { string }) = object.get(&file.ref_id.to_string()) {
                         Some(string)
                     } else {
                         None
@@ -329,11 +361,12 @@ impl LiveChannel {
         let upload_channel = self
             .socket
             .channel(
-                Topic::from_string("lvu:0".to_string()),
+                Topic::from_string(format!("lvu:{}", file.ref_id)),
                 Some(upload_join_payload),
             )
             .await?;
-        let upload_join_resp = upload_channel.join(self.timeout).await;
+
+        let upload_join_resp = upload_channel.join(self.timeout).await?;
         // The good response for a joining the upload channel is "{}"
         debug!("UPLOAD JOIN: {upload_join_resp:#?}");
 
@@ -349,47 +382,60 @@ impl LiveChannel {
             let chunk_event: Event = Event::User {
                 user: "chunk".to_string(),
             };
+
+            // TODO: zero copy
             let chunk_payload: Payload = Payload::Binary {
                 bytes: file.contents[start_chunk..end_chunk].to_vec(),
             };
+
             let _chunk_resp = upload_channel
                 .call(chunk_event, chunk_payload, self.timeout)
-                .await;
+                .await?;
+
+            debug!("Chunk upload resp: {_chunk_resp}");
 
             let progress = ((end_chunk as f64 / file_size as f64) * 100.0) as i8;
-            // We must inform the server we've reached 100% upload via the progress.
-            let progress_event_string = format!(
-                r#"{{"event":null, "ref":"{}", "entry_ref":"0", "progress":{} }}"#,
-                upload_id, progress,
-            );
 
-            let progress_event: Event = Event::User {
-                user: "progress".to_string(),
-            };
-            let progress_event_payload: Payload =
-                Payload::json_from_serialized(progress_event_string)?;
-            debug!("Progress send: {progress_event_payload:#?}");
-            let progress_resp = self
-                .channel
-                .call(progress_event, progress_event_payload, self.timeout)
-                .await;
-            debug!("Progress response: {progress_resp:#?}");
+            if progress < 100 {
+                // We must inform the server we've reached 100% upload via the progress.
+                let progress_event_string = format!(
+                    r#"{{"event":null, "ref":"{}", "entry_ref":"{}", "progress":{} }}"#,
+                    upload_id, file.ref_id, progress,
+                );
+
+                let progress_event: Event = Event::User {
+                    user: "progress".to_string(),
+                };
+
+                let progress_event_payload: Payload =
+                    Payload::json_from_serialized(progress_event_string)?;
+                debug!("Progress send: {progress_event_payload:#?}");
+
+                let progress_resp = self
+                    .channel
+                    .call(progress_event, progress_event_payload, self.timeout)
+                    .await?;
+
+                debug!("Progress response: {progress_resp:#?}");
+            }
         }
 
         // We must inform the server we've reached 100% upload via the progress.
         let progress_event_string = format!(
-            r#"{{"event":null, "ref":"{}", "entry_ref":"0", "progress":100 }}"#,
-            upload_id
+            r#"{{"event":null, "ref":"{}", "entry_ref":"{}", "progress": 100 }}"#,
+            upload_id, file.ref_id,
         );
 
         let progress_event: Event = Event::User {
             user: "progress".to_string(),
         };
+
         let progress_event_payload: Payload = Payload::json_from_serialized(progress_event_string)?;
         let progress_resp = self
             .channel
             .call(progress_event, progress_event_payload, self.timeout)
-            .await;
+            .await?;
+
         debug!("RESP: {progress_resp:#?}");
 
         let save_event_string = r#"{"type":"form","event":"save","value":""}"#;
@@ -399,10 +445,12 @@ impl LiveChannel {
         };
         let save_event_payload: Payload =
             Payload::json_from_serialized(save_event_string.to_string())?;
+
         let save_resp = self
             .channel
             .call(save_event, save_event_payload, self.timeout)
-            .await;
+            .await?;
+
         debug!("RESP: {save_resp:#?}");
         upload_channel.leave().await?;
         Ok(())

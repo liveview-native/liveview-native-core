@@ -83,8 +83,8 @@ async fn multi_chunk_file() {
     let me = live_channel
         .construct_upload(
             image_bytes.clone(),
-            "image/tiff".to_string(),
-            "tile.tiff".to_string(),
+            "image/png".to_string(),
+            "tile.png".to_string(),
             "avatar".to_string(),
         )
         .expect("Could not construct file.");
@@ -125,8 +125,8 @@ async fn error_file_too_large() {
     let me = live_channel
         .construct_upload(
             image_bytes.clone(),
-            "image/tiff".to_string(),
-            "tile.tiff".to_string(),
+            "image/png".to_string(),
+            "tile.png".to_string(),
             "avatar".to_string(),
         )
         .expect("Could not construct file.");
@@ -135,18 +135,19 @@ async fn error_file_too_large() {
         .validate_upload(&me)
         .await
         .expect("Failed to validate upload");
+
     let out = live_channel
         .upload_file(&me)
         .await
         .expect_err("This file is too big and should have failed");
 
-    // This hack is required because LiveSocketError doesn't derive from PartialEq
-    if let LiveSocketError::Upload {
-        error: UploadError::FileTooLarge,
-    } = out
-    {
-    } else {
-        panic!("This should be a FileTooLarge Error");
+    match out {
+        LiveSocketError::Upload {
+            error: UploadError::FileTooLarge,
+        } => {}
+        e => {
+            panic!("This should be a FileTooLarge, Error instead was: {e:?}");
+        }
     }
 }
 

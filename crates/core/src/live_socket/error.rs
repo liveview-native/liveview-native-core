@@ -11,6 +11,8 @@ use crate::{
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum LiveSocketError {
+    #[error("Expected Json Payload, Was Binary")]
+    PayloadNotJson,
     #[error("Could Not Parse Mime - {error}")]
     MimeType { error: String },
     #[error("Invalid Header - {error}")]

@@ -24,6 +24,13 @@ impl From<super::Document> for Document {
     }
 }
 
+// crate local api
+impl Document {
+    pub(crate) fn inner(&self) -> Arc<Mutex<super::Document>> {
+        self.inner.clone()
+    }
+}
+
 #[uniffi::export]
 impl Document {
     #[uniffi::constructor]
