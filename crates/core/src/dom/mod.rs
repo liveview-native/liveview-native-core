@@ -82,7 +82,7 @@ pub struct Document {
     /// This allows for looking up a node directly and modifying it, rather than needing to traverse the
     /// document.
     ids: BTreeMap<SmallString<[u8; 16]>, NodeRef>,
-    /// A count of the number of uploads, the server expects each upload to have an acending unique ID.
+    /// A count of the number of uploads, the server expects each upload to have an ascending unique ID.
     upload_ct: u64,
 }
 impl fmt::Debug for Document {
