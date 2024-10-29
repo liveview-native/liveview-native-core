@@ -16,7 +16,6 @@ use cranelift_entity::{packed_option::PackedOption, EntityRef, PrimaryMap, Secon
 use fixedbitset::FixedBitSet;
 use fxhash::{FxBuildHasher, FxHashMap};
 use petgraph::Direction;
-use phoenix_channels_client::JSON;
 use smallstr::SmallString;
 use smallvec::SmallVec;
 

@@ -4,7 +4,7 @@ use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, Topic, JSON};
 use reqwest::Method;
 
-use super::{form::FormModel, LiveChannel, LiveSocketError};
+use super::{LiveChannel, LiveSocketError};
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{ffi::Document as FFiDocument, AttributeName, Document, ElementName, Selector},
@@ -40,7 +40,6 @@ impl Default for ConnectOpts {
 
 #[derive(uniffi::Object)]
 pub struct LiveSocket {
-    pub forms: Vec<FormModel>,
     pub socket: Arc<Socket>,
     pub csrf_token: String,
     pub phx_id: String,
@@ -289,7 +288,6 @@ impl LiveSocket {
             has_live_reload,
             cookies,
             format,
-            forms: vec![],
         })
     }
 
