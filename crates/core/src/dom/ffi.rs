@@ -59,7 +59,7 @@ impl Document {
         self.inner.lock().expect("lock poisoned!").event_callback = Some(Arc::from(handler));
     }
 
-    pub fn merge_fragment_json(&self, json: String) -> Result<(), RenderError> {
+    pub fn merge_fragment_json(&self, json: &str) -> Result<(), RenderError> {
         let json = serde_json::from_str(&json)?;
         self.inner
             .lock()
