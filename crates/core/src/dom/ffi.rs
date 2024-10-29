@@ -3,14 +3,13 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use phoenix_channels_client::JSON;
-
 pub use super::{
     attribute::Attribute,
     node::{Node, NodeData, NodeRef},
     printer::PrintOptions,
     DocumentChangeHandler,
 };
+
 use crate::{diff::fragment::RenderError, parser::ParseError};
 
 #[derive(Clone, uniffi::Object)]
@@ -28,6 +27,7 @@ impl From<super::Document> for Document {
 
 // crate local api
 impl Document {
+    #[cfg(feature = "liveview-channels")]
     pub(crate) fn inner(&self) -> Arc<Mutex<super::Document>> {
         self.inner.clone()
     }
@@ -59,15 +59,7 @@ impl Document {
         self.inner.lock().expect("lock poisoned!").event_callback = Some(Arc::from(handler));
     }
 
-    pub fn merge_fragment_json_value(&self, json: JSON) -> Result<(), RenderError> {
-        let json = serde_json::Value::from(json);
-        self.inner
-            .lock()
-            .expect("lock poisoned!")
-            .merge_fragment_json(json)
-    }
-
-    pub fn merge_fragment_json_string(&self, json: String) -> Result<(), RenderError> {
+    pub fn merge_fragment_json(&self, json: String) -> Result<(), RenderError> {
         let json = serde_json::from_str(&json)?;
         self.inner
             .lock()

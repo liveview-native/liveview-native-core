@@ -149,7 +149,7 @@ impl LiveChannel {
                         debug!("PAYLOAD: {json:?}");
                         // This function merges and uses the event handler set in `set_event_handler`
                         // which will call back into the Swift/Kotlin.
-                        document.merge_fragment_json_value(json)?;
+                        document.merge_fragment_json(json.to_string())?;
                     }
                 }
             };
