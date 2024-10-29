@@ -7,7 +7,6 @@ use crate::dom::NodeRef;
 
 use super::{channel::LiveFile, error::LiveSocketError, LiveChannel};
 
-#[derive(uniffi::Object)]
 pub enum FormValue {
     File(LiveFile),
     Value(String),
@@ -15,13 +14,12 @@ pub enum FormValue {
 
 /// Contains abstractions for form data as well as traits for instrumenting form changes
 /// and submissions
-#[derive(uniffi::Object)]
-pub struct FormModel {
+pub struct Form {
     /// The dom element that this form corresponds to
     node_ref: NodeRef,
-    /// The event name that triggers on `change` events
+    /// The event name that triggers on `phx-change` events
     on_change: Option<String>,
-    /// The event name that triggers on `submit` events
+    /// The event name that triggers on `phx-submit` events
     on_submit: Option<String>,
     /// The name of the form
     target_name: String,
@@ -29,9 +27,9 @@ pub struct FormModel {
     fields: HashMap<String, FormValue>,
 }
 
-impl FormModel {
+impl Form {
     pub fn new(node_ref: NodeRef, target_name: String, fields: HashMap<String, FormValue>) -> Self {
-        FormModel {
+        Form {
             on_change: None,
             on_submit: None,
             node_ref,
@@ -58,8 +56,13 @@ impl FormModel {
         I: Iterator<Item = (S, FormValue)>,
     {
         // apply the changes
+        for (k, v) in values {
+            self.fields.insert(k.as_ref().into(), v);
+        }
 
         // if needed send the message
+        if let Some(event_name) = self.on_change.as_ref() {}
+
         Ok(())
     }
 }
