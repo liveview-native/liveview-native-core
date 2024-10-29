@@ -9,7 +9,6 @@ import org.phoenixframework.liveviewnative.core.ChangeType
 import org.phoenixframework.liveviewnative.core.ConnectOpts
 import org.phoenixframework.liveviewnative.core.Document
 import org.phoenixframework.liveviewnative.core.DocumentChangeHandler
-import org.phoenixframework.liveviewnative.core.LiveFile
 import org.phoenixframework.liveviewnative.core.LiveSocket
 import org.phoenixframework.liveviewnative.core.NodeData
 import org.phoenixframework.liveviewnative.core.NodeRef
@@ -19,13 +18,12 @@ class SocketTest {
     fun simple_connect() = runTest {
         var live_socket = LiveSocket.connect("http://127.0.0.1:4001/upload", "jetpack", null)
         var live_channel = live_socket.joinLiveviewChannel(null, null)
-        var phx_id = live_channel.getPhxRefFromUploadJoinPayload()
         // This is a PNG located at crates/core/tests/support/tinycross.png
         var base64TileImg =
                 "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4gEdFQog0ycfAgAAAIJJREFUOMulU0EOwCAIK2T/f/LYwWAAgZGtJzS1BbVEuEVAAACCQOsKlkOrEicwgeVz5tC5R1yrDdnKuo6j6J5ydgd+npOUHfaGEJkQq+6cQNVqP1oQiCJxvAjGT3Dn3l1sKpAdfhPhqXP5xDYLXz7SkYUuUNnrcBWULkRlFqZxtvwH8zGCEN6LErUAAAAASUVORK5CYII="
 
         val contents = Base64.getDecoder().decode(base64TileImg)
-        var live_file = LiveFile(contents, "png", "foobar.png", phx_id)
+        var live_file = live_channel.constructUpload(contents, "png", "foobar.png", "avatar")
         live_channel.uploadFile(live_file)
     }
 }
@@ -36,13 +34,13 @@ class SocketTestOpts {
         var opts = ConnectOpts()
         var live_socket = LiveSocket.connect("http://127.0.0.1:4001/upload", "jetpack", opts)
         var live_channel = live_socket.joinLiveviewChannel(null, null)
-        var phx_id = live_channel.getPhxRefFromUploadJoinPayload()
+
         // This is a PNG located at crates/core/tests/support/tinycross.png
         var base64TileImg =
                 "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4gEdFQog0ycfAgAAAIJJREFUOMulU0EOwCAIK2T/f/LYwWAAgZGtJzS1BbVEuEVAAACCQOsKlkOrEicwgeVz5tC5R1yrDdnKuo6j6J5ydgd+npOUHfaGEJkQq+6cQNVqP1oQiCJxvAjGT3Dn3l1sKpAdfhPhqXP5xDYLXz7SkYUuUNnrcBWULkRlFqZxtvwH8zGCEN6LErUAAAAASUVORK5CYII="
 
         val contents = Base64.getDecoder().decode(base64TileImg)
-        var live_file = LiveFile(contents, "png", "foobar.png", phx_id)
+        var live_file = live_channel.constructUpload(contents, "png", "foobar.png", "avatar")
         live_channel.uploadFile(live_file)
     }
 }

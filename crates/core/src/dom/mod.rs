@@ -82,6 +82,8 @@ pub struct Document {
     /// This allows for looking up a node directly and modifying it, rather than needing to traverse the
     /// document.
     ids: BTreeMap<SmallString<[u8; 16]>, NodeRef>,
+    /// A count of the number of uploads, the server expects each upload to have an ascending unique ID.
+    upload_ct: u64,
 }
 impl fmt::Debug for Document {
     #[inline]
@@ -130,6 +132,7 @@ impl Document {
             ids: Default::default(),
             fragment_template: None,
             event_callback: None,
+            upload_ct: 0,
         }
     }
 
@@ -146,6 +149,15 @@ impl Document {
     /// Parses a `Document` from a file at the given path
     pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<Self, parser::ParseError> {
         parser::parse(std::fs::File::open(path)?)
+    }
+
+    /// Returns an ascending `ref` id
+    ///  replicates the behavior found at the following
+    /// https://github.com/phoenixframework/phoenix_live_view/blob/b59bede3fcec6995f1d5876a520af8badc4bb7fb/assets/js/phoenix_live_view/live_uploader.js#L13-L24
+    pub fn next_upload_id(&mut self) -> u64 {
+        let next = self.upload_ct;
+        self.upload_ct += 1;
+        next
     }
 
     /// Obtains a `DocumentBuilder` with which you can extend/modify this document
@@ -516,8 +528,8 @@ impl Document {
         Ok(document)
     }
 
-    pub fn merge_fragment_json(&mut self, json: &str) -> Result<(), RenderError> {
-        let fragment: RootDiff = serde_json::from_str(json).map_err(RenderError::from)?;
+    pub fn merge_fragment_json(&mut self, value: serde_json::Value) -> Result<(), RenderError> {
+        let fragment: RootDiff = serde_json::from_value(value).map_err(RenderError::from)?;
 
         let root = if let Some(root) = &self.fragment_template {
             root.clone().merge(fragment)?
@@ -581,6 +593,8 @@ pub enum EventType {
     Changed, // { change: ChangeType },
 }
 
+/// Implements the change handling logic for inbound virtual dom
+/// changes. Your logic for handling document patches should go here.
 #[uniffi::export(callback_interface)]
 pub trait DocumentChangeHandler: Send + Sync {
     /// This callback should implement your dom manipulation logic

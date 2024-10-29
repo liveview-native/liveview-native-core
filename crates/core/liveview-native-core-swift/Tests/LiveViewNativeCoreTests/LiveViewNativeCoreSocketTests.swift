@@ -50,10 +50,9 @@ final class LiveViewNativeCoreUploadTests: XCTestCase {
         let live_socket = try await LiveSocket(upload_url, "swiftui", .none)
         let live_channel = try await live_socket.joinLiveviewChannel(.none, .none)
 
-        let phx_id = try live_channel.getPhxRefFromUploadJoinPayload()
         let image: Data! = Data(base64Encoded: base64TileImg)
 
-        let live_file = LiveFile(image, "png", "foobar.png", phx_id)
+        let live_file = try live_channel.constructUpload(image, "png", "foobar.png", "avatar")
         try await live_channel.uploadFile(live_file)
     }
 }
