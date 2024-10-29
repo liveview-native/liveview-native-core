@@ -20,8 +20,6 @@ pub struct LiveChannel {
     pub join_payload: Payload,
     pub document: FFiDocument,
     pub timeout: Duration,
-    /// unique file upload ID for this view
-    pub file_upload_id: Option<String>,
 }
 
 #[derive(uniffi::Object)]
@@ -145,11 +143,14 @@ impl LiveChannel {
                 }
                 Event::User { user } => {
                     if user == "diff" {
-                        let payload = event.payload.to_string();
-                        debug!("PAYLOAD: {payload}");
+                        let Payload::JSONPayload { json } = event.payload else {
+                            error!("Diff was not json!");
+                            continue;
+                        };
+                        debug!("PAYLOAD: {json:?}");
                         // This function merges and uses the event handler set in `set_event_handler`
                         // which will call back into the Swift/Kotlin.
-                        document.merge_fragment_json(&payload)?;
+                        document.merge_fragment_json_value(json)?;
                     }
                 }
             };
@@ -165,6 +166,7 @@ impl LiveChannel {
         let validate_event_payload = serde_json::json!(
         {
           "type" : "form",
+          // TODO: validate should not be hardcoded here
           "event" : "validate",
           "value" : format!("_target={}", file.phx_target_name),
           "uploads" : {
@@ -204,14 +206,14 @@ impl LiveChannel {
         };
 
         let value = serde_json::Value::from(json.clone());
-        let _s: protocol::ValidateResponse = serde_json::from_value(value)?;
+        let _s: protocol::UploadValidateResp = serde_json::from_value(value)?;
 
         // TODO: move this into protocol
         /* Validate "okay" response looks like:
         {
         "diff": {
             "0": { // The file upload id
-                "2": " accept=\".jpg,.jpeg,.ico\"",
+                "2": " accept=\".jpg,.jpeg,.ico\"", // Accept attribute
                 "4": " data-phx-active-refs=\"0\"",
                 "5": " data-phx-done-refs=\"\"",
                 "6": " data-phx-preflighted-refs=\"\"",
@@ -230,11 +232,6 @@ impl LiveChannel {
             user: "allow_upload".to_string(),
         };
 
-        let upload_id = self
-            .file_upload_id
-            .as_ref()
-            .ok_or(LiveSocketError::NoInputRefInDocument)?;
-
         // TODO: move this into protocol
         let event_string = format!(
             r#"{{
@@ -249,7 +246,7 @@ impl LiveChannel {
                 }}
             ]
             }}"#,
-            upload_id,
+            file.upload_id,
             file.path,
             file.contents.len(),
             file.mime_type,
@@ -257,7 +254,8 @@ impl LiveChannel {
         );
 
         let event_payload: Payload = Payload::json_from_serialized(event_string)?;
-        // TODO: Create a configurable, introspectable upload interface so control
+
+        // TODO: Create a configurable, introspectable upload interface to control
         // timeouts
         let allow_upload_resp = self
             .channel
@@ -405,7 +403,7 @@ impl LiveChannel {
                 // TODO: move this into protocol
                 let progress_event_string = format!(
                     r#"{{"event":null, "ref":"{}", "entry_ref":"{}", "progress":{} }}"#,
-                    upload_id, file.ref_id, progress,
+                    file.upload_id, file.ref_id, progress,
                 );
 
                 let progress_event: Event = Event::User {
@@ -428,7 +426,7 @@ impl LiveChannel {
         // TODO: move this into protocol
         let progress_event_string = format!(
             r#"{{"event":null, "ref":"{}", "entry_ref":"{}", "progress": 100 }}"#,
-            upload_id, file.ref_id,
+            file.upload_id, file.ref_id,
         );
 
         let progress_event: Event = Event::User {

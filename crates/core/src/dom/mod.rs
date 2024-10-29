@@ -16,6 +16,7 @@ use cranelift_entity::{packed_option::PackedOption, EntityRef, PrimaryMap, Secon
 use fixedbitset::FixedBitSet;
 use fxhash::{FxBuildHasher, FxHashMap};
 use petgraph::Direction;
+use phoenix_channels_client::JSON;
 use smallstr::SmallString;
 use smallvec::SmallVec;
 
@@ -528,8 +529,8 @@ impl Document {
         Ok(document)
     }
 
-    pub fn merge_fragment_json(&mut self, json: &str) -> Result<(), RenderError> {
-        let fragment: RootDiff = serde_json::from_str(json).map_err(RenderError::from)?;
+    pub fn merge_fragment_json(&mut self, value: serde_json::Value) -> Result<(), RenderError> {
+        let fragment: RootDiff = serde_json::from_value(value).map_err(RenderError::from)?;
 
         let root = if let Some(root) = &self.fragment_template {
             root.clone().merge(fragment)?
@@ -593,6 +594,8 @@ pub enum EventType {
     Changed, // { change: ChangeType },
 }
 
+/// Implements the change handling logic for inbound virtual dom
+/// changes. Your logic for handling document patches should go here.
 #[uniffi::export(callback_interface)]
 pub trait DocumentChangeHandler: Send + Sync {
     /// This callback should implement your dom manipulation logic

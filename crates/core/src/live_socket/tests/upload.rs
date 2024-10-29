@@ -62,6 +62,45 @@ async fn single_chunk_file() {
 }
 
 #[tokio::test]
+async fn multi_chunk_text() {
+    let _ = env_logger::builder()
+        .parse_default_env()
+        .is_test(true)
+        .try_init();
+
+    let url = format!("http://{HOST}/upload");
+    let text_bytes = Vec::from_iter(std::iter::repeat_n(b'a', 48_000));
+
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+        .await
+        .expect("Failed to get liveview socket");
+
+    let live_channel = live_socket
+        .join_liveview_channel(None, None)
+        .await
+        .expect("Failed to join the liveview channel");
+
+    let me = live_channel
+        .construct_upload(
+            text_bytes.clone(),
+            "text/plain".to_string(),
+            "lots_of_as.txt".to_string(),
+            "sample_text".to_string(),
+        )
+        .expect("Could not construct file.");
+
+    let _ = live_channel
+        .validate_upload(&me)
+        .await
+        .expect("Failed to validate upload");
+
+    live_channel
+        .upload_file(&me)
+        .await
+        .expect("Failed to upload");
+}
+
+#[tokio::test]
 async fn multi_chunk_file() {
     let _ = env_logger::builder()
         .parse_default_env()

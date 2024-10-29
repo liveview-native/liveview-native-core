@@ -4,7 +4,7 @@ use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, Topic, JSON};
 use reqwest::Method;
 
-use super::{LiveChannel, LiveSocketError};
+use super::{form::FormModel, LiveChannel, LiveSocketError};
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{ffi::Document as FFiDocument, AttributeName, Document, ElementName, Selector},
@@ -40,6 +40,7 @@ impl Default for ConnectOpts {
 
 #[derive(uniffi::Object)]
 pub struct LiveSocket {
+    pub forms: Vec<FormModel>,
     pub socket: Arc<Socket>,
     pub csrf_token: String,
     pub phx_id: String,
@@ -288,6 +289,7 @@ impl LiveSocket {
             has_live_reload,
             cookies,
             format,
+            forms: vec![],
         })
     }
 
@@ -324,31 +326,12 @@ impl LiveSocket {
         let join_payload = channel.join(self.timeout).await?;
         let document = Document::empty();
 
-        let file_upload_id = document
-            .select(Selector::Attribute(AttributeName {
-                namespace: None,
-                name: "data-phx-upload-ref".into(),
-            }))
-            .nth(0)
-            .map(|node_ref| document.get(node_ref))
-            .and_then(|input_div| {
-                input_div
-                    .attributes()
-                    .iter()
-                    .filter(|attr| attr.name.name == "id")
-                    .map(|attr| attr.value.clone())
-                    .collect::<Option<String>>()
-            });
-
-        debug!("Join payload: {join_payload:#?}");
-
         Ok(LiveChannel {
             channel,
             join_payload,
             socket: self.socket.clone(),
             document: document.into(),
             timeout: self.timeout,
-            file_upload_id,
         })
     }
 
@@ -453,29 +436,12 @@ impl LiveSocket {
         }
         .ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
 
-        let file_upload_id = document
-            .select(Selector::Attribute(AttributeName {
-                namespace: None,
-                name: "data-phx-upload-ref".into(),
-            }))
-            .nth(0)
-            .map(|node_ref| document.get(node_ref))
-            .and_then(|input_div| {
-                input_div
-                    .attributes()
-                    .iter()
-                    .filter(|attr| attr.name.name == "id")
-                    .map(|attr| attr.value.clone())
-                    .collect::<Option<String>>()
-            });
-
         Ok(LiveChannel {
             channel,
             join_payload,
             socket: self.socket.clone(),
             document: document.into(),
             timeout: self.timeout,
-            file_upload_id,
         })
     }
 
