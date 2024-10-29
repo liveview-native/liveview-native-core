@@ -3,7 +3,8 @@ use std::{sync::Arc, time::Duration};
 use log::{debug, error};
 use phoenix_channels_client::{Channel, Event, Number, Payload, Socket, Topic, JSON};
 
-use super::{protocol, LiveSocketError, UploadConfig, UploadError};
+use super::{LiveSocketError, UploadConfig, UploadError};
+
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{
@@ -27,7 +28,6 @@ pub struct LiveFile {
     contents: Vec<u8>,
     mime_type: String,
     path: String,
-    phx_target_name: String,
     upload_id: String,
     ref_id: u64,
 }
@@ -77,7 +77,7 @@ impl LiveChannel {
         &self,
         contents: Vec<u8>,
         mime_type: String,
-        file_path: String,
+        path: String,
         phx_target_name: String,
     ) -> Result<LiveFile, LiveSocketError> {
         // this is not great but we have to mimic constructing
@@ -122,8 +122,7 @@ impl LiveChannel {
         Ok(LiveFile {
             contents,
             mime_type,
-            path: file_path,
-            phx_target_name,
+            path,
             upload_id,
             ref_id,
         })
@@ -159,71 +158,6 @@ impl LiveChannel {
 
     pub fn join_payload(&self) -> Payload {
         self.join_payload.clone()
-    }
-
-    pub async fn validate_upload(&self, file: &LiveFile) -> Result<Payload, LiveSocketError> {
-        // TODO: move this into protocol
-        let validate_event_payload = serde_json::json!(
-        {
-          "type" : "form",
-          // TODO: validate should not be hardcoded here
-          "event" : "validate",
-          "value" : format!("_target={}", file.phx_target_name),
-          "uploads" : {
-              file.upload_id.clone() : [{
-                  "relative_path" : "", // only needed with multiple uploads, fully qualified path
-                  "path" : file.phx_target_name, // poorly, poorly named field. refers to an atom
-                  "ref" :  file.ref_id.to_string(), // uniformly increasing id issued by current client
-                  "name" : file.path, // the actual file name - potentially just the root
-                  "type" : file.mime_type, // www3 mime string
-                  "size" : file.contents.len(), // byte length
-              }]
-          },
-        });
-
-        let _mime_type: mime::Mime =
-            file.mime_type
-                .parse()
-                .map_err(|e| LiveSocketError::MimeType {
-                    error: format!("{e}"),
-                })?;
-
-        let validate_event: Event = Event::User {
-            user: "event".to_string(),
-        };
-
-        let validate_event_payload: Payload = Payload::JSONPayload {
-            json: JSON::from(validate_event_payload),
-        };
-
-        let validate_resp = self
-            .channel
-            .call(validate_event, validate_event_payload, self.timeout)
-            .await?;
-
-        let Payload::JSONPayload { json } = &validate_resp else {
-            return Err(LiveSocketError::PayloadNotJson);
-        };
-
-        let value = serde_json::Value::from(json.clone());
-        let _s: protocol::UploadValidateResp = serde_json::from_value(value)?;
-
-        // TODO: move this into protocol
-        /* Validate "okay" response looks like:
-        {
-        "diff": {
-            "0": { // The file upload id
-                "2": " accept=\".jpg,.jpeg,.ico\"", // Accept attribute
-                "4": " data-phx-active-refs=\"0\"",
-                "5": " data-phx-done-refs=\"\"",
-                "6": " data-phx-preflighted-refs=\"\"",
-                "8": " multiple"
-            }
-        }
-        */
-
-        // TODO: Use the validate response.
-        Ok(validate_resp)
     }
 
     pub async fn upload_file(&self, file: &LiveFile) -> Result<(), LiveSocketError> {

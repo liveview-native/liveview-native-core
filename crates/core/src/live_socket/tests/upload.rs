@@ -50,11 +50,6 @@ async fn single_chunk_file() {
         )
         .expect("Could not construct file.");
 
-    let _ = live_channel
-        .validate_upload(&gh_favicon)
-        .await
-        .expect("Failed to validate upload");
-
     live_channel
         .upload_file(&gh_favicon)
         .await
@@ -89,11 +84,6 @@ async fn multi_chunk_text() {
         )
         .expect("Could not construct file.");
 
-    let _ = live_channel
-        .validate_upload(&me)
-        .await
-        .expect("Failed to validate upload");
-
     live_channel
         .upload_file(&me)
         .await
@@ -127,11 +117,6 @@ async fn multi_chunk_file() {
             "avatar".to_string(),
         )
         .expect("Could not construct file.");
-
-    let _ = live_channel
-        .validate_upload(&me)
-        .await
-        .expect("Failed to validate upload");
 
     live_channel
         .upload_file(&me)
@@ -169,11 +154,6 @@ async fn error_file_too_large() {
             "avatar".to_string(),
         )
         .expect("Could not construct file.");
-
-    let _ = live_channel
-        .validate_upload(&me)
-        .await
-        .expect("Failed to validate upload");
 
     let out = live_channel
         .upload_file(&me)
@@ -220,10 +200,6 @@ async fn error_incorrect_file_type() {
         )
         .expect("Could not construct file.");
 
-    let _ = live_channel
-        .validate_upload(&me)
-        .await
-        .expect("Failed to validate upload");
     let out = live_channel
         .upload_file(&me)
         .await

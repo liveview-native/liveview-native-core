@@ -1,6 +1,5 @@
 mod channel;
 mod error;
-mod protocol;
 mod socket;
 
 #[cfg(test)]
