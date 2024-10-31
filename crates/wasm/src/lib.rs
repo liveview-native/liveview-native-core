@@ -50,6 +50,10 @@ impl From<RenderedExtractedInput> for RenderedExtractedOutput {
         }
     }
 }
+#[wasm_bindgen(start)]
+pub fn start() {
+    panic!();
+}
 
 #[wasm_bindgen]
 impl Rendered {
