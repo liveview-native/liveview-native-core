@@ -28,6 +28,6 @@ Package.resolved
 .build
 
 ### from wasm builds and tests
-crates/wasm/temp_test
+crates/wasm/temp_test/*
 crates/wasm/liveview-native-core-wasm-*
 crates/wasm/liveview-native-core-wasm-*.tgz
