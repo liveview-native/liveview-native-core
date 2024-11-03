@@ -8,26 +8,34 @@ cleanup() {
   #rm -rf temp_test
 }
 
+checkout_latest_tag() {
+    git fetch --tags
+    git checkout "$(git describe --tags "$(git rev-list --tags --max-count=1)")"
+}
+
 trap cleanup ERR
 
 rm -rf temp_test
 mkdir -p temp_test
 cd temp_test
 
-# git clone https://github.com/phoenixframework/phoenix_live_view
-cd phoenix_live_view/assets && npm install ../../../liveview-native-core-wasm-nodejs
+git clone https://github.com/phoenixframework/phoenix_live_view
+cd phoenix_live_view/assets && checkout_latest_tag
+npm install ../../../liveview-native-core-wasm-nodejs
 
 # shim our classes into the jest tests
-cp ../../../npm_scripts/jest_mock.js .
+cp ../../../npm_shims/jest_mock.js .
 #npm test -- --setupFilesAfterEnv='./jest_mock.js'
 
 # run playwright tests
 # TODO: Shim our wasm into the playwright build
 cd ..
-cp ../../npm_scripts/esbuild_shim.js .
-# below is the only relevant target from `npm run setup`
+cp ../../npm_shims/mock.esbuild.mjs .
 mix deps.get
-mix esbuild module --loader: .js=./esbuild_shim.js
-npm run e2e:test
+# This script produces the esm module, which is the module used in the playwright
+# tests but subs out the client classes for our WASM based ones.
+npm install esbuild
+node mock.esbuild.mjs
+cd test/e2e && npx playwright install && npx playwright test
 
 cleanup
