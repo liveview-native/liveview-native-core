@@ -43,7 +43,7 @@ impl Rendered {
     pub fn new(view_id: i32, rendered: JsValue) -> Result<Rendered, JsError> {
         console_error_panic_hook::set_once();
         let _ = console_log::init_with_level(log::Level::Debug);
-        log::info!("RAW JS DIFF: {rendered:#?}");
+        log::info!("RAW INITIAL DIFF: {rendered:#?}");
         let root_diff: RootDiff = serde_wasm_bindgen::from_value(rendered)?;
         let root: Root = root_diff.try_into()?;
         Ok(Rendered {
@@ -51,8 +51,15 @@ impl Rendered {
             view_id,
         })
     }
+
+    #[wasm_bindgen(js_name = "modifyRoot")]
+    pub fn modify_root(&mut self, _html: JsValue, _obj: JsValue) -> Result<(), JsError> {
+        todo!()
+    }
+
     #[wasm_bindgen(js_name = "mergeDiff")]
     pub fn merge_diff(&mut self, diff: JsValue) -> Result<(), JsError> {
+        log::info!("RAW MERGE DIFF: {diff:#?}");
         let diff: RootDiff = serde_wasm_bindgen::from_value(diff)?;
         log::info!("DIFF: {diff:#?}");
         self.inner = self.inner.clone().merge(diff)?;

@@ -662,7 +662,9 @@ impl TryFrom<ComponentDiff> for Component {
     fn try_from(value: ComponentDiff) -> Result<Self, MergeError> {
         match value {
             ComponentDiff::UpdateRegular { .. } => Err(MergeError::CreateComponentFromUpdate),
-            ComponentDiff::ReplaceCurrent { children, statics } => Ok(Self { children, statics }),
+            ComponentDiff::ReplaceCurrent {
+                children, statics, ..
+            } => Ok(Self { children, statics }),
         }
     }
 }
@@ -675,6 +677,8 @@ pub enum ComponentDiff {
         children: HashMap<String, Child>,
         #[serde(rename = "s")]
         statics: ComponentStatics,
+        #[serde(rename = "newRender", skip_serializing)]
+        new_render: Option<bool>,
     },
     UpdateRegular {
         #[serde(flatten)]
@@ -900,9 +904,9 @@ impl FragmentMerge for Component {
                     statics: self.statics,
                 })
             }
-            ComponentDiff::ReplaceCurrent { statics, children } => {
-                Ok(Self { children, statics }.fix_statics())
-            }
+            ComponentDiff::ReplaceCurrent {
+                statics, children, ..
+            } => Ok(Self { children, statics }.fix_statics()),
         }
     }
 }

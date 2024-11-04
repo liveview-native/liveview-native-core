@@ -1048,12 +1048,14 @@ fn simple() {
     };
     assert_eq!(out, expected);
 }
+
 #[test]
 fn simple_component_diff() {
     let diffs = vec![
         r#"{"0": "index_2", "1": "world", "s": 1}"#,
         r#"{"0": "index_1", "1": "world", "s": 1}"#,
         r#"{"0": "index_2", "1": "world", "s": 3}"#,
+        r#"{"0": "index_2", "1": {"s": "new"}, "s": ["str"]}"#,
         r#"{"0": "index_1", "1": "world", "s": ["<b>FROM ", " ", "</b>"]}"#,
     ];
     for data in &diffs {
