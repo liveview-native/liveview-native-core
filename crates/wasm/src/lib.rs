@@ -1,21 +1,6 @@
 use liveview_native_core::diff::fragment::{FragmentMerge, Root, RootDiff};
+use serde::Serialize;
 use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen(inline_js = "
-    export function map_to_object(map) {
-        const out = Object.create(null);
-        map.forEach((value, key) => {
-            if (value instanceof Map) {
-                out[key] = map_to_object(value)
-            } else {
-                out[key] = value
-            }
-        });
-        return out;
-    }")]
-extern "C" {
-    fn map_to_object(map: JsValue) -> JsValue;
-}
 
 #[wasm_bindgen]
 pub struct Rendered {
@@ -108,8 +93,12 @@ impl Rendered {
         root.is_new_fingerprint()
     }
     pub fn get(&self) -> Result<JsValue, JsError> {
-        let map = serde_wasm_bindgen::to_value(&self.inner)?;
-        Ok(map_to_object(map))
+        let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+        let map = self
+            .inner
+            .serialize(&serializer)
+            .expect("Failed to serialize");
+        Ok(map)
     }
     #[wasm_bindgen(js_name = "toString")]
     pub fn to_string(&self) -> Result<JsValue, JsError> {

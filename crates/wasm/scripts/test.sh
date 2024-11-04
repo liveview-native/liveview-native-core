@@ -1,10 +1,16 @@
 #!/bin/sh
 set -euo pipefail
 
+
+# CODEREVIEW: this should not make it to the PR
+# we need to make this script cd less, use fewer
+# relative directory paths.
+
 initial_dir=$(pwd)
 cleanup() {
   cd "$initial_dir"
   echo "Cleaning up..."
+  # CODEREVIEW: this should not make it to the PR, uncomment below
   #rm -rf temp_test
 }
 
@@ -25,17 +31,18 @@ npm install ../../../liveview-native-core-wasm-nodejs
 
 # shim our classes into the jest tests
 cp ../../../npm_shims/jest_mock.js .
+# CODEREVIEW: this should not make it to the PR, uncomment below
 #npm test -- --setupFilesAfterEnv='./jest_mock.js'
 
 # run playwright tests
-# TODO: Shim our wasm into the playwright build
-cd ..
-cp ../../npm_shims/mock.esbuild.mjs .
-mix deps.get
+cd js/phoenix_live_view
+cp ../../../../../npm_shims/mock_esbuild.mjs .
 # This script produces the esm module, which is the module used in the playwright
 # tests but subs out the client classes for our WASM based ones.
 npm install esbuild
-node mock.esbuild.mjs
+node mock_esbuild.mjs
+cd ..
+mix deps.get
 cd test/e2e && npx playwright install && npx playwright test
 
 cleanup
