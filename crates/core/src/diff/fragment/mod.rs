@@ -110,21 +110,21 @@ impl Fragment {
                 children, statics, ..
             } => {
                 match statics {
+                    Statics::String(_) => {}
                     Statics::Statics(statics) => {
                         out.push_str(&statics[0]);
                         // We start at index 1 rather than zero here because
                         // templates and statics are suppose to wrap the inner
                         // contents of the children.
                         for (i, static_item) in statics.iter().enumerate().skip(1) {
-                            let child = children
-                                .get(&(i - 1).to_string())
-                                .ok_or(RenderError::ChildNotFoundForStatic((i - 1) as i32))?;
-                            let val = child.render(
-                                components,
-                                cousin_statics.clone(),
-                                parent_templates.clone(),
-                            )?;
-                            out.push_str(&val);
+                            if let Some(child) = children.get(&(i - 1).to_string()) {
+                                let val = child.render(
+                                    components,
+                                    cousin_statics.clone(),
+                                    parent_templates.clone(),
+                                )?;
+                                out.push_str(&val);
+                            }
                             out.push_str(static_item);
                         }
                     }
@@ -191,6 +191,7 @@ impl Fragment {
                     }
                     (Some(statics), None) => {
                         match statics {
+                            Statics::String(_) => {}
                             Statics::Statics(statics) => {
                                 for children in dynamics.iter() {
                                     out.push_str(&statics[0]);
@@ -265,7 +266,8 @@ impl Child {
                     Err(RenderError::ComponentNotFound(*cid))
                 }
             }
-            Child::String(inner) => Ok(inner.to_string()),
+            Child::String(OneOrMany::One(s)) => Ok(s.clone()),
+            Child::String(OneOrMany::Many(s)) => Ok(s.concat()),
         }
     }
 }
@@ -360,7 +362,7 @@ pub enum FragmentDiff {
     UpdateRegular {
         #[serde(flatten)]
         children: HashMap<String, ChildDiff>,
-        #[serde(rename = "s")]
+        #[serde(rename = "s", skip_serializing_if = "Option::is_none")]
         statics: Option<Statics>,
         #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
         reply: Option<i8>,
@@ -565,6 +567,7 @@ impl TryFrom<FragmentDiff> for Fragment {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Statics {
+    String(String),
     Statics(Vec<String>),
     TemplateRef(i32),
 }
@@ -588,7 +591,7 @@ impl FragmentMerge for Option<Statics> {
 pub enum Child {
     Fragment(Fragment),
     ComponentID(i32),
-    String(String),
+    String(OneOrMany),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -596,8 +599,22 @@ pub enum Child {
 pub enum ChildDiff {
     Fragment(FragmentDiff),
     ComponentID(i32),
-    String(String),
+    String(OneOrMany),
 }
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum OneOrMany {
+    One(String),
+    Many(Vec<String>),
+}
+
+impl From<String> for OneOrMany {
+    fn from(value: String) -> Self {
+        Self::One(value)
+    }
+}
+
 impl Child {
     pub fn statics(&self) -> Option<Vec<String>> {
         match self {
@@ -713,12 +730,13 @@ impl FragmentMerge for Fragment {
             (
                 Fragment::Regular {
                     children: current_children,
-                    statics: current_statics,
+                    statics: mut current_statics,
                     reply: current_reply,
                 },
                 FragmentDiff::UpdateRegular {
                     children: children_diffs,
                     reply: new_reply,
+                    statics: new_statics,
                     ..
                 },
             ) => {
@@ -729,6 +747,9 @@ impl FragmentMerge for Fragment {
                     (Some(r), None) => Some(r),
                     (Some(_old), Some(new)) => Some(new),
                 };
+                if let Some(new_statics) = new_statics {
+                    current_statics = new_statics;
+                }
                 Ok(Self::Regular {
                     children: new_children,
                     statics: current_statics,
@@ -788,8 +809,9 @@ impl FragmentMerge for Fragment {
                                         if let Some(dynamic) =
                                             new_dynamics.iter().find(|children| {
                                                 children.iter().any(|child| {
-                                                    Child::String(format!(" id=\"{insert_id}\""))
-                                                        == *child
+                                                    Child::String(
+                                                        format!(" id=\"{insert_id}\"").into(),
+                                                    ) == *child
                                                 })
                                             })
                                         {
@@ -804,8 +826,9 @@ impl FragmentMerge for Fragment {
                                         if let Some(index) =
                                             current_dynamics.iter().position(|children| {
                                                 children.iter().any(|child| {
-                                                    Child::String(format!(" id=\"{delete_id}\""))
-                                                        == *child
+                                                    Child::String(
+                                                        format!(" id=\"{delete_id}\"").into(),
+                                                    ) == *child
                                                 })
                                             })
                                         {

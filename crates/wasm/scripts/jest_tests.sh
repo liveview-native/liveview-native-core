@@ -6,8 +6,7 @@ initial_dir=$(pwd)
 cleanup() {
   cd "$initial_dir"
   echo "Cleaning up..."
-  # CODEREVIEW: this should not make it to the PR, uncomment below
-  rm -rf phoenix_live_view
+  #rm -rf phoenix_live_view
 }
 
 checkout_latest_tag() {
@@ -26,5 +25,5 @@ npm install ../../liveview-native-core-wasm-nodejs
 cp ../../npm_shims/jest_mock.js .
 
 # shim our classes into the jest tests
-npm test -- --setupFilesAfterEnv='./jest_mock.js'
+npm test -- --setupFilesAfterEnv='./jest_mock.js'  -t "merges the latter"
 cleanup

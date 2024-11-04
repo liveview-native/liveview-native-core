@@ -613,12 +613,12 @@ fn jetpack_simple_counter() {
 #[test]
 fn test_replace() {
     let current = Fragment::Regular {
-        children: HashMap::from([("1".into(), Child::String("a".into()))]),
+        children: HashMap::from([("1".into(), Child::String("a".to_owned().into()))]),
         statics: Statics::Statics(vec!["b".into(), "c".into()]),
         reply: None,
     };
     let new = Fragment::Regular {
-        children: HashMap::from([("1".into(), Child::String("foo".into()))]),
+        children: HashMap::from([("1".into(), Child::String("foo".to_owned().into()))]),
         statics: Statics::Statics(vec!["bar".into(), "baz".into()]),
         reply: None,
     };
@@ -631,7 +631,7 @@ fn fragment_render_parse() {
     let root = Root {
         fragment: Fragment::Regular {
             children: HashMap::from([
-                ("0".into(), Child::String("foo".into())),
+                ("0".into(), Child::String("foo".to_owned().into())),
                 ("1".into(), Child::ComponentID(1)),
             ]),
             statics: Statics::Statics(vec!["1".into(), "2".into(), "3".into()]),
@@ -640,7 +640,7 @@ fn fragment_render_parse() {
         components: HashMap::from([(
             "1".into(),
             Component {
-                children: HashMap::from([("0".into(), Child::String("bar".into()))]),
+                children: HashMap::from([("0".into(), Child::String("bar".to_owned().into()))]),
                 statics: ComponentStatics::Statics(vec!["4".into(), "5".into()]),
             },
         )]),
@@ -1042,7 +1042,7 @@ fn simple() {
     assert!(out.is_ok());
     let out = out.expect("Failed to deserialize");
     let expected = FragmentDiff::UpdateRegular {
-        children: HashMap::from([(1.to_string(), ChildDiff::String("baz".into()))]),
+        children: HashMap::from([(1.to_string(), ChildDiff::String("baz".to_owned().into()))]),
         statics: None,
         reply: None,
     };
@@ -1079,8 +1079,8 @@ fn test_decode_simple() {
     let out = out.expect("Failed to deserialize");
     let expected = FragmentDiff::UpdateRegular {
         children: HashMap::from([
-            ("0".into(), ChildDiff::String("foo".into())),
-            ("1".into(), ChildDiff::String("bar".into())),
+            ("0".into(), ChildDiff::String("foo".to_owned().into())),
+            ("1".into(), ChildDiff::String("bar".to_owned().into())),
         ]),
         statics: Some(Statics::Statics(vec!["a".into(), "b".into()])),
         reply: None,
@@ -1109,8 +1109,14 @@ fn test_decode_comprehension_with_templates() {
     let out = out.expect("Failed to deserialize");
     let expected = FragmentDiff::UpdateComprehension {
         dynamics: vec![
-            vec![ChildDiff::String("foo".into()), ChildDiff::ComponentID(1)],
-            vec![ChildDiff::String("bar".into()), ChildDiff::ComponentID(1)],
+            vec![
+                ChildDiff::String("foo".to_owned().into()),
+                ChildDiff::ComponentID(1),
+            ],
+            vec![
+                ChildDiff::String("bar".to_owned().into()),
+                ChildDiff::ComponentID(1),
+            ],
         ],
         statics: None,
         templates: Some(HashMap::from([(
@@ -1138,8 +1144,14 @@ fn test_decode_comprehension_without_templates() {
     let out = out.expect("Failed to deserialize");
     let expected = FragmentDiff::UpdateComprehension {
         dynamics: vec![
-            vec![ChildDiff::String("foo".into()), ChildDiff::ComponentID(1)],
-            vec![ChildDiff::String("bar".into()), ChildDiff::ComponentID(1)],
+            vec![
+                ChildDiff::String("foo".to_owned().into()),
+                ChildDiff::ComponentID(1),
+            ],
+            vec![
+                ChildDiff::String("bar".to_owned().into()),
+                ChildDiff::ComponentID(1),
+            ],
         ],
         statics: None,
         templates: None,
@@ -1198,12 +1210,12 @@ fn test_decode_component_diff() {
                     ChildDiff::Fragment(FragmentDiff::UpdateComprehension {
                         dynamics: vec![
                             vec![
-                                ChildDiff::String("0".into()),
-                                ChildDiff::String("foo".into()),
+                                ChildDiff::String("0".to_owned().into()),
+                                ChildDiff::String("foo".to_owned().into()),
                             ],
                             vec![
-                                ChildDiff::String("1".into()),
-                                ChildDiff::String("bar".into()),
+                                ChildDiff::String("1".to_owned().into()),
+                                ChildDiff::String("bar".to_owned().into()),
                             ],
                         ],
                         statics: None,
