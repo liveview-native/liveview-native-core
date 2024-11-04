@@ -63,7 +63,7 @@ jobs:
           toolchain: ${{ env.CARGO_MAKE_TOOLCHAIN }}
           targets: wasm32-unknown-unknown
 
-      - name: Builb wasm
+      - name: Build wasm
         run: cargo build --target wasm32-unknown-unknown -p liveview_native_core_wasm
 
       - uses: taiki-e/install-action@v2
@@ -76,11 +76,15 @@ jobs:
 
       - name: Build wasm for nodesjs
         working-directory: ./crates/wasm
-        run: ./build.sh nodejs
+        run: ./scripts/build.sh nodejs
 
       - name: Build wasm for web
         working-directory: ./crates/wasm
-        run: ./build.sh web
+        run: ./scripts/build.sh web
+
+      - name: Run Jest tests with wasm artifacts
+        working-directory: ./crates/wasm
+        run: ./scripts/jest_test.sh web
 
   clippy:
     runs-on: ubuntu-24.04
