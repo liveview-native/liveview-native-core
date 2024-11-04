@@ -3,6 +3,10 @@
 set -ex
 TARGET=$1
 
+# move to the root of the wasm directory
+script_dir=$(dirname "$0")
+cd "$script_dir/.."
+
 SED=sed
 if [ $(uname) = "Darwin" ]; then
     SED=gsed

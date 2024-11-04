@@ -1,7 +1,11 @@
 #!/bin/sh
 set -e
 
+# move to the root of the wasm directory
+script_dir=$(dirname "$0")
+cd "$script_dir/.."
 
+# set up a deferred cleanup hook
 initial_dir=$(pwd)
 cleanup() {
   cd "$initial_dir"

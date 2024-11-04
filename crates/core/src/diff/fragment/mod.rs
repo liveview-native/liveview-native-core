@@ -11,7 +11,11 @@ mod tests;
 pub struct RootDiff {
     #[serde(flatten)]
     fragment: FragmentDiff,
-    #[serde(rename = "c", default = "HashMap::new")]
+    #[serde(
+        rename = "c",
+        default = "HashMap::new",
+        skip_serializing_if = "HashMap::is_empty"
+    )]
     components: HashMap<String, ComponentDiff>,
 }
 
@@ -20,7 +24,11 @@ pub struct RootDiff {
 pub struct Root {
     #[serde(flatten)]
     fragment: Fragment,
-    #[serde(rename = "c", default = "HashMap::new")]
+    #[serde(
+        rename = "c",
+        default = "HashMap::new",
+        skip_serializing_if = "HashMap::is_empty"
+    )]
     components: HashMap<String, Component>,
 }
 // These are used in the wasm build.
