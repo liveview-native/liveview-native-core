@@ -14,7 +14,9 @@ checkout_latest_tag() {
     git checkout "$(git describe --tags "$(git rev-list --tags --max-count=1)")"
 }
 
-trap cleanup ERR
+if [ $(uname) == "Darwin" ]; then
+    trap cleanup ERR
+fi
 
 if [ ! -d "phoenix_live_view" ]; then
     git clone https://github.com/phoenixframework/phoenix_live_view
@@ -26,6 +28,6 @@ cp ../../npm_shims/jest_mock.js .
 
 # shim our classes into the jest tests
 # if you need to filter tests for iteration you can add the -t argument.
-# npm test -- --setupFilesAfterEnv='./jest_mock.js' -t "merges the latter"
-npm test -- --setupFilesAfterEnv='./jest_mock.js'
+npm test -- --setupFilesAfterEnv='./jest_mock.js' -t "merges the latter"
+# npm test -- --setupFilesAfterEnv='./jest_mock.js'
 cleanup
