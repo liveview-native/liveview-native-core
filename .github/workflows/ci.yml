@@ -298,7 +298,7 @@ jobs:
       - name: Merge coverage files
         run: lcov -a rust-lcov.info -a swift-lcov.info -o merged-lcov.info
 
-      - uses: livewing/lcov-job-summary@v1.1.0
+      - uses: livewing/lcov-job-summary@v1.2.0
         with:
           lcov: merged-lcov.info
 
