@@ -9,25 +9,6 @@ pub use channel::LiveChannel;
 use error::{LiveSocketError, UploadError};
 pub use socket::LiveSocket;
 
-#[derive(uniffi::Object)]
-pub struct LiveFile {
-    contents: Vec<u8>,
-    file_type: String,
-    name: String,
-    phx_id: String,
-}
-#[uniffi::export]
-impl LiveFile {
-    #[uniffi::constructor]
-    pub fn new(contents: Vec<u8>, file_type: String, name: String, phx_id: String) -> Self {
-        Self {
-            contents,
-            file_type,
-            name,
-            phx_id,
-        }
-    }
-}
 pub struct UploadConfig {
     chunk_size: u64,
     max_file_size: u64,

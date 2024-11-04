@@ -324,8 +324,6 @@ impl LiveSocket {
         let join_payload = channel.join(self.timeout).await?;
         let document = Document::empty();
 
-        debug!("Join payload: {join_payload:#?}");
-
         Ok(LiveChannel {
             channel,
             join_payload,
