@@ -5,12 +5,20 @@ set -e
 script_dir=$(dirname "$0")
 cd "$script_dir/.."
 
+# The first argument is interpreted as a quoted jest filter
+# for example: "merges the latter"
+if [ -z "$1" ]; then
+  filter_arg="-t .*"
+else
+  filter_arg="-t $1"
+fi
+
 # set up a deferred cleanup hook
 initial_dir=$(pwd)
 cleanup() {
   cd "$initial_dir"
   echo "Cleaning up..."
-  rm -rf phoenix_live_view
+  # rm -rf phoenix_live_view
 }
 
 checkout_latest_tag() {
@@ -33,5 +41,5 @@ cp ../../npm_shims/jest_mock.js .
 # shim our classes into the jest tests
 # if you need to filter tests for iteration you can add the -t argument.
 # npm test -- --setupFilesAfterEnv='./jest_mock.js' -t "merges the latter"
-npm test -- --setupFilesAfterEnv='./jest_mock.js'
+npm test -- --setupFilesAfterEnv='./jest_mock.js' "$filter_arg"
 cleanup
