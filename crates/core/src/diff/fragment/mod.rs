@@ -731,11 +731,11 @@ impl FragmentMerge for Fragment {
                         .map(|(k, v)| Ok((k, Child::try_from(v)?)))
                         .collect::<Result<_, MergeError>>()?;
 
-                    return Ok(Self::Regular {
+                    Ok(Self::Regular {
                         children: new_children,
                         statics: new_statics,
                         reply: new_reply,
-                    });
+                    })
                 } else {
                     let new_children = current_children.merge(children_diffs)?;
                     let new_reply = new_reply.or(current_reply);
