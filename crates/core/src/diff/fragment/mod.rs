@@ -11,11 +11,7 @@ mod tests;
 pub struct RootDiff {
     #[serde(flatten)]
     fragment: FragmentDiff,
-    #[serde(
-        rename = "c",
-        default = "HashMap::new",
-        skip_serializing_if = "HashMap::is_empty"
-    )]
+    #[serde(rename = "c", default = "HashMap::new")]
     components: HashMap<String, ComponentDiff>,
 }
 
@@ -24,11 +20,7 @@ pub struct RootDiff {
 pub struct Root {
     #[serde(flatten)]
     fragment: Fragment,
-    #[serde(
-        rename = "c",
-        default = "HashMap::new",
-        skip_serializing_if = "HashMap::is_empty"
-    )]
+    #[serde(rename = "c", default = "HashMap::new")]
     components: HashMap<String, Component>,
 }
 // These are used in the wasm build.
@@ -274,8 +266,8 @@ impl Child {
                     Err(RenderError::ComponentNotFound(*cid))
                 }
             }
-            Child::String(OneOrMany::One(s)) => Ok(s.clone()),
-            Child::String(OneOrMany::Many(s)) => Ok(s.concat()),
+            Child::String(OneOrManyStrings::One(s)) => Ok(s.clone()),
+            Child::String(OneOrManyStrings::Many(s)) => Ok(s.concat()),
         }
     }
 }
@@ -599,7 +591,7 @@ impl FragmentMerge for Option<Statics> {
 pub enum Child {
     Fragment(Fragment),
     ComponentID(i32),
-    String(OneOrMany),
+    String(OneOrManyStrings),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -607,17 +599,17 @@ pub enum Child {
 pub enum ChildDiff {
     Fragment(FragmentDiff),
     ComponentID(i32),
-    String(OneOrMany),
+    String(OneOrManyStrings),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
-pub enum OneOrMany {
+pub enum OneOrManyStrings {
     One(String),
     Many(Vec<String>),
 }
 
-impl From<String> for OneOrMany {
+impl From<String> for OneOrManyStrings {
     fn from(value: String) -> Self {
         Self::One(value)
     }
