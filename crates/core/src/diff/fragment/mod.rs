@@ -111,6 +111,7 @@ impl Fragment {
             } => {
                 match statics {
                     Statics::String(_) => {}
+                    Statics::None => {}
                     Statics::Statics(statics) => {
                         out.push_str(&statics[0]);
                         // We start at index 1 rather than zero here because
@@ -191,7 +192,7 @@ impl Fragment {
                     }
                     (Some(statics), None) => {
                         match statics {
-                            Statics::String(_) => {}
+                            Statics::String(_) | Statics::None => {}
                             Statics::Statics(statics) => {
                                 for children in dynamics.iter() {
                                     out.push_str(&statics[0]);
@@ -390,7 +391,7 @@ type Dynamics = Vec<Vec<Child>>;
 #[serde(untagged)]
 pub enum Fragment {
     Regular {
-        #[serde(rename = "s")]
+        #[serde(rename = "s", skip_serializing_if = "Statics::is_none")]
         statics: Statics,
         #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
         reply: Option<i8>,
@@ -521,7 +522,7 @@ impl TryFrom<FragmentDiff> for Fragment {
                 let statics = if let Some(statics) = statics {
                     statics
                 } else {
-                    Statics::Statics(vec!["".into(); new_children.len()])
+                    Statics::None
                 };
                 Ok(Self::Regular {
                     children: new_children,
@@ -570,6 +571,13 @@ pub enum Statics {
     String(String),
     Statics(Vec<String>),
     TemplateRef(i32),
+    None,
+}
+
+impl Statics {
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
 }
 
 impl FragmentMerge for Option<Statics> {
