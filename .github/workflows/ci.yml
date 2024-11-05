@@ -84,7 +84,7 @@ jobs:
 
       - name: Run Jest tests with wasm artifacts
         working-directory: ./crates/wasm
-        run: ./scripts/jest_tests.sh web
+        run: ./scripts/jest_tests.sh
 
   clippy:
     runs-on: ubuntu-24.04
