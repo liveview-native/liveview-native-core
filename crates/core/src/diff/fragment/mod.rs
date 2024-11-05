@@ -110,9 +110,9 @@ impl Fragment {
                 children, statics, ..
             } => {
                 match statics {
-                    Statics::String(_) => {}
-                    Statics::None => {}
-                    Statics::Statics(statics) => {
+                    None => {}
+                    Some(Statics::String(_)) => {}
+                    Some(Statics::Statics(statics)) => {
                         out.push_str(&statics[0]);
                         // We start at index 1 rather than zero here because
                         // templates and statics are suppose to wrap the inner
@@ -129,7 +129,7 @@ impl Fragment {
                             out.push_str(static_item);
                         }
                     }
-                    Statics::TemplateRef(template_id) => {
+                    Some(Statics::TemplateRef(template_id)) => {
                         let templates = parent_templates.ok_or(RenderError::NoTemplates)?;
                         let template = templates
                             .get(&(template_id.to_string()))
@@ -192,7 +192,7 @@ impl Fragment {
                     }
                     (Some(statics), None) => {
                         match statics {
-                            Statics::String(_) | Statics::None => {}
+                            Statics::String(_) => {}
                             Statics::Statics(statics) => {
                                 for children in dynamics.iter() {
                                     out.push_str(&statics[0]);
@@ -391,8 +391,8 @@ type Dynamics = Vec<Vec<Child>>;
 #[serde(untagged)]
 pub enum Fragment {
     Regular {
-        #[serde(rename = "s", skip_serializing_if = "Statics::is_none")]
-        statics: Statics,
+        #[serde(rename = "s", skip_serializing_if = "Option::is_none")]
+        statics: Option<Statics>,
         #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
         reply: Option<i8>,
         #[serde(flatten)]
@@ -519,11 +519,7 @@ impl TryFrom<FragmentDiff> for Fragment {
                 for (key, cdiff) in children.into_iter() {
                     new_children.insert(key, cdiff.try_into()?);
                 }
-                let statics = if let Some(statics) = statics {
-                    statics
-                } else {
-                    Statics::None
-                };
+
                 Ok(Self::Regular {
                     children: new_children,
                     statics,
@@ -571,13 +567,6 @@ pub enum Statics {
     String(String),
     Statics(Vec<String>),
     TemplateRef(i32),
-    None,
-}
-
-impl Statics {
-    pub fn is_none(&self) -> bool {
-        matches!(self, Self::None)
-    }
 }
 
 impl FragmentMerge for Option<Statics> {
@@ -627,7 +616,7 @@ impl Child {
     pub fn statics(&self) -> Option<Vec<String>> {
         match self {
             Self::Fragment(Fragment::Regular {
-                statics: Statics::Statics(statics),
+                statics: Some(Statics::Statics(statics)),
                 ..
             }) => Some(statics.clone()),
             Self::Fragment(Fragment::Comprehension {
@@ -759,9 +748,11 @@ impl FragmentMerge for Fragment {
                     (Some(r), None) => Some(r),
                     (Some(_old), Some(new)) => Some(new),
                 };
+
                 if let Some(new_statics) = new_statics {
-                    current_statics = new_statics;
+                    current_statics = Some(new_statics);
                 }
+
                 Ok(Self::Regular {
                     children: new_children,
                     statics: current_statics,

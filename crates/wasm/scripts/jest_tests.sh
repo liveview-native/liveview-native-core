@@ -18,7 +18,7 @@ initial_dir=$(pwd)
 cleanup() {
   cd "$initial_dir"
   echo "Cleaning up..."
-  rm -rf phoenix_live_view
+  #rm -rf phoenix_live_view
 }
 
 checkout_latest_tag() {

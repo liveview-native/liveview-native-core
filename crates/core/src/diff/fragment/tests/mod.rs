@@ -1,4 +1,5 @@
 use pretty_assertions::assert_eq;
+use serde_json::json;
 
 use super::*;
 mod stream;
@@ -40,6 +41,52 @@ fn stream_parsing() {
         "#;
     let root: RootDiff = serde_json::from_str(initial).expect("Failed to deserialize fragment");
     let _root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
+}
+
+#[macro_export]
+macro_rules! json_struct {
+    ($($token:tt)*) => {{
+        serde_json::from_value(json!($($token)*))
+            .expect("Error deserializing JSON")
+    }};
+}
+
+#[test]
+fn static_fragment_replaces_other() {
+    let diff1: Root = json_struct!({"0": ["a"], "1": ["b"]});
+    // The S represents a new set of static fields, whenever
+    // the S occurs, we should always override the current
+    let diff2: RootDiff = json_struct!({"0": ["c"], "s": ["c"]});
+
+    let result = diff1.merge(diff2.clone()).expect("Merge error");
+    let expected: Root = diff2.try_into().expect("Root");
+
+    assert_eq!(expected, result);
+}
+
+#[test]
+fn static_fragment_replaces_other_nested() {
+    let diff1: Root = json_struct!({"0" : {"0": ["a"], "1": ["b"]}});
+    let diff2: RootDiff = json_struct!({ "0" : {"0": ["c"], "s": ["c"]}});
+
+    let result = diff1.merge(diff2.clone()).expect("Merge error");
+    let expected: Root = diff2.try_into().expect("Root");
+
+    assert_eq!(expected, result);
+}
+
+#[test]
+fn considers_links() {
+    let diff1: Root = json_struct!({});
+    // merge two components, one which references the other
+    let diff2: RootDiff = json_struct!({"c": {"1": {"s": ["comp"]}, "2": {"s": 1 } }, });
+
+    let result = diff1.merge(diff2.clone()).expect("Merge error");
+
+    // The reference should be resolved
+    let expected: Root = json_struct!({"c": {"1": {"s": ["comp"]}, "2": {"s": ["comp"] } }, });
+
+    assert_eq!(expected, result);
 }
 
 #[test]
@@ -614,12 +661,12 @@ fn jetpack_simple_counter() {
 fn test_replace() {
     let current = Fragment::Regular {
         children: HashMap::from([("1".into(), Child::String("a".to_owned().into()))]),
-        statics: Statics::Statics(vec!["b".into(), "c".into()]),
+        statics: Statics::Statics(vec!["b".into(), "c".into()]).into(),
         reply: None,
     };
     let new = Fragment::Regular {
         children: HashMap::from([("1".into(), Child::String("foo".to_owned().into()))]),
-        statics: Statics::Statics(vec!["bar".into(), "baz".into()]),
+        statics: Statics::Statics(vec!["bar".into(), "baz".into()]).into(),
         reply: None,
     };
     let diff = FragmentDiff::ReplaceCurrent(new.clone());
@@ -634,7 +681,7 @@ fn fragment_render_parse() {
                 ("0".into(), Child::String("foo".to_owned().into())),
                 ("1".into(), Child::ComponentID(1)),
             ]),
-            statics: Statics::Statics(vec!["1".into(), "2".into(), "3".into()]),
+            statics: Statics::Statics(vec!["1".into(), "2".into(), "3".into()]).into(),
             reply: None,
         },
         components: HashMap::from([(
