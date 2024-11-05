@@ -380,7 +380,6 @@ pub enum FragmentDiff {
         #[serde(rename = "stream")]
         stream: Option<StreamUpdate>,
     },
-    ReplaceCurrent(Fragment),
 }
 
 type Templates = Option<HashMap<String, Vec<String>>>;
@@ -526,7 +525,6 @@ impl TryFrom<FragmentDiff> for Fragment {
                     reply,
                 })
             }
-            FragmentDiff::ReplaceCurrent(fragment) => Ok(fragment),
             FragmentDiff::UpdateComprehension {
                 dynamics,
                 templates,
@@ -699,22 +697,7 @@ impl FragmentMerge for Root {
     fn merge(self, diff: Self::DiffItem) -> Result<Self, MergeError> {
         let fragment = self.fragment.merge(diff.fragment)?;
         let components = self.components.merge(diff.components)?;
-        /*
-        let components = match (self.components, diff.components) {
-            (None, None) => None,
-            (None, Some(component_diff)) => {
-                let mut components: HashMap<String, Component> = HashMap::new();
-                for (key, comp) in component_diff.into_iter() {
-                    components.insert(key, comp.to_new_component()?);
-                }
-                Some(components)
-            }
-            (Some(components), None) => Some(components),
-            (Some(new_components), Some(component_diff)) => {
-                Some(new_components.merge(component_diff)?)
-            }
-        };
-        */
+
         Ok(Self {
             fragment,
             components,
@@ -727,11 +710,10 @@ impl FragmentMerge for Fragment {
 
     fn merge(self, diff: FragmentDiff) -> Result<Self, MergeError> {
         match (self, diff) {
-            (_, FragmentDiff::ReplaceCurrent(new_fragment)) => Ok(new_fragment),
             (
                 Fragment::Regular {
                     children: current_children,
-                    statics: mut current_statics,
+                    statics: current_statics,
                     reply: current_reply,
                 },
                 FragmentDiff::UpdateRegular {
@@ -741,23 +723,29 @@ impl FragmentMerge for Fragment {
                     ..
                 },
             ) => {
-                let new_children = current_children.merge(children_diffs)?;
-                let new_reply = match (current_reply, new_reply) {
-                    (None, None) => None,
-                    (None, Some(r)) => Some(r),
-                    (Some(r), None) => Some(r),
-                    (Some(_old), Some(new)) => Some(new),
-                };
+                // Statics imply that the whole fragment is being
+                // swapped.
+                if new_statics.is_some() && current_statics != new_statics {
+                    let new_children = children_diffs
+                        .into_iter()
+                        .map(|(k, v)| Ok((k, Child::try_from(v)?)))
+                        .collect::<Result<_, MergeError>>()?;
 
-                if let Some(new_statics) = new_statics {
-                    current_statics = Some(new_statics);
+                    return Ok(Self::Regular {
+                        children: new_children,
+                        statics: new_statics,
+                        reply: new_reply,
+                    });
+                } else {
+                    let new_children = current_children.merge(children_diffs)?;
+                    let new_reply = new_reply.or(current_reply);
+
+                    Ok(Self::Regular {
+                        children: new_children,
+                        statics: current_statics,
+                        reply: new_reply,
+                    })
                 }
-
-                Ok(Self::Regular {
-                    children: new_children,
-                    statics: current_statics,
-                    reply: new_reply,
-                })
             }
             (
                 Fragment::Comprehension {
@@ -775,14 +763,11 @@ impl FragmentMerge for Fragment {
                     reply: new_reply,
                 },
             ) => {
-                let new_reply = match (current_reply, new_reply) {
-                    (None, None) => None,
-                    (None, Some(r)) => Some(r),
-                    (Some(r), None) => Some(r),
-                    (Some(_old), Some(new)) => Some(new),
-                };
+                let new_reply = new_reply.or(current_reply);
+
                 let templates = current_templates.merge(new_templates)?;
                 let statics = current_statics.merge(new_statics)?;
+
                 let new_dynamics: Vec<Vec<Child>> = new_dynamics
                     .into_iter()
                     .map(|children_children| {
@@ -792,6 +777,7 @@ impl FragmentMerge for Fragment {
                             .collect::<Result<Vec<Child>, MergeError>>()
                     })
                     .collect::<Result<Vec<Vec<Child>>, MergeError>>()?;
+
                 let stream = match (current_stream, new_stream) {
                     (None, None) => {
                         current_dynamics = new_dynamics;
