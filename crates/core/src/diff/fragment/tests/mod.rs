@@ -1,5 +1,15 @@
+use crate::dom::Document;
 use pretty_assertions::assert_eq;
 use serde_json::json;
+
+/// serializes two documents so the formatting matches before diffing.
+macro_rules! assert_doc_eq {
+    ($gold:expr, $test:expr) => {
+        let gold = Document::parse($gold).expect("Gold document failed to parse");
+        let test = Document::parse($test).expect("Test document failed to parse");
+        assert_eq!(gold.to_string(), test.to_string());
+    };
+}
 
 use super::*;
 mod stream;
@@ -296,7 +306,8 @@ fn jetpack_show_dialog() {
     }
     editor.finish();
     //document.merge_fragment(diff.clone()).expect("Failed to merge in diff with document");
-    let document_expected = r#"<Scaffold>
+    let document_expected = r#"
+<Scaffold>
     <TopAppBar>
         <Title>
             <Text>
@@ -366,7 +377,7 @@ fn jetpack_show_dialog() {
     </Column>
 </Scaffold>"#;
 
-    assert_eq!(document.to_string(), document_expected);
+    assert_doc_eq!(document.to_string(), document_expected);
 }
 
 #[test]
@@ -598,7 +609,8 @@ fn jetpack_complex() {
         serde_json::from_str(increment).expect("Failed to deserialize diff fragment");
     let root = root.merge(new_diff).expect("Failed to merge new root in");
     let out: String = root.try_into().expect("Failed to convert root to string");
-    let expected = r#"<Column>
+    let expected = r#"
+  <Column>
   <Button phx-click="inc">
     <Text>Increment</Text>
   </Button>
@@ -608,28 +620,15 @@ fn jetpack_complex() {
   <Text>Static Text </Text>
   <Text>Counter 1: 2 </Text>
   <Text>Counter 2: 2 </Text>
-
-
-      <Text fontWeight="W600" fontSize="24">Item 1!!!</Text>
-
+        <Text fontWeight="W600" fontSize="24">Item 1!!!</Text>
         <Text color=" #FFFF0000">Number = 1 + 3 is even</Text>
-
-
         <Text>Number + 4 = 5 is odd</Text>
-
-
-      <Text fontWeight="W600" fontSize="24">Item 2!!!</Text>
-
+        <Text fontWeight="W600" fontSize="24">Item 2!!!</Text>
         <Text color=" #FF0000FF">Number = 2 + 3 is odd</Text>
-
-
         <Text>Number + 4 = 6 is even</Text>
-
-
     <Text>Number + 100 is 102</Text>
-
 </Column>"#;
-    assert_eq!(out, expected);
+    assert_doc_eq!(out, expected);
 }
 #[test]
 fn jetpack_simple_counter() {
@@ -930,36 +929,24 @@ fn fragment_with_components_with_static_component_refs() {
     let out: String = root.try_into().expect("Failed to convert Root into string");
     let expected = r#"<div>
   <Group>
-
     <Text>Item 3</Text>
-
     <Text>Item 4</Text>
-
     <Text>Item 5</Text>
-
   </Group>
 
   <Group>
-
     <Text>Item 6</Text>
-
     <Text>Item 7</Text>
-
     <Text>Item 8</Text>
-
   </Group>
 
   <Group>
-
     <Text>Item 9</Text>
-
     <Text>Item 10</Text>
-
     <Text>Item 11</Text>
-
   </Group>
 </div>"#;
-    assert_eq!(out, expected);
+    assert_doc_eq!(out, expected);
 }
 
 #[test]
@@ -1018,16 +1005,12 @@ fn fragment_with_dynamic_component() {
     let out: String = root.try_into().expect("Failed to convert Root into string");
     let expected = r#"<div>
   <Group>
-
     <Text>Item 3</Text>
-
     <Text>Item 4</Text>
-
     <Text>Item 5</Text>
-
   </Group>
 </div>"#;
-    assert_eq!(out, expected);
+    assert_doc_eq!(out, expected);
 }
 #[test]
 fn deep_diff_merging() {
@@ -1149,6 +1132,83 @@ fn simple_component_diff() {
         let out: Result<ComponentDiff, _> = serde_json::from_str(data);
         assert!(out.is_ok());
     }
+}
+
+// reproduces a test in swift ui
+#[test]
+fn swift_bug_repro() {
+    let initial_json = json!({
+        "s" : [
+            "",
+            ""
+        ],
+        "0" : {
+            "0" : "",
+            "s" : [
+                "<VStack>\n  ",
+                "\n  <Button phx-click=\"inc_temperature\"> Increment Temperature </Button>\n  <Button phx-click=\"dec_temperature\"> Decrement Temperature </Button>\n</VStack>"
+            ],
+            "r" : 1
+        }
+    });
+    let root: Root = serde_json::from_value(initial_json).expect("Root");
+    let expected = r#"<VStack>
+    <Button phx-click="inc_temperature"> Increment Temperature </Button>
+    <Button phx-click="dec_temperature"> Decrement Temperature </Button>
+</VStack>
+"#;
+
+    let out: String = root.clone().try_into().expect("bad root");
+    assert_doc_eq!(expected, out);
+
+    let first_increment = json!(
+    {
+        "0" : {
+            "0" : {
+                "s" : [
+                    "<Text> Temperature: ",
+                    " </Text>"
+                ],
+                "d" : [
+                    ["Increment"]
+                ]
+            }
+        }
+    });
+
+    let diff = serde_json::from_value(first_increment).expect("invalid diff");
+
+    let root = root.merge(diff).expect("merge failed");
+
+    let expected = r#"<VStack>
+    <Text>
+        Temperature: Increment
+    </Text>
+    <Button phx-click="inc_temperature"> Increment Temperature </Button>
+    <Button phx-click="dec_temperature"> Decrement Temperature </Button>
+</VStack>"#;
+
+    let out: String = root.clone().try_into().expect("bad root");
+    assert_doc_eq!(expected, out);
+    let second_increment = json!(
+    {
+        "0" : {
+            "0" : {
+                "d" : []
+            }
+        }
+    });
+
+    let diff = serde_json::from_value(second_increment).expect("invalid diff");
+    let root = root.merge(diff).expect("merge failed");
+
+    let third_increment = json!({ "0" : {
+        "0" : { "d" : [ ["Increment"] ]  }
+        }
+    });
+
+    let diff = serde_json::from_value(third_increment).expect("invalid diff");
+    let _root = root.merge(diff).expect("merge failed");
 }
 
 #[test]
