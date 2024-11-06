@@ -1134,7 +1134,7 @@ fn simple_component_diff() {
     }
 }
 
-// reproduces a test in swift ui
+// reproduces a test in the swift xcframework specific tests
 #[test]
 fn swift_bug_repro() {
     let initial_json = json!({

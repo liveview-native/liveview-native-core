@@ -10,7 +10,7 @@ the `build.sh` targets should generate npm packages which can be used to overrid
 `test.sh` will pull the most recent release of the `phoenix_live_view` repo monkeypatch our mocked dependency in to both the unit and e2e tests.
 
 ```bash
-.scripts/build.sh nodejs
-.scripts/build.sh web
-.scripts/test.sh
+./scripts/build.sh nodejs
+./scripts/build.sh web
+./scripts/test.sh
 ```

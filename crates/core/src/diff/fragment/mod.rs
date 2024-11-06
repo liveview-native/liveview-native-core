@@ -23,6 +23,7 @@ pub struct Root {
     #[serde(rename = "c", default = "HashMap::new")]
     components: HashMap<String, Component>,
 }
+
 // These are used in the wasm build.
 impl Root {
     pub fn is_component_only_diff(&self) -> bool {
@@ -407,14 +408,6 @@ impl FragmentDiff {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Fragment {
-    Regular {
-        #[serde(rename = "s", skip_serializing_if = "Option::is_none")]
-        statics: Option<Statics>,
-        #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
-        reply: Option<i8>,
-        #[serde(flatten)]
-        children: HashMap<String, Child>,
-    },
     Comprehension {
         #[serde(rename = "d")]
         dynamics: Dynamics,
@@ -426,6 +419,14 @@ pub enum Fragment {
         templates: Templates,
         #[serde(rename = "stream", skip_serializing_if = "Option::is_none")]
         stream: Option<Stream>,
+    },
+    Regular {
+        #[serde(rename = "s", skip_serializing_if = "Option::is_none")]
+        statics: Option<Statics>,
+        #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
+        reply: Option<i8>,
+        #[serde(flatten)]
+        children: HashMap<String, Child>,
     },
 }
 
@@ -724,7 +725,6 @@ impl FragmentMerge for Fragment {
     type DiffItem = FragmentDiff;
 
     fn merge(self, diff: FragmentDiff) -> Result<Self, MergeError> {
-        dbg!(&diff);
         if diff.should_replace_current(&self) {
             return diff.try_into();
         }
