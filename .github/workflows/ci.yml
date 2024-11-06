@@ -63,7 +63,7 @@ jobs:
           toolchain: ${{ env.CARGO_MAKE_TOOLCHAIN }}
           targets: wasm32-unknown-unknown
 
-      - name: Builb wasm
+      - name: Build wasm
         run: cargo build --target wasm32-unknown-unknown -p liveview_native_core_wasm
 
       - uses: taiki-e/install-action@v2
@@ -74,13 +74,24 @@ jobs:
         with:
           tool: wasm-bindgen
 
-      - name: Builb wasm for nodesjs
+      - name: Build wasm for nodesjs
         working-directory: ./crates/wasm
-        run: ./build.sh nodejs
+        run: ./scripts/build.sh nodejs
 
-      - name: Builb wasm for web
+      - name: Build wasm for web
         working-directory: ./crates/wasm
-        run: ./build.sh web
+        run: ./scripts/build.sh web
+
+      - name: Run Jest tests with wasm artifacts
+        working-directory: ./crates/wasm
+        run: |
+          if ./scripts/jest_tests.sh; then
+            echo "The wasm tests should not yet be passing."
+            echo "If core is now compliant, then remove this conditional."
+            exit 1
+          else
+            exit 0
+          fi
 
   clippy:
     runs-on: ubuntu-24.04
@@ -298,7 +309,7 @@ jobs:
       - name: Merge coverage files
         run: lcov -a rust-lcov.info -a swift-lcov.info -o merged-lcov.info
 
-      - uses: livewing/lcov-job-summary@v1.1.0
+      - uses: livewing/lcov-job-summary@v1.2.0
         with:
           lcov: merged-lcov.info
 

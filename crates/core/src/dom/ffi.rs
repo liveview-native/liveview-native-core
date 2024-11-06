@@ -9,6 +9,7 @@ pub use super::{
     printer::PrintOptions,
     DocumentChangeHandler,
 };
+
 use crate::{diff::fragment::RenderError, parser::ParseError};
 
 #[derive(Clone, uniffi::Object)]
@@ -21,6 +22,14 @@ impl From<super::Document> for Document {
         Self {
             inner: Arc::new(Mutex::new(doc)),
         }
+    }
+}
+
+// crate local api
+impl Document {
+    #[cfg(feature = "liveview-channels")]
+    pub(crate) fn inner(&self) -> Arc<Mutex<super::Document>> {
+        self.inner.clone()
     }
 }
 
@@ -51,10 +60,15 @@ impl Document {
     }
 
     pub fn merge_fragment_json(&self, json: &str) -> Result<(), RenderError> {
+        let json = serde_json::from_str(json)?;
         self.inner
             .lock()
             .expect("lock poisoned!")
             .merge_fragment_json(json)
+    }
+
+    pub fn next_upload_id(&self) -> u64 {
+        self.inner.lock().expect("lock poisoned!").next_upload_id()
     }
 
     pub fn root(&self) -> Arc<NodeRef> {

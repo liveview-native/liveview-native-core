@@ -5,9 +5,10 @@ defmodule TestServerWeb.SimpleLiveUpload do
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     {:ok,
-      socket
-      |> assign(:uploaded_files, [])
-      |> allow_upload(:avatar, accept: ~w(.png), max_entries: 2)}
+     socket
+     |> assign(:uploaded_files, [])
+     |> allow_upload(:avatar, accept: ~w(.png), max_entries: 2)
+     |> allow_upload(:sample_text, accept: ~w(.txt))}
   end
 
   @impl true
@@ -18,6 +19,7 @@ defmodule TestServerWeb.SimpleLiveUpload do
     <form id="upload-form" phx-submit="save" phx-change="validate">
 
       <.live_file_input upload={@uploads.avatar} />
+      <.live_file_input upload={@uploads.sample_text} />
 
       <button type="submit">Upload</button>
     </form>
@@ -25,7 +27,8 @@ defmodule TestServerWeb.SimpleLiveUpload do
   end
 
   @impl true
-  def handle_event("validate", _params, socket) do
+  def handle_event("validate", params, socket) do
+    IO.puts("VALIDATION REQUEST: #{inspect(params)}")
     {:noreply, socket}
   end
 
@@ -35,15 +38,31 @@ defmodule TestServerWeb.SimpleLiveUpload do
   end
 
   @impl true
-  def handle_event("save", _params, socket) do
+  def handle_event("save", _, socket) do
     uploaded_files =
-      consume_uploaded_entries(socket, :avatar, fn %{path: path}, _entry ->
+      consume_uploaded_entries(socket, :avatar, fn %{path: path}, entry ->
         dest = Path.join([:code.priv_dir(:test_server), "static", "uploads", Path.basename(path)])
         dest = "#{dest}.png"
-        IO.puts ("HANDLING SAVE EVENT: #{path} - #{dest}")
+
+        IO.puts("HANDLING SAVE EVENT: #{path} - #{dest}")
         File.cp!(path, dest)
         {:ok, ~p"/uploads/#{Path.basename(dest)}"}
       end)
+
+    # This is not idiomatic but I want to cut down on boiler plate
+    # we need to add a way to inject upload params to the client
+    upload_files =
+      uploaded_files ++
+        consume_uploaded_entries(socket, :sample_text, fn %{path: path}, entry ->
+          dest =
+            Path.join([:code.priv_dir(:test_server), "static", "uploads", Path.basename(path)])
+
+          dest = "#{dest}.txt"
+
+          IO.puts("HANDLING SAVE EVENT: #{path} - #{dest}")
+          File.cp!(path, dest)
+          {:ok, ~p"/uploads/#{Path.basename(dest)}"}
+        end)
 
     {:noreply, update(socket, :uploaded_files, &(&1 ++ uploaded_files))}
   end
@@ -60,6 +79,7 @@ defmodule TestServerWeb.SimpleLiveUpload.SwiftUI do
     ~LVN"""
     <UploadForm>
       <Phoenix.Component.live_file_input upload={@uploads.avatar} />
+      <Phoenix.Component.live_file_input upload={@uploads.sample_text} />
     </UploadForm>
     """
   end
@@ -73,6 +93,7 @@ defmodule TestServerWeb.SimpleLiveUpload.Jetpack do
     <Box size="fill" background="system-blue">
       <Text align="Center">Upload from Jetpack</Text>
       <Phoenix.Component.live_file_input upload={@uploads.avatar} />
+      <Phoenix.Component.live_file_input upload={@uploads.sample_text} />
     </Box>
     """
   end

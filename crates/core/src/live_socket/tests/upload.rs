@@ -31,29 +31,61 @@ async fn single_chunk_file() {
 
     let url = format!("http://{HOST}/upload");
     let image_bytes = get_image(100, 100, "png".to_string());
+
     let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
         .await
         .expect("Failed to get liveview socket");
+
     let live_channel = live_socket
         .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
-    let phx_input_id = live_channel
-        .get_phx_ref_from_upload_join_payload()
-        .expect("Failed to get phx id from join payload");
 
-    let gh_favicon = LiveFile::new(
-        image_bytes.clone(),
-        "png".to_string(),
-        "tile.png".to_string(),
-        phx_input_id.clone(),
-    );
-    let _ = live_channel
-        .validate_upload(&gh_favicon)
-        .await
-        .expect("Failed to validate upload");
+    let gh_favicon = live_channel
+        .construct_upload(
+            image_bytes.clone(),
+            "image/png".to_string(),
+            "tile.png".to_string(),
+            "avatar".to_string(),
+        )
+        .expect("Could not construct file.");
+
     live_channel
         .upload_file(&gh_favicon)
+        .await
+        .expect("Failed to upload");
+}
+
+#[tokio::test]
+async fn multi_chunk_text() {
+    let _ = env_logger::builder()
+        .parse_default_env()
+        .is_test(true)
+        .try_init();
+
+    let url = format!("http://{HOST}/upload");
+    let text_bytes = Vec::from_iter(std::iter::repeat_n(b'a', 48_000));
+
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+        .await
+        .expect("Failed to get liveview socket");
+
+    let live_channel = live_socket
+        .join_liveview_channel(None, None)
+        .await
+        .expect("Failed to join the liveview channel");
+
+    let me = live_channel
+        .construct_upload(
+            text_bytes.clone(),
+            "text/plain".to_string(),
+            "lots_of_as.txt".to_string(),
+            "sample_text".to_string(),
+        )
+        .expect("Could not construct file.");
+
+    live_channel
+        .upload_file(&me)
         .await
         .expect("Failed to upload");
 }
@@ -71,24 +103,21 @@ async fn multi_chunk_file() {
     let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
         .await
         .expect("Failed to get liveview socket");
+
     let live_channel = live_socket
         .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
-    let phx_input_id = live_channel
-        .get_phx_ref_from_upload_join_payload()
-        .expect("Failed to get phx id from join payload");
 
-    let me = LiveFile::new(
-        image_bytes.clone(),
-        "png".to_string(),
-        "tile.png".to_string(),
-        phx_input_id,
-    );
-    let _ = live_channel
-        .validate_upload(&me)
-        .await
-        .expect("Failed to validate upload");
+    let me = live_channel
+        .construct_upload(
+            image_bytes.clone(),
+            "image/png".to_string(),
+            "tile.png".to_string(),
+            "avatar".to_string(),
+        )
+        .expect("Could not construct file.");
+
     live_channel
         .upload_file(&me)
         .await
@@ -111,36 +140,33 @@ async fn error_file_too_large() {
     let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
         .await
         .expect("Failed to get liveview socket");
+
     let live_channel = live_socket
         .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
-    let phx_input_id = live_channel
-        .get_phx_ref_from_upload_join_payload()
-        .expect("Failed to get phx id from join payload");
 
-    let me = LiveFile::new(
-        image_bytes.clone(),
-        "png".to_string(),
-        "tile.png".to_string(),
-        phx_input_id,
-    );
-    let _ = live_channel
-        .validate_upload(&me)
-        .await
-        .expect("Failed to validate upload");
+    let me = live_channel
+        .construct_upload(
+            image_bytes.clone(),
+            "image/png".to_string(),
+            "tile.png".to_string(),
+            "avatar".to_string(),
+        )
+        .expect("Could not construct file.");
+
     let out = live_channel
         .upload_file(&me)
         .await
         .expect_err("This file is too big and should have failed");
 
-    // This hack is required because LiveSocketError doesn't derive from PartialEq
-    if let LiveSocketError::Upload {
-        error: UploadError::FileTooLarge,
-    } = out
-    {
-    } else {
-        panic!("This should be a FileTooLarge Error");
+    match out {
+        LiveSocketError::Upload {
+            error: UploadError::FileTooLarge,
+        } => {}
+        e => {
+            panic!("This should be a FileTooLarge, Error instead was: {e:?}");
+        }
     }
 }
 
@@ -164,24 +190,20 @@ async fn error_incorrect_file_type() {
         .join_liveview_channel(None, None)
         .await
         .expect("Failed to join the liveview channel");
-    let phx_input_id = live_channel
-        .get_phx_ref_from_upload_join_payload()
-        .expect("Failed to get phx id from join payload");
 
-    let me = LiveFile::new(
-        image_bytes.clone(),
-        "tiff".to_string(),
-        "tile.tiff".to_string(),
-        phx_input_id,
-    );
-    let _ = live_channel
-        .validate_upload(&me)
-        .await
-        .expect("Failed to validate upload");
+    let me = live_channel
+        .construct_upload(
+            image_bytes.clone(),
+            "image/tiff".to_string(),
+            "tile.tiff".to_string(),
+            "avatar".to_string(),
+        )
+        .expect("Could not construct file.");
+
     let out = live_channel
         .upload_file(&me)
         .await
-        .expect_err("This should b ean incorrect file error");
+        .expect_err("This should be an incorrect file error");
     // This hack is required because LiveSocketError doesn't derive from PartialEq
     if let LiveSocketError::Upload {
         error: UploadError::FileNotAccepted,
