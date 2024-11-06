@@ -39,7 +39,5 @@ npm install ../../liveview-native-core-wasm-nodejs
 cp ../../npm_shims/jest_mock.js .
 
 # shim our classes into the jest tests
-# if you need to filter tests for iteration you can add the -t argument.
-# npm test -- --setupFilesAfterEnv='./jest_mock.js' -t "merges the latter"
 npm test -- --setupFilesAfterEnv='./jest_mock.js' "$filter_arg"
 cleanup
