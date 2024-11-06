@@ -26,3 +26,8 @@ xcode-build/
 ### From `cargo make uniffi-swift-tests
 Package.resolved
 .build
+
+### from wasm builds and tests
+crates/wasm/phoenix_live_view
+crates/wasm/liveview-native-core-wasm-*
+crates/wasm/liveview-native-core-wasm-*.tgz

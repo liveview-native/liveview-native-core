@@ -1,4 +1,15 @@
+use crate::dom::Document;
 use pretty_assertions::assert_eq;
+use serde_json::json;
+
+/// serializes two documents so the formatting matches before diffing.
+macro_rules! assert_doc_eq {
+    ($gold:expr, $test:expr) => {
+        let gold = Document::parse($gold).expect("Gold document failed to parse");
+        let test = Document::parse($test).expect("Test document failed to parse");
+        assert_eq!(gold.to_string(), test.to_string());
+    };
+}
 
 use super::*;
 mod stream;
@@ -41,6 +52,52 @@ fn stream_parsing() {
     let root: RootDiff = serde_json::from_str(initial).expect("Failed to deserialize fragment");
     let _root: Root = root.try_into().expect("Failed to convert RootDiff to Root");
 }
+
+#[macro_export]
+macro_rules! json_struct {
+    ($($token:tt)*) => {{
+        serde_json::from_value(json!($($token)*))
+            .expect("Error deserializing JSON")
+    }};
+}
+
+#[test]
+fn static_fragment_replaces_other() {
+    let diff1: Root = json_struct!({"0": ["a"], "1": ["b"]});
+    // The S represents a new set of static fields, whenever
+    // the S occurs, we should always override the current
+    let diff2: RootDiff = json_struct!({"0": ["c"], "s": ["c"]});
+
+    let result = diff1.merge(diff2.clone()).expect("Merge error");
+    let expected: Root = diff2.try_into().expect("Root");
+
+    assert_eq!(expected, result);
+}
+
+#[test]
+fn static_fragment_replaces_other_nested() {
+    let diff1: Root = json_struct!({"0" : {"0": ["a"], "1": ["b"]}});
+    let diff2: RootDiff = json_struct!({ "0" : {"0": ["c"], "s": ["c"]}});
+
+    let result = diff1.merge(diff2.clone()).expect("Merge error");
+    let expected: Root = diff2.try_into().expect("Root");
+
+    assert_eq!(expected, result);
+}
+
+// #[test]
+// fn considers_links() {
+//     let diff1: Root = json_struct!({});
+//     // merge two components, one which references the other
+//     let diff2: RootDiff = json_struct!({"c": {"1": {"s": ["comp"]}, "2": {"s": 1 } }, });
+//
+//     let result = diff1.merge(diff2.clone()).expect("Merge error");
+//
+//     // The reference should be resolved
+//     let expected: Root = json_struct!({"c": {"1": {"s": ["comp"]}, "2": {"s": ["comp"] } }, });
+//
+//     assert_eq!(expected, result);
+// }
 
 #[test]
 fn jetpack_show_dialog() {
@@ -249,7 +306,8 @@ fn jetpack_show_dialog() {
     }
     editor.finish();
     //document.merge_fragment(diff.clone()).expect("Failed to merge in diff with document");
-    let document_expected = r#"<Scaffold>
+    let document_expected = r#"
+<Scaffold>
     <TopAppBar>
         <Title>
             <Text>
@@ -319,7 +377,7 @@ fn jetpack_show_dialog() {
     </Column>
 </Scaffold>"#;
 
-    assert_eq!(document.to_string(), document_expected);
+    assert_doc_eq!(document.to_string(), document_expected);
 }
 
 #[test]
@@ -551,7 +609,8 @@ fn jetpack_complex() {
         serde_json::from_str(increment).expect("Failed to deserialize diff fragment");
     let root = root.merge(new_diff).expect("Failed to merge new root in");
     let out: String = root.try_into().expect("Failed to convert root to string");
-    let expected = r#"<Column>
+    let expected = r#"
+  <Column>
   <Button phx-click="inc">
     <Text>Increment</Text>
   </Button>
@@ -561,28 +620,15 @@ fn jetpack_complex() {
   <Text>Static Text </Text>
   <Text>Counter 1: 2 </Text>
   <Text>Counter 2: 2 </Text>
-
-
-      <Text fontWeight="W600" fontSize="24">Item 1!!!</Text>
-
+        <Text fontWeight="W600" fontSize="24">Item 1!!!</Text>
         <Text color=" #FFFF0000">Number = 1 + 3 is even</Text>
-
-
         <Text>Number + 4 = 5 is odd</Text>
-
-
-      <Text fontWeight="W600" fontSize="24">Item 2!!!</Text>
-
+        <Text fontWeight="W600" fontSize="24">Item 2!!!</Text>
         <Text color=" #FF0000FF">Number = 2 + 3 is odd</Text>
-
-
         <Text>Number + 4 = 6 is even</Text>
-
-
     <Text>Number + 100 is 102</Text>
-
 </Column>"#;
-    assert_eq!(out, expected);
+    assert_doc_eq!(out, expected);
 }
 #[test]
 fn jetpack_simple_counter() {
@@ -610,41 +656,81 @@ fn jetpack_simple_counter() {
         .try_into()
         .expect("Failed to convert root to string");
 }
+
+// asserts that diffs with a new set of statics replace the previous fragment
 #[test]
 fn test_replace() {
     let current = Fragment::Regular {
-        children: HashMap::from([("1".into(), Child::String("a".into()))]),
-        statics: Statics::Statics(vec!["b".into(), "c".into()]),
+        children: HashMap::from([("1".into(), Child::String("a".to_owned().into()))]),
+        statics: Statics::Statics(vec!["b".into(), "c".into()]).into(),
         reply: None,
     };
+
+    let diff = FragmentDiff::UpdateRegular {
+        children: HashMap::from([("1".into(), ChildDiff::String("foo".to_owned().into()))]),
+        statics: Statics::Statics(vec!["bar".into(), "baz".into()]).into(),
+        reply: None,
+    };
+
     let new = Fragment::Regular {
-        children: HashMap::from([("1".into(), Child::String("foo".into()))]),
-        statics: Statics::Statics(vec!["bar".into(), "baz".into()]),
+        statics: Statics::Statics(vec!["bar".into(), "baz".into()]).into(),
         reply: None,
+        children: HashMap::from([("1".into(), Child::String("foo".to_owned().into()))]),
     };
-    let diff = FragmentDiff::ReplaceCurrent(new.clone());
+
+    assert_eq!(
+        Fragment::try_from(diff.clone()).expect("diff not equal to frag"),
+        new
+    );
+
     let merge = current.merge(diff).expect("Failed to merge diff");
     assert_eq!(merge, new);
 }
+
+#[test]
+fn test_mutate() {
+    let current = Fragment::Regular {
+        children: HashMap::from([("1".into(), Child::String("a".to_owned().into()))]),
+        statics: Statics::Statics(vec!["b".into(), "c".into()]).into(),
+        reply: None,
+    };
+
+    let diff = FragmentDiff::UpdateRegular {
+        children: HashMap::from([("1".into(), ChildDiff::String("foo".to_owned().into()))]),
+        statics: None,
+        reply: None,
+    };
+
+    let new = Fragment::Regular {
+        children: HashMap::from([("1".into(), Child::String("foo".to_owned().into()))]),
+        statics: Statics::Statics(vec!["b".into(), "c".into()]).into(),
+        reply: None,
+    };
+
+    let merge = current.merge(diff).expect("Failed to merge diff");
+    assert_eq!(merge, new);
+}
+
 #[test]
 fn fragment_render_parse() {
     let root = Root {
         fragment: Fragment::Regular {
             children: HashMap::from([
-                ("0".into(), Child::String("foo".into())),
+                ("0".into(), Child::String("foo".to_owned().into())),
                 ("1".into(), Child::ComponentID(1)),
             ]),
-            statics: Statics::Statics(vec!["1".into(), "2".into(), "3".into()]),
+            statics: Statics::Statics(vec!["1".into(), "2".into(), "3".into()]).into(),
             reply: None,
         },
         components: HashMap::from([(
             "1".into(),
             Component {
-                children: HashMap::from([("0".into(), Child::String("bar".into()))]),
+                children: HashMap::from([("0".into(), Child::String("bar".to_owned().into()))]),
                 statics: ComponentStatics::Statics(vec!["4".into(), "5".into()]),
             },
         )]),
     };
+
     let expected = "1foo24bar53";
     let out: String = root.try_into().expect("Failed to render root");
     assert_eq!(out, expected);
@@ -843,36 +929,24 @@ fn fragment_with_components_with_static_component_refs() {
     let out: String = root.try_into().expect("Failed to convert Root into string");
     let expected = r#"<div>
   <Group>
-
     <Text>Item 3</Text>
-
     <Text>Item 4</Text>
-
     <Text>Item 5</Text>
-
   </Group>
 
   <Group>
-
     <Text>Item 6</Text>
-
     <Text>Item 7</Text>
-
     <Text>Item 8</Text>
-
   </Group>
 
   <Group>
-
     <Text>Item 9</Text>
-
     <Text>Item 10</Text>
-
     <Text>Item 11</Text>
-
   </Group>
 </div>"#;
-    assert_eq!(out, expected);
+    assert_doc_eq!(out, expected);
 }
 
 #[test]
@@ -931,16 +1005,12 @@ fn fragment_with_dynamic_component() {
     let out: String = root.try_into().expect("Failed to convert Root into string");
     let expected = r#"<div>
   <Group>
-
     <Text>Item 3</Text>
-
     <Text>Item 4</Text>
-
     <Text>Item 5</Text>
-
   </Group>
 </div>"#;
-    assert_eq!(out, expected);
+    assert_doc_eq!(out, expected);
 }
 #[test]
 fn deep_diff_merging() {
@@ -1042,24 +1112,103 @@ fn simple() {
     assert!(out.is_ok());
     let out = out.expect("Failed to deserialize");
     let expected = FragmentDiff::UpdateRegular {
-        children: HashMap::from([(1.to_string(), ChildDiff::String("baz".into()))]),
+        children: HashMap::from([(1.to_string(), ChildDiff::String("baz".to_owned().into()))]),
         statics: None,
         reply: None,
     };
     assert_eq!(out, expected);
 }
+
 #[test]
 fn simple_component_diff() {
     let diffs = vec![
         r#"{"0": "index_2", "1": "world", "s": 1}"#,
         r#"{"0": "index_1", "1": "world", "s": 1}"#,
         r#"{"0": "index_2", "1": "world", "s": 3}"#,
+        r#"{"0": "index_2", "1": {"s": "new"}, "s": ["str"]}"#,
         r#"{"0": "index_1", "1": "world", "s": ["<b>FROM ", " ", "</b>"]}"#,
     ];
     for data in &diffs {
         let out: Result<ComponentDiff, _> = serde_json::from_str(data);
         assert!(out.is_ok());
     }
+}
+
+// reproduces a test in the swift xcframework specific tests
+#[test]
+fn swift_bug_repro() {
+    let initial_json = json!({
+        "s" : [
+            "",
+            ""
+        ],
+        "0" : {
+            "0" : "",
+            "s" : [
+                "<VStack>\n  ",
+                "\n  <Button phx-click=\"inc_temperature\"> Increment Temperature </Button>\n  <Button phx-click=\"dec_temperature\"> Decrement Temperature </Button>\n</VStack>"
+            ],
+            "r" : 1
+        }
+    });
+    let root: Root = serde_json::from_value(initial_json).expect("Root");
+    let expected = r#"<VStack>
+    <Button phx-click="inc_temperature"> Increment Temperature </Button>
+    <Button phx-click="dec_temperature"> Decrement Temperature </Button>
+</VStack>
+"#;
+
+    let out: String = root.clone().try_into().expect("bad root");
+    assert_doc_eq!(expected, out);
+
+    let first_increment = json!(
+    {
+        "0" : {
+            "0" : {
+                "s" : [
+                    "<Text> Temperature: ",
+                    " </Text>"
+                ],
+                "d" : [
+                    ["Increment"]
+                ]
+            }
+        }
+    });
+
+    let diff = serde_json::from_value(first_increment).expect("invalid diff");
+
+    let root = root.merge(diff).expect("merge failed");
+
+    let expected = r#"<VStack>
+    <Text>
+        Temperature: Increment
+    </Text>
+    <Button phx-click="inc_temperature"> Increment Temperature </Button>
+    <Button phx-click="dec_temperature"> Decrement Temperature </Button>
+</VStack>"#;
+
+    let out: String = root.clone().try_into().expect("bad root");
+    assert_doc_eq!(expected, out);
+    let second_increment = json!(
+    {
+        "0" : {
+            "0" : {
+                "d" : []
+            }
+        }
+    });
+
+    let diff = serde_json::from_value(second_increment).expect("invalid diff");
+    let root = root.merge(diff).expect("merge failed");
+
+    let third_increment = json!({ "0" : {
+        "0" : { "d" : [ ["Increment"] ]  }
+        }
+    });
+
+    let diff = serde_json::from_value(third_increment).expect("invalid diff");
+    let _root = root.merge(diff).expect("merge failed");
 }
 
 #[test]
@@ -1079,8 +1228,8 @@ fn test_decode_simple() {
     let out = out.expect("Failed to deserialize");
     let expected = FragmentDiff::UpdateRegular {
         children: HashMap::from([
-            ("0".into(), ChildDiff::String("foo".into())),
-            ("1".into(), ChildDiff::String("bar".into())),
+            ("0".into(), ChildDiff::String("foo".to_owned().into())),
+            ("1".into(), ChildDiff::String("bar".to_owned().into())),
         ]),
         statics: Some(Statics::Statics(vec!["a".into(), "b".into()])),
         reply: None,
@@ -1109,8 +1258,14 @@ fn test_decode_comprehension_with_templates() {
     let out = out.expect("Failed to deserialize");
     let expected = FragmentDiff::UpdateComprehension {
         dynamics: vec![
-            vec![ChildDiff::String("foo".into()), ChildDiff::ComponentID(1)],
-            vec![ChildDiff::String("bar".into()), ChildDiff::ComponentID(1)],
+            vec![
+                ChildDiff::String("foo".to_owned().into()),
+                ChildDiff::ComponentID(1),
+            ],
+            vec![
+                ChildDiff::String("bar".to_owned().into()),
+                ChildDiff::ComponentID(1),
+            ],
         ],
         statics: None,
         templates: Some(HashMap::from([(
@@ -1138,8 +1293,14 @@ fn test_decode_comprehension_without_templates() {
     let out = out.expect("Failed to deserialize");
     let expected = FragmentDiff::UpdateComprehension {
         dynamics: vec![
-            vec![ChildDiff::String("foo".into()), ChildDiff::ComponentID(1)],
-            vec![ChildDiff::String("bar".into()), ChildDiff::ComponentID(1)],
+            vec![
+                ChildDiff::String("foo".to_owned().into()),
+                ChildDiff::ComponentID(1),
+            ],
+            vec![
+                ChildDiff::String("bar".to_owned().into()),
+                ChildDiff::ComponentID(1),
+            ],
         ],
         statics: None,
         templates: None,
@@ -1198,12 +1359,12 @@ fn test_decode_component_diff() {
                     ChildDiff::Fragment(FragmentDiff::UpdateComprehension {
                         dynamics: vec![
                             vec![
-                                ChildDiff::String("0".into()),
-                                ChildDiff::String("foo".into()),
+                                ChildDiff::String("0".to_owned().into()),
+                                ChildDiff::String("foo".to_owned().into()),
                             ],
                             vec![
-                                ChildDiff::String("1".into()),
-                                ChildDiff::String("bar".into()),
+                                ChildDiff::String("1".to_owned().into()),
+                                ChildDiff::String("bar".to_owned().into()),
                             ],
                         ],
                         statics: None,

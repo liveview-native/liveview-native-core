@@ -23,6 +23,7 @@ pub struct Root {
     #[serde(rename = "c", default = "HashMap::new")]
     components: HashMap<String, Component>,
 }
+
 // These are used in the wasm build.
 impl Root {
     pub fn is_component_only_diff(&self) -> bool {
@@ -110,25 +111,26 @@ impl Fragment {
                 children, statics, ..
             } => {
                 match statics {
-                    Statics::Statics(statics) => {
+                    None => {}
+                    Some(Statics::String(_)) => {}
+                    Some(Statics::Statics(statics)) => {
                         out.push_str(&statics[0]);
                         // We start at index 1 rather than zero here because
                         // templates and statics are suppose to wrap the inner
                         // contents of the children.
                         for (i, static_item) in statics.iter().enumerate().skip(1) {
-                            let child = children
-                                .get(&(i - 1).to_string())
-                                .ok_or(RenderError::ChildNotFoundForStatic((i - 1) as i32))?;
-                            let val = child.render(
-                                components,
-                                cousin_statics.clone(),
-                                parent_templates.clone(),
-                            )?;
-                            out.push_str(&val);
+                            if let Some(child) = children.get(&(i - 1).to_string()) {
+                                let val = child.render(
+                                    components,
+                                    cousin_statics.clone(),
+                                    parent_templates.clone(),
+                                )?;
+                                out.push_str(&val);
+                            }
                             out.push_str(static_item);
                         }
                     }
-                    Statics::TemplateRef(template_id) => {
+                    Some(Statics::TemplateRef(template_id)) => {
                         let templates = parent_templates.ok_or(RenderError::NoTemplates)?;
                         let template = templates
                             .get(&(template_id.to_string()))
@@ -191,6 +193,7 @@ impl Fragment {
                     }
                     (Some(statics), None) => {
                         match statics {
+                            Statics::String(_) => {}
                             Statics::Statics(statics) => {
                                 for children in dynamics.iter() {
                                     out.push_str(&statics[0]);
@@ -265,7 +268,8 @@ impl Child {
                     Err(RenderError::ComponentNotFound(*cid))
                 }
             }
-            Child::String(inner) => Ok(inner.to_string()),
+            Child::String(OneOrManyStrings::One(s)) => Ok(s.clone()),
+            Child::String(OneOrManyStrings::Many(s)) => Ok(s.concat()),
         }
     }
 }
@@ -357,44 +361,53 @@ impl Component {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum FragmentDiff {
-    UpdateRegular {
-        #[serde(flatten)]
-        children: HashMap<String, ChildDiff>,
-        #[serde(rename = "s")]
-        statics: Option<Statics>,
-        #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
-        reply: Option<i8>,
-    },
     UpdateComprehension {
         #[serde(rename = "d")]
         dynamics: DynamicsDiff,
         #[serde(rename = "p", skip_serializing_if = "Option::is_none")]
         templates: Templates,
-        #[serde(rename = "s")]
+        #[serde(rename = "s", skip_serializing_if = "Option::is_none")]
         statics: Option<Statics>,
         #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
         reply: Option<i8>,
         #[serde(rename = "stream")]
         stream: Option<StreamUpdate>,
     },
-    ReplaceCurrent(Fragment),
+    UpdateRegular {
+        #[serde(flatten)]
+        children: HashMap<String, ChildDiff>,
+        #[serde(rename = "s", skip_serializing_if = "Option::is_none")]
+        statics: Option<Statics>,
+        #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
+        reply: Option<i8>,
+    },
 }
 
 type Templates = Option<HashMap<String, Vec<String>>>;
 type DynamicsDiff = Vec<Vec<ChildDiff>>;
 type Dynamics = Vec<Vec<Child>>;
 
+impl FragmentDiff {
+    fn should_replace_current(&self, current: &Fragment) -> bool {
+        let old_statics = match current {
+            Fragment::Regular { statics, .. } => statics,
+            Fragment::Comprehension { statics, .. } => statics,
+        };
+
+        match self {
+            FragmentDiff::UpdateRegular { statics, .. } => {
+                statics.is_some() && statics != old_statics
+            }
+            FragmentDiff::UpdateComprehension { statics, .. } => {
+                statics.is_some() && statics != old_statics
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Fragment {
-    Regular {
-        #[serde(rename = "s")]
-        statics: Statics,
-        #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
-        reply: Option<i8>,
-        #[serde(flatten)]
-        children: HashMap<String, Child>,
-    },
     Comprehension {
         #[serde(rename = "d")]
         dynamics: Dynamics,
@@ -406,6 +419,14 @@ pub enum Fragment {
         templates: Templates,
         #[serde(rename = "stream", skip_serializing_if = "Option::is_none")]
         stream: Option<Stream>,
+    },
+    Regular {
+        #[serde(rename = "s", skip_serializing_if = "Option::is_none")]
+        statics: Option<Statics>,
+        #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
+        reply: Option<i8>,
+        #[serde(flatten)]
+        children: HashMap<String, Child>,
     },
 }
 
@@ -513,21 +534,17 @@ impl TryFrom<FragmentDiff> for Fragment {
                 reply,
             } => {
                 let mut new_children: HashMap<String, Child> = HashMap::new();
+
                 for (key, cdiff) in children.into_iter() {
                     new_children.insert(key, cdiff.try_into()?);
                 }
-                let statics = if let Some(statics) = statics {
-                    statics
-                } else {
-                    Statics::Statics(vec!["".into(); new_children.len()])
-                };
+
                 Ok(Self::Regular {
                     children: new_children,
                     statics,
                     reply,
                 })
             }
-            FragmentDiff::ReplaceCurrent(fragment) => Ok(fragment),
             FragmentDiff::UpdateComprehension {
                 dynamics,
                 templates,
@@ -544,12 +561,14 @@ impl TryFrom<FragmentDiff> for Fragment {
                             .collect::<Result<Vec<Child>, MergeError>>()
                     })
                     .collect::<Result<Vec<Vec<Child>>, MergeError>>()?;
+
                 let stream = if let Some(stream_updates) = stream {
                     let stream: Stream = Stream::try_from(stream_updates)?;
                     Some(stream)
                 } else {
                     None
                 };
+
                 Ok(Self::Comprehension {
                     dynamics,
                     statics,
@@ -565,6 +584,7 @@ impl TryFrom<FragmentDiff> for Fragment {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Statics {
+    String(String),
     Statics(Vec<String>),
     TemplateRef(i32),
 }
@@ -588,7 +608,7 @@ impl FragmentMerge for Option<Statics> {
 pub enum Child {
     Fragment(Fragment),
     ComponentID(i32),
-    String(String),
+    String(OneOrManyStrings),
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -596,13 +616,27 @@ pub enum Child {
 pub enum ChildDiff {
     Fragment(FragmentDiff),
     ComponentID(i32),
-    String(String),
+    String(OneOrManyStrings),
 }
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum OneOrManyStrings {
+    One(String),
+    Many(Vec<String>),
+}
+
+impl From<String> for OneOrManyStrings {
+    fn from(value: String) -> Self {
+        Self::One(value)
+    }
+}
+
 impl Child {
     pub fn statics(&self) -> Option<Vec<String>> {
         match self {
             Self::Fragment(Fragment::Regular {
-                statics: Statics::Statics(statics),
+                statics: Some(Statics::Statics(statics)),
                 ..
             }) => Some(statics.clone()),
             Self::Fragment(Fragment::Comprehension {
@@ -637,7 +671,9 @@ impl TryFrom<ComponentDiff> for Component {
     fn try_from(value: ComponentDiff) -> Result<Self, MergeError> {
         match value {
             ComponentDiff::UpdateRegular { .. } => Err(MergeError::CreateComponentFromUpdate),
-            ComponentDiff::ReplaceCurrent { children, statics } => Ok(Self { children, statics }),
+            ComponentDiff::ReplaceCurrent {
+                children, statics, ..
+            } => Ok(Self { children, statics }),
         }
     }
 }
@@ -650,17 +686,13 @@ pub enum ComponentDiff {
         children: HashMap<String, Child>,
         #[serde(rename = "s")]
         statics: ComponentStatics,
+        #[serde(rename = "newRender", skip_serializing)]
+        new_render: Option<bool>,
     },
     UpdateRegular {
         #[serde(flatten)]
         children: HashMap<String, ChildDiff>,
     },
-}
-
-impl ComponentDiff {
-    pub fn to_new_component(self) -> Result<Component, MergeError> {
-        self.try_into()
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -681,22 +713,7 @@ impl FragmentMerge for Root {
     fn merge(self, diff: Self::DiffItem) -> Result<Self, MergeError> {
         let fragment = self.fragment.merge(diff.fragment)?;
         let components = self.components.merge(diff.components)?;
-        /*
-        let components = match (self.components, diff.components) {
-            (None, None) => None,
-            (None, Some(component_diff)) => {
-                let mut components: HashMap<String, Component> = HashMap::new();
-                for (key, comp) in component_diff.into_iter() {
-                    components.insert(key, comp.to_new_component()?);
-                }
-                Some(components)
-            }
-            (Some(components), None) => Some(components),
-            (Some(new_components), Some(component_diff)) => {
-                Some(new_components.merge(component_diff)?)
-            }
-        };
-        */
+
         Ok(Self {
             fragment,
             components,
@@ -708,8 +725,11 @@ impl FragmentMerge for Fragment {
     type DiffItem = FragmentDiff;
 
     fn merge(self, diff: FragmentDiff) -> Result<Self, MergeError> {
+        if diff.should_replace_current(&self) {
+            return diff.try_into();
+        }
+
         match (self, diff) {
-            (_, FragmentDiff::ReplaceCurrent(new_fragment)) => Ok(new_fragment),
             (
                 Fragment::Regular {
                     children: current_children,
@@ -723,12 +743,8 @@ impl FragmentMerge for Fragment {
                 },
             ) => {
                 let new_children = current_children.merge(children_diffs)?;
-                let new_reply = match (current_reply, new_reply) {
-                    (None, None) => None,
-                    (None, Some(r)) => Some(r),
-                    (Some(r), None) => Some(r),
-                    (Some(_old), Some(new)) => Some(new),
-                };
+                let new_reply = new_reply.or(current_reply);
+
                 Ok(Self::Regular {
                     children: new_children,
                     statics: current_statics,
@@ -751,14 +767,11 @@ impl FragmentMerge for Fragment {
                     reply: new_reply,
                 },
             ) => {
-                let new_reply = match (current_reply, new_reply) {
-                    (None, None) => None,
-                    (None, Some(r)) => Some(r),
-                    (Some(r), None) => Some(r),
-                    (Some(_old), Some(new)) => Some(new),
-                };
+                let new_reply = new_reply.or(current_reply);
+
                 let templates = current_templates.merge(new_templates)?;
                 let statics = current_statics.merge(new_statics)?;
+
                 let new_dynamics: Vec<Vec<Child>> = new_dynamics
                     .into_iter()
                     .map(|children_children| {
@@ -768,6 +781,7 @@ impl FragmentMerge for Fragment {
                             .collect::<Result<Vec<Child>, MergeError>>()
                     })
                     .collect::<Result<Vec<Vec<Child>>, MergeError>>()?;
+
                 let stream = match (current_stream, new_stream) {
                     (None, None) => {
                         current_dynamics = new_dynamics;
@@ -788,8 +802,9 @@ impl FragmentMerge for Fragment {
                                         if let Some(dynamic) =
                                             new_dynamics.iter().find(|children| {
                                                 children.iter().any(|child| {
-                                                    Child::String(format!(" id=\"{insert_id}\""))
-                                                        == *child
+                                                    Child::String(
+                                                        format!(" id=\"{insert_id}\"").into(),
+                                                    ) == *child
                                                 })
                                             })
                                         {
@@ -804,8 +819,9 @@ impl FragmentMerge for Fragment {
                                         if let Some(index) =
                                             current_dynamics.iter().position(|children| {
                                                 children.iter().any(|child| {
-                                                    Child::String(format!(" id=\"{delete_id}\""))
-                                                        == *child
+                                                    Child::String(
+                                                        format!(" id=\"{delete_id}\"").into(),
+                                                    ) == *child
                                                 })
                                             })
                                         {
@@ -832,7 +848,6 @@ impl FragmentMerge for Fragment {
                     reply: new_reply,
                 })
             }
-
             _ => Err(MergeError::FragmentTypeMismatch),
         }
     }
@@ -846,7 +861,7 @@ impl FragmentMerge for HashMap<String, Component> {
             if let Some(existing) = new_components.get_mut(&cid) {
                 *existing = existing.clone().merge(comp_diff)?;
             } else {
-                new_components.insert(cid.clone(), comp_diff.to_new_component()?);
+                new_components.insert(cid.clone(), comp_diff.try_into()?);
             }
         }
 
@@ -869,9 +884,9 @@ impl FragmentMerge for Component {
                     statics: self.statics,
                 })
             }
-            ComponentDiff::ReplaceCurrent { statics, children } => {
-                Ok(Self { children, statics }.fix_statics())
-            }
+            ComponentDiff::ReplaceCurrent {
+                statics, children, ..
+            } => Ok(Self { children, statics }.fix_statics()),
         }
     }
 }
