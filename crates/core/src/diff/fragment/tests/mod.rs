@@ -714,6 +714,7 @@ fn test_mutate() {
 #[test]
 fn fragment_render_parse() {
     let root = Root {
+        new_render: None,
         fragment: Fragment::Regular {
             children: HashMap::from([
                 ("0".into(), Child::String("foo".to_owned().into())),

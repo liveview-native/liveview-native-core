@@ -18,6 +18,8 @@ pub struct RootDiff {
 // This is the struct representation of the whole tree.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Root {
+    #[serde(rename = "newRender", skip_serializing_if = "Option::is_none")]
+    new_render: Option<bool>,
     #[serde(flatten)]
     fragment: Fragment,
     #[serde(rename = "c", default = "HashMap::new")]
@@ -26,6 +28,9 @@ pub struct Root {
 
 // These are used in the wasm build.
 impl Root {
+    pub fn set_new_render(&mut self, new: bool) {
+        self.new_render = Some(new);
+    }
     pub fn is_component_only_diff(&self) -> bool {
         !self.components.is_empty() && self.fragment.is_empty()
     }
@@ -55,6 +60,7 @@ impl TryFrom<RootDiff> for Root {
             components.insert(key, value.try_into()?);
         }
         Ok(Self {
+            new_render: None,
             fragment: value.fragment.try_into()?,
             components,
         })
@@ -716,6 +722,7 @@ impl FragmentMerge for Root {
         let components = self.components.merge(diff.components)?;
 
         Ok(Self {
+            new_render: None,
             fragment,
             components,
         })

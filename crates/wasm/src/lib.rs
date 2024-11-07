@@ -48,7 +48,8 @@ impl Rendered {
         let _ = console_log::init_with_level(log::Level::Debug);
         log::info!("RAW INITIAL DIFF: {rendered:#?}");
         let root_diff: RootDiff = serde_wasm_bindgen::from_value(rendered)?;
-        let root: Root = root_diff.try_into()?;
+        let mut root: Root = root_diff.try_into()?;
+        root.set_new_render(true);
         Ok(Rendered {
             inner: root,
             view_id,
