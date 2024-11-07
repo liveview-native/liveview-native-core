@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use super::ChangeType;
 pub use super::{
     attribute::Attribute,
     node::{Node, NodeData, NodeRef},
@@ -10,7 +11,10 @@ pub use super::{
     DocumentChangeHandler,
 };
 
-use crate::{diff::fragment::RenderError, parser::ParseError};
+use crate::{
+    diff::{fragment::RenderError, PatchResult},
+    parser::ParseError,
+};
 
 #[derive(Clone, uniffi::Object)]
 pub struct Document {
@@ -61,10 +65,41 @@ impl Document {
 
     pub fn merge_fragment_json(&self, json: &str) -> Result<(), RenderError> {
         let json = serde_json::from_str(json)?;
-        self.inner
+
+        let results = self
+            .inner
             .lock()
             .expect("lock poisoned!")
-            .merge_fragment_json(json)
+            .merge_fragment_json(json)?;
+
+        let Some(handler) = self
+            .inner()
+            .lock()
+            .expect("lock poisoned")
+            .event_callback
+            .clone()
+        else {
+            return Ok(());
+        };
+
+        for patch in results.into_iter() {
+            match patch {
+                PatchResult::Add { node, parent, data } => {
+                    handler.handle(ChangeType::Add, node.into(), data, Some(parent.into()));
+                }
+                PatchResult::Remove { node, parent, data } => {
+                    handler.handle(ChangeType::Remove, node.into(), data, Some(parent.into()));
+                }
+                PatchResult::Change { node, data } => {
+                    handler.handle(ChangeType::Change, node.into(), data, None);
+                }
+                PatchResult::Replace { node, parent, data } => {
+                    handler.handle(ChangeType::Replace, node.into(), data, Some(parent.into()));
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn next_upload_id(&self) -> u64 {
