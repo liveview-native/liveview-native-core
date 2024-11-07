@@ -1,5 +1,5 @@
 mod attribute;
-pub(crate) mod ffi;
+pub mod ffi;
 mod node;
 mod printer;
 mod select;
@@ -29,7 +29,7 @@ pub use self::{
 use crate::{
     diff::{
         fragment::{FragmentMerge, RenderError, Root, RootDiff},
-        Patch, PatchResult,
+        PatchResult,
     },
     parser,
 };
