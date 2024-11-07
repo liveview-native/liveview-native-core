@@ -52,11 +52,6 @@ impl Rendered {
         })
     }
 
-    #[wasm_bindgen(js_name = "modifyRoot")]
-    pub fn modify_root(&mut self, _html: JsValue, _obj: JsValue) -> Result<(), JsError> {
-        todo!()
-    }
-
     #[wasm_bindgen(js_name = "mergeDiff")]
     pub fn merge_diff(&mut self, diff: JsValue) -> Result<(), JsError> {
         log::info!("RAW MERGE DIFF: {diff:#?}");
