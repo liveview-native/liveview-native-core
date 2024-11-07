@@ -73,7 +73,7 @@ impl Document {
             .merge_fragment_json(json)?;
 
         let Some(handler) = self
-            .inner()
+            .inner
             .lock()
             .expect("lock poisoned")
             .event_callback
