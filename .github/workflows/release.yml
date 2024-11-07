@@ -36,13 +36,13 @@ jobs:
         with:
           tool: wasm-bindgen
 
-      - name: Builb wasm for nodesjs
+      - name: Build wasm for nodesjs
         working-directory: ./crates/wasm
-        run: ./build.sh nodejs
+        run: ./scripts/build.sh nodejs
 
-      - name: Builb wasm for web
+      - name: Build wasm for web
         working-directory: ./crates/wasm
-        run: ./build.sh web
+        run: ./scripts/build.sh web
 
       - uses: actions/upload-artifact@v4
         with:
