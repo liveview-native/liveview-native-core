@@ -1,16 +1,14 @@
 [workspace]
 resolver = "2"
-members = [
-    "crates/core", "crates/uniffi-bindgen", "crates/wasm",
-]
+members = ["crates/core", "crates/uniffi-bindgen", "crates/wasm"]
 
 [workspace.package]
-version = "0.4.0-alpha-12"
+version = "0.4.0-alpha-13"
 rust-version = "1.64"
 authors = [
     "Paul Schoenfelder <paulschoenfelder@gmail.com>",
     "Thomas Sieverding <Thomas@bajix.com>",
-    "Elle Imhoff <Kronic.Deth@gmail.com>"
+    "Elle Imhoff <Kronic.Deth@gmail.com>",
 ]
 description = "Provides core, cross-platform functionality for LiveView Native implementations"
 repository = "https://github.com/liveview-native/liveview-native-core"
@@ -32,9 +30,9 @@ split-debuginfo = "unpacked"
 debug = 2
 
 [profile.release]
-opt-level = 'z'     # Optimize for size
-lto = true          # Enable link-time optimization
-codegen-units = 1   # Reduce number of codegen units to increase optimizations
+opt-level = 'z'            # Optimize for size
+lto = true                 # Enable link-time optimization
+codegen-units = 1          # Reduce number of codegen units to increase optimizations
 strip = 'debuginfo'        # Strip symbols from binary*
 split-debuginfo = "packed"
 debug = 1
