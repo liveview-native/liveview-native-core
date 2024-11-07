@@ -13,6 +13,7 @@ const MS_DELAY: u64 = 100;
 
 struct Inspector {
     tx: std::sync::Mutex<Option<Sender<()>>>,
+    doc: crate::dom::ffi::Document,
 }
 
 impl DocumentChangeHandler for Inspector {
@@ -29,6 +30,12 @@ impl DocumentChangeHandler for Inspector {
             .expect("lock poison")
             .take()
             .expect("Channel was None.");
+
+        let doc = self.doc.inner();
+
+        let _test = doc
+            .try_lock()
+            .expect("document was locked during change handler!");
 
         tx.send(()).expect("Message Never Received.");
     }
@@ -53,9 +60,11 @@ async fn streaming_connect() -> Result<(), String> {
         .await
         .map_err(|e| format!("Failed to join the liveview channel {e}"))?;
 
+    let doc = live_channel.document();
     let (tx, mut rx) = oneshot::channel();
     live_channel.set_event_handler(Box::new(Inspector {
         tx: Mutex::new(Some(tx)),
+        doc,
     }));
 
     let chan_clone = live_channel.channel().clone();
