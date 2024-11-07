@@ -433,8 +433,9 @@ pub enum Fragment {
 impl Fragment {
     pub fn is_new_fingerprint(&self) -> bool {
         match self {
-            Fragment::Regular { .. } => false,
-            Fragment::Comprehension { statics, .. } => statics.is_some(),
+            Fragment::Regular { statics, .. } | Fragment::Comprehension { statics, .. } => {
+                statics.is_some()
+            }
         }
     }
     pub fn is_empty(&self) -> bool {
