@@ -61,6 +61,7 @@ impl Document {
 
     pub fn merge_fragment_json(&self, json: &str) -> Result<(), RenderError> {
         let json = serde_json::from_str(json)?;
+
         self.inner
             .lock()
             .expect("lock poisoned!")
