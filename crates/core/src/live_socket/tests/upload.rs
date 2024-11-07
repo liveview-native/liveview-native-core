@@ -1,3 +1,5 @@
+use channel::LiveFile;
+
 use super::*;
 
 // This is from
@@ -41,14 +43,17 @@ async fn single_chunk_file() {
         .await
         .expect("Failed to join the liveview channel");
 
-    let gh_favicon = live_channel
-        .construct_upload(
-            image_bytes.clone(),
-            "image/png".to_string(),
-            "tile.png".to_string(),
-            "avatar".to_string(),
-        )
-        .expect("Could not construct file.");
+    let phx_upload_id = live_channel
+        .get_phx_upload_id("avatar")
+        .expect("No ID for avatar");
+
+    let gh_favicon = LiveFile::new(
+        image_bytes.clone(),
+        "image/png".to_string(),
+        "avatar".to_string(),
+        "tile.png".to_string(),
+        phx_upload_id,
+    );
 
     live_channel
         .upload_file(&gh_favicon)
@@ -75,14 +80,17 @@ async fn multi_chunk_text() {
         .await
         .expect("Failed to join the liveview channel");
 
-    let me = live_channel
-        .construct_upload(
-            text_bytes.clone(),
-            "text/plain".to_string(),
-            "lots_of_as.txt".to_string(),
-            "sample_text".to_string(),
-        )
-        .expect("Could not construct file.");
+    let phx_upload_id = live_channel
+        .get_phx_upload_id("sample_text")
+        .expect("No ID for avatar");
+
+    let me = LiveFile::new(
+        text_bytes,
+        "text/plain".to_string(),
+        "sample_text".to_string(),
+        "lots_or_as.txt".to_string(),
+        phx_upload_id,
+    );
 
     live_channel
         .upload_file(&me)
@@ -109,14 +117,17 @@ async fn multi_chunk_file() {
         .await
         .expect("Failed to join the liveview channel");
 
-    let me = live_channel
-        .construct_upload(
-            image_bytes.clone(),
-            "image/png".to_string(),
-            "tile.png".to_string(),
-            "avatar".to_string(),
-        )
-        .expect("Could not construct file.");
+    let phx_upload_id = live_channel
+        .get_phx_upload_id("avatar")
+        .expect("No ID for avatar");
+
+    let me = LiveFile::new(
+        image_bytes.clone(),
+        "image/png".to_string(),
+        "avatar".to_string(),
+        "tile.png".to_string(),
+        phx_upload_id,
+    );
 
     live_channel
         .upload_file(&me)
@@ -146,14 +157,17 @@ async fn error_file_too_large() {
         .await
         .expect("Failed to join the liveview channel");
 
-    let me = live_channel
-        .construct_upload(
-            image_bytes.clone(),
-            "image/png".to_string(),
-            "tile.png".to_string(),
-            "avatar".to_string(),
-        )
-        .expect("Could not construct file.");
+    let phx_upload_id = live_channel
+        .get_phx_upload_id("avatar")
+        .expect("No ID for avatar");
+
+    let me = LiveFile::new(
+        image_bytes.clone(),
+        "avatar".to_string(),
+        "image/png".to_string(),
+        "tile.png".to_string(),
+        phx_upload_id,
+    );
 
     let out = live_channel
         .upload_file(&me)
@@ -191,14 +205,17 @@ async fn error_incorrect_file_type() {
         .await
         .expect("Failed to join the liveview channel");
 
-    let me = live_channel
-        .construct_upload(
-            image_bytes.clone(),
-            "image/tiff".to_string(),
-            "tile.tiff".to_string(),
-            "avatar".to_string(),
-        )
-        .expect("Could not construct file.");
+    let phx_upload_id = live_channel
+        .get_phx_upload_id("avatar")
+        .expect("No ID for avatar");
+
+    let me = LiveFile::new(
+        image_bytes.clone(),
+        "avatar".to_string(),
+        "image/png".to_string(),
+        "tile.png".to_string(),
+        phx_upload_id,
+    );
 
     let out = live_channel
         .upload_file(&me)

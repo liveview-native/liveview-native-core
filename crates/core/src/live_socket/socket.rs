@@ -1,8 +1,8 @@
-use std::{collections::HashMap, str::FromStr, sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, Topic, JSON};
-use reqwest::Method;
+use reqwest::Method as ReqMethod;
 
 use super::{LiveChannel, LiveSocketError};
 use crate::{
@@ -10,6 +10,36 @@ use crate::{
     dom::{ffi::Document as FFiDocument, AttributeName, Document, ElementName, Selector},
     parser::parse,
 };
+
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Enum)]
+#[repr(u8)]
+pub enum Method {
+    Get = 0,
+    Options,
+    Post,
+    Put,
+    Delete,
+    Head,
+    Trace,
+    Connect,
+    Patch,
+}
+
+impl Into<ReqMethod> for Method {
+    fn into(self) -> ReqMethod {
+        match self {
+            Method::Options => ReqMethod::OPTIONS,
+            Method::Get => ReqMethod::GET,
+            Method::Post => ReqMethod::POST,
+            Method::Put => ReqMethod::PUT,
+            Method::Delete => ReqMethod::DELETE,
+            Method::Head => ReqMethod::HEAD,
+            Method::Trace => ReqMethod::TRACE,
+            Method::Connect => ReqMethod::CONNECT,
+            Method::Patch => ReqMethod::PATCH,
+        }
+    }
+}
 
 // If you change this also change the
 // default below in the proc macro
@@ -21,8 +51,8 @@ pub struct ConnectOpts {
     pub headers: Option<HashMap<String, String>>,
     #[uniffi(default = None)]
     pub body: Option<String>,
-    #[uniffi(default = "GET")]
-    pub method: String,
+    #[uniffi(default = None)]
+    pub method: Option<Method>,
     #[uniffi(default = 30_000)]
     pub timeout_ms: u64,
 }
@@ -32,7 +62,7 @@ impl Default for ConnectOpts {
         Self {
             headers: None,
             body: None,
-            method: String::from("GET"),
+            method: None,
             timeout_ms: DEFAULT_TIMEOUT,
         }
     }
@@ -78,13 +108,12 @@ impl LiveSocket {
             timeout_ms,
         } = options.unwrap_or_default();
 
+        let method = method.unwrap_or(Method::Get).into();
+
         // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
         // it does maybe we don't need to do a full dead render.
         let mut url = url.parse::<Url>()?;
         url.set_query(Some(&format!("_format={format}")));
-
-        let method = Method::from_str(&method)
-            .map_err(|_| LiveSocketError::InvalidMethod { error: method })?;
 
         let headers = (&headers.unwrap_or_default()).try_into().map_err(|e| {
             LiveSocketError::InvalidHeader {

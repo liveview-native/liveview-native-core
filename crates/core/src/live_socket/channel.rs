@@ -27,9 +27,36 @@ pub struct LiveChannel {
 pub struct LiveFile {
     contents: Vec<u8>,
     mime_type: String,
-    path: String,
-    upload_id: String,
-    ref_id: u64,
+    name: String,
+    relative_path: String,
+    phx_upload_id: String,
+}
+
+#[uniffi::export]
+impl LiveFile {
+    /// constructs a new `LiveFile` representing a file ready for preflight and upload.
+    ///
+    /// * `contents` binary contents of the file
+    /// * `mime_type` Compliant mime type string of the data `image/png`, `tiff` etc.
+    /// * `name` Name of the field in the input, technically, the same as the `allow_upload` atom
+    /// * `relative_path` name of the file, as a relative path
+    /// * `phx_upload_id` upload id acquire by passing name to [LiveChannel::get_phx_upload_id]
+    #[uniffi::constructor]
+    pub fn new(
+        contents: Vec<u8>,
+        mime_type: String,
+        name: String,
+        relative_path: String,
+        phx_upload_id: String,
+    ) -> Self {
+        Self {
+            contents,
+            mime_type,
+            name,
+            relative_path,
+            phx_upload_id,
+        }
+    }
 }
 
 // For non FFI functions
@@ -73,18 +100,7 @@ impl LiveChannel {
         self.document.set_event_handler(handler);
     }
 
-    pub fn construct_upload(
-        &self,
-        contents: Vec<u8>,
-        mime_type: String,
-        path: String,
-        phx_target_name: String,
-    ) -> Result<LiveFile, LiveSocketError> {
-        // this is not great but we have to mimic constructing
-        // this ad hoc object to send to the server
-        // https://github.com/phoenixframework/phoenix_live_view/blob/b59bede3fcec6995f1d5876a520af8badc4bb7fb/priv/static/phoenix_live_view.js#L1315
-        let ref_id = self.document().next_upload_id();
-
+    pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {
         // find the upload with target equal to phx_target_name
         // retrieve the security token
         let node_ref = self
@@ -102,7 +118,7 @@ impl LiveChannel {
                         namespace: None,
                         name: "name".into(),
                     },
-                    AttributeValue::String(phx_target_name.clone().into()),
+                    AttributeValue::String(phx_target_name.into()),
                 )),
             ))
             .nth(0);
@@ -119,13 +135,7 @@ impl LiveChannel {
             })
             .ok_or(LiveSocketError::NoInputRefInDocument)?;
 
-        Ok(LiveFile {
-            contents,
-            mime_type,
-            path,
-            upload_id,
-            ref_id,
-        })
+        Ok(upload_id)
     }
 
     // Blocks indefinitely, processing changes to the document using the user provided callback
@@ -161,6 +171,11 @@ impl LiveChannel {
     }
 
     pub async fn upload_file(&self, file: &LiveFile) -> Result<(), LiveSocketError> {
+        // this is not great but we have to mimic constructing
+        // this ad hoc object to send to the server
+        // https://github.com/phoenixframework/phoenix_live_view/blob/b59bede3fcec6995f1d5876a520af8badc4bb7fb/priv/static/phoenix_live_view.js#L1315
+        let ref_id = self.document().next_upload_id();
+
         // Allow upload requests to upload.
         let upload_event: Event = Event::User {
             user: "allow_upload".to_string(),
@@ -173,19 +188,22 @@ impl LiveChannel {
             "entries":[
                 {{
                     "name":"{}",
-                    "relative_path":"",
+                    "relative_path":"{}",
                     "size":{},
                     "type":"{}",
                     "ref":"{}"
                 }}
             ]
             }}"#,
-            file.upload_id,
-            file.path,
+            file.phx_upload_id,
+            file.name,
+            file.relative_path,
             file.contents.len(),
             file.mime_type,
-            file.ref_id
+            ref_id
         );
+
+        dbg!(&event_string);
 
         let event_payload: Payload = Payload::json_from_serialized(event_string)?;
 
@@ -275,7 +293,7 @@ impl LiveChannel {
                     }
                 }
                 if let Some(JSON::Object { object }) = object.get("entries") {
-                    if let Some(JSON::Str { string }) = object.get(&file.ref_id.to_string()) {
+                    if let Some(JSON::Str { string }) = object.get(&ref_id.to_string()) {
                         Some(string)
                     } else {
                         None
@@ -297,7 +315,7 @@ impl LiveChannel {
         let upload_channel = self
             .socket
             .channel(
-                Topic::from_string(format!("lvu:{}", file.ref_id)),
+                Topic::from_string(format!("lvu:{}", ref_id)),
                 Some(upload_join_payload),
             )
             .await?;
@@ -337,7 +355,7 @@ impl LiveChannel {
                 // TODO: move this into protocol
                 let progress_event_string = format!(
                     r#"{{"event":null, "ref":"{}", "entry_ref":"{}", "progress":{} }}"#,
-                    file.upload_id, file.ref_id, progress,
+                    file.phx_upload_id, ref_id, progress,
                 );
 
                 let progress_event: Event = Event::User {
@@ -360,7 +378,7 @@ impl LiveChannel {
         // TODO: move this into protocol
         let progress_event_string = format!(
             r#"{{"event":null, "ref":"{}", "entry_ref":"{}", "progress": 100 }}"#,
-            file.upload_id, file.ref_id,
+            file.phx_upload_id, ref_id,
         );
 
         let progress_event: Event = Event::User {
