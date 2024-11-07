@@ -25,9 +25,9 @@ pub enum Method {
     Patch,
 }
 
-impl Into<ReqMethod> for Method {
-    fn into(self) -> ReqMethod {
-        match self {
+impl From<Method> for ReqMethod {
+    fn from(val: Method) -> ReqMethod {
+        match val {
             Method::Options => ReqMethod::OPTIONS,
             Method::Get => ReqMethod::GET,
             Method::Post => ReqMethod::POST,
