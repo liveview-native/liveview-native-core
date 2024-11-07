@@ -1,5 +1,6 @@
 use liveview_native_core::diff::fragment::{FragmentMerge, Root, RootDiff};
 use serde::Serialize;
+use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -11,7 +12,7 @@ pub struct Rendered {
 #[derive(serde::Deserialize)]
 pub struct RenderedExtractedInput {
     #[serde(rename = "r")]
-    reply: Option<bool>,
+    reply: Option<HashMap<String, String>>,
     #[serde(rename = "t")]
     title: Option<String>,
     #[serde(rename = "e", default = "Vec::new")]
@@ -19,13 +20,15 @@ pub struct RenderedExtractedInput {
     #[serde(flatten)]
     diff: RootDiff,
 }
+
 #[derive(serde::Serialize)]
 pub struct RenderedExtractedOutput {
-    reply: Option<bool>,
+    reply: Option<HashMap<String, String>>,
     title: Option<String>,
     events: Vec<String>,
     diff: RootDiff,
 }
+
 impl From<RenderedExtractedInput> for RenderedExtractedOutput {
     fn from(value: RenderedExtractedInput) -> Self {
         Self {
@@ -106,6 +109,7 @@ impl Rendered {
         };
         root.is_new_fingerprint()
     }
+
     pub fn get(&self) -> Result<JsValue, JsError> {
         let serializer = serde_wasm_bindgen::Serializer::json_compatible();
         let map = self
@@ -124,6 +128,7 @@ impl Rendered {
 
         Ok(out.into())
     }
+
     pub fn extract(diff: JsValue) -> Result<JsValue, JsError> {
         let extracted: RenderedExtractedInput = serde_wasm_bindgen::from_value(diff)?;
         let extracted: RenderedExtractedOutput = extracted.into();
