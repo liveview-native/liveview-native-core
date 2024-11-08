@@ -203,8 +203,6 @@ impl LiveChannel {
             ref_id
         );
 
-        dbg!(&event_string);
-
         let event_payload: Payload = Payload::json_from_serialized(event_string)?;
 
         // TODO: Create a configurable, introspectable upload interface to control
