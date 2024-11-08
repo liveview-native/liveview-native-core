@@ -1848,7 +1848,7 @@ public object FfiConverterByteArray : FfiConverterRustBuffer<ByteArray> {
  *
  * The cleaner registers objects and returns cleanables, so now we are
  * defining a `UniffiCleaner` with a `UniffiClenaer.Cleanable` to abstract the
- * different implmentations available at compile time.
+ * different implementations available at compile time.
  *
  * @suppress
  */
