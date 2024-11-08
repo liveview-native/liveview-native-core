@@ -446,20 +446,14 @@ impl Fragment {
     }
     pub fn is_empty(&self) -> bool {
         match self {
-            Fragment::Regular { .. } => false,
             Fragment::Comprehension {
                 dynamics,
-                statics,
-                reply,
-                templates,
-                stream,
-            } => {
-                dynamics.is_empty()
-                    && statics.is_none()
-                    && reply.is_none()
-                    && templates.is_none()
-                    && stream.is_none()
-            }
+                statics: None,
+                reply: None,
+                templates: None,
+                stream: None,
+            } => dynamics.is_empty(),
+            _ => false,
         }
     }
 }
