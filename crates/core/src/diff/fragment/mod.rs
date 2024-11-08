@@ -600,13 +600,7 @@ impl FragmentMerge for Option<Statics> {
     type DiffItem = Option<Statics>;
 
     fn merge(self, diff: Self::DiffItem) -> Result<Self, MergeError> {
-        match (self, diff) {
-            (None, None) => Ok(None),
-            (None, Some(s)) => Ok(Some(s)),
-            (Some(s), None) => Ok(Some(s)),
-            // Do we merge the vec of statics?
-            (Some(_current), Some(new)) => Ok(Some(new)),
-        }
+        Ok(diff.or(self))
     }
 }
 
