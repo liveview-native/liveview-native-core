@@ -26,7 +26,7 @@ dependencies {
     testImplementation(libs.org.jetbrains.kotlinx.coroutines.test)
     coreLibraryDesugaring(libs.com.android.tools.desugar)
 }
-val uniffiPath = "${buildDir}/generated/source/uniffi/java"
+val uniffiPath = "${layout.buildDirectory}/generated/source/uniffi/java"
 val os_name = System.getProperty("os.name").lowercase()
 val is_linux = os_name.contains("linux")
 val is_mac = os_name.contains("mac")
@@ -77,12 +77,12 @@ android {
             java.srcDir(uniffiPath)
         }
         getByName("test") {
-            resources.srcDirs("${buildDir}/rustJniLibs/desktop")
+            resources.srcDirs("${layout.buildDirectory}/rustJniLibs/desktop")
         }
     }
 
     libraryVariants.all {
-        tasks.register<Exec>("build${name.capitalize()}StaticLib") {
+        tasks.register<Exec>("build${name.replaceFirstChar { c -> c.uppercase() }}StaticLib") {
             workingDir("${project.projectDir}")
             commandLine(
                 "cargo",
@@ -92,7 +92,7 @@ android {
                 "liveview-native-core",
             )
         }
-        val generateUniffi = tasks.register<Exec>("generate${name.capitalize()}UniFFIBindings") {
+        val generateUniffi = tasks.register<Exec>("generate${name.replaceFirstChar { c -> c.uppercase() }}UniFFIBindings") {
             workingDir("${project.projectDir}")
             var dylib_file = rootProject.file("../../../target/debug/libliveview_native_core.dylib")
 
@@ -165,7 +165,8 @@ tasks.whenObjectAdded {
    if ((this.name == "mergeDebugJniLibFolders" || this.name == "mergeReleaseJniLibFolders")) {
         this.dependsOn("cargoBuild")
        // fix mergeDebugJniLibFolders  UP-TO-DATE
-        this.inputs.dir(buildDir.resolve("rustJniLibs/android"))
+        val dir = layout.buildDirectory.asFile.get()
+        this.inputs.dir(dir.resolve("rustJniLibs/android"))
     }
 }
 

@@ -52,7 +52,8 @@ final class LiveViewNativeCoreUploadTests: XCTestCase {
 
         let image: Data! = Data(base64Encoded: base64TileImg)
 
-        let live_file = try live_channel.constructUpload(image, "png", "foobar.png", "avatar")
+        let phx_id: String! = try live_channel.getPhxUploadId("avatar")
+        let live_file = LiveFile(image, "image/png", "avatar", "foobar.png", phx_id)
         try await live_channel.uploadFile(live_file)
     }
 }

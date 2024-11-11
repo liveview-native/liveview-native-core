@@ -1,5 +1,5 @@
 mod attribute;
-pub(crate) mod ffi;
+pub mod ffi;
 mod node;
 mod printer;
 mod select;
@@ -528,7 +528,10 @@ impl Document {
         Ok(document)
     }
 
-    pub fn merge_fragment_json(&mut self, value: serde_json::Value) -> Result<(), RenderError> {
+    pub fn merge_fragment_json(
+        &mut self,
+        value: serde_json::Value,
+    ) -> Result<Vec<PatchResult>, RenderError> {
         let fragment: RootDiff = serde_json::from_value(value).map_err(RenderError::from)?;
 
         let root = if let Some(root) = &self.fragment_template {
@@ -543,39 +546,18 @@ impl Document {
 
         let patches = crate::diff::diff(self, &new_doc);
         if patches.is_empty() {
-            return Ok(());
+            return Ok(vec![]);
         }
-        let handler = self.event_callback.clone();
+
         let mut stack = vec![];
         let mut editor = self.edit();
-        for patch in patches.into_iter() {
-            let patch_result = patch.apply(&mut editor, &mut stack);
-            match patch_result {
-                None => (),
-                Some(PatchResult::Add { node, parent, data }) => {
-                    if let Some(ref handler) = handler {
-                        handler.handle(ChangeType::Add, node.into(), data, Some(parent.into()));
-                    }
-                }
-                Some(PatchResult::Remove { node, parent, data }) => {
-                    if let Some(ref handler) = handler {
-                        handler.handle(ChangeType::Remove, node.into(), data, Some(parent.into()));
-                    }
-                }
-                Some(PatchResult::Change { node, data }) => {
-                    if let Some(ref handler) = handler {
-                        handler.handle(ChangeType::Change, node.into(), data, None);
-                    }
-                }
-                Some(PatchResult::Replace { node, parent, data }) => {
-                    if let Some(ref handler) = handler {
-                        handler.handle(ChangeType::Replace, node.into(), data, Some(parent.into()));
-                    }
-                }
-            }
-        }
+        let results = patches
+            .into_iter()
+            .filter_map(|patch| patch.apply(&mut editor, &mut stack))
+            .collect();
+
         editor.finish();
-        Ok(())
+        Ok(results)
     }
 }
 
