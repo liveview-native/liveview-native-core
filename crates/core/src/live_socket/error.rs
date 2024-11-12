@@ -36,6 +36,11 @@ pub enum LiveSocketError {
     #[error("Phoenix ID Missing from DOM!")]
     PhoenixIDMissing,
 
+    #[error("Connection Error - {error_html}")]
+    ConnectionError {
+        error_html: String
+    },
+
     #[error("Phoenix Session Missing from DOM!")]
     PhoenixSessionMissing,
 

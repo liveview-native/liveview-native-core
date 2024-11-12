@@ -136,6 +136,7 @@ impl LiveSocket {
 
         let req = result?;
         let resp = client.execute(req).await?;
+        let status = resp.status();
         let resp_headers = resp.headers();
 
         let mut cookies: Vec<String> = Vec::new();
@@ -143,6 +144,11 @@ impl LiveSocket {
             cookies.push(cookie.to_str().expect("Cookie is not ASCII").to_string());
         }
         let resp_text = resp.text().await?;
+        if !status.is_success() {
+            return Err(LiveSocketError::ConnectionError {
+                error_html: resp_text,
+            });
+        }
 
         let dead_render = parse(&resp_text)?;
         debug!("document:\n{dead_render}\n\n\n");
