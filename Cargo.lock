@@ -1550,7 +1550,7 @@ dependencies = [
 [[package]]
 name = "phoenix_channels_client"
 version = "0.9.1"
-source = "git+https://github.com/liveview-native/phoenix-channels-client.git?branch=main#50f56ff3a2ba4f8cb3bad89cf24c8669ecdf25dd"
+source = "git+https://github.com/liveview-native/phoenix-channels-client.git?branch=main#ff050f4fe52f992a0269949972fae2e6d8f5b062"
 dependencies = [
  "arc-swap",
  "atomic-take",
@@ -1563,7 +1563,7 @@ dependencies = [
  "native-tls",
  "serde",
  "serde_json",
- "thiserror 1.0.68",
+ "thiserror 2.0.0",
  "tokio",
  "tokio-tungstenite",
  "uniffi",
