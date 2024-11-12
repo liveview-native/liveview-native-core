@@ -1,9 +1,9 @@
 use std::time::Duration;
 
 use super::*;
+mod error;
 mod streaming;
 mod upload;
-mod error;
 
 #[cfg(target_os = "android")]
 const HOST: &str = "10.0.2.2:4001";

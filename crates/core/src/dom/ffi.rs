@@ -10,7 +10,6 @@ pub use super::{
     printer::PrintOptions,
     DocumentChangeHandler,
 };
-
 use crate::{
     diff::{fragment::RenderError, PatchResult},
     parser::ParseError,
