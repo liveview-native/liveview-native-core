@@ -75,4 +75,4 @@ env_logger = "0.11.1"
 
 # For image generation for tests
 image = "0.25.1"
-tempfile = "3.13.0"
+tempfile = "3.14.0"
