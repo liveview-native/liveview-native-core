@@ -1,6 +1,7 @@
-use crate::dom::Document;
 use pretty_assertions::assert_eq;
 use serde_json::json;
+
+use crate::dom::Document;
 
 /// serializes two documents so the formatting matches before diffing.
 macro_rules! assert_doc_eq {

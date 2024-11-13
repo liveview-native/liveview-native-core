@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use super::*;
+mod error;
 mod streaming;
 mod upload;
 

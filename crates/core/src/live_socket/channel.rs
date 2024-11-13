@@ -4,7 +4,6 @@ use log::{debug, error};
 use phoenix_channels_client::{Channel, Event, Number, Payload, Socket, Topic, JSON};
 
 use super::{LiveSocketError, UploadConfig, UploadError};
-
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{
