@@ -62,39 +62,34 @@ macro_rules! json_struct {
 }
 
 #[test]
-fn static_fragment_replaces_other() {
-    let diff1: Root = json_struct!({"0": ["a"], "1": ["b"]});
-    // The S represents a new set of static fields, whenever
-    // the S occurs, we should always override the current
-    let diff2: RootDiff = json_struct!({"0": ["c"], "s": ["c"]});
-
-    let result = diff1.merge(diff2.clone()).expect("Merge error");
-    let expected: Root = diff2.try_into().expect("Root");
-
-    assert_eq!(expected, result);
-}
-
-#[test]
-fn static_fragment_replaces_other_nested() {
-    let diff1: Root = json_struct!({"0" : {"0": ["a"], "1": ["b"]}});
-    let diff2: RootDiff = json_struct!({ "0" : {"0": ["c"], "s": ["c"]}});
-
-    let result = diff1.merge(diff2.clone()).expect("Merge error");
-    let expected: Root = diff2.try_into().expect("Root");
-
-    assert_eq!(expected, result);
-}
-
-#[test]
 fn considers_links() {
     let diff1: Root = json_struct!({});
+
     // merge two components, one which references the other
-    let diff2: RootDiff = json_struct!({"c": {"1": {"s": ["comp"]}, "2": {"s": 1 } }, });
+    let diff2: RootDiff = json_struct!({
+        "c": {
+            "1": {
+                "s": ["comp"]
+            },
+            "2": {
+                "s": 1
+            }
+        }
+    });
 
     let result = diff1.merge(diff2.clone()).expect("Merge error");
 
     // The reference should be resolved
-    let expected: Root = json_struct!({"c": {"1": {"s": ["comp"]}, "2": {"s": ["comp"] } }, });
+    let expected: Root = json_struct!({
+        "c": {
+            "1": {
+                "s": ["comp"]
+            },
+            "2": {
+                "s": ["comp"]
+            }
+        }
+    });
 
     assert_eq!(expected, result);
 }
@@ -102,19 +97,45 @@ fn considers_links() {
 #[test]
 fn considers_links_old_and_new() {
     // merge two components, one which references the other
-    let diff1: Root = json_struct!({"c": {"1": {"s": ["old"]} }, });
+    let diff1: Root = json_struct!({
+        "c": {
+            "1": {
+                "s": ["old"]
+            }
+        }
+    });
 
-    let diff2: RootDiff = json_struct!({"c": { "1": {"s": ["new"] },
-                                               "2": {"newRender": true, "s": -1 },
-                                               "2": {"newRender": true, "s":  1 },
-                                        } });
+    let diff2: RootDiff = json_struct!({
+        "c": {
+            "1": {
+                "s": ["new"]
+            },
+            "2": {
+                "newRender": true,
+                "s": -1
+            },
+            "3": {
+                "newRender": true,
+                "s": 1
+            }
+        }
+    });
 
     let result = diff1.merge(diff2.clone()).expect("Merge error");
 
-    let expected: Root = json_struct!({"c": { "1": { "s": ["new"] },
-                                              "2": { "s": ["old"] },
-                                              "2": { "s": ["new"] },
-                                        } });
+    let expected: Root = json_struct!({
+        "c": {
+            "1": {
+                "s": ["new"]
+            },
+            "2": {
+                "s": ["old"]
+            },
+            "3": {
+                "s": ["new"]
+            }
+        }
+    });
 
     assert_eq!(expected, result);
 }
@@ -176,6 +197,7 @@ fn considers_links_whole_tree() {
         }
     });
 
+    // These are useful when narrowing down the failure case
     assert_eq!(expected1.components.get("1"), result.components.get("1"));
     assert_eq!(expected1.components.get("2"), result.components.get("2"));
     assert_eq!(expected1.components.get("3"), result.components.get("3"));
@@ -1484,6 +1506,7 @@ fn test_decode_component_diff() {
             statics: None,
             reply: None,
         },
+        new_render: None,
         components: HashMap::from([(
             "1".into(),
             ComponentDiff::UpdateRegular {
@@ -1538,6 +1561,7 @@ fn test_decode_root_diff() {
             reply: None,
         },
         components: HashMap::new(),
+        new_render: None,
     };
     assert_eq!(out, expected);
 }

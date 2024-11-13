@@ -16,6 +16,9 @@ use serde::{Deserialize, Serialize};
 // converted directly into a Root or merged into a Root itself.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct RootDiff {
+    // this flag is for wasm compatibility, it currently does nothing
+    #[serde(rename = "newRender", skip_serializing_if = "Option::is_none")]
+    new_render: Option<bool>,
     #[serde(flatten)]
     fragment: FragmentDiff,
     #[serde(rename = "c", default = "HashMap::new")]
@@ -25,6 +28,7 @@ pub struct RootDiff {
 // This is the struct representation of the whole tree.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Root {
+    // this flag is for wasm compatibility, it currently does nothing
     #[serde(rename = "newRender", skip_serializing_if = "Option::is_none")]
     new_render: Option<bool>,
     #[serde(flatten)]
