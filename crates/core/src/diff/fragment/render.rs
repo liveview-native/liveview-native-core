@@ -254,13 +254,4 @@ impl Component {
             }
         }
     }
-    pub fn fix_statics(self) -> Self {
-        match self.statics {
-            ComponentStatics::ComponentRef(cid) if cid < 0 => Self {
-                children: self.children,
-                statics: ComponentStatics::ComponentRef(-cid),
-            },
-            _ => self,
-        }
-    }
 }

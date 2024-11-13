@@ -85,19 +85,39 @@ fn static_fragment_replaces_other_nested() {
     assert_eq!(expected, result);
 }
 
-// #[test]
-// fn considers_links() {
-//     let diff1: Root = json_struct!({});
-//     // merge two components, one which references the other
-//     let diff2: RootDiff = json_struct!({"c": {"1": {"s": ["comp"]}, "2": {"s": 1 } }, });
-//
-//     let result = diff1.merge(diff2.clone()).expect("Merge error");
-//
-//     // The reference should be resolved
-//     let expected: Root = json_struct!({"c": {"1": {"s": ["comp"]}, "2": {"s": ["comp"] } }, });
-//
-//     assert_eq!(expected, result);
-// }
+#[test]
+fn considers_links() {
+    let diff1: Root = json_struct!({});
+    // merge two components, one which references the other
+    let diff2: RootDiff = json_struct!({"c": {"1": {"s": ["comp"]}, "2": {"s": 1 } }, });
+
+    let result = diff1.merge(diff2.clone()).expect("Merge error");
+
+    // The reference should be resolved
+    let expected: Root = json_struct!({"c": {"1": {"s": ["comp"]}, "2": {"s": ["comp"] } }, });
+
+    assert_eq!(expected, result);
+}
+
+#[test]
+fn considers_links_old_and_new() {
+    // merge two components, one which references the other
+    let diff1: Root = json_struct!({"c": {"1": {"s": ["old"]} }, });
+
+    let diff2: RootDiff = json_struct!({"c": { "1": {"s": ["new"] },
+                                               "2": {"newRender": true, "s": -1 },
+                                               "2": {"newRender": true, "s":  1 },
+                                        } });
+
+    let result = diff1.merge(diff2.clone()).expect("Merge error");
+
+    let expected: Root = json_struct!({"c": { "1": { "s": ["new"] },
+                                              "2": { "s": ["old"] },
+                                              "2": { "s": ["new"] },
+                                        } });
+
+    assert_eq!(expected, result);
+}
 
 #[test]
 fn jetpack_show_dialog() {

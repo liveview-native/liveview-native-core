@@ -1,5 +1,9 @@
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum MergeError {
+    #[error("Component not resolved after merging")]
+    UnresolvedComponent,
+    #[error("Missing component id {0}")]
+    MissingComponent(i32),
     #[error("Fragment type mismatch")]
     FragmentTypeMismatch,
     #[error("Create component from update")]

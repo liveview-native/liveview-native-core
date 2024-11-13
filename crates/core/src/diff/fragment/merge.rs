@@ -49,14 +49,130 @@ impl FragmentMerge for Root {
     type DiffItem = RootDiff;
 
     fn merge(self, diff: Self::DiffItem) -> Result<Self, MergeError> {
+        let old_components = self.components.clone();
         let fragment = self.fragment.merge(diff.fragment)?;
         let components = self.components.merge(diff.components)?;
 
-        Ok(Self {
+        let mut out = Self {
             new_render: None,
             fragment,
             components,
-        })
+        };
+
+        out.resolve_components(old_components)?;
+
+        Ok(out)
+    }
+}
+
+impl Root {
+    fn resolve_components(
+        &mut self,
+        old_components: HashMap<String, Component>,
+    ) -> Result<(), MergeError> {
+        let new_components = &self.components.clone();
+
+        for component in self.components.values_mut() {
+            component.resolve_cids(&old_components, new_components)?
+        }
+
+        Ok(())
+    }
+}
+
+impl Fragment {
+    fn resolve_cids(
+        &mut self,
+        old_components: &HashMap<String, Component>,
+        new_components: &HashMap<String, Component>,
+    ) -> Result<(), MergeError> {
+        let Self::Regular { children, .. } = self else {
+            return Ok(());
+        };
+
+        for child in children.values_mut() {
+            child.resolve_cids(old_components, new_components)?;
+        }
+        Ok(())
+    }
+}
+
+impl Child {
+    fn resolve_cids(
+        &mut self,
+        old_components: &HashMap<String, Component>,
+        new_components: &HashMap<String, Component>,
+    ) -> Result<(), MergeError> {
+        match self {
+            Child::Fragment(f) => f.resolve_cids(old_components, new_components),
+            Child::String(_) => Ok(()),
+            Child::ComponentID(id) => {
+                let old_id = *id < 0;
+                let abs_id = id.abs().to_string();
+
+                let component = if old_id {
+                    old_components
+                        .get(&abs_id)
+                        .ok_or(MergeError::MissingComponent(*id))?
+                } else {
+                    new_components
+                        .get(&abs_id)
+                        .ok_or(MergeError::MissingComponent(*id))?
+                };
+
+                let mut comp = component.clone();
+                comp.resolve_cids(old_components, new_components)?;
+
+                let ComponentStatics::Statics(s) = comp.statics else {
+                    return Err(MergeError::UnresolvedComponent);
+                };
+
+                *self = Child::Fragment(Fragment::Regular {
+                    statics: Some(Statics::Statics(s)),
+                    reply: None,
+                    children: comp.children,
+                });
+
+                Ok(())
+            }
+        }
+    }
+}
+
+impl Component {
+    fn resolve_cids(
+        &mut self,
+        old_components: &HashMap<String, Component>,
+        new_components: &HashMap<String, Component>,
+    ) -> Result<(), MergeError> {
+        for child in self.children.values_mut() {
+            child.resolve_cids(old_components, new_components)?;
+        }
+
+        match self.statics {
+            ComponentStatics::ComponentRef(id) => {
+                let old_id = id < 0;
+                let abs_id = id.abs().to_string();
+
+                let component = if old_id {
+                    old_components
+                        .get(&abs_id)
+                        .ok_or(MergeError::MissingComponent(id))?
+                } else {
+                    new_components
+                        .get(&abs_id)
+                        .ok_or(MergeError::MissingComponent(id))?
+                };
+
+                let mut comp = component.clone();
+                comp.resolve_cids(old_components, new_components)?;
+                self.statics = comp.statics
+            }
+            _ => {
+                // raw statics are fine
+            }
+        };
+        Ok(())
     }
 }
 
@@ -267,7 +383,7 @@ impl FragmentMerge for Component {
             }
             ComponentDiff::ReplaceCurrent {
                 statics, children, ..
-            } => Ok(Self { children, statics }.fix_statics()),
+            } => Ok(Self { children, statics }),
         }
     }
 }
