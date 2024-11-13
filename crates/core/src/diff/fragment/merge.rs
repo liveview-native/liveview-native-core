@@ -72,56 +72,62 @@ impl Root {
     ) -> Result<(), MergeError> {
         let new_components = &self.components.clone();
 
+        let ctx = ResolveCtx {
+            old_components: &old_components,
+            new_components,
+        };
+
         for component in self.components.values_mut() {
-            component.resolve_cids(&old_components, new_components)?
+            component.resolve_cids(&ctx)?
         }
 
         Ok(())
     }
 }
 
+pub struct ResolveCtx<'a> {
+    old_components: &'a HashMap<String, Component>,
+    new_components: &'a HashMap<String, Component>,
+}
+
+impl<'a> ResolveCtx<'a> {
+    pub fn get(&self, cid: i32) -> Result<&Component, MergeError> {
+        let old_id = cid < 0;
+        let abs_id = cid.abs().to_string();
+
+        if old_id {
+            self.old_components
+                .get(&abs_id)
+                .ok_or(MergeError::MissingComponent(cid))
+        } else {
+            self.new_components
+                .get(&abs_id)
+                .ok_or(MergeError::MissingComponent(cid))
+        }
+    }
+}
+
 impl Fragment {
-    fn resolve_cids(
-        &mut self,
-        old_components: &HashMap<String, Component>,
-        new_components: &HashMap<String, Component>,
-    ) -> Result<(), MergeError> {
+    fn resolve_cids(&mut self, ctx: &ResolveCtx) -> Result<(), MergeError> {
         let Self::Regular { children, .. } = self else {
             return Ok(());
         };
 
         for child in children.values_mut() {
-            child.resolve_cids(old_components, new_components)?;
+            child.resolve_cids(ctx)?;
         }
         Ok(())
     }
 }
 
 impl Child {
-    fn resolve_cids(
-        &mut self,
-        old_components: &HashMap<String, Component>,
-        new_components: &HashMap<String, Component>,
-    ) -> Result<(), MergeError> {
+    fn resolve_cids(&mut self, ctx: &ResolveCtx) -> Result<(), MergeError> {
         match self {
-            Child::Fragment(f) => f.resolve_cids(old_components, new_components),
+            Child::Fragment(f) => f.resolve_cids(ctx),
             Child::String(_) => Ok(()),
             Child::ComponentID(id) => {
-                let old_id = *id < 0;
-                let abs_id = id.abs().to_string();
-
-                let component = if old_id {
-                    old_components
-                        .get(&abs_id)
-                        .ok_or(MergeError::MissingComponent(*id))?
-                } else {
-                    new_components
-                        .get(&abs_id)
-                        .ok_or(MergeError::MissingComponent(*id))?
-                };
-
-                let mut comp = component.clone();
-                comp.resolve_cids(old_components, new_components)?;
+                let mut comp = ctx.get(*id)?.clone();
+                comp.resolve_cids(ctx)?;
 
                 let ComponentStatics::Statics(s) = comp.statics else {
                     return Err(MergeError::UnresolvedComponent);
@@ -140,32 +146,15 @@ impl Child {
 }
 
 impl Component {
-    fn resolve_cids(
-        &mut self,
-        old_components: &HashMap<String, Component>,
-        new_components: &HashMap<String, Component>,
-    ) -> Result<(), MergeError> {
+    fn resolve_cids(&mut self, ctx: &ResolveCtx) -> Result<(), MergeError> {
         for child in self.children.values_mut() {
-            child.resolve_cids(old_components, new_components)?;
+            child.resolve_cids(ctx)?;
         }
 
         match self.statics {
             ComponentStatics::ComponentRef(id) => {
-                let old_id = id < 0;
-                let abs_id = id.abs().to_string();
-
-                let component = if old_id {
-                    old_components
-                        .get(&abs_id)
-                        .ok_or(MergeError::MissingComponent(id))?
-                } else {
-                    new_components
-                        .get(&abs_id)
-                        .ok_or(MergeError::MissingComponent(id))?
-                };
-
-                let mut comp = component.clone();
-                comp.resolve_cids(old_components, new_components)?;
+                let mut comp = ctx.get(id)?.clone();
+                comp.resolve_cids(ctx)?;
 
                 // currently the spec states that components should
                 // be merged and resolved by copying statics from the source tree
