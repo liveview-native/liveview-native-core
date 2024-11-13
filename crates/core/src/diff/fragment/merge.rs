@@ -166,7 +166,19 @@ impl Component {
 
                 let mut comp = component.clone();
                 comp.resolve_cids(old_components, new_components)?;
-                self.statics = comp.statics
+
+                // currently the spec states that components should
+                // be merged and resolved by copying statics from the source tree
+                // https://github.com/phoenixframework/phoenix_live_view/blob/93d242460f5222b1d89e54df56624bc96d53d659/assets/js/phoenix_live_view/rendered.js#L238
+                self.statics = comp.statics;
+
+                // TODO: validate this behavior in JS, it seems like
+                // it is a straight replacement as opposed to a merge.
+                // to validate have a deeply nested component with children [1: {..}, 2: {..}, 3: {..}] and a diff with
+                // children [1: {..}, 3: {..}] and see who's kids win
+                if self.children.is_empty() {
+                    self.children = comp.children;
+                }
             }
             _ => {
                 // raw statics are fine

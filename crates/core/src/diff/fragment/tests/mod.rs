@@ -120,6 +120,118 @@ fn considers_links_old_and_new() {
 }
 
 #[test]
+fn considers_links_whole_tree() {
+    let diff1: Root = json_struct!({
+        "c": {
+            "1": {
+                "0": {"s": ["nested"]},
+                "s": ["old"]
+            }
+        }
+    });
+
+    let diff2: RootDiff = json_struct!({
+        "c": {
+            "1": {
+                "0": {"s": ["nested"]},
+                "s": ["new"]
+            },
+            "2": {
+                "0": {"s": ["replaced"]},
+                "s": -1
+            },
+            "3": {
+                "0": {"s": ["replaced"]},
+                "s": 1
+            },
+            "4": {"s": -1},
+            "5": {"s": 1}
+        }
+    });
+
+    let result = diff1.clone().merge(diff2.clone()).expect("Merge error");
+
+    let expected1: Root = json_struct!({
+        "c": {
+            "1": {
+                "0": {"s": ["nested"]},
+                "s": ["new"]
+            },
+            "2": {
+                "0": {"s": ["replaced"]},
+                "s": ["old"]
+            },
+            "3": {
+                "0": {"s": ["replaced"]},
+                "s": ["new"]
+            },
+            "4": {
+                "0": {"s": ["nested"]},
+                "s": ["old"]
+            },
+            "5": {
+                "0": {"s": ["nested"]},
+                "s": ["new"]
+            }
+        }
+    });
+
+    assert_eq!(expected1.components.get("1"), result.components.get("1"));
+    assert_eq!(expected1.components.get("2"), result.components.get("2"));
+    assert_eq!(expected1.components.get("3"), result.components.get("3"));
+    assert_eq!(expected1.components.get("4"), result.components.get("4"));
+    assert_eq!(expected1.components.get("5"), result.components.get("5"));
+    assert_eq!(expected1, result);
+
+    let diff3: RootDiff = json_struct!({
+        "c": {
+            "1": {
+                "0": {"s": ["newRender"]},
+                "s": ["new"]
+            },
+            "2": {
+                "0": {"s": ["replaced"]},
+                "s": -1
+            },
+            "3": {
+                "0": {"s": ["replaced"]},
+                "s": 1
+            },
+            "4": {"s": -1},
+            "5": {"s": 1}
+        }
+    });
+
+    let result2 = diff1.merge(diff3.clone()).expect("Merge error");
+
+    let expected2: Root = json_struct!({
+        "c": {
+            "1": {
+                "0": {"s": ["newRender"]},
+                "s": ["new"]
+            },
+            "2": {
+                "0": {"s": ["replaced"]},
+                "s": ["old"]
+            },
+            "3": {
+                "0": {"s": ["replaced"]},
+                "s": ["new"]
+            },
+            "4": {
+                "0": {"s": ["nested"]},
+                "s": ["old"]
+            },
+            "5": {
+                "0": {"s": ["newRender"]},
+                "s": ["new"]
+            }
+        }
+    });
+    assert_eq!(expected2, result2);
+}
+
+#[test]
 fn jetpack_show_dialog() {
     /*
        * Diffs coming from this template:
