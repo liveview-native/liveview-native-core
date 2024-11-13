@@ -172,12 +172,8 @@ impl Component {
                 // https://github.com/phoenixframework/phoenix_live_view/blob/93d242460f5222b1d89e54df56624bc96d53d659/assets/js/phoenix_live_view/rendered.js#L238
                 self.statics = comp.statics;
 
-                // TODO: validate this behavior in JS, it seems like
-                // it is a straight replacement as opposed to a merge.
-                // to validate have a deeply nested component with children [1: {..}, 2: {..}, 3: {..}] and a diff with
-                // children [1: {..}, 3: {..}] and see who's kids win
-                if self.children.is_empty() {
-                    self.children = comp.children;
+                for (id, child) in comp.children {
+                    self.children.entry(id).or_insert(child);
                 }
             }
             _ => {
