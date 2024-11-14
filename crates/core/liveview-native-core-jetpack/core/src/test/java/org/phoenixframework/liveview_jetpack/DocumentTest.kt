@@ -9,6 +9,7 @@ import org.phoenixframework.liveviewnative.core.ChangeType
 import org.phoenixframework.liveviewnative.core.ConnectOpts
 import org.phoenixframework.liveviewnative.core.Document
 import org.phoenixframework.liveviewnative.core.DocumentChangeHandler
+import org.phoenixframework.liveviewnative.core.LiveFile
 import org.phoenixframework.liveviewnative.core.LiveSocket
 import org.phoenixframework.liveviewnative.core.NodeData
 import org.phoenixframework.liveviewnative.core.NodeRef
@@ -23,7 +24,8 @@ class SocketTest {
                 "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4gEdFQog0ycfAgAAAIJJREFUOMulU0EOwCAIK2T/f/LYwWAAgZGtJzS1BbVEuEVAAACCQOsKlkOrEicwgeVz5tC5R1yrDdnKuo6j6J5ydgd+npOUHfaGEJkQq+6cQNVqP1oQiCJxvAjGT3Dn3l1sKpAdfhPhqXP5xDYLXz7SkYUuUNnrcBWULkRlFqZxtvwH8zGCEN6LErUAAAAASUVORK5CYII="
 
         val contents = Base64.getDecoder().decode(base64TileImg)
-        var live_file = live_channel.constructUpload(contents, "png", "foobar.png", "avatar")
+        val phx_upload_id = live_channel.getPhxUploadId("avatar")
+        var live_file = LiveFile(contents, "image/png", "avatar", "foobar.png", phx_upload_id)
         live_channel.uploadFile(live_file)
     }
 }
@@ -40,7 +42,8 @@ class SocketTestOpts {
                 "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4gEdFQog0ycfAgAAAIJJREFUOMulU0EOwCAIK2T/f/LYwWAAgZGtJzS1BbVEuEVAAACCQOsKlkOrEicwgeVz5tC5R1yrDdnKuo6j6J5ydgd+npOUHfaGEJkQq+6cQNVqP1oQiCJxvAjGT3Dn3l1sKpAdfhPhqXP5xDYLXz7SkYUuUNnrcBWULkRlFqZxtvwH8zGCEN6LErUAAAAASUVORK5CYII="
 
         val contents = Base64.getDecoder().decode(base64TileImg)
-        var live_file = live_channel.constructUpload(contents, "png", "foobar.png", "avatar")
+        val phx_upload_id = live_channel.getPhxUploadId("avatar")
+        var live_file = LiveFile(contents, "image/png", "avatar", "foobar.png", phx_upload_id)
         live_channel.uploadFile(live_file)
     }
 }

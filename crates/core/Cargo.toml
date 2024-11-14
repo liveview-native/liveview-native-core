@@ -54,7 +54,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 smallstr = { version = "0.3", features = ["union"] }
 smallvec = { version = "1.10", features = ["union", "const_generics"] }
-thiserror = "1.0"
+thiserror = "2.0"
 log = "0.4"
 reqwest = { version = "0.12.3", default-features = false, optional = true }
 uniffi = { workspace = true }
@@ -75,4 +75,4 @@ env_logger = "0.11.1"
 
 # For image generation for tests
 image = "0.25.1"
-tempfile = "3.13.0"
+tempfile = "3.14.0"

@@ -1,6 +1,7 @@
-use crate::dom::Document;
 use pretty_assertions::assert_eq;
 use serde_json::json;
+
+use crate::dom::Document;
 
 /// serializes two documents so the formatting matches before diffing.
 macro_rules! assert_doc_eq {
@@ -62,42 +63,196 @@ macro_rules! json_struct {
 }
 
 #[test]
-fn static_fragment_replaces_other() {
-    let diff1: Root = json_struct!({"0": ["a"], "1": ["b"]});
-    // The S represents a new set of static fields, whenever
-    // the S occurs, we should always override the current
-    let diff2: RootDiff = json_struct!({"0": ["c"], "s": ["c"]});
+fn considers_links() {
+    let diff1: Root = json_struct!({});
+
+    // merge two components, one which references the other
+    let diff2: RootDiff = json_struct!({
+        "c": {
+            "1": {
+                "s": ["comp"]
+            },
+            "2": {
+                "s": 1
+            }
+        }
+    });
 
     let result = diff1.merge(diff2.clone()).expect("Merge error");
-    let expected: Root = diff2.try_into().expect("Root");
+
+    // The reference should be resolved
+    let expected: Root = json_struct!({
+        "c": {
+            "1": {
+                "s": ["comp"]
+            },
+            "2": {
+                "s": ["comp"]
+            }
+        }
+    });
 
     assert_eq!(expected, result);
 }
 
 #[test]
-fn static_fragment_replaces_other_nested() {
-    let diff1: Root = json_struct!({"0" : {"0": ["a"], "1": ["b"]}});
-    let diff2: RootDiff = json_struct!({ "0" : {"0": ["c"], "s": ["c"]}});
+fn considers_links_old_and_new() {
+    // merge two components, one which references the other
+    let diff1: Root = json_struct!({
+        "c": {
+            "1": {
+                "s": ["old"]
+            }
+        }
+    });
+
+    let diff2: RootDiff = json_struct!({
+        "c": {
+            "1": {
+                "s": ["new"]
+            },
+            "2": {
+                "newRender": true,
+                "s": -1
+            },
+            "3": {
+                "newRender": true,
+                "s": 1
+            }
+        }
+    });
 
     let result = diff1.merge(diff2.clone()).expect("Merge error");
-    let expected: Root = diff2.try_into().expect("Root");
+
+    let expected: Root = json_struct!({
+        "c": {
+            "1": {
+                "s": ["new"]
+            },
+            "2": {
+                "s": ["old"]
+            },
+            "3": {
+                "s": ["new"]
+            }
+        }
+    });
 
     assert_eq!(expected, result);
 }
 
-// #[test]
-// fn considers_links() {
-//     let diff1: Root = json_struct!({});
-//     // merge two components, one which references the other
-//     let diff2: RootDiff = json_struct!({"c": {"1": {"s": ["comp"]}, "2": {"s": 1 } }, });
-//
-//     let result = diff1.merge(diff2.clone()).expect("Merge error");
-//
-//     // The reference should be resolved
-//     let expected: Root = json_struct!({"c": {"1": {"s": ["comp"]}, "2": {"s": ["comp"] } }, });
-//
-//     assert_eq!(expected, result);
-// }
+#[test]
+fn considers_links_whole_tree() {
+    let diff1: Root = json_struct!({
+        "c": {
+            "1": {
+                "0": {"s": ["nested"]},
+                "s": ["old"]
+            }
+        }
+    });
+
+    let diff2: RootDiff = json_struct!({
+        "c": {
+            "1": {
+                "0": {"s": ["nested"]},
+                "s": ["new"]
+            },
+            "2": {
+                "0": {"s": ["replaced"]},
+                "s": -1
+            },
+            "3": {
+                "0": {"s": ["replaced"]},
+                "s": 1
+            },
+            "4": {"s": -1},
+            "5": {"s": 1}
+        }
+    });
+
+    let result = diff1.clone().merge(diff2.clone()).expect("Merge error");
+
+    let expected1: Root = json_struct!({
+        "c": {
+            "1": {
+                "0": {"s": ["nested"]},
+                "s": ["new"]
+            },
+            "2": {
+                "0": {"s": ["replaced"]},
+                "s": ["old"]
+            },
+            "3": {
+                "0": {"s": ["replaced"]},
+                "s": ["new"]
+            },
+            "4": {
+                "0": {"s": ["nested"]},
+                "s": ["old"]
+            },
+            "5": {
+                "0": {"s": ["nested"]},
+                "s": ["new"]
+            }
+        }
+    });
+
+    // These are useful when narrowing down the failure case
+    assert_eq!(expected1.components.get("1"), result.components.get("1"));
+    assert_eq!(expected1.components.get("2"), result.components.get("2"));
+    assert_eq!(expected1.components.get("3"), result.components.get("3"));
+    assert_eq!(expected1.components.get("4"), result.components.get("4"));
+    assert_eq!(expected1.components.get("5"), result.components.get("5"));
+    assert_eq!(expected1, result);
+
+    let diff3: RootDiff = json_struct!({
+        "c": {
+            "1": {
+                "0": {"s": ["newRender"]},
+                "s": ["new"]
+            },
+            "2": {
+                "0": {"s": ["replaced"]},
+                "s": -1
+            },
+            "3": {
+                "0": {"s": ["replaced"]},
+                "s": 1
+            },
+            "4": {"s": -1},
+            "5": {"s": 1}
+        }
+    });
+
+    let result2 = diff1.merge(diff3.clone()).expect("Merge error");
+
+    let expected2: Root = json_struct!({
+        "c": {
+            "1": {
+                "0": {"s": ["newRender"]},
+                "s": ["new"]
+            },
+            "2": {
+                "0": {"s": ["replaced"]},
+                "s": ["old"]
+            },
+            "3": {
+                "0": {"s": ["replaced"]},
+                "s": ["new"]
+            },
+            "4": {
+                "0": {"s": ["nested"]},
+                "s": ["old"]
+            },
+            "5": {
+                "0": {"s": ["newRender"]},
+                "s": ["new"]
+            }
+        }
+    });
+    assert_eq!(expected2, result2);
+}
 
 #[test]
 fn jetpack_show_dialog() {
@@ -714,6 +869,7 @@ fn test_mutate() {
 #[test]
 fn fragment_render_parse() {
     let root = Root {
+        new_render: None,
         fragment: Fragment::Regular {
             children: HashMap::from([
                 ("0".into(), Child::String("foo".to_owned().into())),
@@ -1351,6 +1507,7 @@ fn test_decode_component_diff() {
             statics: None,
             reply: None,
         },
+        new_render: None,
         components: HashMap::from([(
             "1".into(),
             ComponentDiff::UpdateRegular {
@@ -1405,6 +1562,7 @@ fn test_decode_root_diff() {
             reply: None,
         },
         components: HashMap::new(),
+        new_render: None,
     };
     assert_eq!(out, expected);
 }
