@@ -634,6 +634,100 @@ fn jetpack_more_edge_cases() {
         .try_into()
         .expect("Failed to convert root to string");
 }
+#[test]
+fn expands_shared_static_from_cids() {
+    let root: Root = json_struct!({});
+    let mount_diff: RootDiff = json_struct!({
+        "0": "",
+        "1": "",
+        "2": {
+            "0": "new post",
+            "1": "",
+            "2": {
+                "d": [[1], [2]],
+                "s": ["", ""]
+            },
+            "s": ["h1", "h2", "h3", "h4"]
+        },
+        "c": {
+            "1": {
+                "0": "1008",
+                "1": "chris_mccord",
+                "2": "My post",
+                "3": "1",
+                "4": "0",
+                "5": "1",
+                "6": "0",
+                "7": "edit",
+                "8": "delete",
+                "s": ["s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"]
+            },
+            "2": {
+                "0": "1007",
+                "1": "chris_mccord",
+                "2": "My post",
+                "3": "2",
+                "4": "0",
+                "5": "2",
+                "6": "0",
+                "7": "edit",
+                "8": "delete",
+                "s": 1
+            }
+        },
+        "s": ["f1", "f2", "f3", "f4"],
+        "title": "Listing Posts"
+    });
+
+    let root = root.merge(mount_diff).expect("merge failed");
+
+    let component1_static = root.components.get("1").expect("C1 Missing");
+    let component2_static = root.components.get("2").expect("C2 Missing");
+    assert!(matches!(
+        component1_static.statics,
+        ComponentStatics::Statics(_)
+    ));
+    assert_eq!(component1_static.statics, component2_static.statics);
+
+    let update_diff: RootDiff = json_struct!({
+        "2": {
+            "2": {
+                "d": [[3]]
+            }
+        },
+        "c": {
+            "3": {
+                "0": "1009",
+                "1": "chris_mccord",
+                "2": "newnewnewnewnewnewnewnew",
+                "3": "3",
+                "4": "0",
+                "5": "3",
+                "6": "0",
+                "7": "edit",
+                "8": "delete",
+                "s": -2
+            }
+        }
+    });
+
+    let root = root.merge(update_diff).expect("Merge error");
+    let _ = root.components.get("2").expect("C2 Post Merge Missing");
+    let _ = root.components.get("3").expect("C3 Post Merge Missing");
+
+    let Component { statics, .. } = root.components.get("1").expect("C1 Post Merge Missing");
+    assert!(matches!(statics, ComponentStatics::Statics(_)));
+
+    assert_eq!(
+        Some(statics.clone()),
+        root.components.get("2").map(|c| c.statics.clone())
+    );
+
+    assert_eq!(
+        Some(statics.clone()),
+        root.components.get("3").map(|c| c.statics.clone())
+    );
+}
 
 #[test]
 fn jetpack_complex() {
