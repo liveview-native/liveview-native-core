@@ -114,43 +114,38 @@ impl<'a> ResolveCtx<'a> {
     }
 }
 
-impl Fragment {
+impl Component {
     fn resolve_cids(&mut self, ctx: &ResolveCtx) -> Result<(), MergeError> {
-        let Self::Regular { children, .. } = self else {
-            return Ok(());
-        };
+        match self.statics {
+            ComponentStatics::ComponentRef(id) => {
+                let comp = ctx.get(id)?.clone();
 
-        for child in children.values_mut() {
-            child.resolve_cids(ctx)?;
-        }
+                // currently the spec states that components should
+                // be merged and resolved by copying statics from the source tree
+                // // https://github.com/phoenixframework/phoenix_live_view/blob/93d242460f5222b1d89e54df56624bc96d53d659/assets/js/phoenix_live_view/rendered.js#L238
+                self.statics = comp.statics;
+
+                // then we merge the component ID tree
+                // using the scheme here
+                // https://github.com/phoenixframework/phoenix_live_view/blob/93d242460f5222b1d89e54df56624bc96d53d659/assets/js/phoenix_live_view/rendered.js#L238
+                for (id, new_child) in comp.children {
+                    match self.children.get_mut(&id) {
+                        Some(old_child) => old_child.merge_component_trees(new_child)?,
+                        None => {
+                            self.children.insert(id, new_child);
+                        }
+                    }
+                }
+            }
+            _ => {
+                // raw statics are fine
+            }
+        };
         Ok(())
     }
 }
 
 impl Child {
-    fn resolve_cids(&mut self, ctx: &ResolveCtx) -> Result<(), MergeError> {
-        match self {
-            Child::Fragment(f) => f.resolve_cids(ctx),
-            Child::String(_) => Ok(()),
-            Child::ComponentID(id) => {
-                let mut comp = ctx.get(*id)?.clone();
-                comp.resolve_cids(ctx)?;
-
-                let ComponentStatics::Statics(s) = comp.statics else {
-                    return Err(MergeError::UnresolvedComponent);
-                };
-
-                *self = Child::Fragment(Fragment::Regular {
-                    statics: Some(Statics::Statics(s)),
-                    reply: None,
-                    children: comp.children,
-                });
-
-                Ok(())
-            }
-        }
-    }
-
     fn merge_component_trees(&mut self, other: Self) -> Result<(), MergeError> {
         let (old_frag, new_frag) = match (self, other) {
             (Child::Fragment(old), Child::Fragment(new)) => (old, new),
@@ -196,38 +191,6 @@ impl Child {
             }
             _ => return Err(MergeError::FragmentTypeMismatch),
         }
-        Ok(())
-    }
-}
-
-impl Component {
-    fn resolve_cids(&mut self, ctx: &ResolveCtx) -> Result<(), MergeError> {
-        match self.statics {
-            ComponentStatics::ComponentRef(id) => {
-                log::error!("{id}");
-                let comp = ctx.get(id)?.clone();
-
-                // currently the spec states that components should
-                // be merged and resolved by copying statics from the source tree
-                // // https://github.com/phoenixframework/phoenix_live_view/blob/93d242460f5222b1d89e54df56624bc96d53d659/assets/js/phoenix_live_view/rendered.js#L238
-                self.statics = comp.statics;
-
-                // then we merge the component ID tree
-                // using the scheme here
-                // https://github.com/phoenixframework/phoenix_live_view/blob/93d242460f5222b1d89e54df56624bc96d53d659/assets/js/phoenix_live_view/rendered.js#L238
-                for (id, new_child) in comp.children {
-                    match self.children.get_mut(&id) {
-                        Some(old_child) => old_child.merge_component_trees(new_child)?,
-                        None => {
-                            self.children.insert(id, new_child);
-                        }
-                    }
-                }
-            }
-            _ => {
-                // raw statics are fine
-            }
-        };
         Ok(())
     }
 }
