@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use crate::live_socket::navigation::*;
 use pretty_assertions::{assert_eq, assert_ne};
 use reqwest::Url;
+use serde::{Deserialize, Serialize};
 
 // Mock event handler used to validate the internal
 // navigation objects state.
@@ -11,10 +12,21 @@ pub struct NavigationInspector {
     event_ct: Mutex<usize>,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct EventMetadata {
+    prevent_default: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct HistoryState {
+    name: String,
+}
+
 impl NavEventHandler for NavigationInspector {
-    fn handle_event(&self, event: NavEvent) {
+    fn handle_event(&self, event: NavEvent) -> HandlerResponse {
         *self.last_event.lock().expect("Lock poisoned!") = Some(event);
         *self.event_ct.lock().expect("Lock poisoned!") += 1;
+        HandlerResponse::Default
     }
 }
 
@@ -46,21 +58,24 @@ fn basic_internal_nav() {
     assert!(handler.last_event().is_none());
 
     // simple push nav
-    let url_str = "www.website.com/live";
+    let url_str = "https://www.website.com/live";
     let url = Url::parse(url_str).expect("URL failed to parse");
     ctx.navigate(url, NavOptions::default());
 
     assert_eq!(handler.event_ct(), 1);
     assert_eq!(
-        handler.last_event().expect("Missing Event"),
         NavEvent {
+            info: None,
+            state: None,
             event: NavEventType::Push,
             same_document: false,
             from: None,
-            to: NavDestination {
-                id: 0,
+            to: NavHistoryEntry {
+                state: None,
+                id: 1,
                 url: url_str.to_string(),
             }
-        }
+        },
+        handler.last_event().expect("Missing Event")
     );
 }

@@ -20,25 +20,20 @@ impl std::fmt::Debug for HandlerInternal {
 }
 
 #[derive(Debug, Clone)]
-pub struct NavHistoryEntry {
-    /// The target url.
-    pub url: Url,
-    /// Unique id for this piece of nav entry state.
-    pub id: usize,
-    /// state passed in by the user, to be passed in to the navigation event callback.
-    pub state: Option<Vec<u8>>,
-}
-
-#[derive(Debug, Clone)]
 pub struct NavCtx {
     history: Vec<NavHistoryEntry>,
-    current_id: usize,
+    current_id: HistoryId,
     navigation_event_handler: HandlerInternal,
+    current_dest: Option<NavHistoryEntry>,
 }
 
 impl NavHistoryEntry {
-    pub fn new(url: Url, id: usize, state: Option<Vec<u8>>) -> Self {
-        Self { url, id, state }
+    pub fn new(url: Url, id: HistoryId, state: Option<Vec<u8>>) -> Self {
+        Self {
+            url: url.to_string(),
+            id,
+            state,
+        }
     }
 }
 
@@ -48,23 +43,41 @@ impl NavCtx {
             history: vec![],
             current_id: 0,
             navigation_event_handler: HandlerInternal(None),
+            current_dest: None,
         }
     }
 
     /// Navigate to `url` with behavior and metadata specified in `opts`.
     pub fn navigate(&mut self, url: Url, opts: NavOptions) {
-        let entry = NavHistoryEntry::new(url, self.current_id, None);
+        let next_dest = self.speculative_next_dest(&url, opts.state.clone());
+        let event = NavEvent::new_from_navigate(next_dest.clone(), self.current_dest.clone(), opts);
+
+        match self.handle_event(event) {
+            HandlerResponse::Default => {}
+            HandlerResponse::PreventDefault => return,
+        };
+
         self.current_id += 1;
-        self.history.push(entry)
+        self.history.push(next_dest)
     }
 
     pub fn set_event_handler(&mut self, handler: Arc<dyn NavEventHandler>) {
         self.navigation_event_handler.0 = Some(handler)
     }
 
-    pub fn handle_event(&mut self, event: NavEvent) {
+    pub fn handle_event(&mut self, event: NavEvent) -> HandlerResponse {
         if let Some(handler) = self.navigation_event_handler.0.as_ref() {
-            handler.handle_event(event);
+            handler.handle_event(event)
+        } else {
+            HandlerResponse::Default
+        }
+    }
+
+    fn speculative_next_dest(&self, url: &Url, state: Option<Vec<u8>>) -> NavHistoryEntry {
+        NavHistoryEntry {
+            id: self.current_id + 1,
+            url: url.to_string(),
+            state,
         }
     }
 }
