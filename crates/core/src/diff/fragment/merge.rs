@@ -10,14 +10,14 @@ impl TryFrom<RootDiff> for Root {
     type Error = MergeError;
     fn try_from(value: RootDiff) -> Result<Self, MergeError> {
         let mut components: HashMap<String, Component> = HashMap::new();
+
         for (key, value) in value.components.into_iter() {
             components.insert(key, value.try_into()?);
         }
-        Ok(Self {
-            new_render: None,
-            fragment: value.fragment.try_into()?,
-            components,
-        })
+
+        let fragment = value.fragment.try_into()?;
+
+        Root::new(fragment, HashMap::new(), components)
     }
 }
 
@@ -51,21 +51,28 @@ impl FragmentMerge for Root {
     fn merge(self, diff: Self::DiffItem) -> Result<Self, MergeError> {
         let old_components = self.components.clone();
         let fragment = self.fragment.merge(diff.fragment)?;
-        let components = self.components.merge(diff.components)?;
+        let new_components = self.components.merge(diff.components)?;
 
-        let mut out = Self {
-            new_render: None,
-            fragment,
-            components,
-        };
-
-        out.resolve_components(old_components)?;
-
-        Ok(out)
+        Root::new(fragment, old_components, new_components)
     }
 }
 
 impl Root {
+    pub fn new(
+        fragment: Fragment,
+        old_components: HashMap<String, Component>,
+        new_components: HashMap<String, Component>,
+    ) -> Result<Self, MergeError> {
+        let mut out = Self {
+            new_render: None,
+            fragment,
+            components: new_components,
+        };
+
+        out.resolve_components(old_components)?;
+        Ok(out)
+    }
+
     fn resolve_components(
         &mut self,
         old_components: HashMap<String, Component>,
@@ -107,68 +114,83 @@ impl<'a> ResolveCtx<'a> {
     }
 }
 
-impl Fragment {
-    fn resolve_cids(&mut self, ctx: &ResolveCtx) -> Result<(), MergeError> {
-        let Self::Regular { children, .. } = self else {
-            return Ok(());
-        };
-
-        for child in children.values_mut() {
-            child.resolve_cids(ctx)?;
-        }
-        Ok(())
-    }
-}
-
-impl Child {
-    fn resolve_cids(&mut self, ctx: &ResolveCtx) -> Result<(), MergeError> {
-        match self {
-            Child::Fragment(f) => f.resolve_cids(ctx),
-            Child::String(_) => Ok(()),
-            Child::ComponentID(id) => {
-                let mut comp = ctx.get(*id)?.clone();
-                comp.resolve_cids(ctx)?;
-
-                let ComponentStatics::Statics(s) = comp.statics else {
-                    return Err(MergeError::UnresolvedComponent);
-                };
-
-                *self = Child::Fragment(Fragment::Regular {
-                    statics: Some(Statics::Statics(s)),
-                    reply: None,
-                    children: comp.children,
-                });
-
-                Ok(())
-            }
-        }
-    }
-}
-
 impl Component {
     fn resolve_cids(&mut self, ctx: &ResolveCtx) -> Result<(), MergeError> {
-        for child in self.children.values_mut() {
-            child.resolve_cids(ctx)?;
-        }
-
         match self.statics {
             ComponentStatics::ComponentRef(id) => {
-                let mut comp = ctx.get(id)?.clone();
-                comp.resolve_cids(ctx)?;
+                let comp = ctx.get(id)?.clone();
 
                 // currently the spec states that components should
                 // be merged and resolved by copying statics from the source tree
-                // https://github.com/phoenixframework/phoenix_live_view/blob/93d242460f5222b1d89e54df56624bc96d53d659/assets/js/phoenix_live_view/rendered.js#L238
+                // // https://github.com/phoenixframework/phoenix_live_view/blob/93d242460f5222b1d89e54df56624bc96d53d659/assets/js/phoenix_live_view/rendered.js#L238
                 self.statics = comp.statics;
 
-                for (id, child) in comp.children {
-                    self.children.entry(id).or_insert(child);
+                // then we merge the component ID tree
+                // using the scheme here
+                // https://github.com/phoenixframework/phoenix_live_view/blob/93d242460f5222b1d89e54df56624bc96d53d659/assets/js/phoenix_live_view/rendered.js#L238
+                for (id, new_child) in comp.children {
+                    match self.children.get_mut(&id) {
+                        Some(old_child) => old_child.merge_component_trees(new_child)?,
+                        None => {
+                            self.children.insert(id, new_child);
+                        }
+                    }
                 }
             }
             _ => {
                 // raw statics are fine
             }
         };
+        Ok(())
+    }
+}
+
+impl Child {
+    fn merge_component_trees(&mut self, other: Self) -> Result<(), MergeError> {
+        let (old_frag, new_frag) = match (self, other) {
+            (Child::Fragment(old), Child::Fragment(new)) => (old, new),
+            (Child::ComponentID(_), _) | (_, Child::ComponentID(_)) => {
+                return Err(MergeError::UnresolvedComponent)
+            }
+            (_, Child::String(_)) | (Child::String(_), _) => return Ok(()),
+        };
+        match (old_frag, new_frag) {
+            (
+                Fragment::Comprehension { statics, .. },
+                Fragment::Comprehension {
+                    statics: new_statics,
+                    ..
+                },
+            ) => {
+                if statics.is_none() {
+                    *statics = new_statics;
+                }
+            }
+            (
+                Fragment::Regular {
+                    statics, children, ..
+                },
+                Fragment::Regular {
+                    statics: new_statics,
+                    children: new_children,
+                    ..
+                },
+            ) => {
+                if statics.is_none() {
+                    *statics = new_statics;
+                }
+
+                for (id, new_child) in new_children {
+                    match children.get_mut(&id) {
+                        Some(old_child) => old_child.merge_component_trees(new_child)?,
+                        None => {
+                            children.insert(id, new_child);
+                        }
+                    }
+                }
+            }
+            _ => return Err(MergeError::FragmentTypeMismatch),
+        }
         Ok(())
     }
 }
@@ -230,21 +252,24 @@ impl FragmentMerge for Fragment {
                 Fragment::Regular {
                     children: current_children,
                     statics: current_statics,
-                    reply: current_reply,
+                    is_root: current_reply,
+                    ..
                 },
                 FragmentDiff::UpdateRegular {
                     children: children_diffs,
-                    reply: new_reply,
+                    is_root: new_reply,
                     ..
                 },
             ) => {
                 let new_children = current_children.merge(children_diffs)?;
                 let new_reply = new_reply.or(current_reply);
+                let new_render = new_reply.map(|i| i != 0);
 
                 Ok(Self::Regular {
                     children: new_children,
                     statics: current_statics,
-                    reply: new_reply,
+                    is_root: new_reply,
+                    new_render,
                 })
             }
             (
@@ -253,13 +278,14 @@ impl FragmentMerge for Fragment {
                     statics,
                     templates: current_templates,
                     stream: current_stream,
-                    reply: current_reply,
+                    is_root: current_reply,
+                    ..
                 },
                 FragmentDiff::UpdateComprehension {
                     dynamics: new_dynamics,
                     templates: new_templates,
                     stream: new_stream,
-                    reply: new_reply,
+                    is_root: new_reply,
                     ..
                 },
             ) => {
@@ -334,12 +360,16 @@ impl FragmentMerge for Fragment {
                         Some(stream)
                     }
                 };
+
+                let new_render = new_reply.map(|i| i != 0);
+
                 Ok(Self::Comprehension {
                     dynamics: current_dynamics,
                     statics,
                     templates,
                     stream,
-                    reply: new_reply,
+                    is_root: new_reply,
+                    new_render,
                 })
             }
             _ => Err(MergeError::FragmentTypeMismatch),
@@ -350,16 +380,16 @@ impl FragmentMerge for HashMap<String, Component> {
     type DiffItem = HashMap<String, ComponentDiff>;
 
     fn merge(self, diff: Self::DiffItem) -> Result<Self, MergeError> {
-        let mut new_components: HashMap<String, Component> = HashMap::new();
+        let mut components = self;
         for (cid, comp_diff) in diff.into_iter() {
-            if let Some(existing) = new_components.get_mut(&cid) {
+            if let Some(existing) = components.get_mut(&cid) {
                 *existing = existing.clone().merge(comp_diff)?;
             } else {
-                new_components.insert(cid.clone(), comp_diff.try_into()?);
+                components.insert(cid.clone(), comp_diff.try_into()?);
             }
         }
 
-        Ok(new_components)
+        Ok(components)
     }
 }
 

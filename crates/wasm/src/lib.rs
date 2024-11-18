@@ -45,11 +45,11 @@ impl Rendered {
     #[wasm_bindgen(constructor)]
     pub fn new(view_id: i32, rendered: JsValue) -> Result<Rendered, JsError> {
         console_error_panic_hook::set_once();
-        let _ = console_log::init_with_level(log::Level::Debug);
-        log::info!("RAW INITIAL DIFF: {rendered:#?}");
+        let _ = console_log::init_with_level(log::Level::Info);
+        log::debug!("RAW INITIAL DIFF: {rendered:#?}");
         let root_diff: RootDiff = serde_wasm_bindgen::from_value(rendered)?;
-        let mut root: Root = root_diff.try_into()?;
-        root.set_new_render(true);
+        let root: Root = root_diff.try_into()?;
+
         Ok(Rendered {
             inner: root,
             view_id,
@@ -58,11 +58,12 @@ impl Rendered {
 
     #[wasm_bindgen(js_name = "mergeDiff")]
     pub fn merge_diff(&mut self, diff: JsValue) -> Result<(), JsError> {
-        log::info!("RAW MERGE DIFF: {diff:#?}");
+        log::debug!("RAW MERGE DIFF: {diff:#?}");
         let diff: RootDiff = serde_wasm_bindgen::from_value(diff)?;
-        log::info!("DIFF: {diff:#?}");
+        log::debug!("DIFF: {diff:#?}");
         self.inner = self.inner.clone().merge(diff)?;
-        log::info!("MERGED: {:#?}", self.inner);
+        log::debug!("MERGED: {:#?}", self.inner);
+
         Ok(())
     }
 
@@ -93,7 +94,14 @@ impl Rendered {
         } else {
             return Ok(JsValue::null());
         };
-        Ok(serde_wasm_bindgen::to_value(&component)?)
+
+        let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+
+        let component = component
+            .serialize(&serializer)
+            .expect("Failed to serialize");
+
+        Ok(component)
     }
 
     #[wasm_bindgen(js_name = "isNewFingerprint")]
@@ -113,6 +121,7 @@ impl Rendered {
 
     pub fn get(&self) -> Result<JsValue, JsError> {
         let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+
         let map = self
             .inner
             .serialize(&serializer)
