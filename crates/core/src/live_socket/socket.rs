@@ -1,5 +1,7 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use super::navigation::{NavCtx, NavOptions};
+
 use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, Topic, JSON};
 use reqwest::Method as ReqMethod;
@@ -80,6 +82,7 @@ pub struct LiveSocket {
     pub dead_render: Document,
     pub style_urls: Vec<String>,
     pub has_live_reload: bool,
+    navigation_ctx: NavCtx,
     cookies: Vec<String>,
     timeout: Duration,
 }
@@ -305,6 +308,8 @@ impl LiveSocket {
             .last();
 
         let has_live_reload = live_reload_iframe.is_some();
+        let mut navigation_ctx = NavCtx::new();
+        navigation_ctx.navigate(url.clone(), NavOptions::default());
 
         debug!("iframe src: {live_reload_iframe:?}");
 
@@ -321,6 +326,7 @@ impl LiveSocket {
             has_live_reload,
             cookies,
             format,
+            navigation_ctx,
         })
     }
 
