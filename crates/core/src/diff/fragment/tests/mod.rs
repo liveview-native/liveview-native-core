@@ -254,6 +254,110 @@ fn considers_links_whole_tree() {
     assert_eq!(expected2, result2);
 }
 
+// these are based on the js rendered_tests from liveview
+#[test]
+fn simple_diff_js_mirror() {
+    let simple_diff1: Root = json_struct!({
+        "0": "cooling",
+        "1": "cooling",
+        "2": "07:15:03 PM",
+        "s": [
+            "<div class=\"thermostat\">\n  <div class=\"bar ",
+            "\">\n    <a href=\"#\" phx-click=\"toggle-mode\">",
+            "</a>\n    <span>",
+            "</span>\n  </div>\n</div>\n"
+        ],
+    });
+
+    let simple_diff2: RootDiff = json_struct!({
+        "2": "07:15:04 PM"
+    });
+
+    let simple_result = simple_diff1.merge(simple_diff2).expect("Merge error");
+
+    let simple_expected: Root = json_struct!({
+        "0": "cooling",
+        "1": "cooling",
+        "2": "07:15:04 PM",
+        "s": [
+            "<div class=\"thermostat\">\n  <div class=\"bar ",
+            "\">\n    <a href=\"#\" phx-click=\"toggle-mode\">",
+            "</a>\n    <span>",
+            "</span>\n  </div>\n</div>\n"
+        ],
+    });
+
+    assert_eq!(simple_expected, simple_result);
+}
+
+// these are based on the js tests from live view
+#[test]
+fn deep_diff_js_mirror() {
+    let deep_diff1: Root = json_struct!({
+        "0": {
+            "0": {
+                "d": [["user1058", "1"], ["user99", "1"]],
+                "s": ["<tr>\n<td>", " (", ")</td>\n</tr>\n"],
+                "r": 1
+            },
+            "s": [
+                "  <table>\n    <thead>\n      <tr>\n        <th>Username</th>\n        <th></th>\n      </tr>\n    </thead>\n    <tbody>\n",
+                "    </tbody>\n  </table>\n"
+            ],
+            "r": 1
+        },
+        "1": {
+            "d": [[
+                "asdf_asdf",
+            ]],
+            "s": [
+                "<tr>\n<td>",
+                "</td>\n<td>",
+            ],
+            "r": 1
+        }
+    });
+
+    let deep_diff2: RootDiff = json_struct!({
+        "0": {
+            "0": {
+                "d": [["user1058", "2"]]
+            }
+        }
+    });
+
+    let deep_result = deep_diff1.merge(deep_diff2).expect("Merge error");
+
+    let deep_expected: Root = json_struct!({
+        "0": {
+            "0": {
+                "newRender": true,
+                "d": [["user1058", "2"]],
+                "s": ["<tr>\n<td>", " (", ")</td>\n</tr>\n"],
+                "r": 1
+            },
+            "s": [
+                "  <table>\n    <thead>\n      <tr>\n        <th>Username</th>\n        <th></th>\n      </tr>\n    </thead>\n    <tbody>\n",
+                "    </tbody>\n  </table>\n"
+            ],
+            "newRender": true,
+            "r": 1
+        },
+        "1": {
+            "d": [[
+                "asdf_asdf",
+            ]],
+            "s": [
+                "<tr>\n<td>",
+                "</td>\n<td>",
+            ],
+            "r": 1
+        }
+    });
+
+    assert_eq!(deep_expected, deep_result);
+}
+
 #[test]
 fn jetpack_show_dialog() {
     /*

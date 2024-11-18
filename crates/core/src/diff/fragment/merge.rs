@@ -263,7 +263,7 @@ impl FragmentMerge for Fragment {
             ) => {
                 let new_children = current_children.merge(children_diffs)?;
                 let new_reply = new_reply.or(current_reply);
-                let new_render = new_reply.clone().map(|i| i != 0 && i != -0);
+                let new_render = new_reply.map(|i| i != 0);
 
                 Ok(Self::Regular {
                     children: new_children,
@@ -361,7 +361,7 @@ impl FragmentMerge for Fragment {
                     }
                 };
 
-                let new_render = new_reply.clone().map(|i| i != 0 && i != -0);
+                let new_render = new_reply.map(|i| i != 0);
 
                 Ok(Self::Comprehension {
                     dynamics: current_dynamics,
