@@ -5,6 +5,11 @@ impl Root {
     pub fn set_new_render(&mut self, new: bool) {
         self.new_render = Some(new);
     }
+
+    pub fn frag_is_root(&self) -> bool {
+        self.fragment.is_root()
+    }
+
     pub fn is_component_only_diff(&self) -> bool {
         !self.components.is_empty() && self.fragment.is_empty()
     }
@@ -33,14 +38,23 @@ impl Fragment {
             }
         }
     }
+
+    pub fn is_root(&self) -> bool {
+        match self {
+            Fragment::Regular { is_root, .. } | Fragment::Comprehension { is_root, .. } => {
+                is_root.is_some_and(|r| r > 0)
+            }
+        }
+    }
     pub fn is_empty(&self) -> bool {
         match self {
             Fragment::Comprehension {
                 dynamics,
                 statics: None,
-                reply: None,
+                is_root: None,
                 templates: None,
                 stream: None,
+                new_render: None,
             } => dynamics.is_empty(),
             _ => false,
         }

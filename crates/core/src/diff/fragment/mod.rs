@@ -56,7 +56,7 @@ pub enum FragmentDiff {
         #[serde(rename = "s", skip_serializing_if = "Option::is_none")]
         statics: Option<Statics>,
         #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
-        reply: Option<i8>,
+        is_root: Option<i8>,
         #[serde(rename = "stream")]
         stream: Option<StreamUpdate>,
     },
@@ -66,7 +66,7 @@ pub enum FragmentDiff {
         #[serde(rename = "s", skip_serializing_if = "Option::is_none")]
         statics: Option<Statics>,
         #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
-        reply: Option<i8>,
+        is_root: Option<i8>,
     },
 }
 
@@ -84,19 +84,23 @@ pub enum Fragment {
         #[serde(rename = "s")]
         statics: Option<Statics>,
         #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
-        reply: Option<i8>,
+        is_root: Option<i8>,
         #[serde(rename = "p", skip_serializing_if = "Option::is_none")]
         templates: Templates,
         #[serde(rename = "stream", skip_serializing_if = "Option::is_none")]
         stream: Option<Stream>,
+        #[serde(rename = "newRender", skip_serializing_if = "Option::is_none")]
+        new_render: Option<bool>,
     },
     Regular {
         #[serde(rename = "s", skip_serializing_if = "Option::is_none")]
         statics: Option<Statics>,
         #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
-        reply: Option<i8>,
+        is_root: Option<i8>,
         #[serde(flatten)]
         children: HashMap<String, Child>,
+        #[serde(rename = "newRender", skip_serializing_if = "Option::is_none")]
+        new_render: Option<bool>,
     },
 }
 
@@ -137,7 +141,7 @@ impl TryFrom<FragmentDiff> for Fragment {
             FragmentDiff::UpdateRegular {
                 children,
                 statics,
-                reply,
+                is_root: reply,
             } => {
                 let mut new_children: HashMap<String, Child> = HashMap::new();
 
@@ -148,7 +152,8 @@ impl TryFrom<FragmentDiff> for Fragment {
                 Ok(Self::Regular {
                     children: new_children,
                     statics,
-                    reply,
+                    is_root: reply,
+                    new_render: None,
                 })
             }
             FragmentDiff::UpdateComprehension {
@@ -156,7 +161,7 @@ impl TryFrom<FragmentDiff> for Fragment {
                 templates,
                 statics,
                 stream,
-                reply,
+                is_root: reply,
             } => {
                 let dynamics: Dynamics = dynamics
                     .into_iter()
@@ -180,7 +185,8 @@ impl TryFrom<FragmentDiff> for Fragment {
                     statics,
                     templates,
                     stream,
-                    reply,
+                    is_root: reply,
+                    new_render: None,
                 })
             }
         }

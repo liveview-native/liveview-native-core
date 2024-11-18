@@ -252,21 +252,24 @@ impl FragmentMerge for Fragment {
                 Fragment::Regular {
                     children: current_children,
                     statics: current_statics,
-                    reply: current_reply,
+                    is_root: current_reply,
+                    ..
                 },
                 FragmentDiff::UpdateRegular {
                     children: children_diffs,
-                    reply: new_reply,
+                    is_root: new_reply,
                     ..
                 },
             ) => {
                 let new_children = current_children.merge(children_diffs)?;
                 let new_reply = new_reply.or(current_reply);
+                let new_render = new_reply.clone().map(|i| i != 0 && i != -0);
 
                 Ok(Self::Regular {
                     children: new_children,
                     statics: current_statics,
-                    reply: new_reply,
+                    is_root: new_reply,
+                    new_render,
                 })
             }
             (
@@ -275,13 +278,14 @@ impl FragmentMerge for Fragment {
                     statics,
                     templates: current_templates,
                     stream: current_stream,
-                    reply: current_reply,
+                    is_root: current_reply,
+                    ..
                 },
                 FragmentDiff::UpdateComprehension {
                     dynamics: new_dynamics,
                     templates: new_templates,
                     stream: new_stream,
-                    reply: new_reply,
+                    is_root: new_reply,
                     ..
                 },
             ) => {
@@ -356,12 +360,16 @@ impl FragmentMerge for Fragment {
                         Some(stream)
                     }
                 };
+
+                let new_render = new_reply.clone().map(|i| i != 0 && i != -0);
+
                 Ok(Self::Comprehension {
                     dynamics: current_dynamics,
                     statics,
                     templates,
                     stream,
-                    reply: new_reply,
+                    is_root: new_reply,
+                    new_render,
                 })
             }
             _ => Err(MergeError::FragmentTypeMismatch),

@@ -48,8 +48,8 @@ impl Rendered {
         let _ = console_log::init_with_level(log::Level::Info);
         log::debug!("RAW INITIAL DIFF: {rendered:#?}");
         let root_diff: RootDiff = serde_wasm_bindgen::from_value(rendered)?;
-        let mut root: Root = root_diff.try_into()?;
-        root.set_new_render(true);
+        let root: Root = root_diff.try_into()?;
+
         Ok(Rendered {
             inner: root,
             view_id,
@@ -63,6 +63,7 @@ impl Rendered {
         log::debug!("DIFF: {diff:#?}");
         self.inner = self.inner.clone().merge(diff)?;
         log::debug!("MERGED: {:#?}", self.inner);
+
         Ok(())
     }
 
@@ -120,6 +121,7 @@ impl Rendered {
 
     pub fn get(&self) -> Result<JsValue, JsError> {
         let serializer = serde_wasm_bindgen::Serializer::json_compatible();
+
         let map = self
             .inner
             .serialize(&serializer)
