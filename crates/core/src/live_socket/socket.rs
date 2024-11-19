@@ -308,7 +308,7 @@ impl LiveSocket {
             .last();
 
         let has_live_reload = live_reload_iframe.is_some();
-        let mut navigation_ctx = NavCtx::new();
+        let mut navigation_ctx = NavCtx::default();
         navigation_ctx.navigate(url.clone(), NavOptions::default());
 
         debug!("iframe src: {live_reload_iframe:?}");
