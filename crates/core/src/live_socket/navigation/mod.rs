@@ -28,7 +28,6 @@ pub struct NavCtx {
     /// monotonically increasing ID for `NavHistoryEntry`
     id_source: HistoryId,
     navigation_event_handler: HandlerInternal,
-    current_dest: Option<NavHistoryEntry>,
 }
 
 impl NavHistoryEntry {
@@ -46,7 +45,7 @@ impl NavCtx {
     pub fn navigate(&mut self, url: Url, opts: NavOptions) {
         let action = opts.action.clone();
         let next_dest = self.speculative_next_dest(&url, opts.state.clone());
-        let event = NavEvent::new_from_navigate(next_dest.clone(), self.current_dest.clone(), opts);
+        let event = NavEvent::new_from_navigate(next_dest.clone(), self.current(), opts);
 
         match self.handle_event(event) {
             HandlerResponse::Default => {}
@@ -58,6 +57,8 @@ impl NavCtx {
             NavAction::Replace => self.replace_entry(next_dest),
         }
 
+        // succesful navigation invalidates previously coalesced state from
+        // calls to `back`
         self.future.clear();
     }
 
@@ -66,13 +67,16 @@ impl NavCtx {
     /// This function fails if there is no current
     /// page or if there are no items in history and returns [None].
     pub fn back(&mut self, info: Option<Vec<u8>>) -> Option<HistoryId> {
-        let Some(previous) = self.current_dest.clone() else {
-            log::warn!("Attempted `back` navigation with no current state.");
+        if self.history.len() < 2 {
+            log::warn!("Attempted `back` navigation without at minimum two entries.");
+            return None;
+        }
+
+        let Some(previous) = self.history.pop() else {
             return None;
         };
 
         let Some(next) = self.history.pop() else {
-            log::warn!("Attempted `back` navigation with an emprt history.");
             return None;
         };
 
@@ -89,10 +93,14 @@ impl NavCtx {
         }
     }
 
+    /// Returns the current history entry and state
+    pub fn current(&self) -> Option<NavHistoryEntry> {
+        self.history.last().cloned()
+    }
+
     fn replace_entry(&mut self, history_entry: NavHistoryEntry) {
         if let Some(last) = self.history.last_mut() {
             self.id_source += 1;
-            self.current_dest = Some(history_entry.clone());
             *last = history_entry
         } else {
             self.push_entry(history_entry)
@@ -101,8 +109,7 @@ impl NavCtx {
 
     fn push_entry(&mut self, history_entry: NavHistoryEntry) {
         self.id_source += 1;
-        let old = self.current_dest.replace(history_entry);
-        self.history.extend(old);
+        self.history.push(history_entry);
     }
 
     pub fn set_event_handler(&mut self, handler: Arc<dyn NavEventHandler>) {

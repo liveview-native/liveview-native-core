@@ -84,7 +84,7 @@ fn basic_internal_nav() {
 }
 
 #[test]
-fn navigate_back() {
+fn basic_internal_navigate_back() {
     let handler = Arc::new(NavigationInspector::new());
     let mut ctx = NavCtx::default();
     ctx.set_event_handler(handler.clone());
@@ -124,19 +124,23 @@ fn navigate_back() {
     assert_eq!(
         NavEvent {
             event: NavEventType::Back,
+            to: NavHistoryEntry {
+                state: None,
+                id: 1,
+                url: first_url_str.to_string(),
+            },
             from: NavHistoryEntry {
                 state: None,
                 id: 2,
                 url: url_str.to_string(),
             }
             .into(),
-            to: NavHistoryEntry {
-                state: None,
-                id: 1,
-                url: first_url_str.to_string(),
-            },
             ..NavEvent::empty()
         },
         handler.last_event().expect("Missing Event")
     );
 }
+
+// TODO:
+// - [ ] Test `replace` navigation.
+// - [ ] Test state and info passing.
