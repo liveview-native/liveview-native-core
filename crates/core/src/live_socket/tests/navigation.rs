@@ -53,7 +53,6 @@ impl NavEvent {
             same_document: false,
             from: None,
             info: None,
-            state: None,
         }
     }
 }
@@ -101,7 +100,6 @@ fn basic_internal_navigate_back() {
 
     assert_eq!(
         NavEvent {
-            event: NavEventType::Push,
             to: NavHistoryEntry {
                 state: None,
                 id: 2,
@@ -123,7 +121,6 @@ fn basic_internal_navigate_back() {
 
     assert_eq!(
         NavEvent {
-            event: NavEventType::Back,
             to: NavHistoryEntry {
                 state: None,
                 id: 1,

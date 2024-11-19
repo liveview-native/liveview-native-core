@@ -19,14 +19,17 @@ impl std::fmt::Debug for HandlerInternal {
     }
 }
 
+/// The internal navigation context.
+/// handles the history state of the visited views.
 #[derive(Debug, Clone, Default)]
 pub struct NavCtx {
-    // Previously visited views
+    /// Previously visited views
     history: Vec<NavHistoryEntry>,
-    // Views that are "forward" in history
+    /// Views that are "forward" in history
     future: Vec<NavHistoryEntry>,
     /// monotonically increasing ID for `NavHistoryEntry`
     id_source: HistoryId,
+    /// user provided callback
     navigation_event_handler: HandlerInternal,
 }
 
@@ -42,14 +45,16 @@ impl NavHistoryEntry {
 
 impl NavCtx {
     /// Navigate to `url` with behavior and metadata specified in `opts`.
-    pub fn navigate(&mut self, url: Url, opts: NavOptions) {
+    /// Returns the current history ID if changed
+    pub fn navigate(&mut self, url: Url, opts: NavOptions) -> Option<HistoryId> {
         let action = opts.action.clone();
         let next_dest = self.speculative_next_dest(&url, opts.state.clone());
+        let next_id = next_dest.id;
         let event = NavEvent::new_from_navigate(next_dest.clone(), self.current(), opts);
 
         match self.handle_event(event) {
             HandlerResponse::Default => {}
-            HandlerResponse::PreventDefault => return,
+            HandlerResponse::PreventDefault => return None,
         };
 
         match action {
@@ -60,6 +65,52 @@ impl NavCtx {
         // succesful navigation invalidates previously coalesced state from
         // calls to `back`
         self.future.clear();
+        Some(next_id)
+    }
+
+    // Returns true if the navigator can go back one entry.
+    pub fn can_go_back(&self) -> bool {
+        self.history.len() < 2
+    }
+
+    // Returns true if the navigator can go forward one entry.
+    pub fn can_go_forward(&self) -> bool {
+        !self.history.is_empty() || !self.future.is_empty()
+    }
+
+    // Returns true if the `id` is tracked in the navigation context.
+    pub fn can_traverse_to(&self, id: HistoryId) -> bool {
+        let hist = self.history.iter().find(|ent| ent.id == id);
+        let fut = self.future.iter().find(|ent| ent.id == id);
+        hist.or(fut).is_some()
+    }
+
+    // Returns all of the tracked history entries by cloning them.
+    // They are in traversal sequence order, with no guarantees about
+    // the position of the current entry.
+    pub fn entries(&self) -> Vec<NavHistoryEntry> {
+        self.history
+            .iter()
+            .chain(self.future.iter().rev())
+            .cloned()
+            .collect()
+    }
+
+    /// Calls the handler for reload events
+    pub fn reload(&mut self, info: Option<Vec<u8>>) -> Option<HistoryId> {
+        let Some(current) = self.history.last().cloned() else {
+            return None;
+        };
+
+        let id = current.id;
+        let event = NavEvent::new_from_reload(current, info);
+
+        match self.handle_event(event) {
+            HandlerResponse::Default => {}
+            HandlerResponse::PreventDefault => return None,
+        };
+
+        Some(id)
     }
 
     /// Navigates back one step in the stack, returning the id of the new
@@ -67,7 +118,7 @@ impl NavCtx {
     /// This function fails if there is no current
     /// page or if there are no items in history and returns [None].
     pub fn back(&mut self, info: Option<Vec<u8>>) -> Option<HistoryId> {
-        if self.history.len() < 2 {
+        if !self.can_go_back() {
             log::warn!("Attempted `back` navigation without at minimum two entries.");
             return None;
         }
@@ -91,6 +142,79 @@ impl NavCtx {
             }
             HandlerResponse::PreventDefault => None,
         }
+    }
+
+    /// Navigate one step forward, fails if there is not at least one
+    /// item in the history and future stacks.
+    pub fn forward(&mut self, info: Option<Vec<u8>>) -> Option<HistoryId> {
+        if !self.can_go_forward() {
+            log::warn!(
+                "Attempted `future` navigation with an no current location or no next entry."
+            );
+            return None;
+        }
+
+        let Some(previous) = self.history.pop() else {
+            return None;
+        };
+
+        let Some(next) = self.future.pop() else {
+            return None;
+        };
+
+        let event = NavEvent::new_from_forward(next.clone(), previous.clone(), info);
+
+        match self.handle_event(event) {
+            HandlerResponse::Default => {
+                let out = Some(next.id);
+                self.push_entry(next);
+                out
+            }
+            HandlerResponse::PreventDefault => None,
+        }
+    }
+
+    pub fn traverse_to(&mut self, id: HistoryId, info: Option<Vec<u8>>) -> Option<NavHistoryEntry> {
+        if !self.can_traverse_to(id) {
+            log::warn!("Attempted to traverse to an untracked ID!");
+            return None;
+        }
+
+        let in_hist = self.history.iter().position(|ent| ent.id == id);
+        if let Some(entry) = in_hist {
+            let new_dest = self.history[entry].clone();
+            let old_dest = self.history.last().cloned();
+
+            let event = NavEvent::new_from_traverse(new_dest, old_dest, info);
+
+            match self.handle_event(event) {
+                HandlerResponse::Default => {}
+                HandlerResponse::PreventDefault => return None,
+            };
+
+            let ext = self.history.drain(entry..);
+            self.future.extend(ext.rev());
+            return self.history.last().cloned();
+        }
+
+        let in_fut = self.future.iter().position(|ent| ent.id == id);
+        if let Some(entry) = in_fut {
+            let new_dest = self.future[entry].clone();
+            let old_dest = self.history.last().cloned();
+
+            let event = NavEvent::new_from_traverse(new_dest, old_dest, info);
+
+            match self.handle_event(event) {
+                HandlerResponse::Default => {}
+                HandlerResponse::PreventDefault => return None,
+            };
+
+            let ext = self.future.drain(entry..);
+            self.history.extend(ext.rev());
+            return self.history.last().cloned();
+        }
+
+        None
     }
 
     /// Returns the current history entry and state

@@ -23,8 +23,6 @@ pub enum NavEventType {
     Replace,
     Reload,
     Traverse,
-    Back,
-    Forward,
 }
 
 #[derive(uniffi::Record, Clone, Debug, PartialEq)]
@@ -48,8 +46,6 @@ pub struct NavEvent {
     pub to: NavHistoryEntry,
     /// Additional user provided metadata handed to the event handler.
     pub info: Option<Vec<u8>>,
-    /// Persistent state kept in history for as long as the even is in the history stack.
-    pub state: Option<Vec<u8>>,
 }
 
 #[derive(uniffi::Enum, Default, Clone)]
@@ -74,7 +70,6 @@ impl NavEvent {
         to: NavHistoryEntry,
         from: Option<NavHistoryEntry>,
         info: Option<Vec<u8>>,
-        state: Option<Vec<u8>>,
     ) -> Self {
         let new_url = Url::parse(&to.url).ok();
         let old_url = from.as_ref().and_then(|dest| Url::parse(&dest.url).ok());
@@ -89,8 +84,20 @@ impl NavEvent {
             from,
             to,
             info,
-            state,
         }
+    }
+
+    pub fn new_from_reload(dest: NavHistoryEntry, info: Option<Vec<u8>>) -> NavEvent {
+        NavEvent::new(NavEventType::Reload, dest.clone(), dest.into(), info)
+    }
+
+    /// Create a new nav event from the details of a [NavCtx::traverse_to] event
+    pub fn new_from_traverse(
+        new_dest: NavHistoryEntry,
+        old_dest: Option<NavHistoryEntry>,
+        info: Option<Vec<u8>>,
+    ) -> NavEvent {
+        NavEvent::new(NavEventType::Traverse, new_dest, old_dest, info)
     }
 
     /// Create a new nav event from the details of a [NavCtx::navigate] event
@@ -104,7 +111,17 @@ impl NavEvent {
             NavAction::Replace => NavEventType::Replace,
         };
 
-        NavEvent::new(event, new_dest, old_dest, opts.extra_event_info, opts.state)
+        NavEvent::new(event, new_dest, old_dest, opts.extra_event_info)
+    }
+
+    /// Create a new nav event from the details of a [NavCtx::back] event,
+    /// passing info into the event handler closure.
+    pub fn new_from_forward(
+        new_dest: NavHistoryEntry,
+        old_dest: NavHistoryEntry,
+        info: Option<Vec<u8>>,
+    ) -> NavEvent {
+        NavEvent::new(NavEventType::Push, new_dest, Some(old_dest), info)
     }
 
     /// Create a new nav event from the details of a [NavCtx::back] event,
@@ -114,6 +131,6 @@ impl NavEvent {
         old_dest: NavHistoryEntry,
         info: Option<Vec<u8>>,
     ) -> NavEvent {
-        NavEvent::new(NavEventType::Back, new_dest, Some(old_dest), info, None)
+        NavEvent::new(NavEventType::Push, new_dest, Some(old_dest), info)
     }
 }
