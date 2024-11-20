@@ -140,19 +140,27 @@ fn basic_internal_navigate_back() {
 
 #[test]
 fn test_navigation_with_state() {
+    let handler = Arc::new(NavigationInspector::new());
     let mut ctx = NavCtx::default();
+    ctx.set_event_handler(handler.clone());
+
     let url = Url::parse("https://example.com").expect("parse");
     let state = vec![1, 2, 3];
+    let info = vec![4, 5, 6];
 
     let id = ctx
         .navigate(
             url.clone(),
             NavOptions {
                 state: Some(state.clone()),
+                extra_event_info: Some(info.clone()),
                 ..Default::default()
             },
         )
         .expect("nav");
+
+    let last_ev = handler.last_event().expect("no event.");
+    assert_eq!(last_ev.info, Some(info));
 
     let current = ctx.current().expect("current");
     assert_eq!(current.id, id);
