@@ -62,7 +62,7 @@ impl NavCtx {
             NavAction::Replace => self.replace_entry(next_dest),
         }
 
-        // succesful navigation invalidates previously coalesced state from
+        // successful navigation invalidates previously coalesced state from
         // calls to `back`
         self.future.clear();
         Some(next_id)
