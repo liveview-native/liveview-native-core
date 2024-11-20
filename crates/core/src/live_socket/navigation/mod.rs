@@ -70,12 +70,12 @@ impl NavCtx {
 
     // Returns true if the navigator can go back one entry.
     pub fn can_go_back(&self) -> bool {
-        self.history.len() < 2
+        self.history.len() >= 2
     }
 
     // Returns true if the navigator can go forward one entry.
     pub fn can_go_forward(&self) -> bool {
-        !self.history.is_empty() || !self.future.is_empty()
+        !self.future.is_empty()
     }
 
     // Returns true if the `id` is tracked in the navigation context.
@@ -123,20 +123,18 @@ impl NavCtx {
             return None;
         }
 
-        let Some(previous) = self.history.pop() else {
+        let Some(previous) = self.current() else {
             return None;
         };
 
-        let Some(next) = self.history.pop() else {
-            return None;
-        };
+        let next = self.history[self.history.len() - 2].clone();
 
         let event = NavEvent::new_from_back(next.clone(), previous.clone(), info);
 
         match self.handle_event(event) {
             HandlerResponse::Default => {
+                let previous = self.history.pop()?;
                 let out = Some(next.id);
-                self.push_entry(next);
                 self.future.push(previous);
                 out
             }
@@ -154,18 +152,17 @@ impl NavCtx {
             return None;
         }
 
-        let Some(previous) = self.history.pop() else {
+        let Some(next) = self.future.last().cloned() else {
             return None;
         };
 
-        let Some(next) = self.future.pop() else {
-            return None;
-        };
+        let previous = self.current();
 
-        let event = NavEvent::new_from_forward(next.clone(), previous.clone(), info);
+        let event = NavEvent::new_from_forward(next.clone(), previous, info);
 
         match self.handle_event(event) {
             HandlerResponse::Default => {
+                self.future.pop();
                 let out = Some(next.id);
                 self.push_entry(next);
                 out
@@ -174,16 +171,16 @@ impl NavCtx {
         }
     }
 
-    pub fn traverse_to(&mut self, id: HistoryId, info: Option<Vec<u8>>) -> Option<NavHistoryEntry> {
+    pub fn traverse_to(&mut self, id: HistoryId, info: Option<Vec<u8>>) -> Option<HistoryId> {
         if !self.can_traverse_to(id) {
             log::warn!("Attempted to traverse to an untracked ID!");
             return None;
         }
 
+        let old_dest = self.current();
         let in_hist = self.history.iter().position(|ent| ent.id == id);
         if let Some(entry) = in_hist {
             let new_dest = self.history[entry].clone();
-            let old_dest = self.history.last().cloned();
 
             let event = NavEvent::new_from_traverse(new_dest, old_dest, info);
 
@@ -192,15 +189,15 @@ impl NavCtx {
                 HandlerResponse::PreventDefault => return None,
             };
 
-            let ext = self.history.drain(entry..);
+            // All entries except the target
+            let ext = self.history.drain(entry + 1..);
             self.future.extend(ext.rev());
-            return self.history.last().cloned();
+            return Some(id);
         }
 
         let in_fut = self.future.iter().position(|ent| ent.id == id);
         if let Some(entry) = in_fut {
             let new_dest = self.future[entry].clone();
-            let old_dest = self.history.last().cloned();
 
             let event = NavEvent::new_from_traverse(new_dest, old_dest, info);
 
@@ -209,9 +206,10 @@ impl NavCtx {
                 HandlerResponse::PreventDefault => return None,
             };
 
+            // All entries including the target, which will be at the front.
             let ext = self.future.drain(entry..);
             self.history.extend(ext.rev());
-            return self.history.last().cloned();
+            return Some(id);
         }
 
         None

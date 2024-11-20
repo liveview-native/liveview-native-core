@@ -118,10 +118,10 @@ impl NavEvent {
     /// passing info into the event handler closure.
     pub fn new_from_forward(
         new_dest: NavHistoryEntry,
-        old_dest: NavHistoryEntry,
+        old_dest: Option<NavHistoryEntry>,
         info: Option<Vec<u8>>,
     ) -> NavEvent {
-        NavEvent::new(NavEventType::Push, new_dest, Some(old_dest), info)
+        NavEvent::new(NavEventType::Push, new_dest, old_dest, info)
     }
 
     /// Create a new nav event from the details of a [NavCtx::back] event,
