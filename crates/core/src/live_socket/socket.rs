@@ -1,4 +1,8 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use super::navigation::{NavCtx, NavOptions};
 
@@ -6,12 +10,19 @@ use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, Topic, JSON};
 use reqwest::Method as ReqMethod;
 
-use super::{LiveChannel, LiveSocketError};
+pub use super::{LiveChannel, LiveSocketError};
+
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{ffi::Document as FFiDocument, AttributeName, Document, ElementName, Selector},
     parser::parse,
 };
+
+const LVN_VSN: &str = "2.0.0";
+const LVN_VSN_KEY: &str = "vsn";
+const CSRF_KEY: &str = "_csrf_token";
+const MOUNT_KEY: &str = "_mounts";
+const FMT_KEY: &str = "_format";
 
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Enum)]
 #[repr(u8)]
@@ -82,7 +93,7 @@ pub struct LiveSocket {
     pub dead_render: Document,
     pub style_urls: Vec<String>,
     pub has_live_reload: bool,
-    navigation_ctx: NavCtx,
+    pub(super) navigation_ctx: Mutex<NavCtx>,
     cookies: Vec<String>,
     timeout: Duration,
 }
@@ -116,7 +127,7 @@ impl LiveSocket {
         // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
         // it does maybe we don't need to do a full dead render.
         let mut url = url.parse::<Url>()?;
-        url.set_query(Some(&format!("_format={format}")));
+        url.query_pairs_mut().append_pair(FMT_KEY, &format);
 
         let headers = (&headers.unwrap_or_default()).try_into().map_err(|e| {
             LiveSocketError::InvalidHeader {
@@ -263,7 +274,6 @@ impl LiveSocket {
         // Top level:
         // csrf-token
         // "iframe[src=\"/phoenix/live_reload/frame\"]"
-        let mounts = 0;
 
         let websocket_scheme = match url.scheme() {
             "https" => "wss",
@@ -274,19 +284,24 @@ impl LiveSocket {
                 })
             }
         };
-        let port = url
-            .port()
-            .map(|port| format!(":{port}"))
-            .unwrap_or("".to_string());
+
+        let port = url.port().map(|p| format!(":{p}")).unwrap_or_default();
         let host = url.host_str().ok_or(LiveSocketError::NoHostInURL)?;
-        let websocket_url = format!(
-            "{}://{}{}/live/websocket?_csrf_token={}&vsn=2.0.0&_mounts={mounts}&_format={}",
-            websocket_scheme, host, port, csrf_token, format
-        );
+
+        let mut websocket_url = Url::parse(&format!("{websocket_scheme}://{host}{port}"))?;
+
+        websocket_url
+            .query_pairs_mut()
+            .append_pair(LVN_VSN_KEY, LVN_VSN)
+            .append_pair(CSRF_KEY, &csrf_token)
+            .append_pair(MOUNT_KEY, "0")
+            .append_pair(FMT_KEY, &format);
+
+        websocket_url.set_path("/live/websocket");
+
         debug!("websocket url: {websocket_url}");
 
-        let websocket_url = websocket_url.parse::<Url>()?;
-        let socket = Socket::spawn(websocket_url.clone(), Some(cookies.clone())).await?;
+        let socket = Socket::spawn(websocket_url, Some(cookies.clone())).await?;
 
         // The iframe portion looks like:
         // <iframe hidden height="0" width="0" src="/phoenix/live_reload/frame"></iframe>
@@ -308,8 +323,11 @@ impl LiveSocket {
             .last();
 
         let has_live_reload = live_reload_iframe.is_some();
-        let mut navigation_ctx = NavCtx::default();
-        navigation_ctx.navigate(url.clone(), NavOptions::default());
+        let navigation_ctx = Mutex::new(NavCtx::default());
+        navigation_ctx
+            .lock()
+            .expect("Lock Poisoned!")
+            .navigate(url.clone(), NavOptions::default());
 
         debug!("iframe src: {live_reload_iframe:?}");
 
@@ -350,7 +368,7 @@ impl LiveSocket {
         };
         let _ = url.set_scheme(websocket_scheme);
         url.set_path("phoenix/live_reload/socket/websocket");
-        url.set_query(Some("vsn=2.0.0"));
+        url.query_pairs_mut().append_pair(LVN_VSN_KEY, LVN_VSN);
 
         let socket = Socket::spawn(url.clone(), Some(self.cookies.clone())).await?;
         socket.connect(self.timeout).await?;
@@ -380,19 +398,19 @@ impl LiveSocket {
         self.socket.connect(self.timeout).await?;
         let mut collected_join_params = HashMap::from([
             (
-                "_mounts".to_string(),
+                MOUNT_KEY.to_string(),
                 JSON::Numb {
                     number: Number::PosInt { pos: 0 },
                 },
             ),
             (
-                "_csrf_token".to_string(),
+                CSRF_KEY.to_string(),
                 JSON::Str {
                     string: self.csrf_token.clone(),
                 },
             ),
             (
-                "_format".to_string(),
+                FMT_KEY.to_string(),
                 JSON::Str {
                     string: self.format.clone(),
                 },

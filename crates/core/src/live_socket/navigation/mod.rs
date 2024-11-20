@@ -147,15 +147,14 @@ impl NavCtx {
             return None;
         }
 
-        let next = self.current()?;
-
+        let next = self.future.last().cloned()?;
         let previous = self.current();
 
-        let event = NavEvent::new_from_forward(next.clone(), previous, info);
+        let event = NavEvent::new_from_forward(next, previous, info);
 
         match self.handle_event(event) {
             HandlerResponse::Default => {
-                self.future.pop();
+                let next = self.future.pop()?;
                 let out = Some(next.id);
                 self.push_entry(next);
                 out
@@ -249,5 +248,3 @@ impl NavCtx {
         }
     }
 }
-
-impl LiveSocket {}

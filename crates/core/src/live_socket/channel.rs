@@ -1,8 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use log::{debug, error};
-use phoenix_channels_client::{Channel, Event, Number, Payload, Socket, Topic, JSON};
-
 use super::{LiveSocketError, UploadConfig, UploadError};
 use crate::{
     diff::fragment::{Root, RootDiff},
@@ -12,6 +9,8 @@ use crate::{
     },
     parser::parse,
 };
+use log::{debug, error};
+use phoenix_channels_client::{Channel, Event, Number, Payload, Socket, Topic, JSON};
 
 #[derive(uniffi::Object)]
 pub struct LiveChannel {

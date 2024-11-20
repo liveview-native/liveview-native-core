@@ -1,3 +1,6 @@
+//! # FFI Navigation Types
+//!
+//! Types and utilities for interacting with the navigation API for the FFI api consumers.
 use reqwest::Url;
 
 pub type HistoryId = u64;
@@ -48,6 +51,8 @@ pub struct NavEvent {
     pub info: Option<Vec<u8>>,
 }
 
+// An action taken with respect to the history stack
+// when [NavCtx::navigate] is executed.
 #[derive(uniffi::Enum, Default, Clone)]
 pub enum NavAction {
     /// Push the navigation event onto the history stack.
@@ -57,6 +62,7 @@ pub enum NavAction {
     Replace,
 }
 
+/// Options for calls to [NavCtx::navigate]
 #[derive(Default, uniffi::Record)]
 pub struct NavOptions {
     pub action: NavAction,
@@ -132,5 +138,104 @@ impl NavEvent {
         info: Option<Vec<u8>>,
     ) -> NavEvent {
         NavEvent::new(NavEventType::Push, new_dest, Some(old_dest), info)
+    }
+}
+
+use super::{super::error::LiveSocketError, LiveSocket};
+
+#[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
+impl LiveSocket {
+    pub async fn navigate(
+        &self,
+        url: String,
+        opts: NavOptions,
+    ) -> Result<Option<HistoryId>, LiveSocketError> {
+        let url = Url::parse(&url)?;
+
+        let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
+        let res = nav_ctx.navigate(url, opts);
+
+        if res.is_some() {
+            //let _ = nav_ctx.current();
+            //todo!("connect logic")
+        }
+
+        Ok(res)
+    }
+
+    pub async fn reload(
+        &self,
+        info: Option<Vec<u8>>,
+    ) -> Result<Option<HistoryId>, LiveSocketError> {
+        let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
+        let res = nav_ctx.reload(info);
+        if res.is_some() {
+            if let Some(_current) = nav_ctx.current() {}
+        }
+        Ok(res)
+    }
+
+    pub async fn back(&self, info: Option<Vec<u8>>) -> Result<Option<HistoryId>, LiveSocketError> {
+        let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
+        let res = nav_ctx.back(info);
+        if res.is_some() {
+            if let Some(_current) = nav_ctx.current() {}
+        }
+        Ok(res)
+    }
+
+    pub async fn forward(
+        &self,
+        info: Option<Vec<u8>>,
+    ) -> Result<Option<HistoryId>, LiveSocketError> {
+        let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
+        let res = nav_ctx.forward(info);
+        if res.is_some() {
+            if let Some(_current) = nav_ctx.current() {}
+        }
+        Ok(res)
+    }
+
+    pub async fn traverse_to(
+        &self,
+        id: HistoryId,
+        info: Option<Vec<u8>>,
+    ) -> Result<Option<HistoryId>, LiveSocketError> {
+        let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
+        let res = nav_ctx.traverse_to(id, info);
+        if res.is_some() {
+            if let Some(_current) = nav_ctx.current() {}
+        }
+        Ok(res)
+    }
+
+    pub fn can_go_back(&self) -> bool {
+        let nav_ctx = self.navigation_ctx.lock().expect("lock poison");
+        nav_ctx.can_go_back()
+    }
+
+    pub fn can_go_forward(&self) -> bool {
+        let nav_ctx = self.navigation_ctx.lock().expect("lock poison");
+        nav_ctx.can_go_forward()
+    }
+
+    pub fn can_traverse_to(&self, id: HistoryId) -> bool {
+        let nav_ctx = self.navigation_ctx.lock().expect("lock poison");
+        nav_ctx.can_traverse_to(id)
+    }
+
+    pub fn get_entries(&self) -> Vec<NavHistoryEntry> {
+        let nav_ctx = self.navigation_ctx.lock().expect("lock poison");
+        nav_ctx.entries()
+    }
+
+    pub fn current(&self) -> Option<NavHistoryEntry> {
+        let nav_ctx = self.navigation_ctx.lock().expect("lock poison");
+        nav_ctx.current()
+    }
+
+    pub fn set_event_handler(&self, handler: Box<dyn NavEventHandler>) {
+        let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
+        nav_ctx.set_event_handler(handler.into())
     }
 }

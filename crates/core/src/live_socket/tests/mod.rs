@@ -12,7 +12,16 @@ const HOST: &str = "10.0.2.2:4001";
 #[cfg(not(target_os = "android"))]
 const HOST: &str = "127.0.0.1:4001";
 
+use crate::dom::Document;
 use pretty_assertions::assert_eq;
+
+macro_rules! assert_doc_eq {
+    ($gold:expr, $test:expr) => {
+        let gold = Document::parse($gold).expect("Gold document failed to parse");
+        let test = Document::parse($test).expect("Test document failed to parse");
+        assert_eq!(gold.to_string(), test.to_string());
+    };
+}
 
 #[tokio::test]
 async fn join_live_view() {
@@ -39,13 +48,14 @@ async fn join_live_view() {
         .join_document()
         .expect("Failed to render join payload");
     let rendered = format!("{}", join_doc);
-    let expected = r#"<Group id="flash-group" />
+    let expected = r#"
+<Group id="flash-group" />
 <VStack>
     <Text>
         Hello SwiftUI!
     </Text>
 </VStack>"#;
-    assert_eq!(expected, rendered);
+    assert_doc_eq!(expected, rendered);
 
     let _live_channel = live_socket
         .join_livereload_channel()

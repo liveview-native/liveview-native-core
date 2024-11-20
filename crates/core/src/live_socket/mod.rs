@@ -7,7 +7,7 @@ mod socket;
 mod tests;
 
 pub use channel::LiveChannel;
-use error::{LiveSocketError, UploadError};
+pub use error::{LiveSocketError, UploadError};
 pub use socket::LiveSocket;
 
 pub struct UploadConfig {
