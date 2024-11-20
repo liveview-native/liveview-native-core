@@ -98,10 +98,7 @@ impl NavCtx {
 
     /// Calls the handler for reload events
     pub fn reload(&mut self, info: Option<Vec<u8>>) -> Option<HistoryId> {
-        let Some(current) = self.history.last().cloned() else {
-            return None;
-        };
-
+        let current = self.current()?;
         let id = current.id;
         let event = NavEvent::new_from_reload(current, info);
 
@@ -123,9 +120,7 @@ impl NavCtx {
             return None;
         }
 
-        let Some(previous) = self.current() else {
-            return None;
-        };
+        let previous = self.current()?;
 
         let next = self.history[self.history.len() - 2].clone();
 
@@ -152,9 +147,7 @@ impl NavCtx {
             return None;
         }
 
-        let Some(next) = self.future.last().cloned() else {
-            return None;
-        };
+        let next = self.current()?;
 
         let previous = self.current();
 
