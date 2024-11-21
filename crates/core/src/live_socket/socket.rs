@@ -81,135 +81,46 @@ impl Default for ConnectOpts {
     }
 }
 
-#[derive(uniffi::Object)]
-pub struct LiveSocket {
-    pub socket: Arc<Socket>,
+/// Static information ascertained from the dead render when connecting.
+#[derive(Clone, Debug)]
+pub struct SessionData {
+    /// Cross site request forgery, security token, sent with dead render.
     pub csrf_token: String,
+    /// The id of the phoenix channel to join.
     pub phx_id: String,
     pub phx_static: String,
     pub phx_session: String,
     pub url: Url,
+    /// One of `swift`, `kotlin` or `html` indicating the developer platform.
     pub format: String,
+    /// An html page that on the web would be used to bootstrap the web socket connection.
     pub dead_render: Document,
     pub style_urls: Vec<String>,
+    /// Whether or not the dead render contains a live reload iframe for development mode.
     pub has_live_reload: bool,
-    pub(super) navigation_ctx: Mutex<NavCtx>,
-    cookies: Vec<String>,
-    timeout: Duration,
+    /// A list of cookies sent over with the dead render.
+    pub cookies: Vec<String>,
 }
-#[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
-impl LiveSocket {
-    // This is just for the jetpack client. This is an associated function constructor.
-    #[uniffi::constructor]
-    pub async fn connect(
-        url: String,
-        format: String,
-        options: Option<ConnectOpts>,
+
+impl SessionData {
+    pub async fn request(
+        url: &Url,
+        format: &String,
+        options: &Option<ConnectOpts>,
     ) -> Result<Self, LiveSocketError> {
-        Self::new(url, format, options).await
-    }
+        // NEED:
+        // these from inside data-phx-main
+        // data-phx-session,
+        // data-phx-static
+        // id
+        //
+        // Top level:
+        // csrf-token
+        // "iframe[src=\"/phoenix/live_reload/frame\"]"
+        let (dead_render, cookies) = get_dead_render(url, format, options).await?;
 
-    #[uniffi::constructor]
-    pub async fn new(
-        url: String,
-        format: String,
-        options: Option<ConnectOpts>,
-    ) -> Result<Self, LiveSocketError> {
-        let ConnectOpts {
-            headers,
-            body,
-            method,
-            timeout_ms,
-        } = options.unwrap_or_default();
-
-        let method = method.unwrap_or(Method::Get).into();
-
-        // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
-        // it does maybe we don't need to do a full dead render.
-        let mut url = url.parse::<Url>()?;
-        url.query_pairs_mut().append_pair(FMT_KEY, &format);
-
-        let headers = (&headers.unwrap_or_default()).try_into().map_err(|e| {
-            LiveSocketError::InvalidHeader {
-                error: format!("{e:?}"),
-            }
-        })?;
-
-        let client = reqwest::Client::default();
-        let req = reqwest::Request::new(method, url.clone());
-        let builder = reqwest::RequestBuilder::from_parts(client, req);
-
-        let builder = if let Some(body) = body {
-            builder.body(body)
-        } else {
-            builder
-        };
-
-        let timeout = Duration::from_millis(timeout_ms);
-        let (client, result) = builder.timeout(timeout).headers(headers).build_split();
-
-        let req = result?;
-        let resp = client.execute(req).await?;
-        let status = resp.status();
-        let resp_headers = resp.headers();
-
-        let mut cookies: Vec<String> = Vec::new();
-        for cookie in resp_headers.get_all("set-cookie") {
-            cookies.push(cookie.to_str().expect("Cookie is not ASCII").to_string());
-        }
-        let resp_text = resp.text().await?;
-        if !status.is_success() {
-            return Err(LiveSocketError::ConnectionError(resp_text));
-        }
-
-        let dead_render = parse(&resp_text)?;
-        debug!("document:\n{dead_render}\n\n\n");
-
-        // HTML responses have
-        // <meta name="csrf-token"
-        // content="PBkccxQnXREEHjJhOksCJ1cVESUiRgtBYZxJSKpAEMJ0tfivopcul5Eq">
-        let meta_csrf_token: Option<String> = dead_render
-            .select(Selector::Tag(ElementName {
-                namespace: None,
-                name: "meta".into(),
-            }))
-            .map(|node_ref| dead_render.get(node_ref))
-            // We need the node of the element with a "name" attribute that equals "csrf-token"
-            .filter(|node| {
-                node.attributes()
-                    .iter()
-                    .filter(|attr| {
-                        attr.name.name == *"name" && attr.value == Some("csrf-token".to_string())
-                    })
-                    .last()
-                    .is_some()
-            })
-            // We now need the "content" value
-            .map(|node| {
-                node.attributes()
-                    .iter()
-                    .filter(|attr| attr.name.name == *"content")
-                    .map(|attr| attr.value.clone())
-                    .last()
-                    .flatten()
-            })
-            .last()
-            .flatten();
-
-        debug!("META CSRF TOKEN: {meta_csrf_token:#?}");
-
-        // LiveView Native responses have:
-        // <csrf-token value="CgpDGHsSYUUxHxdQDSVVc1dmchgRYhMUXlqANTR3uQBdzHmK5R9mW5wu" />
         let csrf_token = dead_render
-            .select(Selector::Tag(ElementName {
-                namespace: None,
-                name: "csrf-token".into(),
-            }))
-            .last()
-            .map(|node_ref| dead_render.get(node_ref))
-            .and_then(|node| node.attributes().first().map(|attr| attr.value.clone()))
-            .flatten()
-            .or(meta_csrf_token)
+            .get_csrf_token()
             .ok_or(LiveSocketError::CSFRTokenMissing)?;
 
         let mut phx_id: Option<String> = None;
@@ -222,7 +133,9 @@ impl LiveSocket {
                 namespace: None,
             }))
             .last();
+
         debug!("MAIN DIV: {main_div_attributes:?}");
+
         let main_div_attributes = dead_render
             .select(Selector::Attribute(AttributeName {
                 namespace: None,
@@ -265,44 +178,6 @@ impl LiveSocket {
             })
             .collect();
 
-        // NEED:
-        // these from inside data-phx-main
-        // data-phx-session,
-        // data-phx-static
-        // id
-        //
-        // Top level:
-        // csrf-token
-        // "iframe[src=\"/phoenix/live_reload/frame\"]"
-
-        let websocket_scheme = match url.scheme() {
-            "https" => "wss",
-            "http" => "ws",
-            scheme => {
-                return Err(LiveSocketError::SchemeNotSupported {
-                    scheme: scheme.to_string(),
-                })
-            }
-        };
-
-        let port = url.port().map(|p| format!(":{p}")).unwrap_or_default();
-        let host = url.host_str().ok_or(LiveSocketError::NoHostInURL)?;
-
-        let mut websocket_url = Url::parse(&format!("{websocket_scheme}://{host}{port}"))?;
-
-        websocket_url
-            .query_pairs_mut()
-            .append_pair(LVN_VSN_KEY, LVN_VSN)
-            .append_pair(CSRF_KEY, &csrf_token)
-            .append_pair(MOUNT_KEY, "0")
-            .append_pair(FMT_KEY, &format);
-
-        websocket_url.set_path("/live/websocket");
-
-        debug!("websocket url: {websocket_url}");
-
-        let socket = Socket::spawn(websocket_url, Some(cookies.clone())).await?;
-
         // The iframe portion looks like:
         // <iframe hidden height="0" width="0" src="/phoenix/live_reload/frame"></iframe>
         let live_reload_iframe: Option<String> = dead_render
@@ -323,40 +198,170 @@ impl LiveSocket {
             .last();
 
         let has_live_reload = live_reload_iframe.is_some();
+
+        let out = Self {
+            url: url.clone(),
+            format: format.to_string(),
+            csrf_token,
+            phx_id,
+            phx_static,
+            phx_session,
+            dead_render,
+            style_urls,
+            has_live_reload,
+            cookies,
+        };
+
+        debug!("Session data successfully acquired {out:?}");
+
+        Ok(out)
+    }
+}
+
+/// Gets the 'dead render', a static html page containing metadata about how to
+/// connect to a known websocket address and initialize the live view session.
+async fn get_dead_render(
+    url: &Url,
+    format: &String,
+    options: &Option<ConnectOpts>,
+) -> Result<(Document, Vec<String>), LiveSocketError> {
+    let ConnectOpts {
+        headers,
+        body,
+        method,
+        timeout_ms,
+    } = options.clone().unwrap_or_default();
+
+    let method = method.unwrap_or(Method::Get).into();
+
+    // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
+    // it does maybe we don't need to do a full dead render.
+    let mut url = url.clone();
+    url.query_pairs_mut().append_pair(FMT_KEY, format);
+
+    let headers =
+        (&headers.unwrap_or_default())
+            .try_into()
+            .map_err(|e| LiveSocketError::InvalidHeader {
+                error: format!("{e:?}"),
+            })?;
+
+    let client = reqwest::Client::default();
+    let req = reqwest::Request::new(method, url.clone());
+    let builder = reqwest::RequestBuilder::from_parts(client, req);
+
+    let builder = if let Some(body) = body {
+        builder.body(body)
+    } else {
+        builder
+    };
+
+    let timeout = Duration::from_millis(timeout_ms);
+    let (client, request) = builder.timeout(timeout).headers(headers).build_split();
+
+    let resp = client.execute(request?).await?;
+    let status = resp.status();
+    let resp_headers = resp.headers();
+
+    let cookies = resp_headers
+        .get_all("set-cookie")
+        .iter()
+        .map(|cookie| cookie.to_str().expect("Cookie is not ASCII").to_string())
+        .collect();
+
+    let resp_text = resp.text().await?;
+    if !status.is_success() {
+        return Err(LiveSocketError::ConnectionError(resp_text));
+    }
+
+    let dead_render = parse(&resp_text)?;
+    debug!("document:\n{dead_render}\n\n\n");
+    Ok((dead_render, cookies))
+}
+
+#[derive(uniffi::Object)]
+pub struct LiveSocket {
+    pub socket: Arc<Socket>,
+    pub session_data: SessionData,
+    pub(super) navigation_ctx: Mutex<NavCtx>,
+    timeout: Duration,
+}
+
+#[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
+impl LiveSocket {
+    // This is just for the jetpack client. This is an associated function constructor.
+    #[uniffi::constructor]
+    pub async fn connect(
+        url: String,
+        format: String,
+        options: Option<ConnectOpts>,
+    ) -> Result<Self, LiveSocketError> {
+        Self::new(url, format, options).await
+    }
+
+    #[uniffi::constructor]
+    pub async fn new(
+        url: String,
+        format: String,
+        options: Option<ConnectOpts>,
+    ) -> Result<Self, LiveSocketError> {
+        let url = Url::parse(&url)?;
+
+        // Make HTTP request to get initial dead render, an HTML document with
+        // metadata needed to set up the liveview websocket connection.
+        let session_data = SessionData::request(&url, &format, &options).await?;
+
+        let websocket_scheme = match url.scheme() {
+            "https" => "wss",
+            "http" => "ws",
+            scheme => {
+                return Err(LiveSocketError::SchemeNotSupported {
+                    scheme: scheme.to_string(),
+                })
+            }
+        };
+
+        let port = url.port().map(|p| format!(":{p}")).unwrap_or_default();
+        let host = url.host_str().ok_or(LiveSocketError::NoHostInURL)?;
+
+        let mut websocket_url = Url::parse(&format!("{websocket_scheme}://{host}{port}"))?;
+
+        websocket_url
+            .query_pairs_mut()
+            .append_pair(LVN_VSN_KEY, LVN_VSN)
+            .append_pair(CSRF_KEY, &session_data.csrf_token)
+            .append_pair(MOUNT_KEY, "0")
+            .append_pair(FMT_KEY, &format);
+
+        websocket_url.set_path("/live/websocket");
+
+        debug!("websocket url: {websocket_url}");
+
+        let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone())).await?;
+
         let navigation_ctx = Mutex::new(NavCtx::default());
         navigation_ctx
             .lock()
             .expect("Lock Poisoned!")
             .navigate(url.clone(), NavOptions::default());
 
-        debug!("iframe src: {live_reload_iframe:?}");
-
         Ok(Self {
             socket,
-            csrf_token,
-            phx_id,
-            phx_static,
-            phx_session,
-            timeout,
-            url,
-            dead_render,
-            style_urls,
-            has_live_reload,
-            cookies,
-            format,
+            session_data,
+            timeout: Duration::from_millis(options.unwrap_or_default().timeout_ms),
             navigation_ctx,
         })
     }
 
     pub fn dead_render(&self) -> FFiDocument {
-        self.dead_render.clone().into()
+        self.session_data.dead_render.clone().into()
     }
 
     pub fn style_urls(&self) -> Vec<String> {
-        self.style_urls.clone()
+        self.session_data.style_urls.clone()
     }
     pub async fn join_livereload_channel(&self) -> Result<LiveChannel, LiveSocketError> {
-        let mut url = self.url.clone();
+        let mut url = self.session_data.url.clone();
         let websocket_scheme = match url.scheme() {
             "https" => "wss",
             "http" => "ws",
@@ -370,7 +375,7 @@ impl LiveSocket {
         url.set_path("phoenix/live_reload/socket/websocket");
         url.query_pairs_mut().append_pair(LVN_VSN_KEY, LVN_VSN);
 
-        let socket = Socket::spawn(url.clone(), Some(self.cookies.clone())).await?;
+        let socket = Socket::spawn(url.clone(), Some(self.session_data.cookies.clone())).await?;
         socket.connect(self.timeout).await?;
 
         debug!("Joining live reload channel on url {url}");
@@ -406,13 +411,13 @@ impl LiveSocket {
             (
                 CSRF_KEY.to_string(),
                 JSON::Str {
-                    string: self.csrf_token.clone(),
+                    string: self.session_data.csrf_token.clone(),
                 },
             ),
             (
                 FMT_KEY.to_string(),
                 JSON::Str {
-                    string: self.format.clone(),
+                    string: self.session_data.format.clone(),
                 },
             ),
         ]);
@@ -427,7 +432,7 @@ impl LiveSocket {
             (
                 "url".to_string(),
                 JSON::Str {
-                    string: self.url.to_string(),
+                    string: self.session_data.url.to_string(),
                 },
             )
         };
@@ -437,13 +442,13 @@ impl LiveSocket {
                     (
                         "static".to_string(),
                         JSON::Str {
-                            string: self.phx_static.clone(),
+                            string: self.session_data.phx_static.clone(),
                         },
                     ),
                     (
                         "session".to_string(),
                         JSON::Str {
-                            string: self.phx_session.clone(),
+                            string: self.session_data.phx_session.clone(),
                         },
                     ),
                     // TODO: Add redirect key. Swift code:
@@ -463,10 +468,11 @@ impl LiveSocket {
         let channel = self
             .socket
             .channel(
-                Topic::from_string(format!("lv:{}", self.phx_id)),
+                Topic::from_string(format!("lv:{}", self.session_data.phx_id)),
                 Some(join_payload),
             )
             .await?;
+
         let join_payload = channel.join(self.timeout).await?;
 
         debug!("Join payload: {join_payload:#?}");
@@ -505,6 +511,6 @@ impl LiveSocket {
     }
 
     pub fn has_live_reload(&self) -> bool {
-        self.has_live_reload
+        self.session_data.has_live_reload
     }
 }

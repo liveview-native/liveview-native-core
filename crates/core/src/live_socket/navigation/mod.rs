@@ -19,10 +19,30 @@ impl std::fmt::Debug for HandlerInternal {
     }
 }
 
+/// for rolling back the navigation state
+/// after a failed connnection.
+#[derive(Debug, Clone)]
+enum LastNavigation {
+    Back,
+    Forward,
+    Reload,
+    /// pop new is true if the navigation was a replacement
+    Navigate {
+        pop_new: bool,
+        previous: NavHistoryEntry,
+    },
+    Traverse {
+        from: HistoryId,
+        to: HistoryId,
+    },
+}
+
 /// The internal navigation context.
 /// handles the history state of the visited views.
 #[derive(Debug, Clone, Default)]
 pub struct NavCtx {
+    /// Last nav action taken
+    last_action: Option<LastNavigation>,
     /// Previously visited views
     history: Vec<NavHistoryEntry>,
     /// Views that are "forward" in history
@@ -66,6 +86,31 @@ impl NavCtx {
         // calls to `back`
         self.future.clear();
         Some(next_id)
+    }
+
+    /// In the case of a connection error during set up we might
+    /// need to roll back navigation state to before when the last
+    /// action was taken.
+    pub fn rollback_navigation_state(&mut self) {
+        let Some(last_action) = self.last_action.take() else {
+            return;
+        };
+
+        match last_action {
+            LastNavigation::Back => {
+                // forward with no event emission
+            }
+            LastNavigation::Forward => {
+                // back with no event emission
+            }
+            LastNavigation::Reload => {
+                // NOP
+            }
+            LastNavigation::Navigate { pop_new, previous } => {
+                //
+            }
+            LastNavigation::Traverse { from, to } => {}
+        }
     }
 
     // Returns true if the navigator can go back one entry.

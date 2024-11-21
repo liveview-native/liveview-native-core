@@ -13,18 +13,26 @@ pub trait NavEventHandler: Send + Sync {
     fn handle_event(&self, event: NavEvent) -> HandlerResponse;
 }
 
+/// User emitted response from [NavEventHandler::handle_event].
+/// Determines whether or not the default navigation action is taken.
 #[derive(uniffi::Enum, Clone, Debug, PartialEq, Default)]
 pub enum HandlerResponse {
     #[default]
+    /// Return this to proceed as normal.
     Default,
+    /// Return this to cancel the navigation before it occurs.
     PreventDefault,
 }
 
 #[derive(uniffi::Enum, Clone, Debug, PartialEq)]
 pub enum NavEventType {
+    /// Pushing a new event onto the history stack
     Push,
+    /// Replacing the most recent event on the history stack
     Replace,
+    /// Reloading the view in place
     Reload,
+    /// Skipping multiple items on the history stack, leaving them in tact.
     Traverse,
 }
 
@@ -41,11 +49,13 @@ pub struct NavHistoryEntry {
 /// An event emitted when the user navigates between views.
 #[derive(uniffi::Record, Clone, Debug, PartialEq)]
 pub struct NavEvent {
+    /// The type of event being emitted.
     pub event: NavEventType,
+    /// True if from and to point to the same path.
     pub same_document: bool,
-    /// The previous location of the page, if there was one
+    /// The previous location of the page, if there was one.
     pub from: Option<NavHistoryEntry>,
-    /// Destination URL
+    /// Destination URL.
     pub to: NavHistoryEntry,
     /// Additional user provided metadata handed to the event handler.
     pub info: Option<Vec<u8>>,
@@ -149,18 +159,19 @@ impl LiveSocket {
         &self,
         url: String,
         opts: NavOptions,
-    ) -> Result<Option<HistoryId>, LiveSocketError> {
+    ) -> Result<HistoryId, LiveSocketError> {
         let url = Url::parse(&url)?;
 
-        let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
-        let res = nav_ctx.navigate(url, opts);
+        let Some(new_id) = self
+            .navigation_ctx
+            .lock()
+            .expect("lock poison")
+            .navigate(url, opts)
+        else {
+            return Err(LiveSocketError::NavigationImpossible);
+        };
 
-        if res.is_some() {
-            //let _ = nav_ctx.current();
-            //todo!("connect logic")
-        }
-
-        Ok(res)
+        Ok(new_id)
     }
 
     pub async fn reload(
@@ -209,31 +220,37 @@ impl LiveSocket {
         Ok(res)
     }
 
+    /// Returns whether navigation backward in history is possible.
     pub fn can_go_back(&self) -> bool {
         let nav_ctx = self.navigation_ctx.lock().expect("lock poison");
         nav_ctx.can_go_back()
     }
 
+    /// Returns whether navigation forward in history is possible.
     pub fn can_go_forward(&self) -> bool {
         let nav_ctx = self.navigation_ctx.lock().expect("lock poison");
         nav_ctx.can_go_forward()
     }
 
+    /// Returns whether navigation to the specified history entry ID is possible.
     pub fn can_traverse_to(&self, id: HistoryId) -> bool {
         let nav_ctx = self.navigation_ctx.lock().expect("lock poison");
         nav_ctx.can_traverse_to(id)
     }
 
+    /// Returns a list of all history entries in traversal sequence order.
     pub fn get_entries(&self) -> Vec<NavHistoryEntry> {
         let nav_ctx = self.navigation_ctx.lock().expect("lock poison");
         nav_ctx.entries()
     }
 
+    /// Returns the current history entry, if one exists.
     pub fn current(&self) -> Option<NavHistoryEntry> {
         let nav_ctx = self.navigation_ctx.lock().expect("lock poison");
         nav_ctx.current()
     }
 
+    /// Sets the handler for navigation events.
     pub fn set_event_handler(&self, handler: Box<dyn NavEventHandler>) {
         let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
         nav_ctx.set_event_handler(handler.into())

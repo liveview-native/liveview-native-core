@@ -11,6 +11,8 @@ use crate::{
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum LiveSocketError {
+    #[error("Navigation Impossible")]
+    NavigationImpossible,
     #[error("Expected Json Payload, Was Binary")]
     PayloadNotJson,
     #[error("Could Not Parse Mime - {error}")]
@@ -30,6 +32,7 @@ pub enum LiveSocketError {
     },
     #[error("JSON Deserialization - {error}")]
     JSONDeserialization { error: String },
+
     #[error("CSFR Token Missing from DOM!")]
     CSFRTokenMissing,
 

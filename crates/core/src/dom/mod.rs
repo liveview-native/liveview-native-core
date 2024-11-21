@@ -85,6 +85,7 @@ pub struct Document {
     /// A count of the number of uploads, the server expects each upload to have an ascending unique ID.
     upload_ct: u64,
 }
+
 impl fmt::Debug for Document {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -95,6 +96,7 @@ impl fmt::Debug for Document {
         write!(f, "{:?}", &dot)
     }
 }
+
 impl fmt::Display for Document {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -558,6 +560,54 @@ impl Document {
 
         editor.finish();
         Ok(results)
+    }
+
+    /// Returns the CSRF token if it is present in the page.
+    pub fn get_csrf_token(&self) -> Option<String> {
+        // HTML responses have
+        // <meta name="csrf-token"
+        // content="PBkccxQnXREEHjJhOksCJ1cVESUiRgtBYZxJSKpAEMJ0tfivopcul5Eq">
+        let meta_csrf_token: Option<String> = self
+            .select(Selector::Tag(ElementName {
+                namespace: None,
+                name: "meta".into(),
+            }))
+            .map(|node_ref| self.get(node_ref))
+            // We need the node of the element with a "name" attribute that equals "csrf-token"
+            .filter(|node| {
+                node.attributes()
+                    .iter()
+                    .filter(|attr| {
+                        attr.name.name == *"name" && attr.value == Some("csrf-token".to_string())
+                    })
+                    .last()
+                    .is_some()
+            })
+            // We now need the "content" value
+            .map(|node| {
+                node.attributes()
+                    .iter()
+                    .filter(|attr| attr.name.name == *"content")
+                    .map(|attr| attr.value.clone())
+                    .last()
+                    .flatten()
+            })
+            .last()
+            .flatten();
+
+        log::debug!("META CSRF TOKEN: {meta_csrf_token:#?}");
+
+        // LiveView Native responses have:
+        // <csrf-token value="CgpDGHsSYUUxHxdQDSVVc1dmchgRYhMUXlqANTR3uQBdzHmK5R9mW5wu" />
+        self.select(Selector::Tag(ElementName {
+            namespace: None,
+            name: "csrf-token".into(),
+        }))
+        .last()
+        .map(|node_ref| self.get(node_ref))
+        .and_then(|node| node.attributes().first().map(|attr| attr.value.clone()))
+        .flatten()
+        .or(meta_csrf_token)
     }
 }
 

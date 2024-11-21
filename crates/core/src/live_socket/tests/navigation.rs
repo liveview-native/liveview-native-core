@@ -1,9 +1,20 @@
 use std::sync::{Arc, Mutex};
 
 use crate::live_socket::navigation::*;
+use crate::live_socket::LiveSocket;
 use pretty_assertions::assert_eq;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
+
+use crate::dom::Document;
+
+macro_rules! assert_doc_eq {
+    ($gold:expr, $test:expr) => {
+        let gold = Document::parse($gold).expect("Gold document failed to parse");
+        let test = Document::parse($test).expect("Test document failed to parse");
+        assert_eq!(gold.to_string(), test.to_string());
+    };
+}
 
 // Mock event handler used to validate the internal
 // navigation objects state.
@@ -166,6 +177,7 @@ fn test_navigation_with_state() {
     assert_eq!(current.id, id);
     assert_eq!(current.state, Some(state));
 }
+
 #[test]
 fn test_navigation_stack() {
     let mut ctx = NavCtx::default();
@@ -202,4 +214,50 @@ fn test_navigation_stack() {
     ctx.traverse_to(id3, None).expect("Failed to traverse");
     assert_eq!(ctx.current().expect("current").url, third.to_string());
     assert_eq!(ctx.entries().len(), 3);
+}
+
+#[cfg(target_os = "android")]
+const HOST: &str = "10.0.2.2:4001";
+
+#[cfg(not(target_os = "android"))]
+const HOST: &str = "127.0.0.1:4001";
+
+#[tokio::test]
+async fn join_live_view() {
+    let _ = env_logger::builder()
+        .parse_default_env()
+        .is_test(true)
+        .try_init();
+
+    let first = "first_page";
+    let url = format!("http://{HOST}/nav/{first}");
+
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+        .await
+        .expect("Failed to get liveview socket");
+
+    let live_channel = live_socket
+        .join_liveview_channel(None, None)
+        .await
+        .expect("Failed to join channel");
+
+    let join_doc = live_channel
+        .join_document()
+        .expect("Failed to render join payload");
+
+    let expected = r#"
+<Group id="flash-group" />
+<VStack>
+    <Text>
+        first_page
+    </Text>
+    <NavigationLink id="Next" destination="/nav/next">
+        <Text>
+            NEXT
+        </Text>
+    </NavigationLink>
+</VStack>
+"#;
+
+    assert_doc_eq!(expected, join_doc.to_string());
 }
