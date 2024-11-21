@@ -110,10 +110,10 @@ impl NavEvent {
     /// Create a new nav event from the details of a [NavCtx::traverse_to] event
     pub fn new_from_traverse(
         new_dest: NavHistoryEntry,
-        old_dest: Option<NavHistoryEntry>,
+        old_dest: NavHistoryEntry,
         info: Option<Vec<u8>>,
     ) -> NavEvent {
-        NavEvent::new(NavEventType::Traverse, new_dest, old_dest, info)
+        NavEvent::new(NavEventType::Traverse, new_dest, old_dest.into(), info)
     }
 
     /// Create a new nav event from the details of a [NavCtx::navigate] event
@@ -151,7 +151,29 @@ impl NavEvent {
     }
 }
 
+use crate::live_socket::socket::SessionData;
+
 use super::{super::error::LiveSocketError, LiveSocket};
+
+impl LiveSocket {
+    /// Tries to navigate to the current item in the NavCtx.
+    /// changing state in one fell swoop if initialilization succeeds
+    async fn try_nav(&self) -> Result<(), LiveSocketError> {
+        let current = self
+            .current()
+            .ok_or(LiveSocketError::NavigationImpossible)?;
+
+        let url = Url::parse(&current.url)?;
+
+        let format = &self.session_data.format;
+
+        let options = &self.session_data.connect_opts;
+
+        let session_data = SessionData::request(&url, format, options.clone()).await?;
+
+        Ok(())
+    }
+}
 
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveSocket {
@@ -166,12 +188,21 @@ impl LiveSocket {
             .navigation_ctx
             .lock()
             .expect("lock poison")
-            .navigate(url, opts)
+            .navigate(url, opts, true)
         else {
             return Err(LiveSocketError::NavigationImpossible);
         };
 
-        Ok(new_id)
+        match self.try_nav().await {
+            Ok(()) => Ok(new_id),
+            Err(e) => {
+                self.navigation_ctx
+                    .lock()
+                    .expect("lock poison")
+                    .rollback_navigation_state();
+                Err(e)
+            }
+        }
     }
 
     pub async fn reload(
@@ -179,7 +210,7 @@ impl LiveSocket {
         info: Option<Vec<u8>>,
     ) -> Result<Option<HistoryId>, LiveSocketError> {
         let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
-        let res = nav_ctx.reload(info);
+        let res = nav_ctx.reload(info, true);
         if res.is_some() {
             if let Some(_current) = nav_ctx.current() {}
         }
@@ -188,7 +219,7 @@ impl LiveSocket {
 
     pub async fn back(&self, info: Option<Vec<u8>>) -> Result<Option<HistoryId>, LiveSocketError> {
         let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
-        let res = nav_ctx.back(info);
+        let res = nav_ctx.back(info, true);
         if res.is_some() {
             if let Some(_current) = nav_ctx.current() {}
         }
@@ -200,7 +231,7 @@ impl LiveSocket {
         info: Option<Vec<u8>>,
     ) -> Result<Option<HistoryId>, LiveSocketError> {
         let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
-        let res = nav_ctx.forward(info);
+        let res = nav_ctx.forward(info, true);
         if res.is_some() {
             if let Some(_current) = nav_ctx.current() {}
         }
@@ -213,7 +244,7 @@ impl LiveSocket {
         info: Option<Vec<u8>>,
     ) -> Result<Option<HistoryId>, LiveSocketError> {
         let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
-        let res = nav_ctx.traverse_to(id, info);
+        let res = nav_ctx.traverse_to(id, info, true);
         if res.is_some() {
             if let Some(_current) = nav_ctx.current() {}
         }

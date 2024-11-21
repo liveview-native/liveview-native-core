@@ -84,6 +84,7 @@ impl Default for ConnectOpts {
 /// Static information ascertained from the dead render when connecting.
 #[derive(Clone, Debug)]
 pub struct SessionData {
+    pub connect_opts: ConnectOpts,
     /// Cross site request forgery, security token, sent with dead render.
     pub csrf_token: String,
     /// The id of the phoenix channel to join.
@@ -106,7 +107,7 @@ impl SessionData {
     pub async fn request(
         url: &Url,
         format: &String,
-        options: &Option<ConnectOpts>,
+        connect_opts: ConnectOpts,
     ) -> Result<Self, LiveSocketError> {
         // NEED:
         // these from inside data-phx-main
@@ -117,7 +118,7 @@ impl SessionData {
         // Top level:
         // csrf-token
         // "iframe[src=\"/phoenix/live_reload/frame\"]"
-        let (dead_render, cookies) = get_dead_render(url, format, options).await?;
+        let (dead_render, cookies) = get_dead_render(url, format, &connect_opts).await?;
 
         let csrf_token = dead_render
             .get_csrf_token()
@@ -200,6 +201,7 @@ impl SessionData {
         let has_live_reload = live_reload_iframe.is_some();
 
         let out = Self {
+            connect_opts,
             url: url.clone(),
             format: format.to_string(),
             csrf_token,
@@ -223,40 +225,39 @@ impl SessionData {
 async fn get_dead_render(
     url: &Url,
     format: &String,
-    options: &Option<ConnectOpts>,
+    options: &ConnectOpts,
 ) -> Result<(Document, Vec<String>), LiveSocketError> {
     let ConnectOpts {
         headers,
         body,
         method,
         timeout_ms,
-    } = options.clone().unwrap_or_default();
+    } = options;
 
-    let method = method.unwrap_or(Method::Get).into();
+    let method = method.clone().unwrap_or(Method::Get).into();
 
     // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
     // it does maybe we don't need to do a full dead render.
     let mut url = url.clone();
     url.query_pairs_mut().append_pair(FMT_KEY, format);
 
-    let headers =
-        (&headers.unwrap_or_default())
-            .try_into()
-            .map_err(|e| LiveSocketError::InvalidHeader {
-                error: format!("{e:?}"),
-            })?;
+    let headers = (&headers.clone().unwrap_or_default())
+        .try_into()
+        .map_err(|e| LiveSocketError::InvalidHeader {
+            error: format!("{e:?}"),
+        })?;
 
     let client = reqwest::Client::default();
     let req = reqwest::Request::new(method, url.clone());
     let builder = reqwest::RequestBuilder::from_parts(client, req);
 
     let builder = if let Some(body) = body {
-        builder.body(body)
+        builder.body(body.clone())
     } else {
         builder
     };
 
-    let timeout = Duration::from_millis(timeout_ms);
+    let timeout = Duration::from_millis(*timeout_ms);
     let (client, request) = builder.timeout(timeout).headers(headers).build_split();
 
     let resp = client.execute(request?).await?;
@@ -284,7 +285,6 @@ pub struct LiveSocket {
     pub socket: Arc<Socket>,
     pub session_data: SessionData,
     pub(super) navigation_ctx: Mutex<NavCtx>,
-    timeout: Duration,
 }
 
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
@@ -306,10 +306,11 @@ impl LiveSocket {
         options: Option<ConnectOpts>,
     ) -> Result<Self, LiveSocketError> {
         let url = Url::parse(&url)?;
+        let options = options.unwrap_or_default();
 
         // Make HTTP request to get initial dead render, an HTML document with
         // metadata needed to set up the liveview websocket connection.
-        let session_data = SessionData::request(&url, &format, &options).await?;
+        let session_data = SessionData::request(&url, &format, options).await?;
 
         let websocket_scheme = match url.scheme() {
             "https" => "wss",
@@ -340,15 +341,16 @@ impl LiveSocket {
         let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone())).await?;
 
         let navigation_ctx = Mutex::new(NavCtx::default());
-        navigation_ctx
-            .lock()
-            .expect("Lock Poisoned!")
-            .navigate(url.clone(), NavOptions::default());
+
+        navigation_ctx.lock().expect("Lock Poisoned!").navigate(
+            url.clone(),
+            NavOptions::default(),
+            false,
+        );
 
         Ok(Self {
             socket,
             session_data,
-            timeout: Duration::from_millis(options.unwrap_or_default().timeout_ms),
             navigation_ctx,
         })
     }
@@ -376,14 +378,14 @@ impl LiveSocket {
         url.query_pairs_mut().append_pair(LVN_VSN_KEY, LVN_VSN);
 
         let socket = Socket::spawn(url.clone(), Some(self.session_data.cookies.clone())).await?;
-        socket.connect(self.timeout).await?;
+        socket.connect(self.timeout()).await?;
 
         debug!("Joining live reload channel on url {url}");
         let channel = socket
             .channel(Topic::from_string("phoenix:live_reload".to_string()), None)
             .await?;
         debug!("Created channel for live reload socket");
-        let join_payload = channel.join(self.timeout).await?;
+        let join_payload = channel.join(self.timeout()).await?;
         let document = Document::empty();
 
         Ok(LiveChannel {
@@ -391,7 +393,7 @@ impl LiveSocket {
             join_payload,
             socket: self.socket.clone(),
             document: document.into(),
-            timeout: self.timeout,
+            timeout: self.timeout(),
         })
     }
 
@@ -400,7 +402,7 @@ impl LiveSocket {
         join_params: Option<HashMap<String, JSON>>,
         redirect: Option<String>,
     ) -> Result<LiveChannel, LiveSocketError> {
-        self.socket.connect(self.timeout).await?;
+        self.socket.connect(self.timeout()).await?;
         let mut collected_join_params = HashMap::from([
             (
                 MOUNT_KEY.to_string(),
@@ -473,7 +475,7 @@ impl LiveSocket {
             )
             .await?;
 
-        let join_payload = channel.join(self.timeout).await?;
+        let join_payload = channel.join(self.timeout()).await?;
 
         debug!("Join payload: {join_payload:#?}");
         let document = match join_payload {
@@ -502,8 +504,12 @@ impl LiveSocket {
             join_payload,
             socket: self.socket.clone(),
             document: document.into(),
-            timeout: self.timeout,
+            timeout: self.timeout(),
         })
+    }
+
+    pub fn timeout(&self) -> Duration {
+        Duration::from_millis(self.session_data.connect_opts.timeout_ms)
     }
 
     pub fn socket(&self) -> Arc<Socket> {

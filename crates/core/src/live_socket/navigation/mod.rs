@@ -25,15 +25,13 @@ impl std::fmt::Debug for HandlerInternal {
 enum LastNavigation {
     Back,
     Forward,
-    Reload,
     /// pop new is true if the navigation was a replacement
-    Navigate {
-        pop_new: bool,
+    Navigate,
+    Replace {
         previous: NavHistoryEntry,
     },
     Traverse {
         from: HistoryId,
-        to: HistoryId,
     },
 }
 
@@ -66,13 +64,13 @@ impl NavHistoryEntry {
 impl NavCtx {
     /// Navigate to `url` with behavior and metadata specified in `opts`.
     /// Returns the current history ID if changed
-    pub fn navigate(&mut self, url: Url, opts: NavOptions) -> Option<HistoryId> {
+    pub fn navigate(&mut self, url: Url, opts: NavOptions, emit_event: bool) -> Option<HistoryId> {
         let action = opts.action.clone();
         let next_dest = self.speculative_next_dest(&url, opts.state.clone());
         let next_id = next_dest.id;
         let event = NavEvent::new_from_navigate(next_dest.clone(), self.current(), opts);
 
-        match self.handle_event(event) {
+        match self.handle_event(event, emit_event) {
             HandlerResponse::Default => {}
             HandlerResponse::PreventDefault => return None,
         };
@@ -86,31 +84,6 @@ impl NavCtx {
         // calls to `back`
         self.future.clear();
         Some(next_id)
-    }
-
-    /// In the case of a connection error during set up we might
-    /// need to roll back navigation state to before when the last
-    /// action was taken.
-    pub fn rollback_navigation_state(&mut self) {
-        let Some(last_action) = self.last_action.take() else {
-            return;
-        };
-
-        match last_action {
-            LastNavigation::Back => {
-                // forward with no event emission
-            }
-            LastNavigation::Forward => {
-                // back with no event emission
-            }
-            LastNavigation::Reload => {
-                // NOP
-            }
-            LastNavigation::Navigate { pop_new, previous } => {
-                //
-            }
-            LastNavigation::Traverse { from, to } => {}
-        }
     }
 
     // Returns true if the navigator can go back one entry.
@@ -142,12 +115,12 @@ impl NavCtx {
     }
 
     /// Calls the handler for reload events
-    pub fn reload(&mut self, info: Option<Vec<u8>>) -> Option<HistoryId> {
+    pub fn reload(&mut self, info: Option<Vec<u8>>, emit_event: bool) -> Option<HistoryId> {
         let current = self.current()?;
         let id = current.id;
         let event = NavEvent::new_from_reload(current, info);
 
-        match self.handle_event(event) {
+        match self.handle_event(event, emit_event) {
             HandlerResponse::Default => {}
             HandlerResponse::PreventDefault => return None,
         };
@@ -159,7 +132,7 @@ impl NavCtx {
     /// current entry if successful.
     /// This function fails if there is no current
     /// page or if there are no items in history and returns [None].
-    pub fn back(&mut self, info: Option<Vec<u8>>) -> Option<HistoryId> {
+    pub fn back(&mut self, info: Option<Vec<u8>>, emit_event: bool) -> Option<HistoryId> {
         if !self.can_go_back() {
             log::warn!("Attempted `back` navigation without at minimum two entries.");
             return None;
@@ -171,11 +144,12 @@ impl NavCtx {
 
         let event = NavEvent::new_from_back(next.clone(), previous.clone(), info);
 
-        match self.handle_event(event) {
+        match self.handle_event(event, emit_event) {
             HandlerResponse::Default => {
                 let previous = self.history.pop()?;
                 let out = Some(next.id);
                 self.future.push(previous);
+                self.last_action = Some(LastNavigation::Back);
                 out
             }
             HandlerResponse::PreventDefault => None,
@@ -184,7 +158,7 @@ impl NavCtx {
 
     /// Navigate one step forward, fails if there is not at least one
     /// item in the history and future stacks.
-    pub fn forward(&mut self, info: Option<Vec<u8>>) -> Option<HistoryId> {
+    pub fn forward(&mut self, info: Option<Vec<u8>>, emit_event: bool) -> Option<HistoryId> {
         if !self.can_go_forward() {
             log::warn!(
                 "Attempted `future` navigation with an no current location or no next entry."
@@ -197,31 +171,38 @@ impl NavCtx {
 
         let event = NavEvent::new_from_forward(next, previous, info);
 
-        match self.handle_event(event) {
+        match self.handle_event(event, emit_event) {
             HandlerResponse::Default => {
                 let next = self.future.pop()?;
                 let out = Some(next.id);
                 self.push_entry(next);
+                self.last_action = Some(LastNavigation::Forward);
                 out
             }
             HandlerResponse::PreventDefault => None,
         }
     }
 
-    pub fn traverse_to(&mut self, id: HistoryId, info: Option<Vec<u8>>) -> Option<HistoryId> {
+    pub fn traverse_to(
+        &mut self,
+        id: HistoryId,
+        info: Option<Vec<u8>>,
+        emit_event: bool,
+    ) -> Option<HistoryId> {
         if !self.can_traverse_to(id) {
             log::warn!("Attempted to traverse to an untracked ID!");
             return None;
         }
 
-        let old_dest = self.current();
+        let old_dest = self.current()?;
         let in_hist = self.history.iter().position(|ent| ent.id == id);
         if let Some(entry) = in_hist {
             let new_dest = self.history[entry].clone();
+            let old_id = old_dest.id;
 
             let event = NavEvent::new_from_traverse(new_dest, old_dest, info);
 
-            match self.handle_event(event) {
+            match self.handle_event(event, emit_event) {
                 HandlerResponse::Default => {}
                 HandlerResponse::PreventDefault => return None,
             };
@@ -229,16 +210,18 @@ impl NavCtx {
             // All entries except the target
             let ext = self.history.drain(entry + 1..);
             self.future.extend(ext.rev());
+            self.last_action = Some(LastNavigation::Traverse { from: old_id });
             return Some(id);
         }
 
         let in_fut = self.future.iter().position(|ent| ent.id == id);
         if let Some(entry) = in_fut {
             let new_dest = self.future[entry].clone();
+            let old_id = old_dest.id;
 
             let event = NavEvent::new_from_traverse(new_dest, old_dest, info);
 
-            match self.handle_event(event) {
+            match self.handle_event(event, emit_event) {
                 HandlerResponse::Default => {}
                 HandlerResponse::PreventDefault => return None,
             };
@@ -246,6 +229,7 @@ impl NavCtx {
             // All entries including the target, which will be at the front.
             let ext = self.future.drain(entry..);
             self.history.extend(ext.rev());
+            self.last_action = Some(LastNavigation::Traverse { from: old_id });
             return Some(id);
         }
 
@@ -260,6 +244,9 @@ impl NavCtx {
     fn replace_entry(&mut self, history_entry: NavHistoryEntry) {
         if let Some(last) = self.history.last_mut() {
             self.id_source += 1;
+            self.last_action = Some(LastNavigation::Replace {
+                previous: last.clone(),
+            });
             *last = history_entry
         } else {
             self.push_entry(history_entry)
@@ -269,17 +256,52 @@ impl NavCtx {
     fn push_entry(&mut self, history_entry: NavHistoryEntry) {
         self.id_source += 1;
         self.history.push(history_entry);
+        self.last_action = Some(LastNavigation::Navigate);
     }
 
     pub fn set_event_handler(&mut self, handler: Arc<dyn NavEventHandler>) {
         self.navigation_event_handler.0 = Some(handler)
     }
 
-    pub fn handle_event(&mut self, event: NavEvent) -> HandlerResponse {
+    pub fn handle_event(&mut self, event: NavEvent, emit_event: bool) -> HandlerResponse {
+        if !emit_event {
+            return HandlerResponse::Default;
+        }
+
         if let Some(handler) = self.navigation_event_handler.0.as_ref() {
             handler.handle_event(event)
         } else {
             HandlerResponse::Default
+        }
+    }
+
+    /// In the case of a connection error during set up we might
+    /// need to roll back navigation state to before when the last
+    /// action was taken.
+    pub fn rollback_navigation_state(&mut self) {
+        let Some(last_action) = self.last_action.take() else {
+            return;
+        };
+
+        match last_action {
+            LastNavigation::Back => {
+                self.forward(None, false);
+            }
+            LastNavigation::Forward => {
+                self.back(None, false);
+                // back with no event emission
+            }
+            LastNavigation::Navigate => {
+                self.history.pop();
+            }
+            LastNavigation::Replace { previous } => {
+                if let Some(last) = self.history.last_mut() {
+                    *last = previous
+                }
+            }
+            LastNavigation::Traverse { from } => {
+                self.traverse_to(from, None, false);
+            }
         }
     }
 
