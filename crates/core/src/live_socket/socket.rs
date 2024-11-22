@@ -18,6 +18,16 @@ use crate::{
     parser::parse,
 };
 
+#[macro_export]
+macro_rules! lock {
+    ($mutex:expr) => {
+        $mutex.lock().expect("Failed to acquire lock")
+    };
+    ($mutex:expr, $msg:expr) => {
+        $mutex.lock().expect($msg)
+    };
+}
+
 const LVN_VSN: &str = "2.0.0";
 const LVN_VSN_KEY: &str = "vsn";
 const CSRF_KEY: &str = "_csrf_token";
@@ -314,7 +324,7 @@ async fn get_dead_render(
 #[derive(uniffi::Object)]
 pub struct LiveSocket {
     pub socket: Mutex<Arc<Socket>>,
-    pub session_data: SessionData,
+    pub session_data: Mutex<SessionData>,
     pub(super) navigation_ctx: Mutex<NavCtx>,
 }
 
@@ -358,20 +368,26 @@ impl LiveSocket {
 
         Ok(Self {
             socket,
-            session_data,
+            session_data: session_data.into(),
             navigation_ctx,
         })
     }
 
     pub fn dead_render(&self) -> FFiDocument {
-        self.session_data.dead_render.clone().into()
+        lock!(self.session_data).dead_render.clone().into()
     }
 
     pub fn style_urls(&self) -> Vec<String> {
-        self.session_data.style_urls.clone()
+        self.session_data
+            .lock()
+            .expect("lock poisoined")
+            .style_urls
+            .clone()
     }
+
     pub async fn join_livereload_channel(&self) -> Result<LiveChannel, LiveSocketError> {
-        let mut url = self.session_data.url.clone();
+        let mut url = lock!(self.session_data).url.clone();
+
         let websocket_scheme = match url.scheme() {
             "https" => "wss",
             "http" => "ws",
@@ -385,7 +401,9 @@ impl LiveSocket {
         url.set_path("phoenix/live_reload/socket/websocket");
         url.query_pairs_mut().append_pair(LVN_VSN_KEY, LVN_VSN);
 
-        let socket = Socket::spawn(url.clone(), Some(self.session_data.cookies.clone())).await?;
+        let cookies = lock!(self.session_data).cookies.clone();
+
+        let socket = Socket::spawn(url.clone(), Some(cookies)).await?;
         socket.connect(self.timeout()).await?;
 
         debug!("Joining live reload channel on url {url}");
@@ -411,6 +429,8 @@ impl LiveSocket {
         redirect: Option<String>,
     ) -> Result<LiveChannel, LiveSocketError> {
         self.socket().connect(self.timeout()).await?;
+        let session_data = lock!(self.session_data).clone();
+
         let mut collected_join_params = HashMap::from([
             (
                 MOUNT_KEY.to_string(),
@@ -421,13 +441,13 @@ impl LiveSocket {
             (
                 CSRF_KEY.to_string(),
                 JSON::Str {
-                    string: self.session_data.csrf_token.clone(),
+                    string: session_data.csrf_token,
                 },
             ),
             (
                 FMT_KEY.to_string(),
                 JSON::Str {
-                    string: self.session_data.format.clone(),
+                    string: session_data.format,
                 },
             ),
         ]);
@@ -442,7 +462,7 @@ impl LiveSocket {
             (
                 "url".to_string(),
                 JSON::Str {
-                    string: self.session_data.url.to_string(),
+                    string: session_data.url.to_string(),
                 },
             )
         };
@@ -452,13 +472,13 @@ impl LiveSocket {
                     (
                         "static".to_string(),
                         JSON::Str {
-                            string: self.session_data.phx_static.clone(),
+                            string: session_data.phx_static,
                         },
                     ),
                     (
                         "session".to_string(),
                         JSON::Str {
-                            string: self.session_data.phx_session.clone(),
+                            string: session_data.phx_session,
                         },
                     ),
                     // TODO: Add redirect key. Swift code:
@@ -478,7 +498,7 @@ impl LiveSocket {
         let channel = self
             .socket()
             .channel(
-                Topic::from_string(format!("lv:{}", self.session_data.phx_id)),
+                Topic::from_string(format!("lv:{}", session_data.phx_id)),
                 Some(join_payload),
             )
             .await?;
@@ -517,7 +537,7 @@ impl LiveSocket {
     }
 
     pub fn timeout(&self) -> Duration {
-        Duration::from_millis(self.session_data.connect_opts.timeout_ms)
+        Duration::from_millis(lock!(self.session_data).connect_opts.timeout_ms)
     }
 
     pub fn socket(&self) -> Arc<Socket> {
@@ -525,6 +545,6 @@ impl LiveSocket {
     }
 
     pub fn has_live_reload(&self) -> bool {
-        self.session_data.has_live_reload
+        lock!(self.session_data).has_live_reload
     }
 }

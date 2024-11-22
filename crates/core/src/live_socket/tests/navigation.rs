@@ -229,46 +229,6 @@ const HOST: &str = "10.0.2.2:4001";
 #[cfg(not(target_os = "android"))]
 const HOST: &str = "127.0.0.1:4001";
 
-#[tokio::test]
-async fn join_live_view() {
-    let _ = env_logger::builder()
-        .parse_default_env()
-        .is_test(true)
-        .try_init();
-
-    let first = "first_page";
-    let url = format!("http://{HOST}/nav/{first}");
-
-    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
-        .await
-        .expect("Failed to get liveview socket");
-
-    let live_channel = live_socket
-        .join_liveview_channel(None, None)
-        .await
-        .expect("Failed to join channel");
-
-    let join_doc = live_channel
-        .join_document()
-        .expect("Failed to render join payload");
-
-    let expected = r#"
-<Group id="flash-group" />
-<VStack>
-    <Text>
-        first_page
-    </Text>
-    <NavigationLink id="Next" destination="/nav/next">
-        <Text>
-            NEXT
-        </Text>
-    </NavigationLink>
-</VStack>
-"#;
-
-    assert_doc_eq!(expected, join_doc.to_string());
-}
-
 #[test]
 fn test_navigation_rollback_back() {
     let mut ctx = NavCtx::default();
@@ -318,4 +278,76 @@ fn test_navigation_rollback_forward() {
 
     ctx.rollback_navigation_state();
     assert_eq!(ctx.current().expect("current").id, id2);
+}
+
+#[tokio::test]
+async fn basic_nav_flow() {
+    let _ = env_logger::builder()
+        .parse_default_env()
+        .is_test(true)
+        .try_init();
+
+    let first = "first_page";
+    let second = "second_page";
+    let url = format!("http://{HOST}/nav/{first}");
+
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+        .await
+        .expect("Failed to get liveview socket");
+
+    let live_channel = live_socket
+        .join_liveview_channel(None, None)
+        .await
+        .expect("Failed to join channel");
+
+    let join_doc = live_channel
+        .join_document()
+        .expect("Failed to render join payload");
+
+    let expected = r#"
+<Group id="flash-group" />
+<VStack>
+    <Text>
+        first_page
+    </Text>
+    <NavigationLink id="Next" destination="/nav/next">
+        <Text>
+            NEXT
+        </Text>
+    </NavigationLink>
+</VStack>
+"#;
+
+    assert_doc_eq!(expected, join_doc.to_string());
+
+    let url = format!("http://{HOST}/nav/{second}");
+    let _id = live_socket
+        .navigate(url, Default::default())
+        .await
+        .expect("navigate");
+
+    let live_channel = live_socket
+        .join_liveview_channel(None, None)
+        .await
+        .expect("Failed to join channel");
+
+    let join_doc = live_channel
+        .join_document()
+        .expect("Failed to render join payload");
+
+    let expected = r#"
+<Group id="flash-group" />
+<VStack>
+    <Text>
+       second_page
+    </Text>
+    <NavigationLink id="Next" destination="/nav/next">
+        <Text>
+            NEXT
+        </Text>
+    </NavigationLink>
+</VStack>
+"#;
+
+    assert_doc_eq!(expected, join_doc.to_string());
 }

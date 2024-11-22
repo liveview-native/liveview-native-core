@@ -154,7 +154,7 @@ impl NavEvent {
 
 use crate::live_socket::socket::SessionData;
 
-use super::{super::error::LiveSocketError, LiveSocket};
+use super::{super::error::LiveSocketError, LiveSocket, NavCtx};
 
 impl LiveSocket {
     /// Tries to navigate to the current item in the NavCtx.
@@ -166,11 +166,15 @@ impl LiveSocket {
 
         let url = Url::parse(&current.url)?;
 
-        let format = &self.session_data.format;
+        let format = self.session_data.lock().expect("poison").format.clone();
+        let options = self
+            .session_data
+            .lock()
+            .expect("poison")
+            .connect_opts
+            .clone();
 
-        let options = &self.session_data.connect_opts;
-
-        let session_data = SessionData::request(&url, format, options.clone()).await?;
+        let session_data = SessionData::request(&url, &format, options).await?;
         let websocket_url = session_data.get_live_socket_url()?;
         let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone())).await?;
 
@@ -179,28 +183,22 @@ impl LiveSocket {
             .await
             .map_err(|_| LiveSocketError::DisconnectionError)?;
 
-        let mut old_socket = self.socket.lock().expect("Could not lock socket");
-        *old_socket = socket;
-
+        *self.socket.lock().expect("poison") = socket;
+        *self.session_data.lock().expect("poison") = session_data;
         Ok(())
     }
-}
 
-#[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
-impl LiveSocket {
-    pub async fn navigate(
-        &self,
-        url: String,
-        opts: NavOptions,
-    ) -> Result<HistoryId, LiveSocketError> {
-        let url = Url::parse(&url)?;
+    /// calls [Self::try_nav] rolling back to a previous navigation state on failure.
+    async fn try_nav_with_rollback<F>(&self, nav_action: F) -> Result<HistoryId, LiveSocketError>
+    where
+        F: FnOnce(&mut NavCtx) -> Option<HistoryId>,
+    {
+        let new_id = {
+            let mut ctx = self.navigation_ctx.lock().expect("lock poison");
+            nav_action(&mut ctx)
+        };
 
-        let Some(new_id) = self
-            .navigation_ctx
-            .lock()
-            .expect("lock poison")
-            .navigate(url, opts, true)
-        else {
+        let Some(new_id) = new_id else {
             return Err(LiveSocketError::NavigationImpossible);
         };
 
@@ -215,51 +213,41 @@ impl LiveSocket {
             }
         }
     }
+}
 
-    pub async fn reload(
+#[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
+impl LiveSocket {
+    pub async fn navigate(
         &self,
-        info: Option<Vec<u8>>,
-    ) -> Result<Option<HistoryId>, LiveSocketError> {
-        let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
-        let res = nav_ctx.reload(info, true);
-        if res.is_some() {
-            if let Some(_current) = nav_ctx.current() {}
-        }
-        Ok(res)
+        url: String,
+        opts: NavOptions,
+    ) -> Result<HistoryId, LiveSocketError> {
+        let url = Url::parse(&url)?;
+        self.try_nav_with_rollback(|ctx| ctx.navigate(url, opts, true))
+            .await
     }
 
-    pub async fn back(&self, info: Option<Vec<u8>>) -> Result<Option<HistoryId>, LiveSocketError> {
-        let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
-        let res = nav_ctx.back(info, true);
-        if res.is_some() {
-            if let Some(_current) = nav_ctx.current() {}
-        }
-        Ok(res)
+    pub async fn reload(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
+        self.try_nav_with_rollback(|ctx| ctx.reload(info, true))
+            .await
     }
 
-    pub async fn forward(
-        &self,
-        info: Option<Vec<u8>>,
-    ) -> Result<Option<HistoryId>, LiveSocketError> {
-        let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
-        let res = nav_ctx.forward(info, true);
-        if res.is_some() {
-            if let Some(_current) = nav_ctx.current() {}
-        }
-        Ok(res)
+    pub async fn back(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
+        self.try_nav_with_rollback(|ctx| ctx.back(info, true)).await
+    }
+
+    pub async fn forward(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
+        self.try_nav_with_rollback(|ctx| ctx.forward(info, true))
+            .await
     }
 
     pub async fn traverse_to(
         &self,
         id: HistoryId,
         info: Option<Vec<u8>>,
-    ) -> Result<Option<HistoryId>, LiveSocketError> {
-        let mut nav_ctx = self.navigation_ctx.lock().expect("lock poison");
-        let res = nav_ctx.traverse_to(id, info, true);
-        if res.is_some() {
-            if let Some(_current) = nav_ctx.current() {}
-        }
-        Ok(res)
+    ) -> Result<HistoryId, LiveSocketError> {
+        self.try_nav_with_rollback(|ctx| ctx.traverse_to(id, info, true))
+            .await
     }
 
     /// Returns whether navigation backward in history is possible.
