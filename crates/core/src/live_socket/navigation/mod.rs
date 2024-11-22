@@ -76,8 +76,8 @@ impl NavCtx {
         };
 
         match action {
-            NavAction::Push => self.push_entry(next_dest),
-            NavAction::Replace => self.replace_entry(next_dest),
+            Some(NavAction::Replace) => self.replace_entry(next_dest),
+            None | Some(NavAction::Push) => self.push_entry(next_dest),
         }
 
         // successful navigation invalidates previously coalesced state from

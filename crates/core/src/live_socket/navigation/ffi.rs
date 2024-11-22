@@ -62,8 +62,9 @@ pub struct NavEvent {
     pub info: Option<Vec<u8>>,
 }
 
-// An action taken with respect to the history stack
-// when [NavCtx::navigate] is executed.
+/// An action taken with respect to the history stack
+/// when [NavCtx::navigate] is executed. defaults to
+/// Push behavior.
 #[derive(uniffi::Enum, Default, Clone)]
 pub enum NavAction {
     /// Push the navigation event onto the history stack.
@@ -76,8 +77,11 @@ pub enum NavAction {
 /// Options for calls to [NavCtx::navigate]
 #[derive(Default, uniffi::Record)]
 pub struct NavOptions {
-    pub action: NavAction,
+    #[uniffi(default = None)]
+    pub action: Option<NavAction>,
+    #[uniffi(default = None)]
     pub extra_event_info: Option<Vec<u8>>,
+    #[uniffi(default = None)]
     pub state: Option<Vec<u8>>,
 }
 
@@ -124,8 +128,8 @@ impl NavEvent {
         opts: NavOptions,
     ) -> NavEvent {
         let event = match opts.action {
-            NavAction::Push => NavEventType::Push,
-            NavAction::Replace => NavEventType::Replace,
+            Some(NavAction::Replace) => NavEventType::Replace,
+            _ => NavEventType::Push,
         };
 
         NavEvent::new(event, new_dest, old_dest, opts.extra_event_info)
@@ -185,6 +189,7 @@ impl LiveSocket {
 
         *self.socket.lock().expect("poison") = socket;
         *self.session_data.lock().expect("poison") = session_data;
+
         Ok(())
     }
 
