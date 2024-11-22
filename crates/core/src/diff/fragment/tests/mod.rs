@@ -834,6 +834,45 @@ fn expands_shared_static_from_cids() {
 }
 
 #[test]
+fn reuses_statics() {
+    let static_reuse_diff: RootDiff = json_struct!({
+        "0": {
+            "d": [
+                ["foo", {"d": [["0", 1], ["1", 2]], "s": 0}],
+                ["bar", {"d": [["0", 3], ["1", 4]], "s": 0}]
+            ],
+            "s": ["\n  <p>\n    ", "\n    ", "\n  </p>\n"],
+            "r": 1,
+            "t": {"0": ["<span>", ": ", "</span>"]}
+        },
+        "c": {
+            "1": {"0": "index_1", "1": "world", "s": ["<b>FROM ", " ", "</b>"], "r": 1},
+            "2": {"0": "index_2", "1": "world", "s": 1, "r": 1},
+            "3": {"0": "index_1", "1": "world", "s": 1, "r": 1},
+            "4": {"0": "index_2", "1": "world", "s": 3, "r": 1}
+        },
+        "s": ["<div>", "</div>"],
+        "r": 1
+    });
+
+    let root: Root = static_reuse_diff.try_into().expect("conversion failed");
+    let doc: String = root.try_into().expect("render failed");
+
+    let expected = r#"<div data-phx-id="m1-123">
+<p>
+foo
+<span>0: <b data-phx-id="c1-123" data-phx-component="1">FROM index_1 world</b></span><span>1: <b data-phx-id="c2-123" data-phx-component="2">FROM index_2 world</b></span>
+</p>
+<p>
+bar
+<span>0: <b data-phx-id="c3-123" data-phx-component="3">FROM index_1 world</b></span><span>1: <b data-phx-id="c4-123" data-phx-component="4">FROM index_2 world</b></span>
+</p>
+</div>"#;
+
+    assert_doc_eq!(doc, expected);
+}
+
+#[test]
 fn jetpack_complex() {
     /*
 
