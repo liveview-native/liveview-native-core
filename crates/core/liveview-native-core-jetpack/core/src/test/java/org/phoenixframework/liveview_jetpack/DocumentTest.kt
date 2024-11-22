@@ -11,6 +11,7 @@ import org.phoenixframework.liveviewnative.core.Document
 import org.phoenixframework.liveviewnative.core.DocumentChangeHandler
 import org.phoenixframework.liveviewnative.core.LiveFile
 import org.phoenixframework.liveviewnative.core.LiveSocket
+import org.phoenixframework.liveviewnative.core.NavOptions
 import org.phoenixframework.liveviewnative.core.NodeData
 import org.phoenixframework.liveviewnative.core.NodeRef
 
@@ -244,5 +245,51 @@ class DocumentTest {
     </Text>
 </Column>"""
         assertEquals(expected, rendered)
+    }
+
+    @Test
+    fun basic_nav_flow() = runTest {
+        val host = "127.0.0.1:4001"
+        val url = "http://$host/nav/first_page"
+
+        val liveSocket = LiveSocket.connect(url, "jetpack", null)
+        val liveChannel = liveSocket.joinLiveviewChannel(null, null)
+        val doc = liveChannel.document()
+
+        val expectedFirstDoc =
+                """
+               <Box size="fill" background="system-blue">
+                 <Text align="Center">
+                        first_page
+                   <Link destination="/nav/next">
+                        <Text class="bold">Next</Text>
+                   </Link>
+                 </Text>
+               </Box>
+           """.trimIndent()
+
+        val exp = Document.parse(expectedFirstDoc)
+        assertEquals(exp.render(), doc.render())
+
+        val secondUrl = "http://$host/nav/second_page"
+        liveSocket.navigate(secondUrl, NavOptions())
+
+        val secondChannel = liveSocket.joinLiveviewChannel(null, null)
+        val secondDoc = secondChannel.document()
+
+        val expectedSecondDoc =
+                """
+                <Box size="fill" background="system-blue">
+                  <Text align="Center">
+                        second_page
+                    <Link destination="/nav/next">
+                         <Text class="bold">Next</Text>
+                    </Link>
+                  </Text>
+                </Box>
+           """.trimIndent()
+
+        val secondExp = Document.parse(expectedSecondDoc)
+        assertEquals(secondExp.render(), secondDoc.render())
     }
 }

@@ -60,10 +60,8 @@ final class LiveViewNativeCoreUploadTests: XCTestCase {
 
 // Test basic navigation flow with LiveSocket
 func testBasicNavFlow() async throws {
-    let first = "first_page"
-    let second = "second_page"
-    let host = "127.0.0.1:4001"
-    let url = "http://\(host)/nav/\(first)"
+    let url = "http://127.0.0.1:4001/nav/first_page"
+    let secondUrl = "http://127.0.0.1:4001/nav/second_page"
 
     let liveSocket = try await LiveSocket(url, "swiftui", .none)
     let liveChannel = try await liveSocket.joinLiveviewChannel(.none, .none)
@@ -88,7 +86,6 @@ func testBasicNavFlow() async throws {
 
     XCTAssertEqual(doc.render(), exp.render())
 
-    let secondUrl = "http://\(host)/nav/\(second)"
     let _ = try await liveSocket.navigate(secondUrl, NavOptions())
 
     let secondChannel = try await liveSocket.joinLiveviewChannel(.none, .none)
