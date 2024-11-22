@@ -843,7 +843,7 @@ fn reuses_statics() {
             ],
             "s": ["\n  <p>\n    ", "\n    ", "\n  </p>\n"],
             "r": 1,
-            "t": {"0": ["<span>", ": ", "</span>"]}
+            "p": {"0": ["<span>", ": ", "</span>"]}
         },
         "c": {
             "1": {"0": "index_1", "1": "world", "s": ["<b>FROM ", " ", "</b>"], "r": 1},
@@ -854,18 +854,17 @@ fn reuses_statics() {
         "s": ["<div>", "</div>"],
         "r": 1
     });
-
     let root: Root = static_reuse_diff.try_into().expect("conversion failed");
     let doc: String = root.try_into().expect("render failed");
 
-    let expected = r#"<div data-phx-id="m1-123">
+    let expected = r#"<div>
 <p>
 foo
-<span>0: <b data-phx-id="c1-123" data-phx-component="1">FROM index_1 world</b></span><span>1: <b data-phx-id="c2-123" data-phx-component="2">FROM index_2 world</b></span>
+<span>0: <b>FROM index_1 world</b></span><span>1: <b>FROM index_2 world</b></span>
 </p>
 <p>
 bar
-<span>0: <b data-phx-id="c3-123" data-phx-component="3">FROM index_1 world</b></span><span>1: <b data-phx-id="c4-123" data-phx-component="4">FROM index_2 world</b></span>
+<span>0: <b>FROM index_1 world</b></span><span>1: <b>FROM index_2 world</b></span>
 </p>
 </div>"#;
 
@@ -1124,6 +1123,7 @@ fn fragment_render_parse() {
             Component {
                 children: HashMap::from([("0".into(), Child::String("bar".to_owned().into()))]),
                 statics: ComponentStatics::Statics(vec!["4".into(), "5".into()]),
+                is_root: None,
             },
         )]),
         new_render: None,
@@ -1753,6 +1753,7 @@ fn test_decode_component_diff() {
         components: HashMap::from([(
             "1".into(),
             ComponentDiff::UpdateRegular {
+                is_root: None,
                 children: HashMap::from([(
                     "0".into(),
                     ChildDiff::Fragment(FragmentDiff::UpdateComprehension {

@@ -40,7 +40,11 @@ impl TryFrom<ComponentDiff> for Component {
             ComponentDiff::UpdateRegular { .. } => Err(MergeError::CreateComponentFromUpdate),
             ComponentDiff::ReplaceCurrent {
                 children, statics, ..
-            } => Ok(Self { children, statics }),
+            } => Ok(Self {
+                children,
+                statics,
+                is_root: None,
+            }),
         }
     }
 }
@@ -58,6 +62,7 @@ impl FragmentMerge for Root {
 }
 
 impl Root {
+    /// create a new root, resolving the CID's
     pub fn new(
         fragment: Fragment,
         old_components: HashMap<String, Component>,
@@ -406,11 +411,16 @@ impl FragmentMerge for Component {
                 Ok(Self {
                     children: new_children,
                     statics: self.statics,
+                    is_root: None,
                 })
             }
             ComponentDiff::ReplaceCurrent {
                 statics, children, ..
-            } => Ok(Self { children, statics }),
+            } => Ok(Self {
+                children,
+                statics,
+                is_root: None,
+            }),
         }
     }
 }
