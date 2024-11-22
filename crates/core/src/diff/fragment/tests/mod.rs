@@ -254,6 +254,110 @@ fn considers_links_whole_tree() {
     assert_eq!(expected2, result2);
 }
 
+// these are based on the js rendered_tests from liveview
+#[test]
+fn simple_diff_js_mirror() {
+    let simple_diff1: Root = json_struct!({
+        "0": "cooling",
+        "1": "cooling",
+        "2": "07:15:03 PM",
+        "s": [
+            "<div class=\"thermostat\">\n  <div class=\"bar ",
+            "\">\n    <a href=\"#\" phx-click=\"toggle-mode\">",
+            "</a>\n    <span>",
+            "</span>\n  </div>\n</div>\n"
+        ],
+    });
+
+    let simple_diff2: RootDiff = json_struct!({
+        "2": "07:15:04 PM"
+    });
+
+    let simple_result = simple_diff1.merge(simple_diff2).expect("Merge error");
+
+    let simple_expected: Root = json_struct!({
+        "0": "cooling",
+        "1": "cooling",
+        "2": "07:15:04 PM",
+        "s": [
+            "<div class=\"thermostat\">\n  <div class=\"bar ",
+            "\">\n    <a href=\"#\" phx-click=\"toggle-mode\">",
+            "</a>\n    <span>",
+            "</span>\n  </div>\n</div>\n"
+        ],
+    });
+
+    assert_eq!(simple_expected, simple_result);
+}
+
+// these are based on the js tests from live view
+#[test]
+fn deep_diff_js_mirror() {
+    let deep_diff1: Root = json_struct!({
+        "0": {
+            "0": {
+                "d": [["user1058", "1"], ["user99", "1"]],
+                "s": ["<tr>\n<td>", " (", ")</td>\n</tr>\n"],
+                "r": 1
+            },
+            "s": [
+                "  <table>\n    <thead>\n      <tr>\n        <th>Username</th>\n        <th></th>\n      </tr>\n    </thead>\n    <tbody>\n",
+                "    </tbody>\n  </table>\n"
+            ],
+            "r": 1
+        },
+        "1": {
+            "d": [[
+                "asdf_asdf",
+            ]],
+            "s": [
+                "<tr>\n<td>",
+                "</td>\n<td>",
+            ],
+            "r": 1
+        }
+    });
+
+    let deep_diff2: RootDiff = json_struct!({
+        "0": {
+            "0": {
+                "d": [["user1058", "2"]]
+            }
+        }
+    });
+
+    let deep_result = deep_diff1.merge(deep_diff2).expect("Merge error");
+
+    let deep_expected: Root = json_struct!({
+        "0": {
+            "0": {
+                "newRender": true,
+                "d": [["user1058", "2"]],
+                "s": ["<tr>\n<td>", " (", ")</td>\n</tr>\n"],
+                "r": 1
+            },
+            "s": [
+                "  <table>\n    <thead>\n      <tr>\n        <th>Username</th>\n        <th></th>\n      </tr>\n    </thead>\n    <tbody>\n",
+                "    </tbody>\n  </table>\n"
+            ],
+            "newRender": true,
+            "r": 1
+        },
+        "1": {
+            "d": [[
+                "asdf_asdf",
+            ]],
+            "s": [
+                "<tr>\n<td>",
+                "</td>\n<td>",
+            ],
+            "r": 1
+        }
+    });
+
+    assert_eq!(deep_expected, deep_result);
+}
+
 #[test]
 fn jetpack_show_dialog() {
     /*
@@ -634,6 +738,100 @@ fn jetpack_more_edge_cases() {
         .try_into()
         .expect("Failed to convert root to string");
 }
+#[test]
+fn expands_shared_static_from_cids() {
+    let root: Root = json_struct!({});
+    let mount_diff: RootDiff = json_struct!({
+        "0": "",
+        "1": "",
+        "2": {
+            "0": "new post",
+            "1": "",
+            "2": {
+                "d": [[1], [2]],
+                "s": ["", ""]
+            },
+            "s": ["h1", "h2", "h3", "h4"]
+        },
+        "c": {
+            "1": {
+                "0": "1008",
+                "1": "chris_mccord",
+                "2": "My post",
+                "3": "1",
+                "4": "0",
+                "5": "1",
+                "6": "0",
+                "7": "edit",
+                "8": "delete",
+                "s": ["s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9"]
+            },
+            "2": {
+                "0": "1007",
+                "1": "chris_mccord",
+                "2": "My post",
+                "3": "2",
+                "4": "0",
+                "5": "2",
+                "6": "0",
+                "7": "edit",
+                "8": "delete",
+                "s": 1
+            }
+        },
+        "s": ["f1", "f2", "f3", "f4"],
+        "title": "Listing Posts"
+    });
+
+    let root = root.merge(mount_diff).expect("merge failed");
+
+    let component1_static = root.components.get("1").expect("C1 Missing");
+    let component2_static = root.components.get("2").expect("C2 Missing");
+    assert!(matches!(
+        component1_static.statics,
+        ComponentStatics::Statics(_)
+    ));
+    assert_eq!(component1_static.statics, component2_static.statics);
+
+    let update_diff: RootDiff = json_struct!({
+        "2": {
+            "2": {
+                "d": [[3]]
+            }
+        },
+        "c": {
+            "3": {
+                "0": "1009",
+                "1": "chris_mccord",
+                "2": "newnewnewnewnewnewnewnew",
+                "3": "3",
+                "4": "0",
+                "5": "3",
+                "6": "0",
+                "7": "edit",
+                "8": "delete",
+                "s": -2
+            }
+        }
+    });
+
+    let root = root.merge(update_diff).expect("Merge error");
+    let _ = root.components.get("2").expect("C2 Post Merge Missing");
+    let _ = root.components.get("3").expect("C3 Post Merge Missing");
+
+    let Component { statics, .. } = root.components.get("1").expect("C1 Post Merge Missing");
+    assert!(matches!(statics, ComponentStatics::Statics(_)));
+
+    assert_eq!(
+        Some(statics.clone()),
+        root.components.get("2").map(|c| c.statics.clone())
+    );
+
+    assert_eq!(
+        Some(statics.clone()),
+        root.components.get("3").map(|c| c.statics.clone())
+    );
+}
 
 #[test]
 fn jetpack_complex() {
@@ -818,19 +1016,21 @@ fn test_replace() {
     let current = Fragment::Regular {
         children: HashMap::from([("1".into(), Child::String("a".to_owned().into()))]),
         statics: Statics::Statics(vec!["b".into(), "c".into()]).into(),
-        reply: None,
+        is_root: None,
+        new_render: None,
     };
 
     let diff = FragmentDiff::UpdateRegular {
         children: HashMap::from([("1".into(), ChildDiff::String("foo".to_owned().into()))]),
         statics: Statics::Statics(vec!["bar".into(), "baz".into()]).into(),
-        reply: None,
+        is_root: None,
     };
 
     let new = Fragment::Regular {
         statics: Statics::Statics(vec!["bar".into(), "baz".into()]).into(),
-        reply: None,
+        is_root: None,
         children: HashMap::from([("1".into(), Child::String("foo".to_owned().into()))]),
+        new_render: None,
     };
 
     assert_eq!(
@@ -847,19 +1047,21 @@ fn test_mutate() {
     let current = Fragment::Regular {
         children: HashMap::from([("1".into(), Child::String("a".to_owned().into()))]),
         statics: Statics::Statics(vec!["b".into(), "c".into()]).into(),
-        reply: None,
+        is_root: None,
+        new_render: None,
     };
 
     let diff = FragmentDiff::UpdateRegular {
         children: HashMap::from([("1".into(), ChildDiff::String("foo".to_owned().into()))]),
         statics: None,
-        reply: None,
+        is_root: None,
     };
 
     let new = Fragment::Regular {
         children: HashMap::from([("1".into(), Child::String("foo".to_owned().into()))]),
         statics: Statics::Statics(vec!["b".into(), "c".into()]).into(),
-        reply: None,
+        is_root: None,
+        new_render: None,
     };
 
     let merge = current.merge(diff).expect("Failed to merge diff");
@@ -869,14 +1071,14 @@ fn test_mutate() {
 #[test]
 fn fragment_render_parse() {
     let root = Root {
-        new_render: None,
         fragment: Fragment::Regular {
             children: HashMap::from([
                 ("0".into(), Child::String("foo".to_owned().into())),
                 ("1".into(), Child::ComponentID(1)),
             ]),
             statics: Statics::Statics(vec!["1".into(), "2".into(), "3".into()]).into(),
-            reply: None,
+            is_root: None,
+            new_render: None,
         },
         components: HashMap::from([(
             "1".into(),
@@ -885,6 +1087,7 @@ fn fragment_render_parse() {
                 statics: ComponentStatics::Statics(vec!["4".into(), "5".into()]),
             },
         )]),
+        new_render: None,
     };
 
     let expected = "1foo24bar53";
@@ -1270,7 +1473,7 @@ fn simple() {
     let expected = FragmentDiff::UpdateRegular {
         children: HashMap::from([(1.to_string(), ChildDiff::String("baz".to_owned().into()))]),
         statics: None,
-        reply: None,
+        is_root: None,
     };
     assert_eq!(out, expected);
 }
@@ -1388,7 +1591,7 @@ fn test_decode_simple() {
             ("1".into(), ChildDiff::String("bar".to_owned().into())),
         ]),
         statics: Some(Statics::Statics(vec!["a".into(), "b".into()])),
-        reply: None,
+        is_root: None,
     };
     assert_eq!(out, expected);
 }
@@ -1429,7 +1632,7 @@ fn test_decode_comprehension_with_templates() {
             vec!["\\n    bar ".into(), "\\n  ".into()],
         )])),
         stream: None,
-        reply: None,
+        is_root: None,
     };
     assert_eq!(out, expected);
 }
@@ -1461,7 +1664,7 @@ fn test_decode_comprehension_without_templates() {
         statics: None,
         templates: None,
         stream: None,
-        reply: None,
+        is_root: None,
     };
     assert_eq!(out, expected);
 }
@@ -1501,11 +1704,11 @@ fn test_decode_component_diff() {
                 ChildDiff::Fragment(FragmentDiff::UpdateRegular {
                     children: HashMap::from([("0".into(), ChildDiff::ComponentID(1))]),
                     statics: None,
-                    reply: None,
+                    is_root: None,
                 }),
             )]),
             statics: None,
-            reply: None,
+            is_root: None,
         },
         new_render: None,
         components: HashMap::from([(
@@ -1527,7 +1730,7 @@ fn test_decode_component_diff() {
                         statics: None,
                         templates: None,
                         stream: None,
-                        reply: None,
+                        is_root: None,
                     }),
                 )]),
             },
@@ -1555,11 +1758,11 @@ fn test_decode_root_diff() {
                 ChildDiff::Fragment(FragmentDiff::UpdateRegular {
                     children: HashMap::from([("0".into(), ChildDiff::ComponentID(1))]),
                     statics: None,
-                    reply: None,
+                    is_root: None,
                 }),
             )]),
             statics: None,
-            reply: None,
+            is_root: None,
         },
         components: HashMap::new(),
         new_render: None,
