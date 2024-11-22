@@ -1,6 +1,7 @@
 //! # FFI Navigation Types
 //!
 //! Types and utilities for interacting with the navigation API for the FFI api consumers.
+use phoenix_channels_client::Socket;
 use reqwest::Url;
 
 pub type HistoryId = u64;
@@ -170,6 +171,16 @@ impl LiveSocket {
         let options = &self.session_data.connect_opts;
 
         let session_data = SessionData::request(&url, format, options.clone()).await?;
+        let websocket_url = session_data.get_live_socket_url()?;
+        let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone())).await?;
+
+        self.socket()
+            .disconnect()
+            .await
+            .map_err(|_| LiveSocketError::DisconnectionError)?;
+
+        let mut old_socket = self.socket.lock().expect("Could not lock socket");
+        *old_socket = socket;
 
         Ok(())
     }

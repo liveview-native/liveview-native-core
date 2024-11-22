@@ -20,7 +20,7 @@ impl std::fmt::Debug for HandlerInternal {
 }
 
 /// for rolling back the navigation state
-/// after a failed connnection.
+/// after a failed connection.
 #[derive(Debug, Clone)]
 enum LastNavigation {
     Back,

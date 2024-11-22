@@ -218,13 +218,44 @@ impl SessionData {
 
         Ok(out)
     }
+
+    /// reconstruct the live socket url from the session data
+    pub fn get_live_socket_url(&self) -> Result<Url, LiveSocketError> {
+        let websocket_scheme = match self.url.scheme() {
+            "https" => "wss",
+            "http" => "ws",
+            scheme => {
+                return Err(LiveSocketError::SchemeNotSupported {
+                    scheme: scheme.to_string(),
+                })
+            }
+        };
+
+        let port = self.url.port().map(|p| format!(":{p}")).unwrap_or_default();
+        let host = self.url.host_str().ok_or(LiveSocketError::NoHostInURL)?;
+
+        let mut websocket_url = Url::parse(&format!("{websocket_scheme}://{host}{port}"))?;
+
+        websocket_url
+            .query_pairs_mut()
+            .append_pair(LVN_VSN_KEY, LVN_VSN)
+            .append_pair(CSRF_KEY, &self.csrf_token)
+            .append_pair(MOUNT_KEY, "0")
+            .append_pair(FMT_KEY, &self.format);
+
+        websocket_url.set_path("/live/websocket");
+
+        debug!("websocket url: {websocket_url}");
+
+        Ok(websocket_url)
+    }
 }
 
 /// Gets the 'dead render', a static html page containing metadata about how to
-/// connect to a known websocket address and initialize the live view session.
+/// connect to a websocket and initialize the live view session.
 async fn get_dead_render(
     url: &Url,
-    format: &String,
+    format: &str,
     options: &ConnectOpts,
 ) -> Result<(Document, Vec<String>), LiveSocketError> {
     let ConnectOpts {
@@ -282,7 +313,7 @@ async fn get_dead_render(
 
 #[derive(uniffi::Object)]
 pub struct LiveSocket {
-    pub socket: Arc<Socket>,
+    pub socket: Mutex<Arc<Socket>>,
     pub session_data: SessionData,
     pub(super) navigation_ctx: Mutex<NavCtx>,
 }
@@ -311,34 +342,11 @@ impl LiveSocket {
         // Make HTTP request to get initial dead render, an HTML document with
         // metadata needed to set up the liveview websocket connection.
         let session_data = SessionData::request(&url, &format, options).await?;
+        let websocket_url = session_data.get_live_socket_url()?;
 
-        let websocket_scheme = match url.scheme() {
-            "https" => "wss",
-            "http" => "ws",
-            scheme => {
-                return Err(LiveSocketError::SchemeNotSupported {
-                    scheme: scheme.to_string(),
-                })
-            }
-        };
-
-        let port = url.port().map(|p| format!(":{p}")).unwrap_or_default();
-        let host = url.host_str().ok_or(LiveSocketError::NoHostInURL)?;
-
-        let mut websocket_url = Url::parse(&format!("{websocket_scheme}://{host}{port}"))?;
-
-        websocket_url
-            .query_pairs_mut()
-            .append_pair(LVN_VSN_KEY, LVN_VSN)
-            .append_pair(CSRF_KEY, &session_data.csrf_token)
-            .append_pair(MOUNT_KEY, "0")
-            .append_pair(FMT_KEY, &format);
-
-        websocket_url.set_path("/live/websocket");
-
-        debug!("websocket url: {websocket_url}");
-
-        let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone())).await?;
+        let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone()))
+            .await?
+            .into();
 
         let navigation_ctx = Mutex::new(NavCtx::default());
 
@@ -391,7 +399,7 @@ impl LiveSocket {
         Ok(LiveChannel {
             channel,
             join_payload,
-            socket: self.socket.clone(),
+            socket: self.socket(),
             document: document.into(),
             timeout: self.timeout(),
         })
@@ -402,7 +410,7 @@ impl LiveSocket {
         join_params: Option<HashMap<String, JSON>>,
         redirect: Option<String>,
     ) -> Result<LiveChannel, LiveSocketError> {
-        self.socket.connect(self.timeout()).await?;
+        self.socket().connect(self.timeout()).await?;
         let mut collected_join_params = HashMap::from([
             (
                 MOUNT_KEY.to_string(),
@@ -468,7 +476,7 @@ impl LiveSocket {
         };
 
         let channel = self
-            .socket
+            .socket()
             .channel(
                 Topic::from_string(format!("lv:{}", self.session_data.phx_id)),
                 Some(join_payload),
@@ -502,7 +510,7 @@ impl LiveSocket {
         Ok(LiveChannel {
             channel,
             join_payload,
-            socket: self.socket.clone(),
+            socket: self.socket(),
             document: document.into(),
             timeout: self.timeout(),
         })
@@ -513,7 +521,7 @@ impl LiveSocket {
     }
 
     pub fn socket(&self) -> Arc<Socket> {
-        self.socket.clone()
+        self.socket.lock().expect("Could not lock socket").clone()
     }
 
     pub fn has_live_reload(&self) -> bool {

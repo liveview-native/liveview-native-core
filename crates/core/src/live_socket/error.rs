@@ -11,6 +11,8 @@ use crate::{
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum LiveSocketError {
+    #[error("Error disconnecting")]
+    DisconnectionError,
     #[error("Navigation Impossible")]
     NavigationImpossible,
     #[error("Expected Json Payload, Was Binary")]
