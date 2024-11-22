@@ -96,6 +96,29 @@ jobs:
           name: liveview_native_core.xcframework.zip
           path: ./target/uniffi/swift/liveview_native_core.xcframework.zip
 
+  release-documentation:
+    runs-on: macos-15
+
+    permissions:
+      contents: write
+
+    needs:
+      - build-xcframework
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust Nightly
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-make
+
+      - name: Build XCFramework
+        run: |
+          cargo make --profile release uniffi-swift-doc-web
+
   tag-release:
     runs-on: macos-15
 
