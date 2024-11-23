@@ -9,6 +9,16 @@ pub struct Rendered {
     view_id: i32,
 }
 
+// These are the only thing that ever showed up
+// in the tests.
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(untagged)]
+enum Event {
+    String(String),
+    Object(HashMap<String, Vec<u32>>),
+    List(Vec<Event>),
+}
+
 #[derive(serde::Deserialize)]
 pub struct RenderedExtractedInput {
     #[serde(rename = "r")]
@@ -16,7 +26,7 @@ pub struct RenderedExtractedInput {
     #[serde(rename = "t")]
     title: Option<String>,
     #[serde(rename = "e", default = "Vec::new")]
-    events: Vec<String>,
+    events: Vec<Event>,
     #[serde(flatten)]
     diff: RootDiff,
 }
@@ -25,7 +35,7 @@ pub struct RenderedExtractedInput {
 pub struct RenderedExtractedOutput {
     reply: Option<HashMap<String, String>>,
     title: Option<String>,
-    events: Vec<String>,
+    events: Vec<Event>,
     diff: RootDiff,
 }
 
