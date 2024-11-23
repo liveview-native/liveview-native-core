@@ -43,6 +43,8 @@ pub struct Component {
     children: HashMap<String, Child>,
     #[serde(rename = "s")]
     statics: ComponentStatics,
+    #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
+    is_root: Option<i8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -256,10 +258,14 @@ pub enum ComponentDiff {
         statics: ComponentStatics,
         #[serde(rename = "newRender", skip_serializing)]
         new_render: Option<bool>,
+        #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
+        is_root: Option<i8>,
     },
     UpdateRegular {
         #[serde(flatten)]
         children: HashMap<String, ChildDiff>,
+        #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
+        is_root: Option<i8>,
     },
 }
 
