@@ -834,6 +834,44 @@ fn expands_shared_static_from_cids() {
 }
 
 #[test]
+fn reuses_statics() {
+    let static_reuse_diff: RootDiff = json_struct!({
+        "0": {
+            "d": [
+                ["foo", {"d": [["0", 1], ["1", 2]], "s": 0}],
+                ["bar", {"d": [["0", 3], ["1", 4]], "s": 0}]
+            ],
+            "s": ["\n  <p>\n    ", "\n    ", "\n  </p>\n"],
+            "r": 1,
+            "p": {"0": ["<span>", ": ", "</span>"]}
+        },
+        "c": {
+            "1": {"0": "index_1", "1": "world", "s": ["<b>FROM ", " ", "</b>"], "r": 1},
+            "2": {"0": "index_2", "1": "world", "s": 1, "r": 1},
+            "3": {"0": "index_1", "1": "world", "s": 1, "r": 1},
+            "4": {"0": "index_2", "1": "world", "s": 3, "r": 1}
+        },
+        "s": ["<div>", "</div>"],
+        "r": 1
+    });
+    let root: Root = static_reuse_diff.try_into().expect("conversion failed");
+    let doc: String = root.try_into().expect("render failed");
+
+    let expected = r#"<div>
+<p>
+foo
+<span>0: <b>FROM index_1 world</b></span><span>1: <b>FROM index_2 world</b></span>
+</p>
+<p>
+bar
+<span>0: <b>FROM index_1 world</b></span><span>1: <b>FROM index_2 world</b></span>
+</p>
+</div>"#;
+
+    assert_doc_eq!(doc, expected);
+}
+
+#[test]
 fn jetpack_complex() {
     /*
 
@@ -1085,6 +1123,7 @@ fn fragment_render_parse() {
             Component {
                 children: HashMap::from([("0".into(), Child::String("bar".to_owned().into()))]),
                 statics: ComponentStatics::Statics(vec!["4".into(), "5".into()]),
+                is_root: None,
             },
         )]),
         new_render: None,
@@ -1714,6 +1753,7 @@ fn test_decode_component_diff() {
         components: HashMap::from([(
             "1".into(),
             ComponentDiff::UpdateRegular {
+                is_root: None,
                 children: HashMap::from([(
                     "0".into(),
                     ChildDiff::Fragment(FragmentDiff::UpdateComprehension {

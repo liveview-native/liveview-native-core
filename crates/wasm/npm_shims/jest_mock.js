@@ -5,5 +5,6 @@ jest.mock("phoenix_live_view/rendered", () => {
 
   // free function that we are not concerned with.
   wasmProxy.Rendered.modifyRoot = actualModule.modifyRoot;
+
   return wasmProxy.Rendered;
 });
