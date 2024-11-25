@@ -194,7 +194,7 @@ impl LiveSocket {
     }
 
     /// calls [Self::try_nav] rolling back to a previous navigation state on failure.
-    async fn try_nav_with_rollback<F>(&self, nav_action: F) -> Result<HistoryId, LiveSocketError>
+    async fn try_nav_outer<F>(&self, nav_action: F) -> Result<HistoryId, LiveSocketError>
     where
         F: FnOnce(&mut NavCtx) -> Option<HistoryId>,
     {
@@ -209,13 +209,7 @@ impl LiveSocket {
 
         match self.try_nav().await {
             Ok(()) => Ok(new_id),
-            Err(e) => {
-                self.navigation_ctx
-                    .lock()
-                    .expect("lock poison")
-                    .rollback_navigation_state();
-                Err(e)
-            }
+            Err(e) => Err(e),
         }
     }
 }
@@ -228,22 +222,20 @@ impl LiveSocket {
         opts: NavOptions,
     ) -> Result<HistoryId, LiveSocketError> {
         let url = Url::parse(&url)?;
-        self.try_nav_with_rollback(|ctx| ctx.navigate(url, opts, true))
+        self.try_nav_outer(|ctx| ctx.navigate(url, opts, true))
             .await
     }
 
     pub async fn reload(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
-        self.try_nav_with_rollback(|ctx| ctx.reload(info, true))
-            .await
+        self.try_nav_outer(|ctx| ctx.reload(info, true)).await
     }
 
     pub async fn back(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
-        self.try_nav_with_rollback(|ctx| ctx.back(info, true)).await
+        self.try_nav_outer(|ctx| ctx.back(info, true)).await
     }
 
     pub async fn forward(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
-        self.try_nav_with_rollback(|ctx| ctx.forward(info, true))
-            .await
+        self.try_nav_outer(|ctx| ctx.forward(info, true)).await
     }
 
     pub async fn traverse_to(
@@ -251,7 +243,7 @@ impl LiveSocket {
         id: HistoryId,
         info: Option<Vec<u8>>,
     ) -> Result<HistoryId, LiveSocketError> {
-        self.try_nav_with_rollback(|ctx| ctx.traverse_to(id, info, true))
+        self.try_nav_outer(|ctx| ctx.traverse_to(id, info, true))
             .await
     }
 

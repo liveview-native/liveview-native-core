@@ -148,9 +148,6 @@ fn basic_internal_navigate_back() {
         },
         handler.last_event().expect("Missing Event")
     );
-
-    ctx.rollback_navigation_state();
-    assert_eq!(ctx.current().expect("current").url, url_str);
 }
 
 #[test]
@@ -217,10 +214,6 @@ fn test_navigation_stack() {
         .expect("Failed to traverse");
     assert_eq!(ctx.current().expect("current").url, third.to_string());
     assert_eq!(ctx.entries().len(), 3);
-
-    ctx.rollback_navigation_state();
-
-    assert_eq!(ctx.current().expect("current").url, first.to_string());
 }
 
 #[cfg(target_os = "android")]
@@ -228,30 +221,6 @@ const HOST: &str = "10.0.2.2:4001";
 
 #[cfg(not(target_os = "android"))]
 const HOST: &str = "127.0.0.1:4001";
-
-#[test]
-fn test_navigation_rollback_back() {
-    let mut ctx = NavCtx::default();
-    let first = Url::parse("https://example.com/first").expect("parse first");
-    let second = Url::parse("https://example.com/second").expect("parse second");
-
-    let id1 = ctx
-        .navigate(first.clone(), NavOptions::default(), true)
-        .expect("nav first");
-
-    let id2 = ctx
-        .navigate(second.clone(), NavOptions::default(), true)
-        .expect("nav second");
-
-    ctx.back(None, true).expect("back");
-    assert_eq!(ctx.current().expect("current").id, id1);
-
-    ctx.rollback_navigation_state();
-    assert_eq!(ctx.current().expect("current").id, id2);
-
-    ctx.rollback_navigation_state();
-    assert_eq!(ctx.current().expect("current").id, id1);
-}
 
 #[test]
 fn test_navigation_rollback_forward() {
@@ -271,12 +240,6 @@ fn test_navigation_rollback_forward() {
     assert_eq!(ctx.current().expect("current").id, id1);
 
     ctx.forward(None, true).expect("forward");
-    assert_eq!(ctx.current().expect("current").id, id2);
-
-    ctx.rollback_navigation_state();
-    assert_eq!(ctx.current().expect("current").id, id1);
-
-    ctx.rollback_navigation_state();
     assert_eq!(ctx.current().expect("current").id, id2);
 }
 
