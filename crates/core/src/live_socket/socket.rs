@@ -128,7 +128,8 @@ impl SessionData {
         // Top level:
         // csrf-token
         // "iframe[src=\"/phoenix/live_reload/frame\"]"
-        let (dead_render, cookies) = get_dead_render(url, format, &connect_opts).await?;
+        let (dead_render, cookies) =
+            LiveSocket::get_dead_render(url, format, &connect_opts).await?;
 
         let csrf_token = dead_render
             .get_csrf_token()
@@ -261,71 +262,74 @@ impl SessionData {
     }
 }
 
-/// Gets the 'dead render', a static html page containing metadata about how to
-/// connect to a websocket and initialize the live view session.
-async fn get_dead_render(
-    url: &Url,
-    format: &str,
-    options: &ConnectOpts,
-) -> Result<(Document, Vec<String>), LiveSocketError> {
-    let ConnectOpts {
-        headers,
-        body,
-        method,
-        timeout_ms,
-    } = options;
-
-    let method = method.clone().unwrap_or(Method::Get).into();
-
-    // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
-    // it does maybe we don't need to do a full dead render.
-    let mut url = url.clone();
-    url.query_pairs_mut().append_pair(FMT_KEY, format);
-
-    let headers = (&headers.clone().unwrap_or_default())
-        .try_into()
-        .map_err(|e| LiveSocketError::InvalidHeader {
-            error: format!("{e:?}"),
-        })?;
-
-    let client = reqwest::Client::default();
-    let req = reqwest::Request::new(method, url.clone());
-    let builder = reqwest::RequestBuilder::from_parts(client, req);
-
-    let builder = if let Some(body) = body {
-        builder.body(body.clone())
-    } else {
-        builder
-    };
-
-    let timeout = Duration::from_millis(*timeout_ms);
-    let (client, request) = builder.timeout(timeout).headers(headers).build_split();
-
-    let resp = client.execute(request?).await?;
-    let status = resp.status();
-    let resp_headers = resp.headers();
-
-    let cookies = resp_headers
-        .get_all("set-cookie")
-        .iter()
-        .map(|cookie| cookie.to_str().expect("Cookie is not ASCII").to_string())
-        .collect();
-
-    let resp_text = resp.text().await?;
-    if !status.is_success() {
-        return Err(LiveSocketError::ConnectionError(resp_text));
-    }
-
-    let dead_render = parse(&resp_text)?;
-    debug!("document:\n{dead_render}\n\n\n");
-    Ok((dead_render, cookies))
-}
-
 #[derive(uniffi::Object)]
 pub struct LiveSocket {
     pub socket: Mutex<Arc<Socket>>,
     pub session_data: Mutex<SessionData>,
     pub(super) navigation_ctx: Mutex<NavCtx>,
+}
+
+// non uniffi bindings.
+impl LiveSocket {
+    /// Gets the 'dead render', a static html page containing metadata about how to
+    /// connect to a websocket and initialize the live view session.
+    async fn get_dead_render(
+        url: &Url,
+        format: &str,
+        options: &ConnectOpts,
+    ) -> Result<(Document, Vec<String>), LiveSocketError> {
+        let ConnectOpts {
+            headers,
+            body,
+            method,
+            timeout_ms,
+        } = options;
+
+        let method = method.clone().unwrap_or(Method::Get).into();
+
+        // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
+        // it does maybe we don't need to do a full dead render.
+        let mut url = url.clone();
+        url.query_pairs_mut().append_pair(FMT_KEY, format);
+
+        let headers = (&headers.clone().unwrap_or_default())
+            .try_into()
+            .map_err(|e| LiveSocketError::InvalidHeader {
+                error: format!("{e:?}"),
+            })?;
+
+        let client = reqwest::Client::default();
+        let req = reqwest::Request::new(method, url.clone());
+        let builder = reqwest::RequestBuilder::from_parts(client, req);
+
+        let builder = if let Some(body) = body {
+            builder.body(body.clone())
+        } else {
+            builder
+        };
+
+        let timeout = Duration::from_millis(*timeout_ms);
+        let (client, request) = builder.timeout(timeout).headers(headers).build_split();
+
+        let resp = client.execute(request?).await?;
+        let status = resp.status();
+        let resp_headers = resp.headers();
+
+        let cookies = resp_headers
+            .get_all("set-cookie")
+            .iter()
+            .map(|cookie| cookie.to_str().expect("Cookie is not ASCII").to_string())
+            .collect();
+
+        let resp_text = resp.text().await?;
+        if !status.is_success() {
+            return Err(LiveSocketError::ConnectionError(resp_text));
+        }
+
+        let dead_render = parse(&resp_text)?;
+        debug!("document:\n{dead_render}\n\n\n");
+        Ok((dead_render, cookies))
+    }
 }
 
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
@@ -541,7 +545,7 @@ impl LiveSocket {
     }
 
     pub fn socket(&self) -> Arc<Socket> {
-        self.socket.lock().expect("Could not lock socket").clone()
+        lock!(self.socket).clone()
     }
 
     pub fn has_live_reload(&self) -> bool {
