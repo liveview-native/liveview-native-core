@@ -126,7 +126,9 @@ jobs:
 
       - name: Build XCFramework
         run: |
+          mkdir -p ./docs/swift
           cargo make --profile release uniffi-swift-doc-web
+
       - name: Add index.html
         run: |
           echo '<meta http-equiv="refresh" content="0; url=docs/swift/documentation/liveviewnativecore/">
