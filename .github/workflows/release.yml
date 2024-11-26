@@ -171,10 +171,6 @@ jobs:
 
 
       # Update Docs!
-      - name: Unzip xcframework
-        working-directory: ./target/uniffi/swift/
-        run: unzip liveview_native_core.xcframework.zip
-
       - name: Build XCFramework
         run: |
           cargo make --profile release uniffi-swift-doc-web
