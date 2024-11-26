@@ -8,15 +8,15 @@ import class Foundation.ProcessInfo
 let liveview_native_core_framework: Target
 
 // To release, toggle this to `false`
-let useLocalFramework = true
+let useLocalFramework = false
 if useLocalFramework {
     liveview_native_core_framework = .binaryTarget(
         name: "liveview_native_core",
         path: "./target/uniffi/swift/liveview_native_core.xcframework"
     )
 } else {
-    let releaseTag = "0.4.0-alpha-13"
-    let releaseChecksum = "f3972f4d40732c884c98426b28550376abaff20a3490b73367ad170f1f0bcca9"
+    let releaseTag = "0.4.0-alpha-14"
+    let releaseChecksum = "550e1414f261e088553572a37e68e54d2d3b34e0ff053e1fc9ba2030c7b7fef2"
     liveview_native_core_framework = .binaryTarget(
         name: "liveview_native_core",
         url:
