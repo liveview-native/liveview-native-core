@@ -57,3 +57,55 @@ final class LiveViewNativeCoreUploadTests: XCTestCase {
         try await live_channel.uploadFile(live_file)
     }
 }
+
+// Test basic navigation flow with LiveSocket
+func testBasicNavFlow() async throws {
+    let url = "http://127.0.0.1:4001/nav/first_page"
+    let secondUrl = "http://127.0.0.1:4001/nav/second_page"
+
+    let liveSocket = try await LiveSocket(url, "swiftui", .none)
+    let liveChannel = try await liveSocket.joinLiveviewChannel(.none, .none)
+
+    let doc = liveChannel.document()
+
+    let expectedFirstDoc = """
+        <Group id="flash-group" />
+        <VStack>
+            <Text>
+                first_page
+            </Text>
+            <NavigationLink id="Next" destination="/nav/next">
+                <Text>
+                    NEXT
+                </Text>
+            </NavigationLink>
+        </VStack>
+        """
+
+    let exp = try Document.parse(expectedFirstDoc)
+
+    XCTAssertEqual(doc.render(), exp.render())
+
+    let _ = try await liveSocket.navigate(secondUrl, NavOptions())
+
+    let secondChannel = try await liveSocket.joinLiveviewChannel(.none, .none)
+    let secondDoc = secondChannel.document()
+
+    let expectedSecondDoc = """
+        <Group id="flash-group" />
+        <VStack>
+            <Text>
+               second_page
+            </Text>
+            <NavigationLink id="Next" destination="/nav/next">
+                <Text>
+                    NEXT
+                </Text>
+            </NavigationLink>
+        </VStack>
+        """
+
+    let secondExp = try Document.parse(expectedSecondDoc)
+
+    XCTAssertEqual(secondDoc.render(), secondExp.render())
+}
