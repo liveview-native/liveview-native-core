@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use super::*;
 mod error;
+mod navigation;
 mod streaming;
 mod upload;
 
@@ -12,6 +13,17 @@ const HOST: &str = "10.0.2.2:4001";
 const HOST: &str = "127.0.0.1:4001";
 
 use pretty_assertions::assert_eq;
+
+macro_rules! assert_doc_eq {
+    ($gold:expr, $test:expr) => {{
+        use crate::dom::Document;
+        let gold = Document::parse($gold).expect("Gold document failed to parse");
+        let test = Document::parse($test).expect("Test document failed to parse");
+        assert_eq!(gold.to_string(), test.to_string());
+    }};
+}
+
+pub(crate) use assert_doc_eq;
 
 #[tokio::test]
 async fn join_live_view() {
@@ -37,14 +49,15 @@ async fn join_live_view() {
     let join_doc = live_channel
         .join_document()
         .expect("Failed to render join payload");
-    let rendered = format!("{}", join_doc.to_string());
-    let expected = r#"<Group id="flash-group" />
+    let rendered = format!("{}", join_doc);
+    let expected = r#"
+<Group id="flash-group" />
 <VStack>
     <Text>
         Hello SwiftUI!
     </Text>
 </VStack>"#;
-    assert_eq!(expected, rendered);
+    assert_doc_eq!(expected, rendered);
 
     let _live_channel = live_socket
         .join_livereload_channel()

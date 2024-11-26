@@ -1,8 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-use log::{debug, error};
-use phoenix_channels_client::{Channel, Event, Number, Payload, Socket, Topic, JSON};
-
 use super::{LiveSocketError, UploadConfig, UploadError};
 use crate::{
     diff::fragment::{Root, RootDiff},
@@ -12,6 +9,8 @@ use crate::{
     },
     parser::parse,
 };
+use log::{debug, error};
+use phoenix_channels_client::{Channel, Event, Number, Payload, Socket, Topic, JSON};
 
 #[derive(uniffi::Object)]
 pub struct LiveChannel {
@@ -60,6 +59,7 @@ impl LiveFile {
 
 // For non FFI functions
 impl LiveChannel {
+    /// Retrieves the initial document received upon joining the channel.
     pub fn join_document(&self) -> Result<Document, LiveSocketError> {
         let new_root = match self.join_payload {
             Payload::JSONPayload {
@@ -137,8 +137,8 @@ impl LiveChannel {
         Ok(upload_id)
     }
 
-    // Blocks indefinitely, processing changes to the document using the user provided callback
-    // In `set_event_handler`
+    /// Blocks indefinitely, processing changes to the document using the user provided callback
+    /// In `set_event_handler`
     pub async fn merge_diffs(&self) -> Result<(), LiveSocketError> {
         // TODO: This should probably take the event closure to send changes back to swift/kotlin
         let document = self.document.clone();

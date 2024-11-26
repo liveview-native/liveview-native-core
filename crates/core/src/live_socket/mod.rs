@@ -1,12 +1,13 @@
 mod channel;
 mod error;
+mod navigation;
 mod socket;
 
 #[cfg(test)]
 mod tests;
 
 pub use channel::LiveChannel;
-use error::{LiveSocketError, UploadError};
+pub use error::{LiveSocketError, UploadError};
 pub use socket::LiveSocket;
 
 pub struct UploadConfig {
