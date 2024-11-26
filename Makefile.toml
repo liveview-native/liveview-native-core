@@ -570,9 +570,9 @@ args = [
     "transform-for-static-hosting",
     "xcode-build/Build/Products/Debug/LiveViewNativeCore.doccarchive",
     "--output-path",
-    "./docs",
+    "./docs/swift",
     "--hosting-base-path",
-    "liveview-native-core",
+    "liveview-native-core/docs/swift",
 ]
 dependencies = [
     "uniffi-swift-docbuild",
