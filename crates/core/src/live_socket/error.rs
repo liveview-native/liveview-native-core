@@ -11,6 +11,10 @@ use crate::{
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum LiveSocketError {
+    #[error("Internal Socket Locks would block.")]
+    WouldLock,
+    #[error("Internal Socket Locks poisoned.")]
+    LockPoisoned,
     #[error("Error disconnecting")]
     DisconnectionError,
     #[error("Navigation Impossible")]
@@ -110,6 +114,22 @@ pub enum UploadError {
 
 // These are all manually implemented and turned into a string because uniffi doesn't support
 // exported error types in the generations.
+
+impl<T> From<std::sync::TryLockError<T>> for LiveSocketError {
+    fn from(value: std::sync::TryLockError<T>) -> Self {
+        match value {
+            std::sync::TryLockError::Poisoned(_) => Self::LockPoisoned,
+            std::sync::TryLockError::WouldBlock => Self::WouldLock,
+        }
+    }
+}
+
+impl<T> From<std::sync::PoisonError<T>> for LiveSocketError {
+    fn from(_: std::sync::PoisonError<T>) -> Self {
+        Self::LockPoisoned
+    }
+}
+
 impl From<PhoenixError> for LiveSocketError {
     fn from(value: PhoenixError) -> Self {
         Self::Phoenix {

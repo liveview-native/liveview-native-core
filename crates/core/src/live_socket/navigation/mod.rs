@@ -50,7 +50,17 @@ impl NavCtx {
         let action = opts.action.clone();
         let next_dest = self.speculative_next_dest(&url, opts.state.clone());
         let next_id = next_dest.id;
-        let event = NavEvent::new_from_navigate(next_dest.clone(), self.current(), opts);
+
+        let event = {
+            let new_dest = next_dest.clone();
+            let old_dest = self.current();
+            let event = match opts.action {
+                Some(NavAction::Replace) => NavEventType::Replace,
+                _ => NavEventType::Push,
+            };
+
+            NavEvent::new(event, new_dest, old_dest, opts.extra_event_info)
+        };
 
         match self.handle_event(event, emit_event) {
             HandlerResponse::Default => {}
@@ -100,7 +110,8 @@ impl NavCtx {
     pub fn reload(&mut self, info: Option<Vec<u8>>, emit_event: bool) -> Option<HistoryId> {
         let current = self.current()?;
         let id = current.id;
-        let event = NavEvent::new_from_reload(current, info);
+
+        let event = NavEvent::new(NavEventType::Reload, current.clone(), current.into(), info);
 
         match self.handle_event(event, emit_event) {
             HandlerResponse::Default => {}
@@ -124,7 +135,11 @@ impl NavCtx {
 
         let next = self.history[self.history.len() - 2].clone();
 
-        let event = NavEvent::new_from_back(next.clone(), previous.clone(), info);
+        let event = {
+            let new_dest = next.clone();
+            let old_dest = previous.clone();
+            NavEvent::new(NavEventType::Push, new_dest, Some(old_dest), info)
+        };
 
         match self.handle_event(event, emit_event) {
             HandlerResponse::Default => {
@@ -150,7 +165,7 @@ impl NavCtx {
         let next = self.future.last().cloned()?;
         let previous = self.current();
 
-        let event = NavEvent::new_from_forward(next, previous, info);
+        let event = NavEvent::new(NavEventType::Push, next, previous, info);
 
         match self.handle_event(event, emit_event) {
             HandlerResponse::Default => {
@@ -179,7 +194,7 @@ impl NavCtx {
         if let Some(entry) = in_hist {
             let new_dest = self.history[entry].clone();
 
-            let event = NavEvent::new_from_traverse(new_dest, old_dest, info);
+            let event = NavEvent::new(NavEventType::Traverse, new_dest, old_dest.into(), info);
 
             match self.handle_event(event, emit_event) {
                 HandlerResponse::Default => {}
@@ -195,7 +210,8 @@ impl NavCtx {
         let in_fut = self.future.iter().position(|ent| ent.id == id);
         if let Some(entry) = in_fut {
             let new_dest = self.future[entry].clone();
-            let event = NavEvent::new_from_traverse(new_dest, old_dest, info);
+
+            let event = NavEvent::new(NavEventType::Traverse, new_dest, old_dest.into(), info);
 
             match self.handle_event(event, emit_event) {
                 HandlerResponse::Default => {}

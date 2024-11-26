@@ -12,16 +12,18 @@ const HOST: &str = "10.0.2.2:4001";
 #[cfg(not(target_os = "android"))]
 const HOST: &str = "127.0.0.1:4001";
 
-use crate::dom::Document;
 use pretty_assertions::assert_eq;
 
 macro_rules! assert_doc_eq {
-    ($gold:expr, $test:expr) => {
+    ($gold:expr, $test:expr) => {{
+        use crate::dom::Document;
         let gold = Document::parse($gold).expect("Gold document failed to parse");
         let test = Document::parse($test).expect("Test document failed to parse");
         assert_eq!(gold.to_string(), test.to_string());
-    };
+    }};
 }
+
+pub(crate) use assert_doc_eq;
 
 #[tokio::test]
 async fn join_live_view() {

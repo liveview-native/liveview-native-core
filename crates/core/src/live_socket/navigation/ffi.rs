@@ -107,53 +107,6 @@ impl NavEvent {
             info,
         }
     }
-
-    pub fn new_from_reload(dest: NavHistoryEntry, info: Option<Vec<u8>>) -> NavEvent {
-        NavEvent::new(NavEventType::Reload, dest.clone(), dest.into(), info)
-    }
-
-    /// Create a new nav event from the details of a [NavCtx::traverse_to] event
-    pub fn new_from_traverse(
-        new_dest: NavHistoryEntry,
-        old_dest: NavHistoryEntry,
-        info: Option<Vec<u8>>,
-    ) -> NavEvent {
-        NavEvent::new(NavEventType::Traverse, new_dest, old_dest.into(), info)
-    }
-
-    /// Create a new nav event from the details of a [NavCtx::navigate] event
-    pub fn new_from_navigate(
-        new_dest: NavHistoryEntry,
-        old_dest: Option<NavHistoryEntry>,
-        opts: NavOptions,
-    ) -> NavEvent {
-        let event = match opts.action {
-            Some(NavAction::Replace) => NavEventType::Replace,
-            _ => NavEventType::Push,
-        };
-
-        NavEvent::new(event, new_dest, old_dest, opts.extra_event_info)
-    }
-
-    /// Create a new nav event from the details of a [NavCtx::back] event,
-    /// passing info into the event handler closure.
-    pub fn new_from_forward(
-        new_dest: NavHistoryEntry,
-        old_dest: Option<NavHistoryEntry>,
-        info: Option<Vec<u8>>,
-    ) -> NavEvent {
-        NavEvent::new(NavEventType::Push, new_dest, old_dest, info)
-    }
-
-    /// Create a new nav event from the details of a [NavCtx::back] event,
-    /// passing info into the event handler closure.
-    pub fn new_from_back(
-        new_dest: NavHistoryEntry,
-        old_dest: NavHistoryEntry,
-        info: Option<Vec<u8>>,
-    ) -> NavEvent {
-        NavEvent::new(NavEventType::Push, new_dest, Some(old_dest), info)
-    }
 }
 
 use crate::live_socket::socket::SessionData;
@@ -170,13 +123,8 @@ impl LiveSocket {
 
         let url = Url::parse(&current.url)?;
 
-        let format = self.session_data.lock().expect("poison").format.clone();
-        let options = self
-            .session_data
-            .lock()
-            .expect("poison")
-            .connect_opts
-            .clone();
+        let format = self.session_data.try_lock()?.format.clone();
+        let options = self.session_data.try_lock()?.connect_opts.clone();
 
         let session_data = SessionData::request(&url, &format, options).await?;
         let websocket_url = session_data.get_live_socket_url()?;
@@ -187,8 +135,8 @@ impl LiveSocket {
             .await
             .map_err(|_| LiveSocketError::DisconnectionError)?;
 
-        *self.socket.lock().expect("poison") = socket;
-        *self.session_data.lock().expect("poison") = session_data;
+        *self.socket.try_lock()? = socket;
+        *self.session_data.try_lock()? = session_data;
 
         Ok(())
     }

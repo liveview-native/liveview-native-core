@@ -1,20 +1,11 @@
 use std::sync::{Arc, Mutex};
 
+use super::assert_doc_eq;
 use crate::live_socket::navigation::*;
 use crate::live_socket::LiveSocket;
 use pretty_assertions::assert_eq;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-
-use crate::dom::Document;
-
-macro_rules! assert_doc_eq {
-    ($gold:expr, $test:expr) => {
-        let gold = Document::parse($gold).expect("Gold document failed to parse");
-        let test = Document::parse($test).expect("Test document failed to parse");
-        assert_eq!(gold.to_string(), test.to_string());
-    };
-}
 
 // Mock event handler used to validate the internal
 // navigation objects state.
