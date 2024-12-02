@@ -6,14 +6,10 @@ mod navigation;
 mod streaming;
 mod upload;
 
-#[cfg(target_os = "android")]
-const HOST: &str = "10.0.2.2:4001";
-
-#[cfg(not(target_os = "android"))]
-const HOST: &str = "127.0.0.1:4001";
-
+use phoenix_channels_client::ChannelStatus;
 use pretty_assertions::assert_eq;
 
+/// serializes two documents so the formatting matches before diffing.
 macro_rules! assert_doc_eq {
     ($gold:expr, $test:expr) => {{
         use crate::dom::Document;
@@ -24,6 +20,12 @@ macro_rules! assert_doc_eq {
 }
 
 pub(crate) use assert_doc_eq;
+
+#[cfg(target_os = "android")]
+const HOST: &str = "10.0.2.2:4001";
+
+#[cfg(not(target_os = "android"))]
+const HOST: &str = "127.0.0.1:4001";
 
 #[tokio::test]
 async fn join_live_view() {
@@ -49,9 +51,8 @@ async fn join_live_view() {
     let join_doc = live_channel
         .join_document()
         .expect("Failed to render join payload");
-    let rendered = format!("{}", join_doc);
-    let expected = r#"
-<Group id="flash-group" />
+    let rendered = format!("{}", join_doc.to_string());
+    let expected = r#"<Group id="flash-group" />
 <VStack>
     <Text>
         Hello SwiftUI!
@@ -63,6 +64,104 @@ async fn join_live_view() {
         .join_livereload_channel()
         .await
         .expect("Failed to join channel");
+}
+
+#[tokio::test]
+async fn channels_keep_listening_for_diffs_on_reconnect() {
+    let _ = env_logger::builder()
+        .parse_default_env()
+        .is_test(true)
+        .try_init();
+
+    let url = format!("http://{HOST}/hello");
+
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+        .await
+        .expect("Failed to get liveview socket");
+
+    let live_channel = live_socket
+        .join_liveview_channel(None, None)
+        .await
+        .expect("Failed to join channel");
+
+    let live_channel = std::sync::Arc::new(live_channel);
+
+    let chan_clone = live_channel.clone();
+
+    let handle = tokio::spawn(async move {
+        chan_clone
+            .merge_diffs()
+            .await
+            .expect("Failed to merge diffs");
+    });
+
+    live_socket
+        .socket()
+        .disconnect()
+        .await
+        .expect("shutdown error");
+
+    assert_eq!(
+        live_channel.channel().status(),
+        ChannelStatus::WaitingForSocketToConnect
+    );
+
+    assert!(!handle.is_finished());
+
+    // reconnect
+    live_socket
+        .socket()
+        .connect(Duration::from_millis(1000))
+        .await
+        .expect("shutdown error");
+
+    assert_eq!(
+        live_channel.channel().status(),
+        ChannelStatus::WaitingToJoin
+    );
+
+    live_channel.rejoin().await.expect("Could not rejoin");
+
+    // We are listening to events again
+    assert_eq!(live_channel.channel().status(), ChannelStatus::Joined);
+    // The merge diff event has not exited.
+    assert!(!handle.is_finished());
+}
+
+#[tokio::test]
+async fn channels_drop_on_shutdown() {
+    let _ = env_logger::builder()
+        .parse_default_env()
+        .is_test(true)
+        .try_init();
+
+    let url = format!("http://{HOST}/hello");
+
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+        .await
+        .expect("Failed to get liveview socket");
+
+    let live_channel = live_socket
+        .join_liveview_channel(None, None)
+        .await
+        .expect("Failed to join channel");
+
+    let chan_clone = live_channel.channel().clone();
+    let handle = tokio::spawn(async move {
+        live_channel
+            .merge_diffs()
+            .await
+            .expect("Failed to merge diffs");
+    });
+
+    live_socket
+        .socket()
+        .shutdown()
+        .await
+        .expect("shutdown error");
+
+    assert!(handle.is_finished());
+    assert_eq!(chan_clone.status(), ChannelStatus::ShutDown);
 }
 
 #[tokio::test]

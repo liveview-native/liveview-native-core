@@ -3,6 +3,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use phoenix_channels_client::JSON;
+
 use super::ChangeType;
 pub use super::{
     attribute::Attribute,
@@ -62,9 +64,8 @@ impl Document {
         self.inner.lock().expect("lock poisoned!").event_callback = Some(Arc::from(handler));
     }
 
-    pub fn merge_fragment_json(&self, json: &str) -> Result<(), RenderError> {
-        let json = serde_json::from_str(json)?;
-
+    pub fn merge_fragment_json_unserialized(&self, json: JSON) -> Result<(), RenderError> {
+        let json = serde_json::Value::from(json);
         let results = self
             .inner
             .lock()
@@ -99,6 +100,11 @@ impl Document {
         }
 
         Ok(())
+    }
+
+    pub fn merge_fragment_json(&self, json: &str) -> Result<(), RenderError> {
+        let json = serde_json::from_str(json)?;
+        self.merge_fragment_json_unserialized(JSON::from(&json))
     }
 
     pub fn next_upload_id(&self) -> u64 {
