@@ -23,6 +23,7 @@ defmodule TestServerWeb.Router do
     get "/", PageController, :home
     live "/thermostat", ThermostatLive
     live "/hello", HelloLive
+    live "/nav/:dynamic", NavLive 
     live "/upload", SimpleLiveUpload
     live "/stream", SimpleLiveStream
   end

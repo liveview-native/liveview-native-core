@@ -1,4 +1,6 @@
 use channel::LiveFile;
+use socket::LiveSocketError;
+use upload::UploadError;
 
 use super::*;
 
