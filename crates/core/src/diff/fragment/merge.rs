@@ -102,7 +102,7 @@ pub struct ResolveCtx<'a> {
     new_components: &'a HashMap<String, Component>,
 }
 
-impl<'a> ResolveCtx<'a> {
+impl ResolveCtx<'_> {
     pub fn get(&self, cid: i32) -> Result<&Component, MergeError> {
         let old_id = cid < 0;
         let abs_id = cid.abs().to_string();
