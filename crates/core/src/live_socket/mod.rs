@@ -1,6 +1,7 @@
 mod channel;
 mod error;
 mod navigation;
+mod protocol;
 mod socket;
 
 #[cfg(test)]

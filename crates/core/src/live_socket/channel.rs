@@ -1,13 +1,17 @@
 use futures::{future::FutureExt, pin_mut, select};
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
-use super::{LiveSocketError, UploadConfig, UploadError};
+use super::{protocol::PhxEvent, LiveSocketError, UploadConfig, UploadError};
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{
         ffi::{Document as FFiDocument, DocumentChangeHandler},
-        AttributeName, AttributeValue, Document, Selector,
+        AttributeName, AttributeValue, Document, NodeRef, Selector,
     },
     parser::parse,
 };
@@ -21,6 +25,7 @@ pub struct LiveChannel {
     pub join_payload: Payload,
     pub document: FFiDocument,
     pub timeout: Duration,
+    pub locks: Mutex<HashSet<NodeRef>>,
 }
 
 #[derive(uniffi::Object)]
@@ -85,6 +90,14 @@ impl LiveChannel {
         debug!("Join payload render:\n{document}");
         Ok(document)
     }
+
+    fn unlock_node(&self, node: NodeRef) {
+        self.locks.lock().expect("lock poison").insert(node);
+    }
+
+    fn lock_node(&self, node: NodeRef) {
+        self.locks.lock().expect("lock poison").insert(node);
+    }
 }
 
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
@@ -99,6 +112,24 @@ impl LiveChannel {
 
     pub fn set_event_handler(&self, handler: Box<dyn DocumentChangeHandler>) {
         self.document.set_event_handler(handler);
+    }
+
+    pub async fn send_event(
+        &self,
+        event: PhxEvent,
+        payload: &str,
+        sender: &NodeRef,
+    ) -> Result<Payload, LiveSocketError> {
+        todo!();
+    }
+
+    pub async fn send_event_json(
+        &self,
+        event: PhxEvent,
+        payload: JSON,
+        sender: &NodeRef,
+    ) -> Result<Payload, LiveSocketError> {
+        todo!();
     }
 
     pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {

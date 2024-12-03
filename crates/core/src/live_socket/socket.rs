@@ -424,6 +424,7 @@ impl LiveSocket {
             socket: self.socket(),
             document: document.into(),
             timeout: self.timeout(),
+            locks: Default::default(),
         })
     }
 
@@ -537,6 +538,7 @@ impl LiveSocket {
             socket: self.socket(),
             document: document.into(),
             timeout: self.timeout(),
+            locks: Default::default(),
         })
     }
 
