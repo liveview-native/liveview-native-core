@@ -98,6 +98,7 @@ jobs:
 
   release-documentation:
     runs-on: macos-15
+    continue-on-error: true
 
     permissions:
       contents: write
