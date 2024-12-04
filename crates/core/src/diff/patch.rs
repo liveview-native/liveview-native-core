@@ -95,11 +95,11 @@ pub enum BeforePatch {
     /// A new node would be added to `parent`.
     WouldAdd { parent: NodeRef },
     /// The node will be removed from `parent`
-    WouldRemove { node: NodeRef, parent: NodeRef },
+    WouldRemove { node: NodeRef },
     /// The node will be modified
     WouldChange { node: NodeRef },
     /// The node will be replaced
-    WouldReplace { node: NodeRef, parent: NodeRef },
+    WouldReplace { node: NodeRef },
 }
 
 /// The result of applying a [Patch].
@@ -261,7 +261,7 @@ impl Patch {
                 let parent = doc.document_mut().parent(node);
 
                 let can_remove = if let Some(parent) = parent {
-                    let speculative = BeforePatch::WouldRemove { node, parent };
+                    let speculative = BeforePatch::WouldRemove { node };
                     doc.document().can_complete_change(&speculative)
                 } else {
                     false
@@ -278,7 +278,7 @@ impl Patch {
                 let data = doc.document().get(node).clone();
                 let parent = doc.document_mut().parent(node)?;
 
-                let speculative = BeforePatch::WouldReplace { node, parent };
+                let speculative = BeforePatch::WouldReplace { node };
 
                 if doc.document().can_complete_change(&speculative) {
                     doc.replace(node, replacement);

@@ -531,26 +531,22 @@ impl Document {
         Ok(document)
     }
 
-    fn node_parents_are_locked(&self, node: NodeRef) -> bool {
-        false
-    }
-
-    fn node_descendents_are_locked(&self, node: NodeRef) -> bool {
-        false
-    }
-
     /// If a patch result would touch a part of the locked tree, return true.
     /// These changes are not kept in the DOM but instead in the root fragment.
     pub fn can_complete_change(&self, patch: &BeforePatch) -> bool {
         match patch {
-            BeforePatch::WouldAdd { parent } => !self.node_parents_are_locked(*parent),
-            BeforePatch::WouldChange { node } => !self.node_parents_are_locked(*node),
-            BeforePatch::WouldRemove { node, parent } => {
-                !self.node_parents_are_locked(*parent) && !self.node_descendents_are_locked(*node)
+            BeforePatch::WouldAdd { parent } => {
+                !self.get(*parent).has_attribute("phx-data-ref-lock", None)
+            }
+            BeforePatch::WouldChange { node } => {
+                !self.get(*node).has_attribute("phx-data-ref-lock", None)
+            }
+            BeforePatch::WouldRemove { node } => {
+                !self.get(*node).has_attribute("phx-data-ref-lock", None)
             }
 
-            BeforePatch::WouldReplace { node, parent } => {
-                !self.node_parents_are_locked(*parent) && !self.node_descendents_are_locked(*node)
+            BeforePatch::WouldReplace { node } => {
+                !self.get(*node).has_attribute("phx-data-ref-lock", None)
             }
         }
     }
