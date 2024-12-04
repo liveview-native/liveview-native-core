@@ -3,7 +3,6 @@ use std::time::Duration;
 use super::*;
 mod error;
 mod navigation;
-mod playback;
 mod streaming;
 mod upload;
 
