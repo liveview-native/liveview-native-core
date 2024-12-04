@@ -61,7 +61,10 @@ impl Document {
     }
 
     pub fn set_event_handler(&self, handler: Box<dyn DocumentChangeHandler>) {
-        self.inner.lock().expect("lock poisoned!").event_callback = Some(Arc::from(handler));
+        self.inner
+            .lock()
+            .expect("lock poisoned!")
+            .user_event_callback = Some(Arc::from(handler));
     }
 
     pub fn merge_fragment_json_unserialized(&self, json: JSON) -> Result<(), RenderError> {
@@ -76,7 +79,7 @@ impl Document {
             .inner
             .lock()
             .expect("lock poisoned")
-            .event_callback
+            .user_event_callback
             .clone()
         else {
             return Ok(());

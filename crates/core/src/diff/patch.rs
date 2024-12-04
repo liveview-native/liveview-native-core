@@ -138,11 +138,8 @@ impl Patch {
     {
         match self {
             Self::InsertBefore { before, node: data } => {
-                let parent = doc
-                    .document()
-                    .parent(before)
-                    .expect("inserted node should have parent");
-
+                let d = doc.document();
+                let parent = d.parent(before).expect("inserted node should have parent");
                 let speculative = BeforePatch::WouldAdd { parent };
 
                 if doc.document().can_complete_change(&speculative) {

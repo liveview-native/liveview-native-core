@@ -71,7 +71,11 @@ pub struct Document {
     /// The fragment template.
     pub fragment_template: Option<Root>,
     /// Instruments all patch events which are applied to the document.
-    pub event_callback: Option<Arc<dyn DocumentChangeHandler>>,
+    pub user_event_callback: Option<Arc<dyn DocumentChangeHandler>>,
+    /// liveview specific logic for reacting to document changes.
+    /// intentionally loosely coupled from dom logic. this should be converted
+    /// to a dynamic trait if user augmented dynamic dispatch is ever needed.
+    phx_event_callbacks: Option<PhxDocumentChangeHooks>,
     /// A map from node reference to node data
     nodes: PrimaryMap<NodeRef, NodeData>,
     /// A map from a node to its parent node, if it currently has one
@@ -134,8 +138,17 @@ impl Document {
             children: SecondaryMap::new(),
             ids: Default::default(),
             fragment_template: None,
-            event_callback: None,
+            user_event_callback: None,
+            phx_event_callbacks: Some(PhxDocumentChangeHooks),
             upload_ct: 0,
+        }
+    }
+
+    pub fn can_complete_change(&self, patch: &BeforePatch) -> bool {
+        if let Some(hooks) = self.phx_event_callbacks.as_ref() {
+            hooks.can_complete_change(self, patch)
+        } else {
+            true
         }
     }
 
@@ -531,26 +544,6 @@ impl Document {
         Ok(document)
     }
 
-    /// If a patch result would touch a part of the locked tree, return true.
-    /// These changes are not kept in the DOM but instead in the root fragment.
-    pub fn can_complete_change(&self, patch: &BeforePatch) -> bool {
-        match patch {
-            BeforePatch::WouldAdd { parent } => {
-                !self.get(*parent).has_attribute("phx-data-ref-lock", None)
-            }
-            BeforePatch::WouldChange { node } => {
-                !self.get(*node).has_attribute("phx-data-ref-lock", None)
-            }
-            BeforePatch::WouldRemove { node } => {
-                !self.get(*node).has_attribute("phx-data-ref-lock", None)
-            }
-
-            BeforePatch::WouldReplace { node } => {
-                !self.get(*node).has_attribute("phx-data-ref-lock", None)
-            }
-        }
-    }
-
     pub fn merge_fragment_json(
         &mut self,
         value: serde_json::Value,
@@ -658,6 +651,33 @@ pub trait DocumentChangeHandler: Send + Sync {
         node_data: NodeData,
         parent: Option<Arc<NodeRef>>,
     );
+}
+
+/// Applications specific dom morphing hooks.
+/// These functions implement application specific
+#[derive(Debug, Clone)]
+pub struct PhxDocumentChangeHooks;
+
+impl PhxDocumentChangeHooks {
+    /// If a patch result would touch a part of the locked tree, return true.
+    /// These changes are not kept in the DOM but instead in the root fragment.
+    pub fn can_complete_change(&self, doc: &Document, patch: &BeforePatch) -> bool {
+        match patch {
+            BeforePatch::WouldAdd { parent } => {
+                !doc.get(*parent).has_attribute("phx-data-ref-lock", None)
+            }
+            BeforePatch::WouldChange { node } => {
+                !doc.get(*node).has_attribute("phx-data-ref-lock", None)
+            }
+            BeforePatch::WouldRemove { node } => {
+                !doc.get(*node).has_attribute("phx-data-ref-lock", None)
+            }
+
+            BeforePatch::WouldReplace { node } => {
+                !doc.get(*node).has_attribute("phx-data-ref-lock", None)
+            }
+        }
+    }
 }
 
 /// This trait is used to provide functionality common to construction/mutating documents
