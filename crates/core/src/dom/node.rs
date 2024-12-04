@@ -117,12 +117,16 @@ impl Node {
     pub fn attributes(&self) -> Vec<Attribute> {
         self.data.attributes()
     }
+
     pub fn get_attribute(&self, name: AttributeName) -> Option<Attribute> {
-        self.attributes()
-            .iter()
-            .find(|attr| attr.name == name)
-            .cloned()
+        let attrs = match &self.data {
+            NodeData::NodeElement { element } => &element.attributes,
+            _ => return None,
+        };
+
+        attrs.iter().find(|attr| attr.name == name).cloned()
     }
+
     pub fn display(&self) -> String {
         format!("{self}")
     }

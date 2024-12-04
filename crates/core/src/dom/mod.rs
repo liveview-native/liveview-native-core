@@ -29,7 +29,7 @@ pub use self::{
 use crate::{
     diff::{
         fragment::{FragmentMerge, RenderError, Root, RootDiff},
-        PatchResult,
+        BeforePatch, PatchResult,
     },
     parser,
 };
@@ -70,6 +70,7 @@ pub struct Document {
     root: NodeRef,
     /// The fragment template.
     pub fragment_template: Option<Root>,
+    /// Instruments all patch events which are applied to the document.
     pub event_callback: Option<Arc<dyn DocumentChangeHandler>>,
     /// A map from node reference to node data
     nodes: PrimaryMap<NodeRef, NodeData>,
@@ -530,6 +531,30 @@ impl Document {
         Ok(document)
     }
 
+    fn node_parents_are_locked(&self, node: NodeRef) -> bool {
+        false
+    }
+
+    fn node_descendents_are_locked(&self, node: NodeRef) -> bool {
+        false
+    }
+
+    /// If a patch result would touch a part of the locked tree, return true.
+    /// These changes are not kept in the DOM but instead in the root fragment.
+    pub fn can_complete_change(&self, patch: &BeforePatch) -> bool {
+        match patch {
+            BeforePatch::WouldAdd { parent } => !self.node_parents_are_locked(*parent),
+            BeforePatch::WouldChange { node } => !self.node_parents_are_locked(*node),
+            BeforePatch::WouldRemove { node, parent } => {
+                !self.node_parents_are_locked(*parent) && !self.node_descendents_are_locked(*node)
+            }
+
+            BeforePatch::WouldReplace { node, parent } => {
+                !self.node_parents_are_locked(*parent) && !self.node_descendents_are_locked(*node)
+            }
+        }
+    }
+
     pub fn merge_fragment_json(
         &mut self,
         value: serde_json::Value,
@@ -541,18 +566,17 @@ impl Document {
         } else {
             fragment.try_into()?
         };
+
         self.fragment_template = Some(root.clone());
 
         let rendered_root: String = root.clone().try_into()?;
         let new_doc = Self::parse(rendered_root)?;
 
         let patches = crate::diff::diff(self, &new_doc);
-        if patches.is_empty() {
-            return Ok(vec![]);
-        }
 
         let mut stack = vec![];
         let mut editor = self.edit();
+
         let results = patches
             .into_iter()
             .filter_map(|patch| patch.apply(&mut editor, &mut stack))
@@ -917,6 +941,7 @@ pub struct Editor<'a> {
     doc: &'a mut Document,
     pos: NodeRef,
 }
+
 impl<'a> Editor<'a> {
     pub fn new(doc: &'a mut Document) -> Self {
         let pos = doc.root();

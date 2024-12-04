@@ -3,6 +3,7 @@ use std::time::Duration;
 use super::*;
 mod error;
 mod navigation;
+mod playback;
 mod streaming;
 mod upload;
 
@@ -128,6 +129,7 @@ async fn channels_keep_listening_for_diffs_on_reconnect() {
     assert!(!handle.is_finished());
 }
 
+// Validate that shutdown has side effects.
 #[tokio::test]
 async fn channels_drop_on_shutdown() {
     let _ = env_logger::builder()

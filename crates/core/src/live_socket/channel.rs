@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use super::{protocol::PhxEvent, LiveSocketError, UploadConfig, UploadError};
+use super::{protocol::event::PhxEvent, LiveSocketError, UploadConfig, UploadError};
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{
@@ -91,11 +91,11 @@ impl LiveChannel {
         Ok(document)
     }
 
-    fn unlock_node(&self, node: NodeRef) {
+    pub fn unlock_node(&self, node: NodeRef) {
         self.locks.lock().expect("lock poison").insert(node);
     }
 
-    fn lock_node(&self, node: NodeRef) {
+    pub fn lock_node(&self, node: NodeRef) {
         self.locks.lock().expect("lock poison").insert(node);
     }
 }
@@ -196,10 +196,11 @@ impl LiveChannel {
                                    error!("Diff was not json!");
                                    continue;
                                };
+
                                debug!("PAYLOAD: {json:?}");
                                // This function merges and uses the event handler set in `set_event_handler`
                                // which will call back into the Swift/Kotlin.
-                               document.merge_fragment_json(&json.to_string())?;
+                               document.merge_fragment_json_unserialized(json)?;
                            }
                        }
                    };
