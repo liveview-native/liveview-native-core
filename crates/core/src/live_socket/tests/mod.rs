@@ -67,6 +67,45 @@ async fn join_live_view() {
 }
 
 #[tokio::test]
+async fn click_test() {
+    let _ = env_logger::builder()
+        .parse_default_env()
+        .is_test(true)
+        .try_init();
+
+    let url = format!("http://{HOST}/thermostat");
+
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+        .await
+        .expect("Failed to get liveview socket");
+
+    let live_channel = live_socket
+        .join_liveview_channel(None, None)
+        .await
+        .expect("Failed to join channel");
+
+    let join_doc = live_channel
+        .join_document()
+        .expect("Failed to render join payload");
+
+    let expected = r#"<Group id="flash-group" />
+<VStack>
+    <Text>
+        Current temperature: 70°F
+    </Text>
+    <Button id="button" phx-click="inc_temperature">
+        +
+    </Button>
+</VStack>"#;
+
+    assert_doc_eq!(expected, join_doc.to_string());
+
+    let sender = join_doc.get_by_id("button");
+
+    //live_channel.send_event(event, payload, sender)
+}
+
+#[tokio::test]
 async fn channels_keep_listening_for_diffs_on_reconnect() {
     let _ = env_logger::builder()
         .parse_default_env()
