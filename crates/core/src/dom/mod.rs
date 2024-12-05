@@ -4,6 +4,8 @@ mod node;
 mod printer;
 mod select;
 
+use crate::live_socket::dom_locking::*;
+
 use std::{
     collections::{BTreeMap, VecDeque},
     fmt, mem,
@@ -29,7 +31,7 @@ pub use self::{
 use crate::{
     diff::{
         fragment::{FragmentMerge, RenderError, Root, RootDiff},
-        BeforePatch, PatchResult,
+        PatchResult,
     },
     parser,
 };
@@ -139,17 +141,31 @@ impl Document {
             ids: Default::default(),
             fragment_template: None,
             user_event_callback: None,
-            phx_event_callbacks: Some(PhxDocumentChangeHooks),
+            phx_event_callbacks: None,
             upload_ct: 0,
         }
     }
 
+    /// Called before each patch is applied to the document, if this returns
+    /// false, then something in the document tree is locked.
     pub fn can_complete_change(&self, patch: &BeforePatch) -> bool {
         if let Some(hooks) = self.phx_event_callbacks.as_ref() {
             hooks.can_complete_change(self, patch)
         } else {
             true
         }
+    }
+
+    /// enable the change hook logic from phoenix live view.
+    /// this will prevent certain modifications from occurring to the DOM
+    /// under circumstances liek awaiting a server ack.
+    pub fn set_document_change_hooks(&mut self) {
+        self.phx_event_callbacks = Some(Default::default());
+    }
+
+    /// Disable phx specific locking logic.
+    pub fn unset_document_change_hooks(&mut self) {
+        self.phx_event_callbacks = None;
     }
 
     /// Parses a `Document` from a string
@@ -505,6 +521,68 @@ impl Document {
         }
     }
 
+    pub fn extend_class_list(&mut self, node: NodeRef, classes: &[&str]) {
+        let Some(NodeData::NodeElement { element }) = self.nodes.get_mut(node) else {
+            return;
+        };
+
+        let class_attr = element
+            .attributes
+            .iter_mut()
+            .find(|attr| attr.name.name == "class");
+
+        let class_attr = if let Some(attr) = class_attr {
+            attr
+        } else {
+            let attr = Attribute::new("class", None);
+            element.attributes.push(attr);
+            element.attributes.last_mut().unwrap()
+        };
+
+        let new_classes = classes.join(" ");
+        match &mut class_attr.value {
+            Some(existing) => {
+                existing.push_str(" ");
+                existing.push_str(&new_classes);
+            }
+            None => {
+                class_attr.value = Some(new_classes);
+            }
+        }
+    }
+
+    pub fn remove_classes_by<P>(&mut self, node: NodeRef, mut predicate: P)
+    where
+        P: FnMut(&str) -> bool,
+    {
+        let Some(NodeData::NodeElement { element }) = self.nodes.get_mut(node) else {
+            return;
+        };
+
+        if let Some(class_attr) = element
+            .attributes
+            .iter_mut()
+            .find(|attr| attr.name.name == "class")
+        {
+            if let Some(value) = &mut class_attr.value {
+                *value = value
+                    .split_whitespace()
+                    .filter(|&class| !predicate(class))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+            }
+        }
+    }
+
+    pub fn add_attribute(&mut self, node: NodeRef, attribute: Attribute) {
+        if let NodeData::NodeElement {
+            element: ref mut elem,
+        } = &mut self.nodes[node]
+        {
+            elem.attributes.push(attribute)
+        }
+    }
+
     /// Removes all attributes from `node` for which `predicate` returns false.
     pub fn remove_attributes_by<P>(&mut self, node: NodeRef, predicate: P)
     where
@@ -651,33 +729,6 @@ pub trait DocumentChangeHandler: Send + Sync {
         node_data: NodeData,
         parent: Option<Arc<NodeRef>>,
     );
-}
-
-/// Applications specific dom morphing hooks.
-/// These functions implement application specific
-#[derive(Debug, Clone)]
-pub struct PhxDocumentChangeHooks;
-
-impl PhxDocumentChangeHooks {
-    /// If a patch result would touch a part of the locked tree, return true.
-    /// These changes are not kept in the DOM but instead in the root fragment.
-    pub fn can_complete_change(&self, doc: &Document, patch: &BeforePatch) -> bool {
-        match patch {
-            BeforePatch::WouldAdd { parent } => {
-                !doc.get(*parent).has_attribute("phx-data-ref-lock", None)
-            }
-            BeforePatch::WouldChange { node } => {
-                !doc.get(*node).has_attribute("phx-data-ref-lock", None)
-            }
-            BeforePatch::WouldRemove { node } => {
-                !doc.get(*node).has_attribute("phx-data-ref-lock", None)
-            }
-
-            BeforePatch::WouldReplace { node } => {
-                !doc.get(*node).has_attribute("phx-data-ref-lock", None)
-            }
-        }
-    }
 }
 
 /// This trait is used to provide functionality common to construction/mutating documents

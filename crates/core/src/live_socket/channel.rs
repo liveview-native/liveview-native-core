@@ -2,16 +2,20 @@ use futures::{future::FutureExt, pin_mut, select};
 
 use std::{
     collections::HashSet,
-    sync::{Arc, Mutex},
+    sync::{atomic::AtomicU64, Arc, Mutex},
     time::Duration,
 };
 
-use super::{protocol::event::PhxEvent, LiveSocketError, UploadConfig, UploadError};
+use super::{
+    dom_locking::{self, PHX_REF_LOCK, PHX_REF_SRC},
+    protocol::event::PhxEvent,
+    LiveSocketError, UploadConfig, UploadError,
+};
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{
         ffi::{Document as FFiDocument, DocumentChangeHandler},
-        AttributeName, AttributeValue, Document, NodeRef, Selector,
+        Attribute, AttributeName, AttributeValue, Document, NodeRef, Selector,
     },
     parser::parse,
 };
@@ -20,12 +24,12 @@ use phoenix_channels_client::{Channel, Event, Number, Payload, Socket, Topic, JS
 
 #[derive(uniffi::Object)]
 pub struct LiveChannel {
+    pub current_lock_id: Mutex<u64>, // Atomics not supported in wasm
     pub channel: Arc<Channel>,
     pub socket: Arc<Socket>,
     pub join_payload: Payload,
     pub document: FFiDocument,
     pub timeout: Duration,
-    pub locks: Mutex<HashSet<NodeRef>>,
 }
 
 #[derive(uniffi::Object)]
@@ -91,12 +95,52 @@ impl LiveChannel {
         Ok(document)
     }
 
-    pub fn unlock_node(&self, node: NodeRef) {
-        self.locks.lock().expect("lock poison").insert(node);
+    pub fn next_id(&self) -> u64 {
+        let mut id = self.current_lock_id.lock().expect("lock_poison");
+        *id += 1;
+        *id
     }
 
-    pub fn lock_node(&self, node: NodeRef) {
-        self.locks.lock().expect("lock poison").insert(node);
+    pub fn unlock_node(&self, node: NodeRef, loading_class: Option<&str>) {
+        self.document
+            .inner()
+            .lock()
+            .expect("lock poison")
+            .remove_attributes_by(node, |attr| attr.name.name == dom_locking::PHX_REF_LOCK);
+
+        if let Some(loading_class) = loading_class {
+            self.document
+                .inner()
+                .lock()
+                .expect("lock poison")
+                .remove_classes_by(node, |class| class == loading_class);
+        }
+    }
+
+    pub fn lock_node(&self, node: NodeRef, loading_class: Option<&str>) {
+        let lock = Attribute::new(PHX_REF_LOCK, Some(self.next_id().to_string()));
+
+        self.document
+            .inner()
+            .lock()
+            .expect("lock poison")
+            .add_attribute(node, lock);
+
+        let el_lock = Attribute::new(PHX_REF_SRC, Some(node.0.to_string()));
+
+        self.document
+            .inner()
+            .lock()
+            .expect("lock poison")
+            .add_attribute(node, el_lock);
+
+        if let Some(attr) = loading_class {
+            self.document
+                .inner()
+                .lock()
+                .expect("lock poison")
+                .extend_class_list(node, &[attr]);
+        }
     }
 }
 
@@ -112,24 +156,6 @@ impl LiveChannel {
 
     pub fn set_event_handler(&self, handler: Box<dyn DocumentChangeHandler>) {
         self.document.set_event_handler(handler);
-    }
-
-    pub async fn send_event(
-        &self,
-        event: PhxEvent,
-        payload: &str,
-        sender: &NodeRef,
-    ) -> Result<Payload, LiveSocketError> {
-        todo!();
-    }
-
-    pub async fn send_event_json(
-        &self,
-        event: PhxEvent,
-        payload: JSON,
-        sender: &NodeRef,
-    ) -> Result<Payload, LiveSocketError> {
-        todo!();
     }
 
     pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {

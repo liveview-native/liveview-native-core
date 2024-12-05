@@ -1,4 +1,5 @@
 mod channel;
+pub(crate) mod dom_locking;
 mod error;
 mod navigation;
 mod protocol;

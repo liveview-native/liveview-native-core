@@ -416,15 +416,16 @@ impl LiveSocket {
             .await?;
         debug!("Created channel for live reload socket");
         let join_payload = channel.join(self.timeout()).await?;
-        let document = Document::empty();
+        let mut document = Document::empty();
+        document.set_document_change_hooks();
 
         Ok(LiveChannel {
+            current_lock_id: Default::default(),
             channel,
             join_payload,
             socket: self.socket(),
             document: document.into(),
             timeout: self.timeout(),
-            locks: Default::default(),
         })
     }
 
@@ -522,6 +523,7 @@ impl LiveSocket {
                     let root: Root = root.try_into()?;
                     let rendered: String = root.clone().try_into()?;
                     let mut document = crate::parser::parse(&rendered)?;
+                    document.set_document_change_hooks();
                     document.fragment_template = Some(root);
                     Some(document)
                 } else {
@@ -533,12 +535,12 @@ impl LiveSocket {
         .ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
 
         Ok(LiveChannel {
+            current_lock_id: Default::default(),
             channel,
             join_payload,
             socket: self.socket(),
             document: document.into(),
             timeout: self.timeout(),
-            locks: Default::default(),
         })
     }
 

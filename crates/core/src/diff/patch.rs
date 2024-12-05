@@ -1,5 +1,6 @@
 use super::traversal::MoveTo;
 use crate::dom::*;
+use crate::live_socket::dom_locking::*;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Patch {
@@ -87,19 +88,6 @@ pub enum Patch {
         attributes: Vec<Attribute>,
     },
     Move(MoveTo),
-}
-
-/// Speculative action taken before a patch
-#[derive(Debug)]
-pub enum BeforePatch {
-    /// A new node would be added to `parent`.
-    WouldAdd { parent: NodeRef },
-    /// The node will be removed from `parent`
-    WouldRemove { node: NodeRef },
-    /// The node will be modified
-    WouldChange { node: NodeRef },
-    /// The node will be replaced
-    WouldReplace { node: NodeRef },
 }
 
 /// The result of applying a [Patch].

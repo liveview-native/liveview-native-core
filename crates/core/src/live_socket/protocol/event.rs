@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 
-#[derive(uniffi::Enum, Clone)]
+use phoenix_channels_client::Event;
+
+#[derive(uniffi::Enum, Clone, Debug)]
 pub enum PhxEvent {
     Other(String),
     PhxValue(String),
@@ -35,8 +37,16 @@ pub enum PhxEvent {
     PhxTrackStatic,
 }
 
+impl From<&PhxEvent> for Event {
+    fn from(value: &PhxEvent) -> Self {
+        Event::User {
+            user: value.str_name().to_string(),
+        }
+    }
+}
+
 impl PhxEvent {
-    fn str_name<'a>(&'a self) -> Cow<'a, str> {
+    pub fn str_name<'a>(&'a self) -> Cow<'a, str> {
         match self {
             PhxEvent::Other(o) => Cow::Borrowed(o.as_str()),
             PhxEvent::PhxValue(var_name) => ["phx-value-", var_name.as_str()].concat().into(),
@@ -72,7 +82,7 @@ impl PhxEvent {
         }
     }
 
-    fn loading_attr(&self) -> Option<&str> {
+    pub fn loading_attr(&self) -> Option<&str> {
         match self {
             PhxEvent::PhxClick => Some("phx-click-loading"),
             PhxEvent::PhxChange => Some("phx-change-loading"),
