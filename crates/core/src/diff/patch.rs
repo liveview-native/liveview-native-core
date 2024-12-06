@@ -245,7 +245,7 @@ impl Patch {
                 let data = doc.document().get(node).clone();
                 let parent = doc.document_mut().parent(node);
 
-                let speculative = BeforePatch::WouldRemove { node };
+                let speculative = BeforePatch::Remove { node };
                 if doc.document().can_complete_change(&speculative) {
                     doc.remove(node);
                     parent.map(|parent| PatchResult::Remove { node, parent, data })
@@ -257,7 +257,7 @@ impl Patch {
                 let data = doc.document().get(node).clone();
                 let parent = doc.document_mut().parent(node)?;
 
-                let speculative = BeforePatch::WouldReplace { node };
+                let speculative = BeforePatch::Replace { node };
 
                 if doc.document().can_complete_change(&speculative) {
                     doc.replace(node, replacement);
@@ -270,7 +270,7 @@ impl Patch {
                 doc.set_attribute(name, value);
                 let node = doc.insertion_point();
 
-                let speculative = BeforePatch::WouldChange { node };
+                let speculative = BeforePatch::Change { node };
 
                 if doc.document().can_complete_change(&speculative) {
                     let data = doc.document().get(node).clone();
@@ -280,7 +280,7 @@ impl Patch {
                 }
             }
             Self::AddAttributeTo { node, name, value } => {
-                let speculative = BeforePatch::WouldChange { node };
+                let speculative = BeforePatch::Change { node };
                 if doc.document().can_complete_change(&speculative) {
                     let data = doc.document().get(node).clone();
                     let mut guard = doc.insert_guard();
@@ -292,7 +292,7 @@ impl Patch {
                 }
             }
             Self::UpdateAttribute { node, name, value } => {
-                let speculative = BeforePatch::WouldChange { node };
+                let speculative = BeforePatch::Change { node };
                 if doc.document().can_complete_change(&speculative) {
                     let data = doc.document().get(node).clone();
                     let mut guard = doc.insert_guard();
@@ -304,7 +304,7 @@ impl Patch {
                 }
             }
             Self::RemoveAttributeByName { node, name } => {
-                let speculative = BeforePatch::WouldChange { node };
+                let speculative = BeforePatch::Change { node };
                 if doc.document().can_complete_change(&speculative) {
                     let data = doc.document().get(node).clone();
                     let mut guard = doc.insert_guard();
@@ -316,7 +316,7 @@ impl Patch {
                 }
             }
             Self::SetAttributes { node, attributes } => {
-                let speculative = BeforePatch::WouldChange { node };
+                let speculative = BeforePatch::Change { node };
                 if doc.document().can_complete_change(&speculative) {
                     let data = doc.document().get(node).clone();
                     let mut guard = doc.insert_guard();

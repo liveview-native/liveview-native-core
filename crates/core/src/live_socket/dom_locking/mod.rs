@@ -7,13 +7,13 @@ pub const PHX_REF_SRC: &str = "data-phx-ref-src";
 #[derive(Debug)]
 pub enum BeforePatch {
     /// A new node would be added to `parent`.
-    WouldAdd { parent: NodeRef },
+    Add { parent: NodeRef },
     /// The node will be removed from `parent`
-    WouldRemove { node: NodeRef },
+    Remove { node: NodeRef },
     /// The node will be modified
-    WouldChange { node: NodeRef },
+    Change { node: NodeRef },
     /// The node will be replaced
-    WouldReplace { node: NodeRef },
+    Replace { node: NodeRef },
 }
 
 /// Applications specific dom morphing hooks.
@@ -26,10 +26,10 @@ impl PhxDocumentChangeHooks {
     /// These changes are not kept in the DOM but instead in the root fragment.
     pub fn can_complete_change(&self, doc: &Document, patch: &BeforePatch) -> bool {
         match patch {
-            BeforePatch::WouldAdd { parent } => !doc.get(*parent).has_attribute(PHX_REF_LOCK, None),
-            BeforePatch::WouldChange { node } => !doc.get(*node).has_attribute(PHX_REF_LOCK, None),
-            BeforePatch::WouldRemove { node } => !doc.get(*node).has_attribute(PHX_REF_LOCK, None),
-            BeforePatch::WouldReplace { node } => !doc.get(*node).has_attribute(PHX_REF_LOCK, None),
+            BeforePatch::Add { parent } => !doc.get(*parent).has_attribute(PHX_REF_LOCK, None),
+            BeforePatch::Change { node } => !doc.get(*node).has_attribute(PHX_REF_LOCK, None),
+            BeforePatch::Remove { node } => !doc.get(*node).has_attribute(PHX_REF_LOCK, None),
+            BeforePatch::Replace { node } => !doc.get(*node).has_attribute(PHX_REF_LOCK, None),
         }
     }
 }
