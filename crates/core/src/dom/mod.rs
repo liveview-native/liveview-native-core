@@ -542,7 +542,7 @@ impl Document {
         let new_classes = classes.join(" ");
         match &mut class_attr.value {
             Some(existing) => {
-                existing.push_str(" ");
+                existing.push(' ');
                 existing.push_str(&new_classes);
             }
             None => {
