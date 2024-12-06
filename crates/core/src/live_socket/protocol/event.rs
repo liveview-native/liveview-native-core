@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct ServerEvent {
+    /// Under the hood this is a [RootDiff] object. But it is just converted to a
+    /// json value again so it's not worth the serialization overhead.
     pub diff: Option<serde_json::Value>,
     #[serde(flatten)]
     pub misc: HashMap<String, serde_json::Value>,
