@@ -30,7 +30,7 @@ impl UserEvent {
         }
     }
 
-    pub fn to_channel_message(self) -> (Event, Payload) {
+    pub fn into_channel_message(self) -> (Event, Payload) {
         let val = serde_json::to_value(self).expect("Failed to serialize UserEvent");
 
         (

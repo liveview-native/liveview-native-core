@@ -37,7 +37,7 @@ impl LiveChannel {
         self.lock_node(*sender, event.loading_attr());
 
         let user_event = UserEvent::new(event.type_name().into(), event_attr, value);
-        let (user_event, payload) = user_event.to_channel_message();
+        let (user_event, payload) = user_event.into_channel_message();
         let res = self.channel.call(user_event, payload, self.timeout).await;
 
         self.unlock_node(*sender, event.loading_attr());
