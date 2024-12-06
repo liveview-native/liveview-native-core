@@ -243,10 +243,10 @@ impl Document {
     }
 
     /// Returns the set of attribute refs associated with `node`
-    pub fn attributes(&self, node: NodeRef) -> Vec<Attribute> {
+    pub fn attributes(&self, node: NodeRef) -> &[Attribute] {
         match &self.nodes[node] {
-            NodeData::NodeElement { element: ref elem } => elem.attributes.clone(),
-            _ => vec![],
+            NodeData::NodeElement { element: ref elem } => &elem.attributes,
+            _ => &[],
         }
     }
 
@@ -551,6 +551,8 @@ impl Document {
         }
     }
 
+    /// Remove all classes from the class list of `node` for which the
+    /// predicate returns `false`
     pub fn remove_classes_by<P>(&mut self, node: NodeRef, mut predicate: P)
     where
         P: FnMut(&str) -> bool,
@@ -559,6 +561,7 @@ impl Document {
             return;
         };
 
+        let mut empty = false;
         if let Some(class_attr) = element
             .attributes
             .iter_mut()
@@ -567,10 +570,15 @@ impl Document {
             if let Some(value) = &mut class_attr.value {
                 *value = value
                     .split_whitespace()
-                    .filter(|&class| !predicate(class))
+                    .filter(|&class| predicate(class))
                     .collect::<Vec<_>>()
                     .join(" ");
+                empty = value.is_empty();
             }
+        }
+
+        if empty {
+            element.remove_attribute(&AttributeName::new("class"));
         }
     }
 

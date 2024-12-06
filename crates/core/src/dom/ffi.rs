@@ -141,7 +141,14 @@ impl Document {
             .lock()
             .expect("lock poisoned!")
             .attributes(*node_ref)
-            .to_vec()
+            .to_owned()
+    }
+
+    pub fn get_attribute_by_name(&self, node_ref: Arc<NodeRef>, name: &str) -> Option<Attribute> {
+        self.inner
+            .lock()
+            .expect("lock poisoned!")
+            .get_attribute_by_name(*node_ref, name)
     }
 
     pub fn get(&self, node_ref: Arc<NodeRef>) -> NodeData {

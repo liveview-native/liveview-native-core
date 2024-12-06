@@ -1,14 +1,12 @@
 use futures::{future::FutureExt, pin_mut, select};
 
 use std::{
-    collections::HashSet,
-    sync::{atomic::AtomicU64, Arc, Mutex},
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
 use super::{
     dom_locking::{self, PHX_REF_LOCK, PHX_REF_SRC},
-    protocol::event::PhxEvent,
     LiveSocketError, UploadConfig, UploadError,
 };
 use crate::{
@@ -106,14 +104,17 @@ impl LiveChannel {
             .inner()
             .lock()
             .expect("lock poison")
-            .remove_attributes_by(node, |attr| attr.name.name == dom_locking::PHX_REF_LOCK);
+            .remove_attributes_by(node, |attr| {
+                attr.name.name != dom_locking::PHX_REF_LOCK
+                    && attr.name.name != dom_locking::PHX_REF_SRC
+            });
 
         if let Some(loading_class) = loading_class {
             self.document
                 .inner()
                 .lock()
                 .expect("lock poison")
-                .remove_classes_by(node, |class| class == loading_class);
+                .remove_classes_by(node, |class| class != loading_class);
         }
     }
 

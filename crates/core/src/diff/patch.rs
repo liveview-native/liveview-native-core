@@ -128,7 +128,7 @@ impl Patch {
             Self::InsertBefore { before, node: data } => {
                 let d = doc.document();
                 let parent = d.parent(before).expect("inserted node should have parent");
-                let speculative = BeforePatch::WouldAdd { parent };
+                let speculative = BeforePatch::Add { parent };
 
                 if doc.document().can_complete_change(&speculative) {
                     let node = doc.insert_before(data.clone(), before);
@@ -143,7 +143,7 @@ impl Patch {
                     .parent(after)
                     .expect("inserted node should have parent");
 
-                let speculative = BeforePatch::WouldAdd { parent };
+                let speculative = BeforePatch::Add { parent };
 
                 if doc.document().can_complete_change(&speculative) {
                     let node = doc.insert_after(data.clone(), after);
@@ -198,7 +198,7 @@ impl Patch {
 
                 let d = doc.document_mut();
                 let parent = d.parent(before).expect("inserted node should have parent");
-                let speculative = BeforePatch::WouldAdd { parent };
+                let speculative = BeforePatch::Add { parent };
 
                 if d.can_complete_change(&speculative) {
                     d.insert_before(node, before);
@@ -217,7 +217,7 @@ impl Patch {
                 })
             }
             Self::AppendTo { parent, node: data } => {
-                let speculative = BeforePatch::WouldAdd { parent };
+                let speculative = BeforePatch::Add { parent };
 
                 if doc.document().can_complete_change(&speculative) {
                     let node = doc.append_child(parent, data.clone());
@@ -230,7 +230,7 @@ impl Patch {
                 let d = doc.document_mut();
                 let parent = d.parent(after).expect("inserted node should have parent");
 
-                let speculative = BeforePatch::WouldAdd { parent };
+                let speculative = BeforePatch::Add { parent };
 
                 if d.can_complete_change(&speculative) {
                     let node = stack.pop().unwrap();
@@ -245,14 +245,8 @@ impl Patch {
                 let data = doc.document().get(node).clone();
                 let parent = doc.document_mut().parent(node);
 
-                let can_remove = if let Some(parent) = parent {
-                    let speculative = BeforePatch::WouldRemove { node };
-                    doc.document().can_complete_change(&speculative)
-                } else {
-                    false
-                };
-
-                if can_remove {
+                let speculative = BeforePatch::WouldRemove { node };
+                if doc.document().can_complete_change(&speculative) {
                     doc.remove(node);
                     parent.map(|parent| PatchResult::Remove { node, parent, data })
                 } else {

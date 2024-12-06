@@ -51,7 +51,7 @@ async fn join_live_view() {
     let join_doc = live_channel
         .join_document()
         .expect("Failed to render join payload");
-    let rendered = format!("{}", join_doc.to_string());
+    let rendered = format!("{}", join_doc);
     let expected = r#"<Group id="flash-group" />
 <VStack>
     <Text>
@@ -100,9 +100,24 @@ async fn click_test() {
 
     assert_doc_eq!(expected, join_doc.to_string());
 
-    let sender = join_doc.get_by_id("button");
+    let sender = join_doc.get_by_id("button").expect("nothing by that name");
 
-    //live_channel.send_event(event, payload, sender)
+    live_channel
+        .send_event_json(protocol::event::PhxEvent::PhxClick, None, &sender)
+        .await
+        .expect("click failed");
+
+    let expected = r#"<Group id="flash-group" />
+<VStack>
+    <Text>
+        Current temperature: 70°F
+    </Text>
+    <Button id="button" phx-click="inc_temperature">
+        +
+    </Button>
+</VStack>"#;
+
+    assert_doc_eq!(expected, live_channel.document().to_string());
 }
 
 #[tokio::test]
