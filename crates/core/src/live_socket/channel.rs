@@ -95,6 +95,9 @@ impl LiveChannel {
         Ok(document)
     }
 
+    /// When not handled by [Self::merge_diffs], payloads returned by [Self::call] are passed
+    /// here automatically. This is important because call responses can result in diffs which
+    /// should be applied to the internal root interpolation tree.
     pub fn handle_server_event(&self, event: ServerEvent) -> Result<(), LiveSocketError> {
         if let Some(diff) = event.diff {
             self.document.merge_fragment_json(JSON::from(diff))?;

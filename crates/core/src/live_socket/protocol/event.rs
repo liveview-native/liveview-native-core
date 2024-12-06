@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashMap};
 
 use phoenix_channels_client::{Event, Payload, JSON};
 use serde::{Deserialize, Serialize};
@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize)]
 pub struct ServerEvent {
     pub diff: Option<serde_json::Value>,
+    #[serde(flatten)]
+    pub misc: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize)]
