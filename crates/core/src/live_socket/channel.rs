@@ -7,6 +7,8 @@ use std::{
 
 use super::{
     dom_locking::{self, PHX_REF_LOCK, PHX_REF_SRC},
+    lock,
+    protocol::event::ServerEvent,
     LiveSocketError, UploadConfig, UploadError,
 };
 use crate::{
@@ -93,6 +95,14 @@ impl LiveChannel {
         Ok(document)
     }
 
+    pub fn handle_server_event(&self, event: ServerEvent) -> Result<(), LiveSocketError> {
+        if let Some(diff) = event.diff {
+            self.document.merge_fragment_json(JSON::from(diff))?;
+        }
+
+        Ok(())
+    }
+
     pub fn next_id(&self) -> u64 {
         let mut id = self.current_lock_id.lock().expect("lock_poison");
         *id += 1;
@@ -100,47 +110,27 @@ impl LiveChannel {
     }
 
     pub fn unlock_node(&self, node: NodeRef, loading_class: Option<&str>) {
-        self.document
-            .inner()
-            .lock()
-            .expect("lock poison")
-            .remove_attributes_by(node, |attr| {
-                attr.name.name != dom_locking::PHX_REF_LOCK
-                    && attr.name.name != dom_locking::PHX_REF_SRC
-            });
+        lock!(self.document.inner()).remove_attributes_by(node, |attr| {
+            attr.name.name != dom_locking::PHX_REF_LOCK
+                && attr.name.name != dom_locking::PHX_REF_SRC
+        });
 
         if let Some(loading_class) = loading_class {
-            self.document
-                .inner()
-                .lock()
-                .expect("lock poison")
-                .remove_classes_by(node, |class| class != loading_class);
+            lock!(self.document.inner()).remove_classes_by(node, |class| class != loading_class);
         }
     }
 
     pub fn lock_node(&self, node: NodeRef, loading_class: Option<&str>) {
         let lock = Attribute::new(PHX_REF_LOCK, Some(self.next_id().to_string()));
 
-        self.document
-            .inner()
-            .lock()
-            .expect("lock poison")
-            .add_attribute(node, lock);
+        lock!(self.document.inner()).add_attribute(node, lock);
 
         let el_lock = Attribute::new(PHX_REF_SRC, Some(node.0.to_string()));
 
-        self.document
-            .inner()
-            .lock()
-            .expect("lock poison")
-            .add_attribute(node, el_lock);
+        lock!(self.document.inner()).add_attribute(node, el_lock);
 
         if let Some(attr) = loading_class {
-            self.document
-                .inner()
-                .lock()
-                .expect("lock poison")
-                .extend_class_list(node, &[attr]);
+            lock!(self.document.inner()).extend_class_list(node, &[attr]);
         }
     }
 }
@@ -162,11 +152,7 @@ impl LiveChannel {
     pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {
         // find the upload with target equal to phx_target_name
         // retrieve the security token
-        let node_ref = self
-            .document()
-            .inner()
-            .lock()
-            .expect("lock poison!")
+        let node_ref = lock!(self.document().inner())
             .select(Selector::And(
                 Box::new(Selector::Attribute(AttributeName {
                     namespace: None,
@@ -227,7 +213,7 @@ impl LiveChannel {
                                debug!("PAYLOAD: {json:?}");
                                // This function merges and uses the event handler set in `set_event_handler`
                                // which will call back into the Swift/Kotlin.
-                               document.merge_fragment_json_unserialized(json)?;
+                               document.merge_fragment_json(json)?;
                            }
                        }
                    };

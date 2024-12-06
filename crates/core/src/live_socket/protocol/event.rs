@@ -1,12 +1,43 @@
 use std::borrow::Cow;
 
+use phoenix_channels_client::{Event, Payload, JSON};
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+pub struct ServerEvent {
+    pub diff: Option<serde_json::Value>,
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct UserEvent {
     pub r#type: String,
     pub event: String,
     pub value: serde_json::Value,
+}
+
+impl UserEvent {
+    pub fn new(r#type: String, event: String, value: Option<JSON>) -> Self {
+        Self {
+            r#type,
+            event,
+            value: value
+                .map(serde_json::Value::from)
+                .unwrap_or_else(|| serde_json::Value::Object(serde_json::Map::new())),
+        }
+    }
+
+    pub fn to_channel_message(self) -> (Event, Payload) {
+        let val = serde_json::to_value(self).expect("Failed to serialize UserEvent");
+
+        (
+            Event::User {
+                user: "event".into(),
+            },
+            Payload::JSONPayload {
+                json: JSON::from(val),
+            },
+        )
+    }
 }
 
 #[derive(uniffi::Enum, Clone, Debug)]

@@ -110,7 +110,7 @@ async fn click_test() {
     let expected = r#"<Group id="flash-group" />
 <VStack>
     <Text>
-        Current temperature: 70°F
+        Current temperature: 71°F
     </Text>
     <Button id="button" phx-click="inc_temperature">
         +

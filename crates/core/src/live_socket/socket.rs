@@ -10,6 +10,7 @@ use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, Topic, JSON};
 use reqwest::Method as ReqMethod;
 
+use super::lock;
 pub use super::{LiveChannel, LiveSocketError};
 
 use crate::{
@@ -17,16 +18,6 @@ use crate::{
     dom::{ffi::Document as FFiDocument, AttributeName, Document, ElementName, Selector},
     parser::parse,
 };
-
-#[macro_export]
-macro_rules! lock {
-    ($mutex:expr) => {
-        $mutex.lock().expect("Failed to acquire lock")
-    };
-    ($mutex:expr, $msg:expr) => {
-        $mutex.lock().expect($msg)
-    };
-}
 
 const LVN_VSN: &str = "2.0.0";
 const LVN_VSN_KEY: &str = "vsn";

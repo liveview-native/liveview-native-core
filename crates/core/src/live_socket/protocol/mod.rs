@@ -2,8 +2,9 @@ pub mod event;
 
 use super::{LiveChannel, LiveSocketError};
 use crate::dom::NodeRef;
-use event::{PhxEvent, UserEvent};
-use phoenix_channels_client::{Event, Payload, JSON};
+use event::{PhxEvent, ServerEvent, UserEvent};
+use phoenix_channels_client::{Payload, JSON};
+use serde::Deserialize;
 
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveChannel {
@@ -23,42 +24,32 @@ impl LiveChannel {
         value: Option<JSON>,
         sender: &NodeRef,
     ) -> Result<Payload, LiveSocketError> {
-        let r#type = event.type_name().into();
-        let change_attrs = event.loading_attr();
-
-        let event = self
+        let event_attr = self
             .document
             .inner()
-            .lock()
-            .expect("lock poison")
+            .try_lock()?
             .get_attribute_by_name(*sender, event.phx_attribute().as_str())
             .and_then(|attr| attr.value)
             .ok_or(LiveSocketError::MissingEventAttribtue(
                 event.type_name().to_string(),
             ))?;
 
-        let default = serde_json::Value::Object(serde_json::Map::new());
-        let payload = UserEvent {
-            r#type,
-            event,
-            value: value.map(serde_json::Value::from).unwrap_or(default),
-        };
+        self.lock_node(*sender, event.loading_attr());
 
-        let val = serde_json::to_value(payload)?;
-
-        self.lock_node(*sender, change_attrs);
-
-        let user_event = Event::User {
-            user: "event".into(),
-        };
-
-        let payload = Payload::JSONPayload {
-            json: JSON::from(val),
-        };
-
+        let user_event = UserEvent::new(event.type_name().into(), event_attr, value);
+        let (user_event, payload) = user_event.to_channel_message();
         let res = self.channel.call(user_event, payload, self.timeout).await;
 
-        self.unlock_node(*sender, change_attrs);
+        self.unlock_node(*sender, event.loading_attr());
+
+        if let Ok(Payload::JSONPayload { json }) = &res {
+            let val = serde_json::Value::from(json.clone());
+            if let Ok(server_event) = ServerEvent::deserialize(val) {
+                self.handle_server_event(server_event)?;
+            } else {
+                log::error!("Could not convert response into server event!")
+            }
+        }
 
         Ok(res?)
     }

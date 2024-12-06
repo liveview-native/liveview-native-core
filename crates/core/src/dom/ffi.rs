@@ -67,7 +67,7 @@ impl Document {
             .user_event_callback = Some(Arc::from(handler));
     }
 
-    pub fn merge_fragment_json_unserialized(&self, json: JSON) -> Result<(), RenderError> {
+    pub fn merge_fragment_json(&self, json: JSON) -> Result<(), RenderError> {
         let json = serde_json::Value::from(json);
         let results = self
             .inner
@@ -105,9 +105,9 @@ impl Document {
         Ok(())
     }
 
-    pub fn merge_fragment_json(&self, json: &str) -> Result<(), RenderError> {
+    pub fn merge_fragment_serialized(&self, json: &str) -> Result<(), RenderError> {
         let json = serde_json::from_str(json)?;
-        self.merge_fragment_json_unserialized(JSON::from(&json))
+        self.merge_fragment_json(JSON::from(&json))
     }
 
     pub fn next_upload_id(&self) -> u64 {
