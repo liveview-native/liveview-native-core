@@ -138,7 +138,7 @@ category = "Build"
 description = "Compiles for all targets needed to produce a universal library for watchOS and tvOS"
 command = "rustup"
 args = [
-    "run", "nightly", #nightly needed for -Z build-std 
+    "run", "nightly", #nightly needed for -Z build-std
     "cargo", "build",
     "--profile", "${CARGO_PROFILE}",
     "@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)",
@@ -539,7 +539,7 @@ args = [
 ]
 dependencies = []
 
-[tasks.uniffi-swift-docs-macos]
+[tasks.uniffi-swift-docbuild]
 workspace = false
 category = "Packaging"
 description = "Generates the LiveViewNativeCore.xcframework package"
@@ -557,4 +557,23 @@ args = [
 ]
 dependencies = [
     "uniffi-swift-package",
+]
+
+[tasks.uniffi-swift-doc-web]
+workspace = false
+category = "Packaging"
+description = "Generates the LiveViewNativeCore.xcframework package"
+command = "xcrun"
+args = [
+    "docc",
+    "process-archive",
+    "transform-for-static-hosting",
+    "xcode-build/Build/Products/Debug/LiveViewNativeCore.doccarchive",
+    "--output-path",
+    "./docs/swift",
+    "--hosting-base-path",
+    "liveview-native-core/docs/swift",
+]
+dependencies = [
+    "uniffi-swift-docbuild",
 ]

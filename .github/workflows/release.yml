@@ -96,6 +96,54 @@ jobs:
           name: liveview_native_core.xcframework.zip
           path: ./target/uniffi/swift/liveview_native_core.xcframework.zip
 
+  release-documentation:
+    runs-on: macos-15
+    continue-on-error: true
+
+    permissions:
+      contents: write
+
+    needs:
+      - build-xcframework
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust Nightly
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: liveview_native_core.xcframework.zip
+          path: ./target/uniffi/swift/
+
+      - name: Unzip xcframework
+        working-directory: ./target/uniffi/swift/
+        run: unzip liveview_native_core.xcframework.zip
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-make
+
+      - name: Build XCFramework
+        run: |
+          mkdir -p ./docs/swift
+          cargo make --profile release uniffi-swift-doc-web
+
+      - name: Add index.html
+        run: |
+          echo '<meta http-equiv="refresh" content="0; url=docs/swift/documentation/liveviewnativecore/">
+          <a href="docs/swift/documentation/liveviewnativecore/">Redirect</a>' > index.html
+
+      - name: Checkout new gh-pages
+        if: github.event_name == 'release'
+        run: |
+          git checkout -b gh-pages
+          git add ./docs/ index.html
+          git commit -m 'Update gh-pages'
+          git push origin gh-pages --force
+
+
   tag-release:
     runs-on: macos-15
 
