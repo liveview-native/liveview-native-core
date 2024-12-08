@@ -10,6 +10,7 @@ use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, Topic, JSON};
 use reqwest::Method as ReqMethod;
 
+use super::lock;
 pub use super::{LiveChannel, LiveSocketError};
 
 use crate::{
@@ -17,16 +18,6 @@ use crate::{
     dom::{ffi::Document as FFiDocument, AttributeName, Document, ElementName, Selector},
     parser::parse,
 };
-
-#[macro_export]
-macro_rules! lock {
-    ($mutex:expr) => {
-        $mutex.lock().expect("Failed to acquire lock")
-    };
-    ($mutex:expr, $msg:expr) => {
-        $mutex.lock().expect($msg)
-    };
-}
 
 const LVN_VSN: &str = "2.0.0";
 const LVN_VSN_KEY: &str = "vsn";
@@ -416,9 +407,11 @@ impl LiveSocket {
             .await?;
         debug!("Created channel for live reload socket");
         let join_payload = channel.join(self.timeout()).await?;
-        let document = Document::empty();
+        let mut document = Document::empty();
+        document.set_document_change_hooks();
 
         Ok(LiveChannel {
+            current_lock_id: Default::default(),
             channel,
             join_payload,
             socket: self.socket(),
@@ -521,6 +514,7 @@ impl LiveSocket {
                     let root: Root = root.try_into()?;
                     let rendered: String = root.clone().try_into()?;
                     let mut document = crate::parser::parse(&rendered)?;
+                    document.set_document_change_hooks();
                     document.fragment_template = Some(root);
                     Some(document)
                 } else {
@@ -532,6 +526,7 @@ impl LiveSocket {
         .ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
 
         Ok(LiveChannel {
+            current_lock_id: Default::default(),
             channel,
             join_payload,
             socket: self.socket(),

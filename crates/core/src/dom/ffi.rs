@@ -3,6 +3,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use phoenix_channels_client::JSON;
+
 use super::ChangeType;
 pub use super::{
     attribute::Attribute,
@@ -59,12 +61,14 @@ impl Document {
     }
 
     pub fn set_event_handler(&self, handler: Box<dyn DocumentChangeHandler>) {
-        self.inner.lock().expect("lock poisoned!").event_callback = Some(Arc::from(handler));
+        self.inner
+            .lock()
+            .expect("lock poisoned!")
+            .user_event_callback = Some(Arc::from(handler));
     }
 
-    pub fn merge_fragment_json(&self, json: &str) -> Result<(), RenderError> {
-        let json = serde_json::from_str(json)?;
-
+    pub fn merge_fragment_json(&self, json: JSON) -> Result<(), RenderError> {
+        let json = serde_json::Value::from(json);
         let results = self
             .inner
             .lock()
@@ -75,7 +79,7 @@ impl Document {
             .inner
             .lock()
             .expect("lock poisoned")
-            .event_callback
+            .user_event_callback
             .clone()
         else {
             return Ok(());
@@ -99,6 +103,11 @@ impl Document {
         }
 
         Ok(())
+    }
+
+    pub fn merge_fragment_serialized(&self, json: &str) -> Result<(), RenderError> {
+        let json = serde_json::from_str(json)?;
+        self.merge_fragment_json(JSON::from(&json))
     }
 
     pub fn next_upload_id(&self) -> u64 {
@@ -132,7 +141,14 @@ impl Document {
             .lock()
             .expect("lock poisoned!")
             .attributes(*node_ref)
-            .to_vec()
+            .to_owned()
+    }
+
+    pub fn get_attribute_by_name(&self, node_ref: Arc<NodeRef>, name: &str) -> Option<Attribute> {
+        self.inner
+            .lock()
+            .expect("lock poisoned!")
+            .get_attribute_by_name(*node_ref, name)
     }
 
     pub fn get(&self, node_ref: Arc<NodeRef>) -> NodeData {

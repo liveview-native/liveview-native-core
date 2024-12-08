@@ -11,6 +11,7 @@ pub struct AttributeName {
     pub namespace: Option<String>,
     pub name: String,
 }
+
 impl fmt::Display for AttributeName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref ns) = self.namespace {
@@ -62,6 +63,7 @@ pub struct Attribute {
     pub name: AttributeName,
     pub value: Option<String>,
 }
+
 impl Attribute {
     /// Creates a new attribute with the given name and value
     ///

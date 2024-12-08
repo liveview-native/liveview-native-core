@@ -15,20 +15,12 @@ publish.workspace = true
 
 
 [lib]
-crate-type = [
-    "staticlib",
-    "rlib",
-    "cdylib"
-]
+crate-type = ["staticlib", "rlib", "cdylib"]
 name = "liveview_native_core"
 
 [features]
 default = ["liveview-channels-tls"]
-liveview-channels = [
-    "phoenix_channels_client",
-    "reqwest",
-    "uniffi/tokio",
-]
+liveview-channels = ["phoenix_channels_client", "reqwest", "uniffi/tokio"]
 liveview-channels-tls = [
     "liveview-channels",
     "reqwest/native-tls-vendored",
@@ -38,18 +30,21 @@ liveview-channels-tls = [
 
 # This is for support of phoenix-channnels-client in for wasm.
 browser = [
-#"liveview-channels",
-#"phoenix_channels_client/browser",
+    #"liveview-channels",
+    #"phoenix_channels_client/browser",
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+futures = "0.3.31"
 cranelift-entity = { version = "0.114" }
 fixedbitset = { version = "0.4" }
 fxhash = { version = "0.2" }
 html5gum = { git = "https://github.com/liveviewnative/html5gum", branch = "lvn" }
-petgraph = { version = "0.6", default-features = false, features = ["graphmap"] }
+petgraph = { version = "0.6", default-features = false, features = [
+    "graphmap",
+] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 smallstr = { version = "0.3", features = ["union"] }
@@ -69,7 +64,7 @@ Inflector = "0.11"
 paste = { version = "1.0" }
 pretty_assertions = { version = "1.4.0" }
 text-diff = { version = "0.4.0" }
-uniffi = { workspace = true, features = ["bindgen-tests", "tokio"]}
+uniffi = { workspace = true, features = ["bindgen-tests", "tokio"] }
 tokio = { version = "1.42", features = ["full"] }
 env_logger = "0.11.1"
 
