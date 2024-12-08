@@ -711,7 +711,7 @@ impl Document {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, uniffi::Enum)]
+#[derive(Debug, PartialEq, Copy, Clone, uniffi::Enum)]
 pub enum ChangeType {
     Change = 0,
     Add = 1,

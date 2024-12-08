@@ -1,4 +1,7 @@
-use std::time::Duration;
+use crate::dom::{Attribute, AttributeName, DocumentChangeHandler, NodeData, NodeRef};
+use std::{sync::Arc, sync::Mutex, time::Duration};
+
+use crate::dom::ChangeType;
 
 use super::*;
 mod error;
@@ -6,8 +9,11 @@ mod navigation;
 mod streaming;
 mod upload;
 
+use dom_locking::PHX_REF_LOCK;
 use phoenix_channels_client::ChannelStatus;
 use pretty_assertions::assert_eq;
+
+use tokio::sync::mpsc::*;
 
 /// serializes two documents so the formatting matches before diffing.
 macro_rules! assert_doc_eq {
@@ -17,6 +23,31 @@ macro_rules! assert_doc_eq {
         let test = Document::parse($test).expect("Test document failed to parse");
         assert_eq!(gold.to_string(), test.to_string());
     }};
+}
+
+struct Inspector {
+    tx: UnboundedSender<(ChangeType, NodeData)>,
+    doc: crate::dom::ffi::Document,
+}
+
+impl DocumentChangeHandler for Inspector {
+    fn handle(
+        &self,
+        change_type: ChangeType,
+        _node_ref: Arc<NodeRef>,
+        node_data: NodeData,
+        _parent: Option<Arc<NodeRef>>,
+    ) {
+        let doc = self.doc.inner();
+
+        let _test = doc
+            .try_lock()
+            .expect("document was locked during change handler!");
+
+        self.tx
+            .send((change_type, node_data))
+            .expect("Message Never Received.");
+    }
 }
 
 pub(crate) use assert_doc_eq;
@@ -64,6 +95,89 @@ async fn join_live_view() {
         .join_livereload_channel()
         .await
         .expect("Failed to join channel");
+}
+
+// channels sending events lock the dom by modifying attributes
+// and class lists, this should notify the documents developer
+// provided change listener
+#[tokio::test]
+async fn locking_dom_event_propogation() {
+    let _ = env_logger::builder()
+        .parse_default_env()
+        .is_test(true)
+        .try_init();
+
+    let url = format!("http://{HOST}/thermostat");
+
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+        .await
+        .expect("Failed to get liveview socket");
+
+    let live_channel = live_socket
+        .join_liveview_channel(None, None)
+        .await
+        .expect("Failed to join channel");
+
+    let doc = live_channel.document();
+    let (tx, mut rx) = unbounded_channel();
+    live_channel.set_event_handler(Box::new(Inspector { tx, doc }));
+
+    let sender = live_channel
+        .document()
+        .inner()
+        .lock()
+        .expect("lock poison")
+        .get_by_id("button")
+        .expect("nothing by that name");
+
+    live_channel
+        .send_event_json(protocol::event::PhxEvent::PhxClick, None, &sender)
+        .await
+        .expect("click failed");
+
+    let mut buf = vec![];
+    rx.recv_many(&mut buf, 4096).await;
+    assert_eq!(
+        vec![
+            (
+                ChangeType::Change,
+                NodeData::NodeElement {
+                    element: crate::dom::Element {
+                        name: crate::dom::ElementName {
+                            namespace: None,
+                            name: "Button".to_string()
+                        },
+                        attributes: vec![Attribute {
+                            name: AttributeName {
+                                namespace: None,
+                                name: PHX_REF_LOCK.to_owned()
+                            },
+                            value: Some(0.to_string())
+                        }]
+                    }
+                }
+            ),
+            (
+                ChangeType::Replace,
+                NodeData::Leaf {
+                    value: "Current temperature: 70°F".to_string()
+                }
+            ),
+            (
+                ChangeType::Change,
+                NodeData::NodeElement {
+                    element: crate::dom::Element {
+                        name: crate::dom::ElementName {
+                            namespace: None,
+                            name: "Button".to_string()
+                        },
+                        attributes: vec![]
+                    }
+                }
+            )
+        ],
+        buf
+    );
 }
 
 #[tokio::test]
