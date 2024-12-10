@@ -325,9 +325,9 @@ checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
 
 [[package]]
 name = "bytes"
-version = "1.8.0"
+version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ac0150caa2ae65ca5bd83f25c7de183dea78d4d366469f148435e2acfbad0da"
+checksum = "325918d6fe32f23b19878fe4b34794ae41fc19ddbe53b10571a4874d44ffd39b"
 
 [[package]]
 name = "camino"
@@ -1550,7 +1550,7 @@ dependencies = [
 [[package]]
 name = "phoenix_channels_client"
 version = "0.9.1"
-source = "git+https://github.com/liveview-native/phoenix-channels-client.git?branch=main#ff050f4fe52f992a0269949972fae2e6d8f5b062"
+source = "git+https://github.com/liveview-native/phoenix-channels-client.git?branch=main#b03aaae2e469fb1e8ea916a72e8dd8c7a4c7065e"
 dependencies = [
  "arc-swap",
  "atomic-take",
@@ -2303,9 +2303,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.41.0"
+version = "1.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "145f3413504347a2be84393cc8a7d2fb4d863b375909ea59f2158261aa258bbb"
+checksum = "5cec9b21b0450273377fc97bd4c33a8acffc8c996c987a7c5b319a0083707551"
 dependencies = [
  "backtrace",
  "bytes",
