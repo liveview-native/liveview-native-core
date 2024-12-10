@@ -84,16 +84,31 @@ impl Document {
         for patch in results.into_iter() {
             match patch {
                 PatchResult::Add { node, parent, data } => {
-                    handler.handle(ChangeType::Add, node.into(), data, Some(parent.into()));
+                    handler.handle_document_change(
+                        ChangeType::Add,
+                        node.into(),
+                        data,
+                        Some(parent.into()),
+                    );
                 }
                 PatchResult::Remove { node, parent, data } => {
-                    handler.handle(ChangeType::Remove, node.into(), data, Some(parent.into()));
+                    handler.handle_document_change(
+                        ChangeType::Remove,
+                        node.into(),
+                        data,
+                        Some(parent.into()),
+                    );
                 }
                 PatchResult::Change { node, data } => {
-                    handler.handle(ChangeType::Change, node.into(), data, None);
+                    handler.handle_document_change(ChangeType::Change, node.into(), data, None);
                 }
                 PatchResult::Replace { node, parent, data } => {
-                    handler.handle(ChangeType::Replace, node.into(), data, Some(parent.into()));
+                    handler.handle_document_change(
+                        ChangeType::Replace,
+                        node.into(),
+                        data,
+                        Some(parent.into()),
+                    );
                 }
             }
         }

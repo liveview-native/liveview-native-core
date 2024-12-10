@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use phoenix_channels_client::ChannelStatus;
 use tokio::sync::oneshot::{self, *};
 
 use super::*;
@@ -17,7 +18,7 @@ struct Inspector {
 }
 
 impl DocumentChangeHandler for Inspector {
-    fn handle(
+    fn handle_document_change(
         &self,
         _change_type: ChangeType,
         _node_ref: Arc<NodeRef>,
@@ -39,6 +40,8 @@ impl DocumentChangeHandler for Inspector {
 
         tx.send(()).expect("Message Never Received.");
     }
+
+    fn handle_channel_status(&self, _channel_status: ChannelStatus) {}
 }
 
 // Tests that streaming connects, and succeeds at parsing at least one delta.

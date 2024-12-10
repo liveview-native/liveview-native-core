@@ -16,6 +16,7 @@ use cranelift_entity::{packed_option::PackedOption, EntityRef, PrimaryMap, Secon
 use fixedbitset::FixedBitSet;
 use fxhash::{FxBuildHasher, FxHashMap};
 use petgraph::Direction;
+use phoenix_channels_client::ChannelStatus;
 use smallstr::SmallString;
 use smallvec::SmallVec;
 
@@ -631,13 +632,15 @@ pub enum EventType {
 pub trait DocumentChangeHandler: Send + Sync {
     /// This callback should implement your dom manipulation logic
     /// after receiving patches from LVN.
-    fn handle(
+    fn handle_document_change(
         &self,
         change_type: ChangeType,
         node_ref: Arc<NodeRef>,
         node_data: NodeData,
         parent: Option<Arc<NodeRef>>,
     );
+
+    fn handle_channel_status(&self, channel_status: ChannelStatus);
 }
 
 /// This trait is used to provide functionality common to construction/mutating documents
