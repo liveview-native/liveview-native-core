@@ -5,13 +5,13 @@ use std::{
 
 use phoenix_channels_client::JSON;
 
-use super::ChangeType;
 pub use super::{
     attribute::Attribute,
     node::{Node, NodeData, NodeRef},
     printer::PrintOptions,
     DocumentChangeHandler,
 };
+use super::{AttributeName, ChangeType};
 use crate::{
     diff::{fragment::RenderError, PatchResult},
     parser::ParseError,
@@ -69,40 +69,34 @@ impl Document {
 
     pub fn merge_fragment_json(&self, json: JSON) -> Result<(), RenderError> {
         let json = serde_json::Value::from(json);
+
         let results = self
             .inner
             .lock()
             .expect("lock poisoned!")
             .merge_fragment_json(json)?;
 
-        let Some(handler) = self
-            .inner
-            .lock()
-            .expect("lock poisoned")
-            .user_event_callback
-            .clone()
-        else {
-            return Ok(());
-        };
-
-        for patch in results.into_iter() {
-            match patch {
-                PatchResult::Add { node, parent, data } => {
-                    handler.handle(ChangeType::Add, node.into(), data, Some(parent.into()));
-                }
-                PatchResult::Remove { node, parent, data } => {
-                    handler.handle(ChangeType::Remove, node.into(), data, Some(parent.into()));
-                }
-                PatchResult::Change { node, data } => {
-                    handler.handle(ChangeType::Change, node.into(), data, None);
-                }
-                PatchResult::Replace { node, parent, data } => {
-                    handler.handle(ChangeType::Replace, node.into(), data, Some(parent.into()));
-                }
-            }
-        }
+        self.handle_patch(results.into_iter());
 
         Ok(())
+    }
+
+    /// Removes an attribute by name. Propogating events
+    /// and cancelling the transaction if it applies to a locked node
+    pub fn remove_attribute(&self, node: &NodeRef, name: AttributeName) {
+        let mut stack = vec![];
+
+        let res = {
+            // doc needs to drop before `handle_patch`
+            let mut doc = self.inner.lock().expect("lock poison");
+            let mut editor = doc.edit();
+            let res = crate::diff::Patch::RemoveAttributeByName { node: *node, name }
+                .apply(&mut editor, &mut stack);
+            editor.finish();
+            res
+        };
+
+        self.handle_patch(res.into_iter());
     }
 
     pub fn merge_fragment_serialized(&self, json: &str) -> Result<(), RenderError> {
@@ -168,6 +162,7 @@ impl Document {
         self.to_string()
     }
 }
+
 impl Document {
     pub fn print_node(
         &self,
@@ -179,6 +174,35 @@ impl Document {
             .lock()
             .map_err(|_| fmt::Error)?
             .print_node(node, writer, options)
+    }
+
+    pub fn handle_patch<'a, P: Iterator<Item = PatchResult>>(&self, patches: P) {
+        let Some(handler) = self
+            .inner
+            .lock()
+            .expect("lock poisoned")
+            .user_event_callback
+            .clone()
+        else {
+            return;
+        };
+
+        for patch in patches.into_iter() {
+            match patch {
+                PatchResult::Add { node, parent, data } => {
+                    handler.handle(ChangeType::Add, node.into(), data, Some(parent.into()));
+                }
+                PatchResult::Remove { node, parent, data } => {
+                    handler.handle(ChangeType::Remove, node.into(), data, Some(parent.into()));
+                }
+                PatchResult::Change { node, data } => {
+                    handler.handle(ChangeType::Change, node.into(), data, None);
+                }
+                PatchResult::Replace { node, parent, data } => {
+                    handler.handle(ChangeType::Replace, node.into(), data, Some(parent.into()));
+                }
+            }
+        }
     }
 }
 

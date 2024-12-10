@@ -28,6 +28,7 @@ pub use self::{
     printer::PrintOptions,
     select::{SelectionIter, Selector},
 };
+
 use crate::{
     diff::{
         fragment::{FragmentMerge, RenderError, Root, RootDiff},
@@ -542,7 +543,7 @@ impl Document {
         let new_classes = classes.join(" ");
         match &mut class_attr.value {
             Some(existing) => {
-                existing.push(' ');
+                existing.push_str(" ");
                 existing.push_str(&new_classes);
             }
             None => {

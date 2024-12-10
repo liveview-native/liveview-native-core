@@ -113,13 +113,19 @@ impl LiveChannel {
     }
 
     pub fn unlock_node(&self, node: NodeRef, loading_class: Option<&str>) {
-        lock!(self.document.inner()).remove_attributes_by(node, |attr| {
-            attr.name.name != dom_locking::PHX_REF_LOCK
-                && attr.name.name != dom_locking::PHX_REF_SRC
-        });
+        lock!(self.document.inner())
+            .remove_attributes_by(node, |attr| attr.name.name != dom_locking::PHX_REF_LOCK);
+
+        // propogate events
+        self.document()
+            .remove_attribute(&node, AttributeName::new(PHX_REF_LOCK));
+
+        self.document()
+            .remove_attribute(&node, AttributeName::new(PHX_REF_SRC));
 
         if let Some(loading_class) = loading_class {
-            lock!(self.document.inner()).remove_classes_by(node, |class| class != loading_class);
+            self.document()
+                .remove_attribute(&node, AttributeName::new(loading_class));
         }
     }
 

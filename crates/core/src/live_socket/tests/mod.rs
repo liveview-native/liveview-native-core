@@ -1,5 +1,8 @@
-use crate::dom::{Attribute, AttributeName, DocumentChangeHandler, NodeData, NodeRef};
-use std::{sync::Arc, sync::Mutex, time::Duration};
+use crate::dom::{
+    Attribute, AttributeName, DocumentChangeHandler, Element, ElementName, NodeData, NodeRef,
+};
+use crate::{attr, element};
+use std::{sync::Arc, time::Duration};
 
 use crate::dom::ChangeType;
 
@@ -9,7 +12,6 @@ mod navigation;
 mod streaming;
 mod upload;
 
-use dom_locking::PHX_REF_LOCK;
 use phoenix_channels_client::ChannelStatus;
 use pretty_assertions::assert_eq;
 
@@ -30,6 +32,8 @@ struct Inspector {
     doc: crate::dom::ffi::Document,
 }
 
+/// An extremely simple change handler that reports diffs in order
+/// over an unbounded channel
 impl DocumentChangeHandler for Inspector {
     fn handle(
         &self,
@@ -141,39 +145,25 @@ async fn locking_dom_event_propogation() {
         vec![
             (
                 ChangeType::Change,
-                NodeData::NodeElement {
-                    element: crate::dom::Element {
-                        name: crate::dom::ElementName {
-                            namespace: None,
-                            name: "Button".to_string()
-                        },
-                        attributes: vec![Attribute {
-                            name: AttributeName {
-                                namespace: None,
-                                name: PHX_REF_LOCK.to_owned()
-                            },
-                            value: Some(0.to_string())
-                        }]
-                    }
-                }
+                element!(
+                    "Button",
+                    attr!("id" = "button"),
+                    attr!("phx-click" = "inc_temperature"),
+                )
             ),
             (
                 ChangeType::Replace,
-                NodeData::Leaf {
-                    value: "Current temperature: 70°F".to_string()
-                }
+                NodeData::leaf("Current temperature: 70°F")
             ),
             (
                 ChangeType::Change,
-                NodeData::NodeElement {
-                    element: crate::dom::Element {
-                        name: crate::dom::ElementName {
-                            namespace: None,
-                            name: "Button".to_string()
-                        },
-                        attributes: vec![]
-                    }
-                }
+                element!(
+                    "Button",
+                    attr!("id" = "button"),
+                    attr!("phx-click" = "inc_temperature"),
+                    attr!("data-phx-ref-src" = "5"),
+                    attr!("class" = "phx-click-loading")
+                )
             )
         ],
         buf
@@ -363,4 +353,47 @@ async fn redirect() {
         .join_liveview_channel(None, Some(redirect))
         .await
         .expect("Failed to join channel");
+}
+
+#[test]
+fn test_attr_macro() {
+    let attr1 = attr!("class");
+    assert_eq!(attr1.name.name, "class");
+    assert_eq!(attr1.name.namespace, None);
+    assert_eq!(attr1.value, None);
+
+    let attr2 = attr!("class" = "container");
+    assert_eq!(attr2.name.name, "class");
+    assert_eq!(attr2.value, Some("container".to_string()));
+
+    let attr3 = attr!("svg":"width");
+    assert_eq!(attr3.name.namespace, Some("svg".to_string()));
+    assert_eq!(attr3.name.name, "width");
+    assert_eq!(attr3.value, None);
+
+    let attr4 = attr!("svg":"width" = "100");
+    assert_eq!(attr4.name.namespace, Some("svg".to_string()));
+    assert_eq!(attr4.name.name, "width");
+    assert_eq!(attr4.value, Some("100".to_string()));
+}
+
+#[test]
+fn test_element_macro() {
+    let input = element!("input", attr!("type" = "text"), attr!("id" = "username"));
+
+    match input {
+        NodeData::NodeElement { element } => {
+            assert_eq!(element.name.name, "input");
+            assert_eq!(element.attributes.len(), 2);
+
+            let type_attr = &element.attributes[0];
+            assert_eq!(type_attr.name.name, "type");
+            assert_eq!(type_attr.value, Some("text".to_string()));
+
+            let id_attr = &element.attributes[1];
+            assert_eq!(id_attr.name.name, "id");
+            assert_eq!(id_attr.value, Some("username".to_string()));
+        }
+        _ => panic!("Expected NodeElement"),
+    }
 }

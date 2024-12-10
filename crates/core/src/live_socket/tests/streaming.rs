@@ -1,5 +1,3 @@
-use std::sync::Mutex;
-
 use super::*;
 use tokio::sync::mpsc::unbounded_channel;
 

@@ -173,6 +173,13 @@ impl NodeData {
             element: Element::new(tag.into()),
         }
     }
+
+    #[inline]
+    pub fn leaf<T: Into<String>>(content: T) -> Self {
+        Self::Leaf {
+            value: content.into(),
+        }
+    }
 }
 
 impl From<Element> for NodeData {
@@ -325,4 +332,35 @@ impl Element {
             self.attributes.remove(pos);
         }
     }
+}
+
+#[macro_export]
+macro_rules! element {
+    ($name:expr) => {
+        NodeData::NodeElement { element: Element::new(ElementName::new($name)) }
+    };
+
+    ($full_name:expr) => {
+        NodeData::NodeElement { element: Element::new(ElementName::from($full_name)) }
+    };
+
+    ($name:expr, $($attr:expr),+ $(,)?) => {
+        {
+            let mut element = Element::new(ElementName::from($name));
+            $(
+                element.attributes.push($attr);
+            )+
+            NodeData::NodeElement { element }
+        }
+    };
+
+    ($full_name:expr, $($attr:expr),+ $(,)?) => {
+        {
+            let mut element = Element::new(ElementName::from($full_name));
+            $(
+                element.attributes.push($attr);
+            )+
+            NodeData::NodeElement { element }
+        }
+    };
 }
