@@ -32,9 +32,9 @@ pub struct LiveFile {
 }
 
 /// We need this conversion until WASM supports the phoenix client
-impl Into<LiveChannelStatus> for phoenix_channels_client::ChannelStatus {
-    fn into(self) -> LiveChannelStatus {
-        match self {
+impl From<phoenix_channels_client::ChannelStatus> for LiveChannelStatus {
+    fn from(val: phoenix_channels_client::ChannelStatus) -> Self {
+        match val {
             phoenix_channels_client::ChannelStatus::WaitingForSocketToConnect => {
                 LiveChannelStatus::WaitingForSocketToConnect
             }
