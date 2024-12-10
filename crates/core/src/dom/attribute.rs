@@ -4,6 +4,28 @@ use smallstr::SmallString;
 
 use crate::InternedString;
 
+#[macro_export]
+macro_rules! attr {
+    ($name:literal) => {
+        Attribute::new($name, None)
+    };
+    ($name:literal= $value:expr) => {
+        Attribute::new($name, Some($value.to_string()))
+    };
+    ($namespace:literal : $name:literal) => {
+        Attribute {
+            name: AttributeName::new_with_namespace($namespace, $name),
+            value: None,
+        }
+    };
+    ($namespace:literal : $name:literal = $value:expr) => {
+        Attribute {
+            name: AttributeName::new_with_namespace($namespace, $name),
+            value: Some($value.to_string()),
+        }
+    };
+}
+
 /// Represents the fully-qualified name of an attribute
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, uniffi::Record)]
 pub struct AttributeName {
@@ -11,6 +33,7 @@ pub struct AttributeName {
     pub namespace: Option<String>,
     pub name: String,
 }
+
 impl fmt::Display for AttributeName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ref ns) = self.namespace {
@@ -62,6 +85,7 @@ pub struct Attribute {
     pub name: AttributeName,
     pub value: Option<String>,
 }
+
 impl Attribute {
     /// Creates a new attribute with the given name and value
     ///

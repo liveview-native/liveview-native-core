@@ -4,6 +4,8 @@ mod node;
 mod printer;
 mod select;
 
+use crate::live_socket::dom_locking::*;
+
 use std::{
     collections::{BTreeMap, VecDeque},
     fmt, mem,
@@ -26,6 +28,7 @@ pub use self::{
     printer::PrintOptions,
     select::{SelectionIter, Selector},
 };
+
 use crate::{
     diff::{
         fragment::{FragmentMerge, RenderError, Root, RootDiff},
@@ -70,7 +73,12 @@ pub struct Document {
     root: NodeRef,
     /// The fragment template.
     pub fragment_template: Option<Root>,
-    pub event_callback: Option<Arc<dyn DocumentChangeHandler>>,
+    /// Instruments all patch events which are applied to the document.
+    pub user_event_callback: Option<Arc<dyn DocumentChangeHandler>>,
+    /// liveview specific logic for reacting to document changes.
+    /// intentionally loosely coupled from dom logic. this should be converted
+    /// to a dynamic trait if user augmented dynamic dispatch is ever needed.
+    phx_event_callbacks: Option<PhxDocumentChangeHooks>,
     /// A map from node reference to node data
     nodes: PrimaryMap<NodeRef, NodeData>,
     /// A map from a node to its parent node, if it currently has one
@@ -133,9 +141,32 @@ impl Document {
             children: SecondaryMap::new(),
             ids: Default::default(),
             fragment_template: None,
-            event_callback: None,
+            user_event_callback: None,
+            phx_event_callbacks: None,
             upload_ct: 0,
         }
+    }
+
+    /// Called before each patch is applied to the document, if this returns
+    /// false, then something in the document tree is locked.
+    pub fn can_complete_change(&self, patch: &BeforePatch) -> bool {
+        if let Some(hooks) = self.phx_event_callbacks.as_ref() {
+            hooks.can_complete_change(self, patch)
+        } else {
+            true
+        }
+    }
+
+    /// enable the change hook logic from phoenix live view.
+    /// this will prevent certain modifications from occurring to the DOM
+    /// under circumstances liek awaiting a server ack.
+    pub fn set_document_change_hooks(&mut self) {
+        self.phx_event_callbacks = Some(Default::default());
+    }
+
+    /// Disable phx specific locking logic.
+    pub fn unset_document_change_hooks(&mut self) {
+        self.phx_event_callbacks = None;
     }
 
     /// Parses a `Document` from a string
@@ -213,10 +244,10 @@ impl Document {
     }
 
     /// Returns the set of attribute refs associated with `node`
-    pub fn attributes(&self, node: NodeRef) -> Vec<Attribute> {
+    pub fn attributes(&self, node: NodeRef) -> &[Attribute] {
         match &self.nodes[node] {
-            NodeData::NodeElement { element: ref elem } => elem.attributes.clone(),
-            _ => vec![],
+            NodeData::NodeElement { element: ref elem } => &elem.attributes,
+            _ => &[],
         }
     }
 
@@ -491,6 +522,76 @@ impl Document {
         }
     }
 
+    pub fn extend_class_list(&mut self, node: NodeRef, classes: &[&str]) {
+        let Some(NodeData::NodeElement { element }) = self.nodes.get_mut(node) else {
+            return;
+        };
+
+        let class_attr = element
+            .attributes
+            .iter_mut()
+            .find(|attr| attr.name.name == "class");
+
+        let class_attr = if let Some(attr) = class_attr {
+            attr
+        } else {
+            let attr = Attribute::new("class", None);
+            element.attributes.push(attr);
+            element.attributes.last_mut().unwrap()
+        };
+
+        let new_classes = classes.join(" ");
+        match &mut class_attr.value {
+            Some(existing) => {
+                existing.push_str(" ");
+                existing.push_str(&new_classes);
+            }
+            None => {
+                class_attr.value = Some(new_classes);
+            }
+        }
+    }
+
+    /// Remove all classes from the class list of `node` for which the
+    /// predicate returns `false`
+    pub fn remove_classes_by<P>(&mut self, node: NodeRef, mut predicate: P)
+    where
+        P: FnMut(&str) -> bool,
+    {
+        let Some(NodeData::NodeElement { element }) = self.nodes.get_mut(node) else {
+            return;
+        };
+
+        let mut empty = false;
+        if let Some(class_attr) = element
+            .attributes
+            .iter_mut()
+            .find(|attr| attr.name.name == "class")
+        {
+            if let Some(value) = &mut class_attr.value {
+                *value = value
+                    .split_whitespace()
+                    .filter(|&class| predicate(class))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                empty = value.is_empty();
+            }
+        }
+
+        if empty {
+            element.remove_attribute(&AttributeName::new("class"));
+        }
+    }
+
+    pub fn add_attribute(&mut self, node: NodeRef, attribute: Attribute) {
+        if let NodeData::NodeElement {
+            element: ref mut elem,
+        } = &mut self.nodes[node]
+        {
+            elem.attributes.push(attribute)
+        }
+    }
+
     /// Removes all attributes from `node` for which `predicate` returns false.
     pub fn remove_attributes_by<P>(&mut self, node: NodeRef, predicate: P)
     where
@@ -541,18 +642,17 @@ impl Document {
         } else {
             fragment.try_into()?
         };
+
         self.fragment_template = Some(root.clone());
 
         let rendered_root: String = root.clone().try_into()?;
         let new_doc = Self::parse(rendered_root)?;
 
         let patches = crate::diff::diff(self, &new_doc);
-        if patches.is_empty() {
-            return Ok(vec![]);
-        }
 
         let mut stack = vec![];
         let mut editor = self.edit();
+
         let results = patches
             .into_iter()
             .filter_map(|patch| patch.apply(&mut editor, &mut stack))
@@ -612,7 +712,7 @@ impl Document {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, uniffi::Enum)]
+#[derive(Debug, PartialEq, Copy, Clone, uniffi::Enum)]
 pub enum ChangeType {
     Change = 0,
     Add = 1,
@@ -917,6 +1017,7 @@ pub struct Editor<'a> {
     doc: &'a mut Document,
     pos: NodeRef,
 }
+
 impl<'a> Editor<'a> {
     pub fn new(doc: &'a mut Document) -> Self {
         let pos = doc.root();

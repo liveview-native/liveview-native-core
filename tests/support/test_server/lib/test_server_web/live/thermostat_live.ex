@@ -40,7 +40,7 @@ defmodule TestServerWeb.ThermostatLive.SwiftUI do
       <Text>
         Current temperature: <%= @temperature %>°F
       </Text>
-      <Button phx-click="inc_temperature">+</Button>
+      <Button id="button" phx-click="inc_temperature">+</Button>
     </VStack>
     """
   end
@@ -56,7 +56,7 @@ defmodule TestServerWeb.ThermostatLive.Jetpack do
         <Text>
           Current temperature: <%= @temperature %>°F
         </Text>
-        <Button phx-click="inc_temperature">+</Button>
+        <Button id="button" phx-click="inc_temperature">+</Button>
     </Column>
     </Box>
     """

@@ -1,5 +1,6 @@
 use super::traversal::MoveTo;
 use crate::dom::*;
+use crate::live_socket::dom_locking::*;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Patch {
@@ -125,20 +126,31 @@ impl Patch {
     {
         match self {
             Self::InsertBefore { before, node: data } => {
-                let node = doc.insert_before(data.clone(), before);
-                let parent = doc
-                    .document()
-                    .parent(node)
-                    .expect("inserted node should have parent");
-                Some(PatchResult::Add { node, parent, data })
+                let d = doc.document();
+                let parent = d.parent(before).expect("inserted node should have parent");
+                let speculative = BeforePatch::Add { parent };
+
+                if doc.document().can_complete_change(&speculative) {
+                    let node = doc.insert_before(data.clone(), before);
+                    Some(PatchResult::Add { node, parent, data })
+                } else {
+                    None
+                }
             }
             Self::InsertAfter { after, node: data } => {
-                let node = doc.insert_after(data.clone(), after);
                 let parent = doc
                     .document()
-                    .parent(node)
+                    .parent(after)
                     .expect("inserted node should have parent");
-                Some(PatchResult::Add { node, parent, data })
+
+                let speculative = BeforePatch::Add { parent };
+
+                if doc.document().can_complete_change(&speculative) {
+                    let node = doc.insert_after(data.clone(), after);
+                    Some(PatchResult::Add { node, parent, data })
+                } else {
+                    None
+                }
             }
             Self::Create { node } => {
                 let node = doc.push_node(node);
@@ -183,11 +195,18 @@ impl Patch {
             }
             Self::PrependBefore { before } => {
                 let node = stack.pop().unwrap();
+
                 let d = doc.document_mut();
-                d.insert_before(node, before);
                 let parent = d.parent(before).expect("inserted node should have parent");
-                let data = d.get(node).clone();
-                Some(PatchResult::Add { node, parent, data })
+                let speculative = BeforePatch::Add { parent };
+
+                if d.can_complete_change(&speculative) {
+                    d.insert_before(node, before);
+                    let data = d.get(node).clone();
+                    Some(PatchResult::Add { node, parent, data })
+                } else {
+                    None
+                }
             }
             Self::Append { node: data } => {
                 let node = doc.append(data.clone());
@@ -198,62 +217,115 @@ impl Patch {
                 })
             }
             Self::AppendTo { parent, node: data } => {
-                let node = doc.append_child(parent, data.clone());
-                Some(PatchResult::Add { node, parent, data })
+                let speculative = BeforePatch::Add { parent };
+
+                if doc.document().can_complete_change(&speculative) {
+                    let node = doc.append_child(parent, data.clone());
+                    Some(PatchResult::Add { node, parent, data })
+                } else {
+                    None
+                }
             }
             Self::AppendAfter { after } => {
-                let node = stack.pop().unwrap();
                 let d = doc.document_mut();
-                d.insert_after(node, after);
                 let parent = d.parent(after).expect("inserted node should have parent");
-                let data = d.get(node).clone();
-                Some(PatchResult::Add { node, parent, data })
+
+                let speculative = BeforePatch::Add { parent };
+
+                if d.can_complete_change(&speculative) {
+                    let node = stack.pop().unwrap();
+                    d.insert_after(node, after);
+                    let data = d.get(node).clone();
+                    Some(PatchResult::Add { node, parent, data })
+                } else {
+                    None
+                }
             }
             Self::Remove { node } => {
                 let data = doc.document().get(node).clone();
                 let parent = doc.document_mut().parent(node);
-                doc.remove(node);
-                parent.map(|parent| PatchResult::Remove { node, parent, data })
+
+                let speculative = BeforePatch::Remove { node };
+                if doc.document().can_complete_change(&speculative) {
+                    doc.remove(node);
+                    parent.map(|parent| PatchResult::Remove { node, parent, data })
+                } else {
+                    None
+                }
             }
             Self::Replace { node, replacement } => {
                 let data = doc.document().get(node).clone();
                 let parent = doc.document_mut().parent(node)?;
-                doc.replace(node, replacement);
-                Some(PatchResult::Replace { node, parent, data })
+
+                let speculative = BeforePatch::Replace { node };
+
+                if doc.document().can_complete_change(&speculative) {
+                    doc.replace(node, replacement);
+                    Some(PatchResult::Replace { node, parent, data })
+                } else {
+                    None
+                }
             }
             Self::AddAttribute { name, value } => {
                 doc.set_attribute(name, value);
                 let node = doc.insertion_point();
-                let data = doc.document().get(node).clone();
-                Some(PatchResult::Change { node, data })
+
+                let speculative = BeforePatch::Change { node };
+
+                if doc.document().can_complete_change(&speculative) {
+                    let data = doc.document().get(node).clone();
+                    Some(PatchResult::Change { node, data })
+                } else {
+                    None
+                }
             }
             Self::AddAttributeTo { node, name, value } => {
-                let data = doc.document().get(node).clone();
-                let mut guard = doc.insert_guard();
-                guard.set_insertion_point(node);
-                guard.set_attribute(name, value);
-                Some(PatchResult::Change { node, data })
+                let speculative = BeforePatch::Change { node };
+                if doc.document().can_complete_change(&speculative) {
+                    let data = doc.document().get(node).clone();
+                    let mut guard = doc.insert_guard();
+                    guard.set_insertion_point(node);
+                    guard.set_attribute(name, value);
+                    Some(PatchResult::Change { node, data })
+                } else {
+                    None
+                }
             }
             Self::UpdateAttribute { node, name, value } => {
-                let data = doc.document().get(node).clone();
-                let mut guard = doc.insert_guard();
-                guard.set_insertion_point(node);
-                guard.set_attribute(name, value);
-                Some(PatchResult::Change { node, data })
+                let speculative = BeforePatch::Change { node };
+                if doc.document().can_complete_change(&speculative) {
+                    let data = doc.document().get(node).clone();
+                    let mut guard = doc.insert_guard();
+                    guard.set_insertion_point(node);
+                    guard.set_attribute(name, value);
+                    Some(PatchResult::Change { node, data })
+                } else {
+                    None
+                }
             }
             Self::RemoveAttributeByName { node, name } => {
-                let data = doc.document().get(node).clone();
-                let mut guard = doc.insert_guard();
-                guard.set_insertion_point(node);
-                guard.remove_attribute(name);
-                Some(PatchResult::Change { node, data })
+                let speculative = BeforePatch::Change { node };
+                if doc.document().can_complete_change(&speculative) {
+                    let data = doc.document().get(node).clone();
+                    let mut guard = doc.insert_guard();
+                    guard.set_insertion_point(node);
+                    guard.remove_attribute(name);
+                    Some(PatchResult::Change { node, data })
+                } else {
+                    None
+                }
             }
             Self::SetAttributes { node, attributes } => {
-                let data = doc.document().get(node).clone();
-                let mut guard = doc.insert_guard();
-                guard.set_insertion_point(node);
-                guard.replace_attributes(attributes);
-                Some(PatchResult::Change { node, data })
+                let speculative = BeforePatch::Change { node };
+                if doc.document().can_complete_change(&speculative) {
+                    let data = doc.document().get(node).clone();
+                    let mut guard = doc.insert_guard();
+                    guard.set_insertion_point(node);
+                    guard.replace_attributes(attributes);
+                    Some(PatchResult::Change { node, data })
+                } else {
+                    None
+                }
             }
             Self::Move(MoveTo::Node(node)) => {
                 doc.set_insertion_point(node);

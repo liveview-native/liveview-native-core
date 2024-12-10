@@ -111,23 +111,40 @@ impl Node {
     pub fn id(&self) -> NodeRef {
         self.id
     }
+
     pub fn data(&self) -> NodeData {
         self.data.clone()
     }
+
     pub fn attributes(&self) -> Vec<Attribute> {
         self.data.attributes()
     }
+
     pub fn get_attribute(&self, name: AttributeName) -> Option<Attribute> {
-        self.attributes()
-            .iter()
-            .find(|attr| attr.name == name)
-            .cloned()
+        let attrs = match &self.data {
+            NodeData::NodeElement { element } => &element.attributes,
+            _ => return None,
+        };
+
+        attrs.iter().find(|attr| attr.name == name).cloned()
     }
+
     pub fn display(&self) -> String {
         format!("{self}")
     }
 }
 impl NodeData {
+    pub fn has_attribute(&self, name: &str, namespace: Option<&str>) -> bool {
+        let attrs = match &self {
+            NodeData::NodeElement { element } => &element.attributes,
+            _ => return false,
+        };
+
+        attrs
+            .iter()
+            .any(|attr| attr.name.name == name && attr.name.namespace.as_deref() == namespace)
+    }
+
     /// Returns a slice of Attributes for this node, if applicable
     pub fn attributes(&self) -> Vec<Attribute> {
         match self {
@@ -154,6 +171,13 @@ impl NodeData {
     pub fn new<T: Into<ElementName>>(tag: T) -> Self {
         Self::NodeElement {
             element: Element::new(tag.into()),
+        }
+    }
+
+    #[inline]
+    pub fn leaf<T: Into<String>>(content: T) -> Self {
+        Self::Leaf {
+            value: content.into(),
         }
     }
 }
@@ -308,4 +332,35 @@ impl Element {
             self.attributes.remove(pos);
         }
     }
+}
+
+#[macro_export]
+macro_rules! element {
+    ($name:expr) => {
+        NodeData::NodeElement { element: Element::new(ElementName::new($name)) }
+    };
+
+    ($full_name:expr) => {
+        NodeData::NodeElement { element: Element::new(ElementName::from($full_name)) }
+    };
+
+    ($name:expr, $($attr:expr),+ $(,)?) => {
+        {
+            let mut element = Element::new(ElementName::from($name));
+            $(
+                element.attributes.push($attr);
+            )+
+            NodeData::NodeElement { element }
+        }
+    };
+
+    ($full_name:expr, $($attr:expr),+ $(,)?) => {
+        {
+            let mut element = Element::new(ElementName::from($full_name));
+            $(
+                element.attributes.push($attr);
+            )+
+            NodeData::NodeElement { element }
+        }
+    };
 }

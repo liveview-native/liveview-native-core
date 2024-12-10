@@ -1,13 +1,26 @@
 mod channel;
+pub(crate) mod dom_locking;
 mod error;
 mod navigation;
+mod protocol;
 mod socket;
 
 #[cfg(test)]
 mod tests;
 
+#[macro_export]
+macro_rules! lock {
+    ($mutex:expr) => {
+        $mutex.lock().expect("Failed to acquire lock")
+    };
+    ($mutex:expr, $msg:expr) => {
+        $mutex.lock().expect($msg)
+    };
+}
+
 pub use channel::LiveChannel;
 pub use error::{LiveSocketError, UploadError};
+pub(crate) use lock;
 pub use socket::LiveSocket;
 
 pub struct UploadConfig {

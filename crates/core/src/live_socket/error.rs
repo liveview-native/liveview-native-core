@@ -11,6 +11,8 @@ use crate::{
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum LiveSocketError {
+    #[error("Attempted to send event from a node missing the phx-{0} hook attribute.")]
+    MissingEventAttribtue(String),
     #[error("Internal Socket Locks would block.")]
     WouldLock,
     #[error("Internal Socket Locks poisoned.")]

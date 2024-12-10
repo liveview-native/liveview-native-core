@@ -3,7 +3,6 @@ use std::sync::{Arc, Mutex};
 use super::assert_doc_eq;
 use crate::live_socket::navigation::*;
 use crate::live_socket::LiveSocket;
-use pretty_assertions::assert_eq;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
