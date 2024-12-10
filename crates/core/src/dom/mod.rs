@@ -16,7 +16,6 @@ use cranelift_entity::{packed_option::PackedOption, EntityRef, PrimaryMap, Secon
 use fixedbitset::FixedBitSet;
 use fxhash::{FxBuildHasher, FxHashMap};
 use petgraph::Direction;
-use phoenix_channels_client::ChannelStatus;
 use smallstr::SmallString;
 use smallvec::SmallVec;
 
@@ -621,9 +620,38 @@ pub enum ChangeType {
     Replace = 3,
 }
 
-#[derive(Copy, Clone, uniffi::Enum)]
-pub enum EventType {
-    Changed, // { change: ChangeType },
+#[derive(Clone, uniffi::Enum)]
+pub enum ControlFlow {
+    ExitOk,
+    ExitErr(String),
+    ContinueListening,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, uniffi::Enum)]
+pub enum LiveChannelStatus {
+    /// [Channel] is waiting for the [Socket](crate::Socket) to
+    /// [Socket::connect](crate::Socket::connect) or automatically reconnect.
+    WaitingForSocketToConnect,
+    /// [Socket::status](crate::Socket::status) is
+    /// [SocketStatus::Connected](crate::SocketStatus::Connected) and [Channel] is waiting for
+    /// [Channel::join] to be called.
+    WaitingToJoin,
+    /// [Channel::join] was called and awaiting response from server.
+    Joining,
+    /// [Channel::join] was called previously, but the [Socket](crate::Socket) was disconnected and
+    /// reconnected.
+    WaitingToRejoin,
+    /// [Channel::join] was called and the server responded that the [Channel::topic] was joined
+    /// using [Channel::payload].
+    Joined,
+    /// [Channel::leave] was called and awaiting response from server.
+    Leaving,
+    /// [Channel::leave] was called and the server responded that the [Channel::topic] was left.
+    Left,
+    /// [Channel::shutdown] was called, but the async task hasn't exited yet.
+    ShuttingDown,
+    /// The async task has exited.
+    ShutDown,
 }
 
 /// Implements the change handling logic for inbound virtual dom
@@ -640,7 +668,7 @@ pub trait DocumentChangeHandler: Send + Sync {
         parent: Option<Arc<NodeRef>>,
     );
 
-    fn handle_channel_status(&self, channel_status: ChannelStatus);
+    fn handle_channel_status(&self, channel_status: LiveChannelStatus) -> ControlFlow;
 }
 
 /// This trait is used to provide functionality common to construction/mutating documents

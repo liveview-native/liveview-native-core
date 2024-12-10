@@ -1,10 +1,11 @@
 use std::sync::{Arc, Mutex};
 
-use phoenix_channels_client::ChannelStatus;
 use tokio::sync::oneshot::{self, *};
 
 use super::*;
-use crate::dom::{ChangeType, DocumentChangeHandler, NodeData, NodeRef};
+use crate::dom::{
+    ChangeType, ControlFlow, DocumentChangeHandler, LiveChannelStatus, NodeData, NodeRef,
+};
 
 // As of this commit the server sends a
 // stream even every 10_000 ms
@@ -41,7 +42,9 @@ impl DocumentChangeHandler for Inspector {
         tx.send(()).expect("Message Never Received.");
     }
 
-    fn handle_channel_status(&self, _channel_status: ChannelStatus) {}
+    fn handle_channel_status(&self, _channel_status: LiveChannelStatus) -> ControlFlow {
+        ControlFlow::ContinueListening
+    }
 }
 
 // Tests that streaming connects, and succeeds at parsing at least one delta.

@@ -6,7 +6,7 @@ use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{
         ffi::{Document as FFiDocument, DocumentChangeHandler},
-        AttributeName, AttributeValue, Document, Selector,
+        AttributeName, AttributeValue, Document, LiveChannelStatus, Selector,
     },
     parser::parse,
 };
@@ -29,6 +29,29 @@ pub struct LiveFile {
     name: String,
     relative_path: String,
     phx_upload_id: String,
+}
+
+/// We need this conversion until WASM supports the phoenix client
+impl Into<LiveChannelStatus> for phoenix_channels_client::ChannelStatus {
+    fn into(self) -> LiveChannelStatus {
+        match self {
+            phoenix_channels_client::ChannelStatus::WaitingForSocketToConnect => {
+                LiveChannelStatus::WaitingForSocketToConnect
+            }
+            phoenix_channels_client::ChannelStatus::WaitingToJoin => {
+                LiveChannelStatus::WaitingToJoin
+            }
+            phoenix_channels_client::ChannelStatus::Joining => LiveChannelStatus::Joining,
+            phoenix_channels_client::ChannelStatus::WaitingToRejoin { .. } => {
+                LiveChannelStatus::WaitingToJoin
+            }
+            phoenix_channels_client::ChannelStatus::Joined => LiveChannelStatus::Joined,
+            phoenix_channels_client::ChannelStatus::Leaving => LiveChannelStatus::Leaving,
+            phoenix_channels_client::ChannelStatus::Left => LiveChannelStatus::Left,
+            phoenix_channels_client::ChannelStatus::ShuttingDown => LiveChannelStatus::ShuttingDown,
+            phoenix_channels_client::ChannelStatus::ShutDown => LiveChannelStatus::ShutDown,
+        }
+    }
 }
 
 #[uniffi::export]
@@ -183,7 +206,11 @@ impl LiveChannel {
                        .clone();
 
                    if let Some(handler) = handler {
-                      handler.handle_channel_status(new_status?)
+                       match handler.handle_channel_status(new_status?.into()) {
+                           crate::dom::ControlFlow::ExitOk => return Ok(()),
+                           crate::dom::ControlFlow::ExitErr(error) => return Err(LiveSocketError::ChannelStatusUserError { error }),
+                           crate::dom::ControlFlow::ContinueListening => {},
+                        };
                    }  else {
                        match new_status? {
                         phoenix_channels_client::ChannelStatus::Left => return Ok(()),
