@@ -7,8 +7,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.phoenixframework.liveviewnative.core.ChangeType
 import org.phoenixframework.liveviewnative.core.ConnectOpts
+import org.phoenixframework.liveviewnative.core.ControlFlow
 import org.phoenixframework.liveviewnative.core.Document
 import org.phoenixframework.liveviewnative.core.DocumentChangeHandler
+import org.phoenixframework.liveviewnative.core.LiveChannelStatus
 import org.phoenixframework.liveviewnative.core.LiveFile
 import org.phoenixframework.liveviewnative.core.LiveSocket
 import org.phoenixframework.liveviewnative.core.NavOptions
@@ -52,13 +54,17 @@ class SocketTestOpts {
 class SimpleChangeHandler : DocumentChangeHandler {
     constructor() {}
 
-    override fun `handle`(
+    override fun `handleDocumentChange`(
             `changeType`: ChangeType,
             `nodeRef`: NodeRef,
             `nodeData`: NodeData,
-            `optionNodeRef`: NodeRef?,
+            `parent`: NodeRef?,
     ) {
         println("${changeType}")
+    }
+
+    override fun `handleChannelStatus`(`channelStatus`: LiveChannelStatus): ControlFlow {
+        return ControlFlow.ContinueListening
     }
 }
 

@@ -1,8 +1,12 @@
 import XCTest
 @testable import LiveViewNativeCore
 final class SimpleHandler: DocumentChangeHandler {
-    func handle(_ changeType: ChangeType, _ nodeRef: NodeRef, _ nodeData: NodeData, _ parent: NodeRef?) {
+    func handleDocumentChange(_ changeType: ChangeType, _ nodeRef: NodeRef, _ nodeData: NodeData, _ parent: NodeRef?) {
         print("Handler:", changeType, ", node:", nodeRef.ref());
+    }
+    
+    func handleChannelStatus(_ channelStatus: LiveChannelStatus)  -> ControlFlow {
+        return .continueListening
     }
 }
 final class LiveViewNativeTreeTests: XCTestCase {
