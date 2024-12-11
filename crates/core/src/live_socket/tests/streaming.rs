@@ -1,51 +1,12 @@
-use std::sync::{Arc, Mutex};
-
-use tokio::sync::oneshot::{self, *};
+use tokio::sync::mpsc::error::TryRecvError::Empty;
 
 use super::*;
-use crate::dom::{
-    ChangeType, ControlFlow, DocumentChangeHandler, LiveChannelStatus, NodeData, NodeRef,
-};
 
 // As of this commit the server sends a
 // stream even every 10_000 ms
 // This sampling interval should catch one
 const MAX_TRIES: u64 = 120;
 const MS_DELAY: u64 = 100;
-
-struct Inspector {
-    tx: std::sync::Mutex<Option<Sender<()>>>,
-    doc: crate::dom::ffi::Document,
-}
-
-impl DocumentChangeHandler for Inspector {
-    fn handle_document_change(
-        &self,
-        _change_type: ChangeType,
-        _node_ref: Arc<NodeRef>,
-        _node_data: NodeData,
-        _parent: Option<Arc<NodeRef>>,
-    ) {
-        let tx = self
-            .tx
-            .lock()
-            .expect("lock poison")
-            .take()
-            .expect("Channel was None.");
-
-        let doc = self.doc.inner();
-
-        let _test = doc
-            .try_lock()
-            .expect("document was locked during change handler!");
-
-        tx.send(()).expect("Message Never Received.");
-    }
-
-    fn handle_channel_status(&self, _channel_status: LiveChannelStatus) -> ControlFlow {
-        ControlFlow::ContinueListening
-    }
-}
 
 // Tests that streaming connects, and succeeds at parsing at least one delta.
 #[tokio::test]
@@ -67,11 +28,8 @@ async fn streaming_connect() -> Result<(), String> {
         .map_err(|e| format!("Failed to join the liveview channel {e}"))?;
 
     let doc = live_channel.document();
-    let (tx, mut rx) = oneshot::channel();
-    live_channel.set_event_handler(Box::new(Inspector {
-        tx: Mutex::new(Some(tx)),
-        doc,
-    }));
+    let (inspector, mut rx) = Inspector::new(doc);
+    live_channel.set_event_handler(Box::new(inspector));
 
     let chan_clone = live_channel.channel().clone();
     tokio::spawn(async move {
@@ -91,7 +49,7 @@ async fn streaming_connect() -> Result<(), String> {
 
                 return Ok(());
             }
-            Err(oneshot::error::TryRecvError::Empty) => {
+            Err(Empty) => {
                 tokio::time::sleep(Duration::from_millis(MS_DELAY)).await;
             }
             Err(_) => {

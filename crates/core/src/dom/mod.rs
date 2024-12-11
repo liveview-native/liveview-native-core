@@ -620,6 +620,11 @@ pub enum ChangeType {
     Replace = 3,
 }
 
+#[derive(Copy, Clone, uniffi::Enum)]
+pub enum EventType {
+    Changed, // { change: ChangeType },
+}
+
 #[derive(Clone, uniffi::Enum)]
 pub enum ControlFlow {
     ExitOk,
@@ -668,6 +673,8 @@ pub trait DocumentChangeHandler: Send + Sync {
         parent: Option<Arc<NodeRef>>,
     );
 
+    /// Called when the channel status changes. Background operations like [LiveChannel::merge_diffs]
+    /// will exit with a status based on the return [ControlFlow] of this callback.
     fn handle_channel_status(&self, channel_status: LiveChannelStatus) -> ControlFlow;
 }
 

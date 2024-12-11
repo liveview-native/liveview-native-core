@@ -1,13 +1,17 @@
 import Foundation
 
 final class SimpleHandler: DocumentChangeHandler {
-    let callback: (NodeRef, NodeData, NodeRef?) -> ()
-    init (
-        _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> ()
+    let callback: (NodeRef, NodeData, NodeRef?) -> Void
+
+    init(
+        _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void
     ) {
-       self.callback = callback
+        self.callback = callback
     }
-    func handle(_ changeType: ChangeType, _ node: NodeRef, _ data: NodeData, _ parent: NodeRef?) {
+
+    func handleDocumentChange(
+        _ changeType: ChangeType, _ node: NodeRef, _ data: NodeData, _ parent: NodeRef?
+    ) {
         switch changeType {
         case .add:
             self.callback(parent!, data, parent)
@@ -17,6 +21,22 @@ final class SimpleHandler: DocumentChangeHandler {
             self.callback(node, data, parent)
         case .replace:
             self.callback(parent!, data, parent)
+        }
+    }
+
+    func handleChannelStatus(_ channelStatus: LiveChannelStatus) -> ControlFlow {
+        switch channelStatus {
+        case .joined,
+            .joining,
+            .leaving,
+            .shuttingDown,
+            .waitingForSocketToConnect,
+            .waitingToJoin,
+            .waitingToRejoin:
+            return .continueListening
+        case .left,
+            .shutDown:
+            return .exitOk
         }
     }
 
@@ -33,14 +53,15 @@ extension Document {
     }
     public func mergeFragmentJson(
         _ payload: [String: Any]
-        ) throws {
+    ) throws {
         let jsonData = try JSONSerialization.data(withJSONObject: payload)
         let payload = String(data: jsonData, encoding: .utf8)!
 
         return try self.mergeFragmentJson(payload)
     }
 
-    public func on(_ event: EventType, _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> ()) {
+    public func on(_ event: EventType, _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void)
+    {
 
         let simple = SimpleHandler(callback)
         self.setEventHandler(simple)

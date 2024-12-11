@@ -1,4 +1,8 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
+
+use crate::dom::{
+    ChangeType, ControlFlow, DocumentChangeHandler, LiveChannelStatus, NodeData, NodeRef,
+};
 
 use super::*;
 mod error;
@@ -12,6 +16,7 @@ const HOST: &str = "10.0.2.2:4001";
 #[cfg(not(target_os = "android"))]
 const HOST: &str = "127.0.0.1:4001";
 
+use phoenix_channels_client::ChannelStatus;
 use pretty_assertions::assert_eq;
 
 macro_rules! assert_doc_eq {
@@ -24,6 +29,88 @@ macro_rules! assert_doc_eq {
 }
 
 pub(crate) use assert_doc_eq;
+
+use tokio::sync::mpsc::*;
+
+struct Inspector {
+    tx: UnboundedSender<(ChangeType, NodeData)>,
+    doc: crate::dom::ffi::Document,
+}
+
+impl Inspector {
+    pub fn new(
+        doc: crate::dom::ffi::Document,
+    ) -> (Self, UnboundedReceiver<(ChangeType, NodeData)>) {
+        let (tx, rx) = unbounded_channel();
+        let out = Self { tx, doc };
+        (out, rx)
+    }
+}
+
+/// An extremely simple change handler that reports diffs in order
+/// over an unbounded channel
+impl DocumentChangeHandler for Inspector {
+    fn handle_document_change(
+        &self,
+        change_type: ChangeType,
+        _node_ref: Arc<NodeRef>,
+        node_data: NodeData,
+        _parent: Option<Arc<NodeRef>>,
+    ) {
+        let doc = self.doc.inner();
+
+        let _test = doc
+            .try_lock()
+            .expect("document was locked during change handler!");
+
+        self.tx
+            .send((change_type, node_data))
+            .expect("Message Never Received.");
+    }
+
+    fn handle_channel_status(&self, channel_status: LiveChannelStatus) -> ControlFlow {
+        match channel_status {
+            LiveChannelStatus::Left | LiveChannelStatus::ShutDown => ControlFlow::ExitOk,
+            _ => ControlFlow::ContinueListening,
+        }
+    }
+}
+
+#[tokio::test]
+async fn channels_drop_on_shutdown() {
+    let _ = env_logger::builder()
+        .parse_default_env()
+        .is_test(true)
+        .try_init();
+
+    let url = format!("http://{HOST}/hello");
+
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+        .await
+        .expect("Failed to get liveview socket");
+
+    let live_channel = live_socket
+        .join_liveview_channel(None, None)
+        .await
+        .expect("Failed to join channel");
+
+    let chan_clone = live_channel.channel().clone();
+    let handle = tokio::spawn(async move {
+        live_channel
+            .merge_diffs()
+            .await
+            .expect("Failed to merge diffs");
+    });
+
+    live_socket
+        .socket()
+        .shutdown()
+        .await
+        .expect("shutdown error");
+
+    assert!(handle.is_finished());
+    assert_eq!(chan_clone.status(), ChannelStatus::ShutDown);
+}
 
 #[tokio::test]
 async fn join_live_view() {
