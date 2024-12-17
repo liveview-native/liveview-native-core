@@ -15,7 +15,7 @@ extension LiveViewNativeCore.ChannelStatuses: @unchecked Sendable {}
 
 extension Node: Identifiable {
     public var id: NodeRef {
-        self.id()
+        self.nodeId()
     }
 }
 
