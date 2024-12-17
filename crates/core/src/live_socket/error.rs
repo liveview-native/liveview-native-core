@@ -39,6 +39,9 @@ pub enum LiveSocketError {
     #[error("JSON Deserialization - {error}")]
     JSONDeserialization { error: String },
 
+    #[error("User emitted error in reaction to channel status change - {error}")]
+    ChannelStatusUserError { error: String },
+
     #[error("CSFR Token Missing from DOM!")]
     CSFRTokenMissing,
 

@@ -1,3 +1,4 @@
+use futures::{future::FutureExt, pin_mut, select};
 use std::{sync::Arc, time::Duration};
 
 use super::{LiveSocketError, UploadConfig, UploadError};
@@ -5,7 +6,7 @@ use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{
         ffi::{Document as FFiDocument, DocumentChangeHandler},
-        AttributeName, AttributeValue, Document, Selector,
+        AttributeName, AttributeValue, Document, LiveChannelStatus, Selector,
     },
     parser::parse,
 };
@@ -28,6 +29,29 @@ pub struct LiveFile {
     name: String,
     relative_path: String,
     phx_upload_id: String,
+}
+
+/// We need this conversion until WASM supports the phoenix client
+impl From<phoenix_channels_client::ChannelStatus> for LiveChannelStatus {
+    fn from(val: phoenix_channels_client::ChannelStatus) -> Self {
+        match val {
+            phoenix_channels_client::ChannelStatus::WaitingForSocketToConnect => {
+                LiveChannelStatus::WaitingForSocketToConnect
+            }
+            phoenix_channels_client::ChannelStatus::WaitingToJoin => {
+                LiveChannelStatus::WaitingToJoin
+            }
+            phoenix_channels_client::ChannelStatus::Joining => LiveChannelStatus::Joining,
+            phoenix_channels_client::ChannelStatus::WaitingToRejoin { .. } => {
+                LiveChannelStatus::WaitingToJoin
+            }
+            phoenix_channels_client::ChannelStatus::Joined => LiveChannelStatus::Joined,
+            phoenix_channels_client::ChannelStatus::Leaving => LiveChannelStatus::Leaving,
+            phoenix_channels_client::ChannelStatus::Left => LiveChannelStatus::Left,
+            phoenix_channels_client::ChannelStatus::ShuttingDown => LiveChannelStatus::ShuttingDown,
+            phoenix_channels_client::ChannelStatus::ShutDown => LiveChannelStatus::ShutDown,
+        }
+    }
 }
 
 #[uniffi::export]
@@ -143,24 +167,58 @@ impl LiveChannel {
         // TODO: This should probably take the event closure to send changes back to swift/kotlin
         let document = self.document.clone();
         let events = self.channel.events();
+        let statuses = self.channel.statuses();
         loop {
-            let event = events.event().await?;
-            match event.event {
-                Event::Phoenix { phoenix } => {
-                    error!("Phoenix Event for {phoenix:?} is unimplemented");
-                }
-                Event::User { user } => {
-                    if user == "diff" {
-                        let Payload::JSONPayload { json } = event.payload else {
-                            error!("Diff was not json!");
-                            continue;
+            let event = events.event().fuse();
+            let status = statuses.status().fuse();
+
+            pin_mut!(event, status);
+
+            select! {
+               e = event => {
+                   let e = e?;
+                   match e.event {
+                       Event::Phoenix { phoenix } => {
+                           error!("Phoenix Event for {phoenix:?} is unimplemented");
+                       }
+                       Event::User { user } => {
+                           if user == "diff" {
+                               let Payload::JSONPayload { json } = e.payload else {
+                                   error!("Diff was not json!");
+                                   continue;
+                               };
+
+                               debug!("PAYLOAD: {json:?}");
+                               // This function merges and uses the event handler set in `set_event_handler`
+                               // which will call back into the Swift/Kotlin.
+                               document.merge_fragment_json(&json.to_string())?;
+                           }
+                       }
+                   };
+               }
+               new_status = status => {
+
+                   let handler = document
+                       .inner()
+                       .lock()
+                       .expect("lock poisoned")
+                       .event_callback
+                       .clone();
+
+                   if let Some(handler) = handler {
+                       match handler.handle_channel_status(new_status?.into()) {
+                           crate::dom::ControlFlow::ExitOk => return Ok(()),
+                           crate::dom::ControlFlow::ExitErr(error) => return Err(LiveSocketError::ChannelStatusUserError { error }),
+                           crate::dom::ControlFlow::ContinueListening => {},
                         };
-                        debug!("PAYLOAD: {json:?}");
-                        // This function merges and uses the event handler set in `set_event_handler`
-                        // which will call back into the Swift/Kotlin.
-                        document.merge_fragment_json(&json.to_string())?;
-                    }
-                }
+                   }  else {
+                       match new_status? {
+                        phoenix_channels_client::ChannelStatus::Left => return Ok(()),
+                        phoenix_channels_client::ChannelStatus::ShutDown => return Ok(()),
+                        _ => {},
+                      }
+                   }
+               }
             };
         }
     }
