@@ -1,5 +1,8 @@
+use std::{collections::HashMap, sync::Arc, time::Duration};
+
 use futures::{future::FutureExt, pin_mut, select};
-use std::{sync::Arc, time::Duration};
+use log::{debug, error};
+use phoenix_channels_client::{Channel, Event, Number, Payload, Socket, Topic, JSON};
 
 use super::{LiveSocketError, UploadConfig, UploadError};
 use crate::{
@@ -10,12 +13,11 @@ use crate::{
     },
     parser::parse,
 };
-use log::{debug, error};
-use phoenix_channels_client::{Channel, Event, Number, Payload, Socket, Topic, JSON};
 
 #[derive(uniffi::Object)]
 pub struct LiveChannel {
     pub channel: Arc<Channel>,
+    pub join_params: HashMap<String, JSON>,
     pub socket: Arc<Socket>,
     pub join_payload: Payload,
     pub document: FFiDocument,

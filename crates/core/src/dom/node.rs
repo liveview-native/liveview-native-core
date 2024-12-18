@@ -108,7 +108,7 @@ impl Node {
     pub fn document(&self) -> FFiDocument {
         self.document.clone()
     }
-    pub fn id(&self) -> NodeRef {
+    pub fn node_id(&self) -> NodeRef {
         self.id
     }
     pub fn data(&self) -> NodeData {

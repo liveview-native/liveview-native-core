@@ -1,11 +1,11 @@
 use std::sync::{Arc, Mutex};
 
-use super::assert_doc_eq;
-use crate::live_socket::navigation::*;
-use crate::live_socket::LiveSocket;
 use pretty_assertions::assert_eq;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
+
+use super::assert_doc_eq;
+use crate::live_socket::{navigation::*, LiveSocket};
 
 // Mock event handler used to validate the internal
 // navigation objects state.
@@ -275,15 +275,10 @@ async fn basic_nav_flow() {
     assert_doc_eq!(expected, join_doc.to_string());
 
     let url = format!("http://{HOST}/nav/{second}");
-    let _id = live_socket
-        .navigate(url, Default::default())
+    let live_channel = live_socket
+        .navigate(url, Some(Arc::new(live_channel)), Default::default())
         .await
         .expect("navigate");
-
-    let live_channel = live_socket
-        .join_liveview_channel(None, None)
-        .await
-        .expect("Failed to join channel");
 
     let join_doc = live_channel
         .join_document()

@@ -1,6 +1,6 @@
 use phoenix_channels_client::{
     CallError, ChannelError, ChannelJoinError, ConnectError, EventsError, JSONDeserializationError,
-    LeaveError, PhoenixError, SocketChannelError, SocketError, SpawnError, StatusesError,
+    LeaveError, Payload, PhoenixError, SocketChannelError, SocketError, SpawnError, StatusesError,
     URLParseError,
 };
 
@@ -27,6 +27,8 @@ pub enum LiveSocketError {
     InvalidHeader { error: String },
     #[error("Invalid Method - {error}")]
     InvalidMethod { error: String },
+    #[error("Phoenix socket rejected join attempt with - {error}")]
+    JoinRejection { error: Payload },
     #[error("Phoenix Socket Error - {error}")]
     Phoenix { error: String },
     #[error("Reqwest Error - {error}")]
@@ -135,11 +137,20 @@ impl<T> From<std::sync::PoisonError<T>> for LiveSocketError {
 
 impl From<PhoenixError> for LiveSocketError {
     fn from(value: PhoenixError) -> Self {
-        Self::Phoenix {
-            error: value.to_string(),
+        match value {
+            PhoenixError::Channel {
+                channel:
+                    phoenix_channels_client::ChannelError::Join {
+                        join: ChannelJoinError::Rejected { rejection },
+                    },
+            } => Self::JoinRejection { error: rejection },
+            error => Self::Phoenix {
+                error: error.to_string(),
+            },
         }
     }
 }
+
 impl From<ConnectError> for LiveSocketError {
     fn from(value: ConnectError) -> Self {
         Self::from(PhoenixError::from(value))
