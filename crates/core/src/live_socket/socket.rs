@@ -4,14 +4,12 @@ use std::{
     time::Duration,
 };
 
-use super::navigation::{NavCtx, NavOptions};
-
 use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, Topic, JSON};
 use reqwest::Method as ReqMethod;
 
+use super::navigation::{NavCtx, NavOptions};
 pub use super::{LiveChannel, LiveSocketError};
-
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{ffi::Document as FFiDocument, AttributeName, Document, ElementName, Selector},
@@ -420,6 +418,7 @@ impl LiveSocket {
 
         Ok(LiveChannel {
             channel,
+            join_params: Default::default(),
             join_payload,
             socket: self.socket(),
             document: document.into(),
@@ -455,7 +454,7 @@ impl LiveSocket {
                 },
             ),
         ]);
-        if let Some(join_params) = join_params {
+        if let Some(join_params) = join_params.clone() {
             for (key, value) in &join_params {
                 collected_join_params.insert(key.clone(), value.clone());
             }
@@ -534,6 +533,7 @@ impl LiveSocket {
         Ok(LiveChannel {
             channel,
             join_payload,
+            join_params: join_params.unwrap_or_default(),
             socket: self.socket(),
             document: document.into(),
             timeout: self.timeout(),

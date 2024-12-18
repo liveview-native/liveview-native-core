@@ -3,10 +3,11 @@
 //! Types and utilities for interacting with the navigation API for the FFI api consumers.
 use std::sync::Arc;
 
-use phoenix_channels_client::Socket;
+use phoenix_channels_client::{Payload, Socket, JSON};
 use reqwest::Url;
 
 pub type HistoryId = u64;
+const RETRY_REASONS: &[&str] = &["stale", "unauthorized"];
 
 #[uniffi::export(callback_interface)]
 pub trait NavEventHandler: Send + Sync {
@@ -125,25 +126,59 @@ impl LiveSocket {
             .current()
             .ok_or(LiveSocketError::NavigationImpossible)?;
 
+        let params = old_channel.map(|c| c.join_params.clone());
+
         let url = Url::parse(&current.url)?;
 
-        // TODO: reconnect here , on stale or unauthorized reconnect the socket.
-
-        let format = self.session_data.try_lock()?.format.clone();
-        let options = self.session_data.try_lock()?.connect_opts.clone();
-
-        let session_data = SessionData::request(&url, &format, options).await?;
-        let websocket_url = session_data.get_live_socket_url()?;
-        let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone())).await?;
-        self.socket()
-            .disconnect()
+        match self
+            .join_liveview_channel(params.clone(), Some(url.to_string()))
             .await
-            .map_err(|_| LiveSocketError::DisconnectionError)?;
+        {
+            // A join rejection should be ameliorated by reconnecting
+            Err(LiveSocketError::JoinRejection {
+                error:
+                    Payload::JSONPayload {
+                        json: JSON::Object { object },
+                    },
+            }) => {
+                if object
+                    .get("reason")
+                    .and_then(|r| match r {
+                        JSON::Str { string } => Some(string),
+                        _ => None,
+                    })
+                    .is_none_or(|reason| !RETRY_REASONS.contains(&reason.as_str()))
+                {
+                    return Err(LiveSocketError::JoinRejection {
+                        error: Payload::JSONPayload {
+                            json: JSON::Object { object },
+                        },
+                    });
+                }
 
-        *self.socket.try_lock()? = socket;
-        *self.session_data.try_lock()? = session_data;
+                let format = self.session_data.try_lock()?.format.clone();
+                let options = self.session_data.try_lock()?.connect_opts.clone();
 
-        Ok(todo!())
+                let session_data = SessionData::request(&url, &format, options).await?;
+                let websocket_url = session_data.get_live_socket_url()?;
+                let socket =
+                    Socket::spawn(websocket_url, Some(session_data.cookies.clone())).await?;
+
+                self.socket()
+                    .disconnect()
+                    .await
+                    .map_err(|_| LiveSocketError::DisconnectionError)?;
+
+                *self.socket.try_lock()? = socket;
+                *self.session_data.try_lock()? = session_data;
+                self.join_liveview_channel(params, None)
+                    .await
+                    .map(Into::into)
+            }
+            // Just reconnect or bail
+            Ok(chan) => Ok(chan.into()),
+            Err(e) => Err(e),
+        }
     }
 
     /// calls [Self::try_nav] rolling back to a previous navigation state on failure.
