@@ -1,6 +1,8 @@
 //! # FFI Navigation Types
 //!
 //! Types and utilities for interacting with the navigation API for the FFI api consumers.
+use std::sync::Arc;
+
 use phoenix_channels_client::Socket;
 use reqwest::Url;
 
@@ -109,19 +111,23 @@ impl NavEvent {
     }
 }
 
-use crate::live_socket::socket::SessionData;
-
 use super::{super::error::LiveSocketError, LiveSocket, NavCtx};
+use crate::live_socket::{socket::SessionData, LiveChannel};
 
 impl LiveSocket {
     /// Tries to navigate to the current item in the NavCtx.
     /// changing state in one fell swoop if initialilization succeeds
-    async fn try_nav(&self) -> Result<(), LiveSocketError> {
+    async fn try_nav(
+        &self,
+        old_channel: Option<Arc<LiveChannel>>,
+    ) -> Result<Arc<LiveChannel>, LiveSocketError> {
         let current = self
             .current()
             .ok_or(LiveSocketError::NavigationImpossible)?;
 
         let url = Url::parse(&current.url)?;
+
+        // TODO: reconnect here , on stale or unauthorized reconnect the socket.
 
         let format = self.session_data.try_lock()?.format.clone();
         let options = self.session_data.try_lock()?.connect_opts.clone();
@@ -129,7 +135,6 @@ impl LiveSocket {
         let session_data = SessionData::request(&url, &format, options).await?;
         let websocket_url = session_data.get_live_socket_url()?;
         let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone())).await?;
-
         self.socket()
             .disconnect()
             .await
@@ -138,11 +143,15 @@ impl LiveSocket {
         *self.socket.try_lock()? = socket;
         *self.session_data.try_lock()? = session_data;
 
-        Ok(())
+        Ok(todo!())
     }
 
     /// calls [Self::try_nav] rolling back to a previous navigation state on failure.
-    async fn try_nav_outer<F>(&self, nav_action: F) -> Result<HistoryId, LiveSocketError>
+    async fn try_nav_outer<F>(
+        &self,
+        old_channel: Option<Arc<LiveChannel>>,
+        nav_action: F,
+    ) -> Result<Arc<LiveChannel>, LiveSocketError>
     where
         F: FnOnce(&mut NavCtx) -> Option<HistoryId>,
     {
@@ -151,12 +160,12 @@ impl LiveSocket {
             nav_action(&mut ctx)
         };
 
-        let Some(new_id) = new_id else {
+        if new_id.is_none() {
             return Err(LiveSocketError::NavigationImpossible);
         };
 
-        match self.try_nav().await {
-            Ok(()) => Ok(new_id),
+        match self.try_nav(old_channel).await {
+            Ok(channel) => Ok(channel),
             Err(e) => Err(e),
         }
     }
@@ -167,31 +176,48 @@ impl LiveSocket {
     pub async fn navigate(
         &self,
         url: String,
+        old_channel: Option<Arc<LiveChannel>>,
         opts: NavOptions,
-    ) -> Result<HistoryId, LiveSocketError> {
+    ) -> Result<Arc<LiveChannel>, LiveSocketError> {
         let url = Url::parse(&url)?;
-        self.try_nav_outer(|ctx| ctx.navigate(url, opts, true))
+        self.try_nav_outer(old_channel, |ctx| ctx.navigate(url, opts, true))
             .await
     }
 
-    pub async fn reload(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
-        self.try_nav_outer(|ctx| ctx.reload(info, true)).await
+    pub async fn reload(
+        &self,
+        old_channel: Arc<LiveChannel>,
+        info: Option<Vec<u8>>,
+    ) -> Result<Arc<LiveChannel>, LiveSocketError> {
+        self.try_nav_outer(Some(old_channel), |ctx| ctx.reload(info, true))
+            .await
     }
 
-    pub async fn back(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
-        self.try_nav_outer(|ctx| ctx.back(info, true)).await
+    pub async fn back(
+        &self,
+        old_channel: Option<Arc<LiveChannel>>,
+        info: Option<Vec<u8>>,
+    ) -> Result<Arc<LiveChannel>, LiveSocketError> {
+        self.try_nav_outer(old_channel, |ctx| ctx.back(info, true))
+            .await
     }
 
-    pub async fn forward(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
-        self.try_nav_outer(|ctx| ctx.forward(info, true)).await
+    pub async fn forward(
+        &self,
+        old_channel: Option<Arc<LiveChannel>>,
+        info: Option<Vec<u8>>,
+    ) -> Result<Arc<LiveChannel>, LiveSocketError> {
+        self.try_nav_outer(old_channel, |ctx| ctx.forward(info, true))
+            .await
     }
 
     pub async fn traverse_to(
         &self,
         id: HistoryId,
+        old_channel: Option<Arc<LiveChannel>>,
         info: Option<Vec<u8>>,
-    ) -> Result<HistoryId, LiveSocketError> {
-        self.try_nav_outer(|ctx| ctx.traverse_to(id, info, true))
+    ) -> Result<Arc<LiveChannel>, LiveSocketError> {
+        self.try_nav_outer(old_channel, |ctx| ctx.traverse_to(id, info, true))
             .await
     }
 
