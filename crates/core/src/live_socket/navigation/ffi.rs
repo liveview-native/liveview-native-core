@@ -121,14 +121,18 @@ impl LiveSocket {
     async fn try_nav(
         &self,
         old_channel: Option<Arc<LiveChannel>>,
-    ) -> Result<Arc<LiveChannel>, LiveSocketError> {
+    ) -> Result<LiveChannel, LiveSocketError> {
         let current = self
             .current()
             .ok_or(LiveSocketError::NavigationImpossible)?;
 
-        let params = old_channel.map(|c| c.join_params.clone());
+        let params = old_channel.as_ref().map(|c| c.join_params.clone());
 
         let url = Url::parse(&current.url)?;
+
+        if let Some(old) = old_channel {
+            old.channel().leave().await?;
+        }
 
         match self
             .join_liveview_channel(params.clone(), Some(url.to_string()))
@@ -171,12 +175,10 @@ impl LiveSocket {
 
                 *self.socket.try_lock()? = socket;
                 *self.session_data.try_lock()? = session_data;
-                self.join_liveview_channel(params, None)
-                    .await
-                    .map(Into::into)
+                self.join_liveview_channel(params, None).await
             }
             // Just reconnect or bail
-            Ok(chan) => Ok(chan.into()),
+            Ok(chan) => Ok(chan),
             Err(e) => Err(e),
         }
     }
@@ -186,7 +188,7 @@ impl LiveSocket {
         &self,
         old_channel: Option<Arc<LiveChannel>>,
         nav_action: F,
-    ) -> Result<Arc<LiveChannel>, LiveSocketError>
+    ) -> Result<LiveChannel, LiveSocketError>
     where
         F: FnOnce(&mut NavCtx) -> Option<HistoryId>,
     {
@@ -213,7 +215,7 @@ impl LiveSocket {
         url: String,
         old_channel: Option<Arc<LiveChannel>>,
         opts: NavOptions,
-    ) -> Result<Arc<LiveChannel>, LiveSocketError> {
+    ) -> Result<LiveChannel, LiveSocketError> {
         let url = Url::parse(&url)?;
         self.try_nav_outer(old_channel, |ctx| ctx.navigate(url, opts, true))
             .await
@@ -223,7 +225,7 @@ impl LiveSocket {
         &self,
         old_channel: Arc<LiveChannel>,
         info: Option<Vec<u8>>,
-    ) -> Result<Arc<LiveChannel>, LiveSocketError> {
+    ) -> Result<LiveChannel, LiveSocketError> {
         self.try_nav_outer(Some(old_channel), |ctx| ctx.reload(info, true))
             .await
     }
@@ -232,7 +234,7 @@ impl LiveSocket {
         &self,
         old_channel: Option<Arc<LiveChannel>>,
         info: Option<Vec<u8>>,
-    ) -> Result<Arc<LiveChannel>, LiveSocketError> {
+    ) -> Result<LiveChannel, LiveSocketError> {
         self.try_nav_outer(old_channel, |ctx| ctx.back(info, true))
             .await
     }
@@ -241,7 +243,7 @@ impl LiveSocket {
         &self,
         old_channel: Option<Arc<LiveChannel>>,
         info: Option<Vec<u8>>,
-    ) -> Result<Arc<LiveChannel>, LiveSocketError> {
+    ) -> Result<LiveChannel, LiveSocketError> {
         self.try_nav_outer(old_channel, |ctx| ctx.forward(info, true))
             .await
     }
@@ -251,7 +253,7 @@ impl LiveSocket {
         id: HistoryId,
         old_channel: Option<Arc<LiveChannel>>,
         info: Option<Vec<u8>>,
-    ) -> Result<Arc<LiveChannel>, LiveSocketError> {
+    ) -> Result<LiveChannel, LiveSocketError> {
         self.try_nav_outer(old_channel, |ctx| ctx.traverse_to(id, info, true))
             .await
     }

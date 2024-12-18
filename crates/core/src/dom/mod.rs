@@ -138,6 +138,10 @@ impl Document {
         }
     }
 
+    pub fn get_event_callback(&self) -> Option<Arc<dyn DocumentChangeHandler>> {
+        self.event_callback.clone()
+    }
+
     /// Parses a `Document` from a string
     pub fn parse<S: AsRef<str>>(input: S) -> Result<Self, parser::ParseError> {
         parser::parse(input.as_ref())
