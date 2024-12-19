@@ -316,8 +316,6 @@ impl LiveSocket {
         let timeout = Duration::from_millis(*timeout_ms);
         let (client, request) = builder.timeout(timeout).headers(headers).build_split();
 
-        dbg!("BEFORE");
-        dbg!(&url);
         let mut resp = client.execute(request?).await?;
         for _ in 0..MAX_REDIRECTS {
             if !resp.status().is_redirection() {
@@ -336,7 +334,6 @@ impl LiveSocket {
         }
 
         let status = resp.status();
-        dbg!(&resp.url());
 
         let resp_headers = resp.headers();
 
@@ -384,7 +381,9 @@ impl LiveSocket {
         let session_data = SessionData::request(&url, &format, options).await?;
         let websocket_url = session_data.get_live_socket_url()?;
 
-        let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone())).await?;
+        let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone()))
+            .await?
+            .into();
 
         let navigation_ctx = Mutex::new(NavCtx::default());
 
@@ -395,7 +394,7 @@ impl LiveSocket {
         );
 
         Ok(Self {
-            socket: socket.into(),
+            socket,
             session_data: session_data.into(),
             navigation_ctx,
         })
