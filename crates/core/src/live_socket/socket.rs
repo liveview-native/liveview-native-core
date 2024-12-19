@@ -6,10 +6,7 @@ use std::{
 
 use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, Topic, JSON};
-use reqwest::{
-    redirect::{Attempt, Policy},
-    Method as ReqMethod,
-};
+use reqwest::{redirect::Policy, Method as ReqMethod};
 
 use super::navigation::{NavCtx, NavOptions};
 pub use super::{LiveChannel, LiveSocketError};
