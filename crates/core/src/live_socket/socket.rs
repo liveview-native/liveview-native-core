@@ -5,7 +5,7 @@ use std::{
 };
 
 use log::debug;
-use phoenix_channels_client::{url::Url, Number, Payload, Socket, Topic, JSON};
+use phoenix_channels_client::{url::Url, Number, Payload, Socket, SocketStatus, Topic, JSON};
 use reqwest::{redirect::Policy, Method as ReqMethod};
 
 use super::navigation::{NavCtx, NavOptions};
@@ -563,8 +563,14 @@ impl LiveSocket {
         })
     }
 
+    /// Returns the connection timeout duration for each connection attempt
     pub fn timeout(&self) -> Duration {
         Duration::from_millis(lock!(self.session_data).connect_opts.timeout_ms)
+    }
+
+    /// Returns the socket status
+    pub fn status(&self) -> SocketStatus {
+        self.socket().status()
     }
 
     pub fn socket(&self) -> Arc<Socket> {
