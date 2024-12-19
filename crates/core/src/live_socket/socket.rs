@@ -6,7 +6,10 @@ use std::{
 
 use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, Topic, JSON};
-use reqwest::Method as ReqMethod;
+use reqwest::{
+    redirect::{Attempt, Policy},
+    Method as ReqMethod,
+};
 
 use super::navigation::{NavCtx, NavOptions};
 pub use super::{LiveChannel, LiveSocketError};
@@ -26,6 +29,7 @@ macro_rules! lock {
     };
 }
 
+const MAX_REDIRECTS: usize = 10;
 const LVN_VSN: &str = "2.0.0";
 const LVN_VSN_KEY: &str = "vsn";
 const CSRF_KEY: &str = "_csrf_token";
@@ -126,7 +130,7 @@ impl SessionData {
         // Top level:
         // csrf-token
         // "iframe[src=\"/phoenix/live_reload/frame\"]"
-        let (dead_render, cookies) =
+        let (dead_render, cookies, url) =
             LiveSocket::get_dead_render(url, format, &connect_opts).await?;
 
         let csrf_token = dead_render
@@ -211,7 +215,7 @@ impl SessionData {
 
         let out = Self {
             connect_opts,
-            url: url.clone(),
+            url,
             format: format.to_string(),
             csrf_token,
             phx_id,
@@ -275,7 +279,7 @@ impl LiveSocket {
         url: &Url,
         format: &str,
         options: &ConnectOpts,
-    ) -> Result<(Document, Vec<String>), LiveSocketError> {
+    ) -> Result<(Document, Vec<String>, Url), LiveSocketError> {
         let ConnectOpts {
             headers,
             body,
@@ -296,7 +300,10 @@ impl LiveSocket {
                 error: format!("{e:?}"),
             })?;
 
-        let client = reqwest::Client::default();
+        let client = reqwest::Client::builder()
+            .redirect(Policy::none())
+            .build()?;
+
         let req = reqwest::Request::new(method, url.clone());
         let builder = reqwest::RequestBuilder::from_parts(client, req);
 
@@ -309,8 +316,28 @@ impl LiveSocket {
         let timeout = Duration::from_millis(*timeout_ms);
         let (client, request) = builder.timeout(timeout).headers(headers).build_split();
 
-        let resp = client.execute(request?).await?;
+        dbg!("BEFORE");
+        dbg!(&url);
+        let mut resp = client.execute(request?).await?;
+        for _ in 0..MAX_REDIRECTS {
+            if !resp.status().is_redirection() {
+                break;
+            }
+            let location = resp
+                .headers()
+                .get("location")
+                .and_then(|loc| loc.to_str().ok())
+                .ok_or_else(|| LiveSocketError::Request {
+                    error: "No redirect location in 300 response".into(),
+                })?;
+
+            url.set_path(location);
+            resp = client.get(url.clone()).send().await?;
+        }
+
         let status = resp.status();
+        dbg!(&resp.url());
+
         let resp_headers = resp.headers();
 
         let cookies = resp_headers
@@ -319,6 +346,7 @@ impl LiveSocket {
             .map(|cookie| cookie.to_str().expect("Cookie is not ASCII").to_string())
             .collect();
 
+        let url = resp.url().clone();
         let resp_text = resp.text().await?;
         if !status.is_success() {
             return Err(LiveSocketError::ConnectionError(resp_text));
@@ -326,7 +354,7 @@ impl LiveSocket {
 
         let dead_render = parse(&resp_text)?;
         debug!("document:\n{dead_render}\n\n\n");
-        Ok((dead_render, cookies))
+        Ok((dead_render, cookies, url))
     }
 }
 
@@ -356,9 +384,7 @@ impl LiveSocket {
         let session_data = SessionData::request(&url, &format, options).await?;
         let websocket_url = session_data.get_live_socket_url()?;
 
-        let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone()))
-            .await?
-            .into();
+        let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone())).await?;
 
         let navigation_ctx = Mutex::new(NavCtx::default());
 
@@ -369,7 +395,7 @@ impl LiveSocket {
         );
 
         Ok(Self {
-            socket,
+            socket: socket.into(),
             session_data: session_data.into(),
             navigation_ctx,
         })
@@ -432,6 +458,7 @@ impl LiveSocket {
         redirect: Option<String>,
     ) -> Result<LiveChannel, LiveSocketError> {
         self.socket().connect(self.timeout()).await?;
+
         let session_data = lock!(self.session_data).clone();
 
         let mut collected_join_params = HashMap::from([
