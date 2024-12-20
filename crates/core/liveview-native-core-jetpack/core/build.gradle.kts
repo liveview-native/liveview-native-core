@@ -1,22 +1,17 @@
 plugins {
-    alias(libs.plugins.rust.android.gradle) 
+    alias(libs.plugins.rust.android.gradle)
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android) 
+    alias(libs.plugins.kotlin.android)
     id("maven-publish")
     // TODO: Add generated sources to dokka sourcesets
     alias(libs.plugins.dokka) apply true
 }
-subprojects {
-    apply(plugin = "org.jetbrains.dokka")
-}
+
+subprojects { apply(plugin = "org.jetbrains.dokka") }
 
 dependencies {
     implementation(libs.org.jetbrains.kotlinx.coroutines.core)
-    compileOnly(libs.net.java.dev.jna) {
-        artifact {
-            type = "aar"
-        }
-    }
+    compileOnly(libs.net.java.dev.jna) { artifact { type = "aar" } }
     testImplementation(libs.net.java.dev.jna)
 
     androidTestImplementation(libs.androidx.test.ext.junit)
@@ -26,6 +21,7 @@ dependencies {
     testImplementation(libs.org.jetbrains.kotlinx.coroutines.test)
     coreLibraryDesugaring(libs.com.android.tools.desugar)
 }
+
 val uniffiPath = "${layout.buildDirectory}/generated/source/uniffi/java"
 val os_name = System.getProperty("os.name").lowercase()
 val is_linux = os_name.contains("linux")
@@ -42,9 +38,7 @@ android {
     }
 
     buildTypes {
-        getByName("release") {
-            isMinifyEnabled = false
-        }
+        getByName("release") { isMinifyEnabled = false }
         /*
         create("releaseDesktop") {
         }
@@ -55,9 +49,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
         isCoreLibraryDesugaringEnabled = true
     }
-    kotlinOptions {
-        jvmTarget = "1.8"
-    }
+    kotlinOptions { jvmTarget = "1.8" }
     publishing {
         singleVariant("release") {
             withSourcesJar()
@@ -73,61 +65,65 @@ android {
     ndkVersion = "26.3.11579264"
 
     sourceSets {
-        getByName("main") {
-            java.srcDir(uniffiPath)
-        }
-        getByName("test") {
-            resources.srcDirs("${layout.buildDirectory}/rustJniLibs/desktop")
-        }
+        getByName("main") { java.srcDir(uniffiPath) }
+        getByName("test") { resources.srcDirs("${layout.buildDirectory}/rustJniLibs/desktop") }
     }
 
     libraryVariants.all {
         tasks.register<Exec>("build${name.replaceFirstChar { c -> c.uppercase() }}StaticLib") {
             workingDir("${project.projectDir}")
             commandLine(
-                "cargo",
-                "build",
-                "--lib",
-                "-p",
-                "liveview-native-core",
+                    "cargo",
+                    "build",
+                    "--lib",
+                    "-p",
+                    "liveview-native-core",
             )
         }
-        val generateUniffi = tasks.register<Exec>("generate${name.replaceFirstChar { c -> c.uppercase() }}UniFFIBindings") {
-            workingDir("${project.projectDir}")
-            var dylib_file = rootProject.file("../../../target/debug/libliveview_native_core.dylib")
+        val generateUniffi =
+                tasks.register<Exec>(
+                        "generate${name.replaceFirstChar { c -> c.uppercase() }}UniFFIBindings"
+                ) {
+                    workingDir("${project.projectDir}")
+                    var dylib_file =
+                            rootProject.file("../../../target/debug/libliveview_native_core.dylib")
 
-            if (is_linux) {
-                dylib_file = rootProject.file("../../../target/debug/libliveview_native_core.so")
-            }
+                    if (is_linux) {
+                        dylib_file =
+                                rootProject.file("../../../target/debug/libliveview_native_core.so")
+                    }
 
-            commandLine(
-                "cargo",
-                "run",
-                "-p",
-                "uniffi-bindgen",
-                "--",
-                "generate",
-                "--library",
-                dylib_file,
-                "--language",
-                "kotlin",
-                "--out-dir",
-                uniffiPath
-            )
-        }
+                    commandLine(
+                            "cargo",
+                            "run",
+                            "-p",
+                            "uniffi-bindgen",
+                            "--",
+                            "generate",
+                            "--library",
+                            dylib_file,
+                            "--language",
+                            "kotlin",
+                            "--out-dir",
+                            uniffiPath
+                    )
+                }
         javaCompileProvider.get().dependsOn(generateUniffi)
     }
 }
 
-var cargo_targets = listOf(
-    "arm", // rust - armv7-linux-androideabi
-    "arm64", // rust - aarch64-linux-android
-    "x86", // rust - i686-linux-android
-    "x86_64", // rust - x86_64-linux-android
-)
+var cargo_targets =
+        listOf(
+                "arm", // rust - armv7-linux-androideabi
+                "arm64", // rust - aarch64-linux-android
+                "x86", // rust - i686-linux-android
+                "x86_64", // rust - x86_64-linux-android
+        )
+
 if (is_linux) {
-    cargo_targets += "linux-x86-64"  // x86_64-unknown-linux-gnu
+    cargo_targets += "linux-x86-64" // x86_64-unknown-linux-gnu
 }
+
 if (is_mac) {
     cargo_targets += "darwin-aarch64" // rust - aarch64-apple-darwin
     cargo_targets += "darwin-x86-64" // rust - x86_64-apple-darwin
@@ -143,7 +139,8 @@ cargo {
     module = "../../../../"
 
     libname = "liveview_native_core"
-    // In case you need to run the unit tests, install the respective toolchain and add the target below.
+    // In case you need to run the unit tests, install the respective toolchain and add the target
+    // below.
     targets = cargo_targets
 }
 
@@ -162,9 +159,9 @@ tasks.configureEach {
 }
 // https://github.com/mozilla/rust-android-gradle/issues/118#issuecomment-1569407058
 tasks.whenObjectAdded {
-   if ((this.name == "mergeDebugJniLibFolders" || this.name == "mergeReleaseJniLibFolders")) {
+    if ((this.name == "mergeDebugJniLibFolders" || this.name == "mergeReleaseJniLibFolders")) {
         this.dependsOn("cargoBuild")
-       // fix mergeDebugJniLibFolders  UP-TO-DATE
+        // fix mergeDebugJniLibFolders  UP-TO-DATE
         val dir = layout.buildDirectory.asFile.get()
         this.inputs.dir(dir.resolve("rustJniLibs/android"))
     }
@@ -172,14 +169,12 @@ tasks.whenObjectAdded {
 
 publishing {
     publications {
-        register<MavenPublication>("release")  {
+        register<MavenPublication>("release") {
             groupId = "org.phoenixframework"
             artifactId = "liveview-native-core-jetpack"
             version = lvn_version
 
-            afterEvaluate {
-                from(components["release"])
-            }
+            afterEvaluate { from(components["release"]) }
         }
     }
     /*

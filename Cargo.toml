@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/core", "crates/uniffi-bindgen", "crates/wasm"]
 
 [workspace.package]
-version = "0.4.0-alpha-13"
+version = "0.4.0-rc-4"
 rust-version = "1.64"
 authors = [
     "Paul Schoenfelder <paulschoenfelder@gmail.com>",

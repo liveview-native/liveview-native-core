@@ -1405,7 +1405,7 @@ checksum = "b4ce301924b7887e9d637144fdade93f9dfff9b60981d4ac161db09720d39aa5"
 
 [[package]]
 name = "liveview-native-core"
-version = "0.4.0-alpha-13"
+version = "0.4.0-rc-4"
 dependencies = [
  "Inflector",
  "cranelift-entity",
@@ -1434,7 +1434,7 @@ dependencies = [
 
 [[package]]
 name = "liveview_native_core_wasm"
-version = "0.4.0-alpha-13"
+version = "0.4.0-rc-4"
 dependencies = [
  "console_error_panic_hook",
  "console_log",
@@ -2801,7 +2801,7 @@ dependencies = [
 
 [[package]]
 name = "uniffi-bindgen"
-version = "0.4.0-alpha-13"
+version = "0.4.0-rc-4"
 dependencies = [
  "uniffi",
 ]
