@@ -14,7 +14,7 @@ async fn dead_render_error() {
     let live_socket_err = live_socket_err.err().unwrap();
     assert!(matches!(
         live_socket_err,
-        LiveSocketError::ConnectionError(_)
+        LiveSocketError::ConnectionError { .. }
     ));
     log::debug!("ERROR HTML: {live_socket_err}");
 }

@@ -1,3 +1,4 @@
+use core::str;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -6,7 +7,12 @@ use std::{
 
 use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, SocketStatus, Topic, JSON};
-use reqwest::{redirect::Policy, Method as ReqMethod};
+use reqwest::{
+    cookie::{CookieStore, Jar},
+    header::LOCATION,
+    redirect::Policy,
+    Method as ReqMethod,
+};
 
 use super::navigation::{NavCtx, NavOptions};
 pub use super::{LiveChannel, LiveSocketError};
@@ -24,6 +30,18 @@ macro_rules! lock {
     ($mutex:expr, $msg:expr) => {
         $mutex.lock().expect($msg)
     };
+}
+
+#[cfg(not(test))]
+use std::sync::OnceLock;
+#[cfg(not(test))]
+static COOKIE_JAR: OnceLock<Arc<Jar>> = OnceLock::new();
+
+// Each test runs in a separate thread and should make requests
+// as if it is an isolated session.
+#[cfg(test)]
+thread_local! {
+    static TEST_COOKIE_JAR: Arc<Jar> = Arc::default();
 }
 
 const MAX_REDIRECTS: usize = 10;
@@ -289,7 +307,9 @@ impl LiveSocket {
         // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
         // it does maybe we don't need to do a full dead render.
         let mut url = url.clone();
-        url.query_pairs_mut().append_pair(FMT_KEY, format);
+        if url.query_pairs().all(|(name, _)| name != FMT_KEY) {
+            url.query_pairs_mut().append_pair(FMT_KEY, format);
+        }
 
         let headers = (&headers.clone().unwrap_or_default())
             .try_into()
@@ -297,7 +317,14 @@ impl LiveSocket {
                 error: format!("{e:?}"),
             })?;
 
+        #[cfg(not(test))]
+        let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
+
+        #[cfg(test)]
+        let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
+
         let client = reqwest::Client::builder()
+            .cookie_provider(jar.clone())
             .redirect(Policy::none())
             .build()?;
 
@@ -314,34 +341,48 @@ impl LiveSocket {
         let (client, request) = builder.timeout(timeout).headers(headers).build_split();
 
         let mut resp = client.execute(request?).await?;
+
         for _ in 0..MAX_REDIRECTS {
             if !resp.status().is_redirection() {
+                log::debug!("{resp:?}");
                 break;
             }
-            let location = resp
+            log::debug!("-- REDIRECTING -- ");
+            log::debug!("{resp:?}");
+
+            let mut location = resp
                 .headers()
-                .get("location")
-                .and_then(|loc| loc.to_str().ok())
+                .get(LOCATION)
+                .and_then(|loc| str::from_utf8(loc.as_bytes()).ok())
+                .and_then(|loc| url.join(loc).ok())
                 .ok_or_else(|| LiveSocketError::Request {
-                    error: "No redirect location in 300 response".into(),
+                    error: "No valid redirect location in 300 response".into(),
                 })?;
 
-            url.set_path(location);
-            resp = client.get(url.clone()).send().await?;
+            if location.query_pairs().all(|(name, _)| name != FMT_KEY) {
+                location.query_pairs_mut().append_pair(FMT_KEY, format);
+            }
+
+            resp = client.get(location).send().await?;
         }
 
         let status = resp.status();
 
-        let resp_headers = resp.headers();
-
-        let cookies = resp_headers
-            .get_all("set-cookie")
-            .iter()
-            .map(|cookie| cookie.to_str().expect("Cookie is not ASCII").to_string())
-            .collect();
+        let cookies = jar
+            .cookies(&url)
+            .as_ref()
+            .and_then(|cookie_text| cookie_text.to_str().ok())
+            .map(|text| {
+                text.split(";")
+                    .map(str::trim)
+                    .map(String::from)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
 
         let url = resp.url().clone();
         let resp_text = resp.text().await?;
+
         if !status.is_success() {
             return Err(LiveSocketError::ConnectionError(resp_text));
         }
@@ -395,6 +436,14 @@ impl LiveSocket {
             session_data: session_data.into(),
             navigation_ctx,
         })
+    }
+
+    pub fn csrf_token(&self) -> String {
+        lock!(self.session_data).csrf_token.clone()
+    }
+
+    pub fn cookies(&self) -> Vec<String> {
+        lock!(self.session_data).cookies.clone()
     }
 
     pub fn dead_render(&self) -> FFiDocument {
