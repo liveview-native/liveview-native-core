@@ -1,7 +1,7 @@
 use core::str;
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex, OnceLock},
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -9,7 +9,7 @@ use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, SocketStatus, Topic, JSON};
 use reqwest::{
     cookie::{CookieStore, Jar},
-    header::{HeaderValue, LOCATION, SET_COOKIE},
+    header::LOCATION,
     redirect::Policy,
     Method as ReqMethod,
 };
@@ -30,6 +30,18 @@ macro_rules! lock {
     ($mutex:expr, $msg:expr) => {
         $mutex.lock().expect($msg)
     };
+}
+
+#[cfg(not(test))]
+use std::sync::OnceLock;
+#[cfg(not(test))]
+static COOKIE_JAR: OnceLock<Arc<Jar>> = OnceLock::new();
+
+// Each test runs in a separate thread and should make requests
+// as if it is an isolated session.
+#[cfg(test)]
+thread_local! {
+    static TEST_COOKIE_JAR: Arc<Jar> = Arc::default();
 }
 
 const MAX_REDIRECTS: usize = 10;
@@ -69,8 +81,6 @@ impl From<Method> for ReqMethod {
     }
 }
 
-static REQWEST_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
-
 // If you change this also change the
 // default below in the proc macro
 const DEFAULT_TIMEOUT: u64 = 30_000;
@@ -82,8 +92,6 @@ pub struct ConnectOpts {
     #[uniffi(default = None)]
     pub body: Option<String>,
     #[uniffi(default = None)]
-    pub cookies: Option<Vec<String>>,
-    #[uniffi(default = None)]
     pub method: Option<Method>,
     #[uniffi(default = 30_000)]
     pub timeout_ms: u64,
@@ -93,7 +101,6 @@ impl Default for ConnectOpts {
     fn default() -> Self {
         Self {
             headers: None,
-            cookies: None,
             body: None,
             method: None,
             timeout_ms: DEFAULT_TIMEOUT,
@@ -293,7 +300,6 @@ impl LiveSocket {
             body,
             method,
             timeout_ms,
-            cookies,
         } = options;
 
         let method = method.clone().unwrap_or(Method::Get).into();
@@ -311,32 +317,19 @@ impl LiveSocket {
                 error: format!("{e:?}"),
             })?;
 
-        let jar = Jar::default();
+        #[cfg(not(test))]
+        let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
 
-        dbg!("PROVIDED USER COOKIES");
-        dbg!(cookies);
-        if let Some(cookies) = cookies {
-            let vals = cookies
-                .iter()
-                .map(AsRef::as_ref)
-                .map(|s: &str| format!("{s}; path=/; HttpOnly; SameSite=Lax"))
-                .map(|s| HeaderValue::from_str(&s))
-                .collect::<Result<Vec<_>, _>>()
-                .expect("DON'T LET THIS UNWRAP MAKE IT INTO PROD");
-
-            jar.set_cookies(&mut vals.iter(), &url)
-        }
-
-        let jar = Arc::new(jar);
+        #[cfg(test)]
+        let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
 
         let client = reqwest::Client::builder()
             .cookie_provider(jar.clone())
             .redirect(Policy::none())
-            .build()
-            .expect("COULD NOT BUILD REQWEST CLIENT");
+            .build()?;
 
         let req = reqwest::Request::new(method, url.clone());
-        let builder = reqwest::RequestBuilder::from_parts(client.clone(), req);
+        let builder = reqwest::RequestBuilder::from_parts(client, req);
 
         let builder = if let Some(body) = body {
             builder.body(body.clone())
@@ -351,12 +344,11 @@ impl LiveSocket {
 
         for _ in 0..MAX_REDIRECTS {
             if !resp.status().is_redirection() {
-                dbg!("FINAL RESP");
-                dbg!(&resp);
+                log::debug!("{resp:?}");
                 break;
             }
-            dbg!("-- REDIRECT RESP -- ");
-            dbg!(&resp);
+            log::debug!("-- REDIRECTING -- ");
+            log::debug!("{resp:?}");
 
             let mut location = resp
                 .headers()
@@ -371,8 +363,6 @@ impl LiveSocket {
                 location.query_pairs_mut().append_pair(FMT_KEY, format);
             }
 
-            dbg!("LOCATION REDIRECTING");
-            dbg!(&location);
             resp = client.get(location).send().await?;
         }
 
@@ -394,10 +384,7 @@ impl LiveSocket {
         let resp_text = resp.text().await?;
 
         if !status.is_success() {
-            return Err(LiveSocketError::ConnectionError {
-                text: resp_text,
-                cookies,
-            });
+            return Err(LiveSocketError::ConnectionError { text: resp_text });
         }
 
         let dead_render = parse(&resp_text)?;

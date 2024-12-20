@@ -50,8 +50,8 @@ pub enum LiveSocketError {
     #[error("Phoenix ID Missing from DOM!")]
     PhoenixIDMissing,
 
-    #[error("Connection Error - Text: {text:?} \n cookies {cookies:?}")]
-    ConnectionError { text: String, cookies: Vec<String> },
+    #[error("Connection Error {text:?}")]
+    ConnectionError { text: String },
 
     #[error("Phoenix Session Missing from DOM!")]
     PhoenixSessionMissing,
