@@ -1,12 +1,18 @@
+use core::str;
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, OnceLock},
     time::Duration,
 };
 
 use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, SocketStatus, Topic, JSON};
-use reqwest::{redirect::Policy, Method as ReqMethod};
+use reqwest::{
+    cookie::{CookieStore, Jar},
+    header::{HeaderValue, LOCATION, SET_COOKIE},
+    redirect::Policy,
+    Method as ReqMethod,
+};
 
 use super::navigation::{NavCtx, NavOptions};
 pub use super::{LiveChannel, LiveSocketError};
@@ -63,6 +69,8 @@ impl From<Method> for ReqMethod {
     }
 }
 
+static REQWEST_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
 // If you change this also change the
 // default below in the proc macro
 const DEFAULT_TIMEOUT: u64 = 30_000;
@@ -74,6 +82,8 @@ pub struct ConnectOpts {
     #[uniffi(default = None)]
     pub body: Option<String>,
     #[uniffi(default = None)]
+    pub cookies: Option<Vec<String>>,
+    #[uniffi(default = None)]
     pub method: Option<Method>,
     #[uniffi(default = 30_000)]
     pub timeout_ms: u64,
@@ -83,6 +93,7 @@ impl Default for ConnectOpts {
     fn default() -> Self {
         Self {
             headers: None,
+            cookies: None,
             body: None,
             method: None,
             timeout_ms: DEFAULT_TIMEOUT,
@@ -282,6 +293,7 @@ impl LiveSocket {
             body,
             method,
             timeout_ms,
+            cookies,
         } = options;
 
         let method = method.clone().unwrap_or(Method::Get).into();
@@ -289,7 +301,9 @@ impl LiveSocket {
         // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
         // it does maybe we don't need to do a full dead render.
         let mut url = url.clone();
-        url.query_pairs_mut().append_pair(FMT_KEY, format);
+        if url.query_pairs().all(|(name, _)| name != FMT_KEY) {
+            url.query_pairs_mut().append_pair(FMT_KEY, format);
+        }
 
         let headers = (&headers.clone().unwrap_or_default())
             .try_into()
@@ -297,12 +311,32 @@ impl LiveSocket {
                 error: format!("{e:?}"),
             })?;
 
+        let jar = Jar::default();
+
+        dbg!("PROVIDED USER COOKIES");
+        dbg!(cookies);
+        if let Some(cookies) = cookies {
+            let vals = cookies
+                .iter()
+                .map(AsRef::as_ref)
+                .map(|s: &str| format!("{s}; path=/; HttpOnly; SameSite=Lax"))
+                .map(|s| HeaderValue::from_str(&s))
+                .collect::<Result<Vec<_>, _>>()
+                .expect("DON'T LET THIS UNWRAP MAKE IT INTO PROD");
+
+            jar.set_cookies(&mut vals.iter(), &url)
+        }
+
+        let jar = Arc::new(jar);
+
         let client = reqwest::Client::builder()
+            .cookie_provider(jar.clone())
             .redirect(Policy::none())
-            .build()?;
+            .build()
+            .expect("COULD NOT BUILD REQWEST CLIENT");
 
         let req = reqwest::Request::new(method, url.clone());
-        let builder = reqwest::RequestBuilder::from_parts(client, req);
+        let builder = reqwest::RequestBuilder::from_parts(client.clone(), req);
 
         let builder = if let Some(body) = body {
             builder.body(body.clone())
@@ -314,36 +348,56 @@ impl LiveSocket {
         let (client, request) = builder.timeout(timeout).headers(headers).build_split();
 
         let mut resp = client.execute(request?).await?;
+
         for _ in 0..MAX_REDIRECTS {
             if !resp.status().is_redirection() {
+                dbg!("FINAL RESP");
+                dbg!(&resp);
                 break;
             }
-            let location = resp
+            dbg!("-- REDIRECT RESP -- ");
+            dbg!(&resp);
+
+            let mut location = resp
                 .headers()
-                .get("location")
-                .and_then(|loc| loc.to_str().ok())
+                .get(LOCATION)
+                .and_then(|loc| str::from_utf8(loc.as_bytes()).ok())
+                .and_then(|loc| url.join(loc).ok())
                 .ok_or_else(|| LiveSocketError::Request {
-                    error: "No redirect location in 300 response".into(),
+                    error: "No valid redirect location in 300 response".into(),
                 })?;
 
-            url.set_path(location);
-            resp = client.get(url.clone()).send().await?;
+            if location.query_pairs().all(|(name, _)| name != FMT_KEY) {
+                location.query_pairs_mut().append_pair(FMT_KEY, format);
+            }
+
+            dbg!("LOCATION REDIRECTING");
+            dbg!(&location);
+            resp = client.get(location).send().await?;
         }
 
         let status = resp.status();
 
-        let resp_headers = resp.headers();
-
-        let cookies = resp_headers
-            .get_all("set-cookie")
-            .iter()
-            .map(|cookie| cookie.to_str().expect("Cookie is not ASCII").to_string())
-            .collect();
+        let cookies = jar
+            .cookies(&url)
+            .as_ref()
+            .and_then(|cookie_text| cookie_text.to_str().ok())
+            .map(|text| {
+                text.split(";")
+                    .map(str::trim)
+                    .map(String::from)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
 
         let url = resp.url().clone();
         let resp_text = resp.text().await?;
+
         if !status.is_success() {
-            return Err(LiveSocketError::ConnectionError(resp_text));
+            return Err(LiveSocketError::ConnectionError {
+                text: resp_text,
+                cookies,
+            });
         }
 
         let dead_render = parse(&resp_text)?;
@@ -395,6 +449,14 @@ impl LiveSocket {
             session_data: session_data.into(),
             navigation_ctx,
         })
+    }
+
+    pub fn csrf_token(&self) -> String {
+        lock!(self.session_data).csrf_token.clone()
+    }
+
+    pub fn cookies(&self) -> Vec<String> {
+        lock!(self.session_data).cookies.clone()
     }
 
     pub fn dead_render(&self) -> FFiDocument {
