@@ -384,7 +384,7 @@ impl LiveSocket {
         let resp_text = resp.text().await?;
 
         if !status.is_success() {
-            return Err(LiveSocketError::ConnectionError { text: resp_text });
+            return Err(LiveSocketError::ConnectionError(resp_text));
         }
 
         let dead_render = parse(&resp_text)?;
