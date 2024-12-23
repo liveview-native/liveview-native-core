@@ -1,6 +1,6 @@
 [versions]
 android-gradle-plugin = "8.7.0"
-jna = "5.15.0"
+jna = "5.16.0"
 kotlinx-coroutines = "1.10.0"
 androidx-test-ext = "1.2.1"
 espresso-core = "3.6.1"
