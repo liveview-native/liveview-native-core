@@ -445,10 +445,27 @@ impl LiveSocket {
         })
     }
 
+    /// Stores a cookie for the duration of the application run.
+    pub fn store_cookie(&self, cookie: String, url: String) -> Result<(), LiveSocketError> {
+        let url = Url::parse(&url)?;
+
+        #[cfg(not(test))]
+        let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
+
+        #[cfg(test)]
+        let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
+
+        jar.add_cookie_str(&cookie, &url);
+
+        Ok(())
+    }
+
+    /// Returns the url of the final dead render
     pub fn join_url(&self) -> String {
         lock!(self.session_data).url.to_string().clone()
     }
 
+    /// Returns the headers of the final dead render response
     pub fn join_headers(&self) -> HashMap<String, String> {
         lock!(self.session_data).join_headers.clone()
     }
