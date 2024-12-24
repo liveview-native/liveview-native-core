@@ -1,6 +1,6 @@
 use core::str;
 use std::{
-    collections::{hash_map, HashMap},
+    collections::HashMap,
     sync::{Arc, Mutex},
     time::Duration,
 };
