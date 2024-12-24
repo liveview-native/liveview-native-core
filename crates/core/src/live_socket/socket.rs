@@ -9,7 +9,7 @@ use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, SocketStatus, Topic, JSON};
 use reqwest::{
     cookie::{CookieStore, Jar},
-    header::{HeaderMap, LOCATION},
+    header::{HeaderMap, LOCATION, SET_COOKIE},
     redirect::Policy,
     Method as ReqMethod,
 };
@@ -355,6 +355,7 @@ impl LiveSocket {
         let (client, request) = builder.timeout(timeout).headers(headers).build_split();
 
         let mut resp = client.execute(request?).await?;
+        let mut headers = resp.headers().clone();
 
         for _ in 0..MAX_REDIRECTS {
             if !resp.status().is_redirection() {
@@ -378,10 +379,18 @@ impl LiveSocket {
             }
 
             resp = client.get(location).send().await?;
+
+            // TODO: Remove this when persistent state is managed by core
+            let cookies = resp.headers().get_all(SET_COOKIE);
+
+            for cookie in cookies {
+                if headers.try_append(SET_COOKIE, cookie.clone()).is_err() {
+                    log::error!("Could not collect set cookie headers");
+                }
+            }
         }
 
         let status = resp.status();
-        let headers = resp.headers().clone();
 
         let cookies = jar
             .cookies(&url)
