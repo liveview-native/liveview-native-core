@@ -111,7 +111,7 @@ impl Default for ConnectOpts {
 /// Static information ascertained from the dead render when connecting.
 #[derive(Clone, Debug)]
 pub struct SessionData {
-    pub join_headers: HashMap<String, String>,
+    pub join_headers: HashMap<String, Vec<String>>,
     pub connect_opts: ConnectOpts,
     /// Cross site request forgery, security token, sent with dead render.
     pub csrf_token: String,
@@ -228,10 +228,18 @@ impl SessionData {
             .last();
 
         let has_live_reload = live_reload_iframe.is_some();
-        let join_headers = header_map
-            .iter()
-            .filter_map(|(key, value)| Some((key.to_string(), value.to_str().ok()?.to_string())))
-            .collect();
+
+        let mut join_headers = HashMap::new();
+
+        for key in header_map.keys() {
+            let entries = header_map
+                .get_all(key)
+                .iter()
+                .filter_map(|value| Some(value.to_str().ok()?.to_string()))
+                .collect();
+
+            join_headers.insert(key.to_string(), entries);
+        }
 
         let out = Self {
             join_headers,
@@ -399,6 +407,21 @@ impl LiveSocket {
         Ok((dead_render, cookies, url, headers))
     }
 }
+/// Stores a cookie for the duration of the application run.
+#[uniffi::export]
+pub fn store_session_cookie(cookie: String, url: String) -> Result<(), LiveSocketError> {
+    let url = Url::parse(&url)?;
+
+    #[cfg(not(test))]
+    let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
+
+    #[cfg(test)]
+    let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
+
+    jar.add_cookie_str(&cookie, &url);
+
+    Ok(())
+}
 
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveSocket {
@@ -445,28 +468,13 @@ impl LiveSocket {
         })
     }
 
-    /// Stores a cookie for the duration of the application run.
-    pub fn store_cookie(&self, cookie: String, url: String) -> Result<(), LiveSocketError> {
-        let url = Url::parse(&url)?;
-
-        #[cfg(not(test))]
-        let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
-
-        #[cfg(test)]
-        let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
-
-        jar.add_cookie_str(&cookie, &url);
-
-        Ok(())
-    }
-
     /// Returns the url of the final dead render
     pub fn join_url(&self) -> String {
         lock!(self.session_data).url.to_string().clone()
     }
 
     /// Returns the headers of the final dead render response
-    pub fn join_headers(&self) -> HashMap<String, String> {
+    pub fn join_headers(&self) -> HashMap<String, Vec<String>> {
         lock!(self.session_data).join_headers.clone()
     }
 

@@ -1,15 +1,18 @@
 defmodule TestServerWeb.HelloLive do
   use TestServerWeb, :live_view
   use TestServerNative, :live_view
+
   def mount(_params, _session, socket) do
-    {:ok, socket }
+    {:ok, socket}
   end
+
   def render(assigns) do
     ~H"""
     <p> FOOBAR </p>
     """
   end
 end
+
 defmodule TestServerWeb.HelloLive.Jetpack do
   use TestServerNative, [:render_component, format: :jetpack]
 
@@ -21,6 +24,7 @@ defmodule TestServerWeb.HelloLive.Jetpack do
     """
   end
 end
+
 defmodule TestServerWeb.HelloLive.SwiftUI do
   use TestServerNative, [:render_component, format: :swiftui]
 
