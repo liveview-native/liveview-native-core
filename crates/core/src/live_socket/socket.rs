@@ -474,7 +474,7 @@ impl LiveSocket {
     }
 
     /// Returns the headers of the final dead render response
-    pub fn join_headers(&self) -> HashMap<String, String> {
+    pub fn join_headers(&self) -> HashMap<String, Vec<String>> {
         lock!(self.session_data).join_headers.clone()
     }
 
