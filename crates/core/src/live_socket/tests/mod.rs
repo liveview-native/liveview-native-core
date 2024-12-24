@@ -1,10 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
+use super::*;
 use crate::dom::{
     ChangeType, ControlFlow, DocumentChangeHandler, LiveChannelStatus, NodeData, NodeRef,
 };
-
-use super::*;
 mod error;
 mod navigation;
 mod streaming;
@@ -29,7 +28,6 @@ macro_rules! assert_doc_eq {
 }
 
 pub(crate) use assert_doc_eq;
-
 use tokio::sync::mpsc::*;
 
 struct Inspector {
@@ -113,6 +111,42 @@ async fn channels_drop_on_shutdown() {
 }
 
 #[tokio::test]
+async fn join_redirect() {
+    let _ = env_logger::builder()
+        .parse_default_env()
+        .is_test(true)
+        .try_init();
+
+    let url = format!("http://{HOST}/redirect_from");
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+        .await
+        .expect("Failed to get liveview socket");
+
+    let live_channel = live_socket
+        .join_liveview_channel(None, None)
+        .await
+        .expect("Failed to join channel");
+
+    let join_doc = live_channel
+        .join_document()
+        .expect("Failed to render join payload");
+
+    let expected = r#"
+<Group id="flash-group" />
+<VStack>
+    <Text>
+        Redirected!
+    </Text>
+</VStack>"#;
+    assert_doc_eq!(expected, join_doc.to_string());
+
+    let _live_channel = live_socket
+        .join_livereload_channel()
+        .await
+        .expect("Failed to join channel");
+}
+
+#[tokio::test]
 async fn join_live_view() {
     let _ = env_logger::builder()
         .parse_default_env()
@@ -153,7 +187,7 @@ async fn join_live_view() {
 }
 
 #[tokio::test]
-async fn redirect() {
+async fn channel_redirect() {
     let _ = env_logger::builder()
         .parse_default_env()
         .is_test(true)

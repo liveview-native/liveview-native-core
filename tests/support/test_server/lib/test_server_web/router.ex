@@ -2,30 +2,45 @@ defmodule TestServerWeb.Router do
   use TestServerWeb, :router
 
   pipeline :browser do
-    plug :accepts, ["html", "swiftui", "jetpack"]
-    plug :fetch_session
-    plug :fetch_live_flash
-    plug :put_root_layout,
+    plug(:accepts, ["html", "swiftui", "jetpack"])
+    plug(:fetch_session)
+    plug(:fetch_live_flash)
+
+    plug(:put_root_layout,
       html: {TestServerWeb.Layouts, :root},
       swiftui: {TestServerWeb.Layouts.SwiftUI, :root},
       jetpack: {TestServerWeb.Layouts.Jetpack, :root}
-    plug :protect_from_forgery
-    plug :put_secure_browser_headers
+    )
+
+    plug(:protect_from_forgery)
+    plug(:put_secure_browser_headers)
   end
 
   pipeline :api do
-    plug :accepts, ["json"]
+    plug(:accepts, ["json"])
+  end
+
+  scope "/redirect", TestServerWeb do
+    pipe_through([:browser, :redirect])
+
+    live_session :redirect,
+      on_mount: [{TestServerWeb.Redirect, :redirect}] do
+      live("/redirect/finale", UserRegistrationLive, :new)
+    end
   end
 
   scope "/", TestServerWeb do
-    pipe_through :browser
+    pipe_through(:browser)
 
-    get "/", PageController, :home
-    live "/thermostat", ThermostatLive
-    live "/hello", HelloLive
-    live "/nav/:dynamic", NavLive 
-    live "/upload", SimpleLiveUpload
-    live "/stream", SimpleLiveStream
+    get("/", PageController, :home)
+
+    live("/redirect_from", RedirectLive)
+    live("/redirect_to", RedirectToLive)
+    live("/thermostat", ThermostatLive)
+    live("/hello", HelloLive)
+    live("/nav/:dynamic", NavLive)
+    live("/upload", SimpleLiveUpload)
+    live("/stream", SimpleLiveStream)
   end
 
   # Other scopes may use custom stacks.
@@ -43,10 +58,10 @@ defmodule TestServerWeb.Router do
     import Phoenix.LiveDashboard.Router
 
     scope "/dev" do
-      pipe_through :browser
+      pipe_through(:browser)
 
-      live_dashboard "/dashboard", metrics: TestServerWeb.Telemetry
-      forward "/mailbox", Plug.Swoosh.MailboxPreview
+      live_dashboard("/dashboard", metrics: TestServerWeb.Telemetry)
+      forward("/mailbox", Plug.Swoosh.MailboxPreview)
     end
   end
 end
