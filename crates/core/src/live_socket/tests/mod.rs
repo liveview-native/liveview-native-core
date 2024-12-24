@@ -118,6 +118,7 @@ async fn join_redirect() {
         .try_init();
 
     let url = format!("http://{HOST}/redirect_from");
+
     let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
         .await
         .expect("Failed to get liveview socket");

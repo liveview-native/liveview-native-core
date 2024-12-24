@@ -407,6 +407,21 @@ impl LiveSocket {
         Ok((dead_render, cookies, url, headers))
     }
 }
+/// Stores a cookie for the duration of the application run.
+#[uniffi::export]
+pub fn store_session_cookie(cookie: String, url: String) -> Result<(), LiveSocketError> {
+    let url = Url::parse(&url)?;
+
+    #[cfg(not(test))]
+    let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
+
+    #[cfg(test)]
+    let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
+
+    jar.add_cookie_str(&cookie, &url);
+
+    Ok(())
+}
 
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveSocket {
@@ -451,21 +466,6 @@ impl LiveSocket {
             session_data: session_data.into(),
             navigation_ctx,
         })
-    }
-
-    /// Stores a cookie for the duration of the application run.
-    pub fn store_cookie(&self, cookie: String, url: String) -> Result<(), LiveSocketError> {
-        let url = Url::parse(&url)?;
-
-        #[cfg(not(test))]
-        let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
-
-        #[cfg(test)]
-        let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
-
-        jar.add_cookie_str(&cookie, &url);
-
-        Ok(())
     }
 
     /// Returns the url of the final dead render
