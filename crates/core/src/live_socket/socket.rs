@@ -9,7 +9,7 @@ use log::debug;
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, SocketStatus, Topic, JSON};
 use reqwest::{
     cookie::{CookieStore, Jar},
-    header::LOCATION,
+    header::{HeaderMap, LOCATION},
     redirect::Policy,
     Method as ReqMethod,
 };
@@ -111,6 +111,7 @@ impl Default for ConnectOpts {
 /// Static information ascertained from the dead render when connecting.
 #[derive(Clone, Debug)]
 pub struct SessionData {
+    pub join_headers: HashMap<String, String>,
     pub connect_opts: ConnectOpts,
     /// Cross site request forgery, security token, sent with dead render.
     pub csrf_token: String,
@@ -145,7 +146,7 @@ impl SessionData {
         // Top level:
         // csrf-token
         // "iframe[src=\"/phoenix/live_reload/frame\"]"
-        let (dead_render, cookies, url) =
+        let (dead_render, cookies, url, header_map) =
             LiveSocket::get_dead_render(url, format, &connect_opts).await?;
 
         let csrf_token = dead_render
@@ -227,8 +228,13 @@ impl SessionData {
             .last();
 
         let has_live_reload = live_reload_iframe.is_some();
+        let join_headers = header_map
+            .iter()
+            .filter_map(|(key, value)| Some((key.to_string(), value.to_str().ok()?.to_string())))
+            .collect();
 
         let out = Self {
+            join_headers,
             connect_opts,
             url,
             format: format.to_string(),
@@ -294,7 +300,7 @@ impl LiveSocket {
         url: &Url,
         format: &str,
         options: &ConnectOpts,
-    ) -> Result<(Document, Vec<String>, Url), LiveSocketError> {
+    ) -> Result<(Document, Vec<String>, Url, HeaderMap), LiveSocketError> {
         let ConnectOpts {
             headers,
             body,
@@ -367,6 +373,7 @@ impl LiveSocket {
         }
 
         let status = resp.status();
+        let headers = resp.headers().clone();
 
         let cookies = jar
             .cookies(&url)
@@ -389,7 +396,7 @@ impl LiveSocket {
 
         let dead_render = parse(&resp_text)?;
         debug!("document:\n{dead_render}\n\n\n");
-        Ok((dead_render, cookies, url))
+        Ok((dead_render, cookies, url, headers))
     }
 }
 
@@ -436,6 +443,31 @@ impl LiveSocket {
             session_data: session_data.into(),
             navigation_ctx,
         })
+    }
+
+    /// Stores a cookie for the duration of the application run.
+    pub fn store_cookie(&self, cookie: String, url: String) -> Result<(), LiveSocketError> {
+        let url = Url::parse(&url)?;
+
+        #[cfg(not(test))]
+        let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
+
+        #[cfg(test)]
+        let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
+
+        jar.add_cookie_str(&cookie, &url);
+
+        Ok(())
+    }
+
+    /// Returns the url of the final dead render
+    pub fn join_url(&self) -> String {
+        lock!(self.session_data).url.to_string().clone()
+    }
+
+    /// Returns the headers of the final dead render response
+    pub fn join_headers(&self) -> HashMap<String, String> {
+        lock!(self.session_data).join_headers.clone()
     }
 
     pub fn csrf_token(&self) -> String {
