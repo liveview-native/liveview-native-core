@@ -1,6 +1,6 @@
 use core::str;
 use std::{
-    collections::HashMap,
+    collections::{hash_map, HashMap},
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -111,7 +111,7 @@ impl Default for ConnectOpts {
 /// Static information ascertained from the dead render when connecting.
 #[derive(Clone, Debug)]
 pub struct SessionData {
-    pub join_headers: HashMap<String, String>,
+    pub join_headers: HashMap<String, Vec<String>>,
     pub connect_opts: ConnectOpts,
     /// Cross site request forgery, security token, sent with dead render.
     pub csrf_token: String,
@@ -228,10 +228,18 @@ impl SessionData {
             .last();
 
         let has_live_reload = live_reload_iframe.is_some();
-        let join_headers = header_map
-            .iter()
-            .filter_map(|(key, value)| Some((key.to_string(), value.to_str().ok()?.to_string())))
-            .collect();
+
+        let mut join_headers = HashMap::new();
+
+        for key in header_map.keys() {
+            let entries = header_map
+                .get_all(key)
+                .iter()
+                .filter_map(|value| Some(value.to_str().ok()?.to_string()))
+                .collect();
+
+            join_headers.insert(key.to_string(), entries);
+        }
 
         let out = Self {
             join_headers,
