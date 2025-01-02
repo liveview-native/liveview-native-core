@@ -10,7 +10,8 @@ mod tests;
 
 pub use error::*;
 pub use merge::*;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_json::Value;
 
 // This is the diff coming across the wire for an update to the UI. This can be
 // converted directly into a Root or merged into a Root itself.
@@ -25,7 +26,28 @@ pub struct RootDiff {
     components: HashMap<String, ComponentDiff>,
 }
 
-// This is the struct representation of the whole tree.
+impl RootDiff {
+    pub fn events<T: DeserializeOwned>(&self) -> Result<Option<T>, serde_json::Error> {
+        match &self.fragment {
+            FragmentDiff::UpdateComprehension {
+                event: Some(event), ..
+            } => {
+                let out = serde_json::from_value(event.clone())?;
+                Ok(Some(out))
+            }
+            FragmentDiff::UpdateRegular {
+                event: Some(event), ..
+            } => {
+                let out = serde_json::from_value(event.clone())?;
+                Ok(Some(out))
+            }
+            _ => Ok(None),
+        }
+    }
+}
+
+// This is the struct representation a complete interpolation tree.
+// It is not a type we expect over the wire. It is a patchable
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Root {
     // this flag is for wasm compatibility, it currently does nothing
@@ -61,6 +83,8 @@ pub enum FragmentDiff {
         is_root: Option<i8>,
         #[serde(rename = "stream")]
         stream: Option<StreamUpdate>,
+        #[serde(rename = "e")]
+        event: Option<Value>,
     },
     UpdateRegular {
         #[serde(flatten)]
@@ -69,6 +93,8 @@ pub enum FragmentDiff {
         statics: Option<Statics>,
         #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
         is_root: Option<i8>,
+        #[serde(rename = "e")]
+        event: Option<Value>,
     },
 }
 
@@ -144,6 +170,7 @@ impl TryFrom<FragmentDiff> for Fragment {
                 children,
                 statics,
                 is_root: reply,
+                ..
             } => {
                 let mut new_children: HashMap<String, Child> = HashMap::new();
 
@@ -164,6 +191,7 @@ impl TryFrom<FragmentDiff> for Fragment {
                 statics,
                 stream,
                 is_root: reply,
+                ..
             } => {
                 let dynamics: Dynamics = dynamics
                     .into_iter()

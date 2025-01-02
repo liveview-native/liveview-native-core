@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use liveview_native_core::diff::fragment::{FragmentMerge, Root, RootDiff};
 use serde::Serialize;
-use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -25,8 +26,6 @@ pub struct RenderedExtractedInput {
     reply: Option<HashMap<String, String>>,
     #[serde(rename = "t")]
     title: Option<String>,
-    #[serde(rename = "e", default = "Vec::new")]
-    events: Vec<Event>,
     #[serde(flatten)]
     diff: RootDiff,
 }
@@ -44,7 +43,11 @@ impl From<RenderedExtractedInput> for RenderedExtractedOutput {
         Self {
             reply: value.reply,
             title: value.title,
-            events: value.events,
+            events: value
+                .diff
+                .events()
+                .expect("Parse Error")
+                .unwrap_or_default(),
             diff: value.diff,
         }
     }

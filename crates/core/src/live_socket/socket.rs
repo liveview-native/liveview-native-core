@@ -151,7 +151,7 @@ impl SessionData {
 
         let csrf_token = dead_render
             .get_csrf_token()
-            .ok_or(LiveSocketError::CSFRTokenMissing)?;
+            .ok_or(LiveSocketError::CSRFTokenMissing)?;
 
         let mut phx_id: Option<String> = None;
         let mut phx_static: Option<String> = None;

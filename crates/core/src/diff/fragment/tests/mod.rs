@@ -1062,6 +1062,7 @@ fn test_replace() {
         children: HashMap::from([("1".into(), ChildDiff::String("foo".to_owned().into()))]),
         statics: Statics::Statics(vec!["bar".into(), "baz".into()]).into(),
         is_root: None,
+        event: None,
     };
 
     let new = Fragment::Regular {
@@ -1093,6 +1094,7 @@ fn test_mutate() {
         children: HashMap::from([("1".into(), ChildDiff::String("foo".to_owned().into()))]),
         statics: None,
         is_root: None,
+        event: None,
     };
 
     let new = Fragment::Regular {
@@ -1513,6 +1515,7 @@ fn simple() {
         children: HashMap::from([(1.to_string(), ChildDiff::String("baz".to_owned().into()))]),
         statics: None,
         is_root: None,
+        event: None,
     };
     assert_eq!(out, expected);
 }
@@ -1631,6 +1634,7 @@ fn test_decode_simple() {
         ]),
         statics: Some(Statics::Statics(vec!["a".into(), "b".into()])),
         is_root: None,
+        event: None,
     };
     assert_eq!(out, expected);
 }
@@ -1672,6 +1676,7 @@ fn test_decode_comprehension_with_templates() {
         )])),
         stream: None,
         is_root: None,
+        event: None,
     };
     assert_eq!(out, expected);
 }
@@ -1704,6 +1709,7 @@ fn test_decode_comprehension_without_templates() {
         templates: None,
         stream: None,
         is_root: None,
+        event: None,
     };
     assert_eq!(out, expected);
 }
@@ -1744,10 +1750,12 @@ fn test_decode_component_diff() {
                     children: HashMap::from([("0".into(), ChildDiff::ComponentID(1))]),
                     statics: None,
                     is_root: None,
+                    event: None,
                 }),
             )]),
             statics: None,
             is_root: None,
+            event: None,
         },
         new_render: None,
         components: HashMap::from([(
@@ -1771,6 +1779,7 @@ fn test_decode_component_diff() {
                         templates: None,
                         stream: None,
                         is_root: None,
+                        event: None,
                     }),
                 )]),
             },
@@ -1799,10 +1808,12 @@ fn test_decode_root_diff() {
                     children: HashMap::from([("0".into(), ChildDiff::ComponentID(1))]),
                     statics: None,
                     is_root: None,
+                    event: None,
                 }),
             )]),
             statics: None,
             is_root: None,
+            event: None,
         },
         components: HashMap::new(),
         new_render: None,
