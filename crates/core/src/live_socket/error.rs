@@ -44,8 +44,8 @@ pub enum LiveSocketError {
     #[error("User emitted error in reaction to channel status change - {error}")]
     ChannelStatusUserError { error: String },
 
-    #[error("CSFR Token Missing from DOM!")]
-    CSFRTokenMissing,
+    #[error("CSRF Token Missing from DOM!")]
+    CSRFTokenMissing,
 
     #[error("Phoenix ID Missing from DOM!")]
     PhoenixIDMissing,

@@ -3,7 +3,7 @@ defmodule TestServerWeb.HelloLive do
   use TestServerNative, :live_view
 
   def mount(_params, _session, socket) do
-    {:ok, socket}
+    {:ok, push_event(socket, "event", %{data: "hello, world!"})}
   end
 
   def render(assigns) do
