@@ -80,10 +80,14 @@ pub enum NavAction {
 /// Options for calls to [NavCtx::navigate]
 #[derive(Default, uniffi::Record)]
 pub struct NavOptions {
+    /// see [NavAction], defaults to [NavAction::Push].
     #[uniffi(default = None)]
     pub action: Option<NavAction>,
+    /// Ephemeral extra information to be pushed to the even handler.
     #[uniffi(default = None)]
     pub extra_event_info: Option<Vec<u8>>,
+    /// Persistent state, intended to be deserialized for user specific purposes when
+    /// revisting a given view.
     #[uniffi(default = None)]
     pub state: Option<Vec<u8>>,
 }
@@ -118,24 +122,19 @@ use crate::live_socket::{socket::SessionData, LiveChannel};
 impl LiveSocket {
     /// Tries to navigate to the current item in the NavCtx.
     /// changing state in one fell swoop if initialilization succeeds
-    async fn try_nav(
-        &self,
-        old_channel: Option<Arc<LiveChannel>>,
-    ) -> Result<LiveChannel, LiveSocketError> {
+    async fn try_nav(&self, old_channel: Arc<LiveChannel>) -> Result<LiveChannel, LiveSocketError> {
         let current = self
             .current()
             .ok_or(LiveSocketError::NavigationImpossible)?;
 
-        let params = old_channel.as_ref().map(|c| c.join_params.clone());
+        let params = old_channel.join_params.clone();
 
         let url = Url::parse(&current.url)?;
 
-        if let Some(old) = old_channel {
-            old.channel().leave().await?;
-        }
+        old_channel.channel().leave().await?;
 
         match self
-            .join_liveview_channel(params.clone(), Some(url.to_string()))
+            .join_liveview_channel(params.clone().into(), url.to_string().into())
             .await
         {
             // A join rejection should be ameliorated by reconnecting
@@ -145,6 +144,7 @@ impl LiveSocket {
                         json: JSON::Object { object },
                     },
             }) => {
+                // retry on { "reason" : "stale" } and unauthorized
                 if object
                     .get("reason")
                     .and_then(|r| match r {
@@ -175,7 +175,7 @@ impl LiveSocket {
 
                 *self.socket.try_lock()? = socket;
                 *self.session_data.try_lock()? = session_data;
-                self.join_liveview_channel(params, None).await
+                self.join_liveview_channel(params.into(), None).await
             }
             // Just reconnect or bail
             Ok(chan) => Ok(chan),
@@ -186,12 +186,15 @@ impl LiveSocket {
     /// calls [Self::try_nav] rolling back to a previous navigation state on failure.
     async fn try_nav_outer<F>(
         &self,
-        old_channel: Option<Arc<LiveChannel>>,
+        old_channel: Arc<LiveChannel>,
         nav_action: F,
     ) -> Result<LiveChannel, LiveSocketError>
     where
         F: FnOnce(&mut NavCtx) -> Option<HistoryId>,
     {
+        // Tries to complete the nav action, updating state,
+        // this may be cancelled by the user or by the navigation
+        // being impossiblem, such as back navigation on an empty stack.
         let new_id = {
             let mut ctx = self.navigation_ctx.lock().expect("lock poison");
             nav_action(&mut ctx)
@@ -201,6 +204,7 @@ impl LiveSocket {
             return Err(LiveSocketError::NavigationImpossible);
         };
 
+        // actually return the update liveview channel
         match self.try_nav(old_channel).await {
             Ok(channel) => Ok(channel),
             Err(e) => Err(e),
@@ -210,10 +214,12 @@ impl LiveSocket {
 
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveSocket {
+    /// Navigates the socket to a new URL, reusing the previous channel's connection parameters, closing it safely,
+    /// and emitting a new [LiveChannel]
     pub async fn navigate(
         &self,
         url: String,
-        old_channel: Option<Arc<LiveChannel>>,
+        old_channel: Arc<LiveChannel>,
         opts: NavOptions,
     ) -> Result<LiveChannel, LiveSocketError> {
         let url = Url::parse(&url)?;
@@ -221,37 +227,44 @@ impl LiveSocket {
             .await
     }
 
+    /// Reload the current channel, reusing the connection parameters.
     pub async fn reload(
         &self,
         old_channel: Arc<LiveChannel>,
         info: Option<Vec<u8>>,
     ) -> Result<LiveChannel, LiveSocketError> {
-        self.try_nav_outer(Some(old_channel), |ctx| ctx.reload(info, true))
+        self.try_nav_outer(old_channel, |ctx| ctx.reload(info, true))
             .await
     }
 
+    /// Navigates the socket to the previous entry in the stack. Reusing the previous channel's connection parameters, closing it safely,
+    /// and emitting a new [LiveChannel]
     pub async fn back(
         &self,
-        old_channel: Option<Arc<LiveChannel>>,
+        old_channel: Arc<LiveChannel>,
         info: Option<Vec<u8>>,
     ) -> Result<LiveChannel, LiveSocketError> {
         self.try_nav_outer(old_channel, |ctx| ctx.back(info, true))
             .await
     }
 
+    /// Navigates the socket to the next entry in the stack. Reuses the previous channel's connection parameters, closes it safely,
+    /// and emits a new [LiveChannel]
     pub async fn forward(
         &self,
-        old_channel: Option<Arc<LiveChannel>>,
+        old_channel: Arc<LiveChannel>,
         info: Option<Vec<u8>>,
     ) -> Result<LiveChannel, LiveSocketError> {
         self.try_nav_outer(old_channel, |ctx| ctx.forward(info, true))
             .await
     }
 
+    /// Navigates the socket to the specified entry in the stack, preserving the stack. Resuses the previous channel's connection parameters, closes it safely,
+    /// and emits a new [LiveChannel]
     pub async fn traverse_to(
         &self,
         id: HistoryId,
-        old_channel: Option<Arc<LiveChannel>>,
+        old_channel: Arc<LiveChannel>,
         info: Option<Vec<u8>>,
     ) -> Result<LiveChannel, LiveSocketError> {
         self.try_nav_outer(old_channel, |ctx| ctx.traverse_to(id, info, true))
