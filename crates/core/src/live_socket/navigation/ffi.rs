@@ -87,7 +87,7 @@ pub struct NavOptions {
     #[uniffi(default = None)]
     pub extra_event_info: Option<Vec<u8>>,
     /// Persistent state, intended to be deserialized for user specific purposes when
-    /// revisting a given view.
+    /// revisiting a given view.
     #[uniffi(default = None)]
     pub state: Option<Vec<u8>>,
 }
