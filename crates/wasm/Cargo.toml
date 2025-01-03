@@ -14,6 +14,11 @@ readme.workspace = true
 edition.workspace = true
 publish.workspace = true
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(wasm_bindgen_unstable_test_coverage)',
+] }
+
 [lib]
 crate-type = ["cdylib"]
 
@@ -21,7 +26,9 @@ crate-type = ["cdylib"]
 wasm-bindgen = "0.2.93"
 serde-wasm-bindgen = "0.6.5"
 serde = { version = "1.0", features = ["derive"] }
-liveview-native-core = { path = "../core/", default-features = false, features = ["browser"] }
+liveview-native-core = { path = "../core/", default-features = false, features = [
+    "browser",
+] }
 console_error_panic_hook = { version = "0.1.7" }
 console_log = { version = "1", features = ["color"] }
 log = "0.4"
@@ -34,4 +41,6 @@ getrandom = { version = "0.2", features = ["js"] }
 url = "2.5"
 uuid = { version = "1.11.0", features = ["v4"] }
 wasm-bindgen-test = "0.3.42"
-wasm-bindgen-futures = { version = "0.4.31", features = ["futures-core-03-stream"] }
+wasm-bindgen-futures = { version = "0.4.31", features = [
+    "futures-core-03-stream",
+] }
