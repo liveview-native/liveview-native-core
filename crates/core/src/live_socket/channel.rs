@@ -26,6 +26,7 @@ pub struct LiveChannel {
 
 #[derive(uniffi::Object)]
 pub struct LiveFile {
+    // TODO: this really ought to be a data stream callback.
     contents: Vec<u8>,
     mime_type: String,
     name: String,

@@ -37,6 +37,8 @@ browser = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cookie_store = "0.21.1"
+reqwest_cookie_store = "0.8.0"
 cranelift-entity = { version = "0.115" }
 fixedbitset = { version = "0.4" }
 fxhash = { version = "0.2" }
@@ -54,6 +56,7 @@ log = "0.4"
 reqwest = { version = "0.12.3", default-features = false, optional = true, features = [
     "cookies",
 ] }
+env_logger = "0.11.1"
 uniffi = { workspace = true }
 phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client.git", branch = "main", optional = true, default-features = false }
 # This is for wasm support on phoenix-channels-client
@@ -68,7 +71,6 @@ pretty_assertions = { version = "1.4.0" }
 text-diff = { version = "0.4.0" }
 uniffi = { workspace = true, features = ["bindgen-tests", "tokio"] }
 tokio = { version = "1.42", features = ["full"] }
-env_logger = "0.11.1"
 
 # For image generation for tests
 image = "0.25.1"

@@ -6,9 +6,9 @@ mod socket;
 #[cfg(test)]
 mod tests;
 
-pub use channel::LiveChannel;
+pub use channel::{LiveChannel, LiveFile};
 pub use error::{LiveSocketError, UploadError};
-pub use socket::LiveSocket;
+pub use socket::{LiveSocket, SessionData};
 
 pub struct UploadConfig {
     chunk_size: u64,

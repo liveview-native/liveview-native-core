@@ -7,8 +7,8 @@ pub trait SecurePersistentStore: Send + Sync {
     fn remove_entry(&self, key: String);
 
     /// Gets the value for the given key, or None if not found
-    fn get(&self, key: String) -> Option<String>;
+    fn get(&self, key: String) -> Option<Vec<u8>>;
 
     /// Sets the value for the given key
-    fn set(&self, key: String, value: String);
+    fn set(&self, key: String, value: Vec<u8>);
 }
