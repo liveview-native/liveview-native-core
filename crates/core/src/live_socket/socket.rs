@@ -5,13 +5,13 @@ use std::{
     time::Duration,
 };
 
-use log::debug;
+use log::{debug, trace};
 use phoenix_channels_client::{url::Url, Number, Payload, Socket, SocketStatus, Topic, JSON};
 use reqwest::{
     cookie::{CookieStore, Jar},
     header::{HeaderMap, LOCATION, SET_COOKIE},
     redirect::Policy,
-    Method as ReqMethod,
+    Client, Method as ReqMethod,
 };
 
 use super::navigation::{NavCtx, NavOptions};
@@ -35,13 +35,13 @@ macro_rules! lock {
 #[cfg(not(test))]
 use std::sync::OnceLock;
 #[cfg(not(test))]
-static COOKIE_JAR: OnceLock<Arc<Jar>> = OnceLock::new();
+pub static COOKIE_JAR: OnceLock<Arc<Jar>> = OnceLock::new();
 
 // Each test runs in a separate thread and should make requests
 // as if it is an isolated session.
 #[cfg(test)]
 thread_local! {
-    static TEST_COOKIE_JAR: Arc<Jar> = Arc::default();
+    pub static TEST_COOKIE_JAR: Arc<Jar> = Arc::default();
 }
 
 const MAX_REDIRECTS: usize = 10;
@@ -136,6 +136,7 @@ impl SessionData {
         url: &Url,
         format: &String,
         connect_opts: ConnectOpts,
+        client: Client,
     ) -> Result<Self, LiveSocketError> {
         // NEED:
         // these from inside data-phx-main
@@ -146,8 +147,10 @@ impl SessionData {
         // Top level:
         // csrf-token
         // "iframe[src=\"/phoenix/live_reload/frame\"]"
+
         let (dead_render, cookies, url, header_map) =
-            LiveSocket::get_dead_render(url, format, &connect_opts).await?;
+            LiveSocket::get_dead_render(url, format, &connect_opts, client).await?;
+        //TODO: remove cookies, pull it from the cookie client cookie store.
 
         let csrf_token = dead_render
             .get_csrf_token()
@@ -164,7 +167,7 @@ impl SessionData {
             }))
             .last();
 
-        debug!("MAIN DIV: {main_div_attributes:?}");
+        trace!("main div attributes: {main_div_attributes:?}");
 
         let main_div_attributes = dead_render
             .select(Selector::Attribute(AttributeName {
@@ -188,7 +191,7 @@ impl SessionData {
         let phx_id = phx_id.ok_or(LiveSocketError::PhoenixIDMissing)?;
         let phx_static = phx_static.ok_or(LiveSocketError::PhoenixStaticMissing)?;
         let phx_session = phx_session.ok_or(LiveSocketError::PhoenixSessionMissing)?;
-        debug!("phx_id = {phx_id:?}, session = {phx_session:?}, static = {phx_static:?}");
+        trace!("phx_id = {phx_id:?}, session = {phx_session:?}, static = {phx_static:?}");
 
         // A Style looks like:
         // <Style url="/assets/app.swiftui.styles" />
@@ -256,7 +259,8 @@ impl SessionData {
             cookies,
         };
 
-        debug!("Session data successfully acquired {out:?}");
+        debug!("Session data successfully acquired");
+        debug!("{out:?}");
 
         Ok(out)
     }
@@ -308,6 +312,7 @@ impl LiveSocket {
         url: &Url,
         format: &str,
         options: &ConnectOpts,
+        client: Client,
     ) -> Result<(Document, Vec<String>, Url, HeaderMap), LiveSocketError> {
         let ConnectOpts {
             headers,
@@ -330,17 +335,6 @@ impl LiveSocket {
             .map_err(|e| LiveSocketError::InvalidHeader {
                 error: format!("{e:?}"),
             })?;
-
-        #[cfg(not(test))]
-        let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
-
-        #[cfg(test)]
-        let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
-
-        let client = reqwest::Client::builder()
-            .cookie_provider(jar.clone())
-            .redirect(Policy::none())
-            .build()?;
 
         let req = reqwest::Request::new(method, url.clone());
         let builder = reqwest::RequestBuilder::from_parts(client, req);
@@ -392,17 +386,11 @@ impl LiveSocket {
 
         let status = resp.status();
 
-        let cookies = jar
-            .cookies(&url)
-            .as_ref()
-            .and_then(|cookie_text| cookie_text.to_str().ok())
-            .map(|text| {
-                text.split(";")
-                    .map(str::trim)
-                    .map(String::from)
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
+        let cookies = headers
+            .get_all(SET_COOKIE)
+            .into_iter()
+            .filter_map(|text| Some(text.to_str().ok()?.to_owned()))
+            .collect();
 
         let url = resp.url().clone();
         let resp_text = resp.text().await?;
@@ -412,7 +400,7 @@ impl LiveSocket {
         }
 
         let dead_render = parse(&resp_text)?;
-        debug!("document:\n{dead_render}\n\n\n");
+        trace!("document:\n{dead_render}\n\n\n");
         Ok((dead_render, cookies, url, headers))
     }
 }
@@ -453,9 +441,20 @@ impl LiveSocket {
         let url = Url::parse(&url)?;
         let options = options.unwrap_or_default();
 
+        #[cfg(not(test))]
+        let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
+
+        #[cfg(test)]
+        let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
+
+        let client = reqwest::Client::builder()
+            .cookie_provider(jar.clone())
+            .redirect(Policy::none())
+            .build()?;
+
         // Make HTTP request to get initial dead render, an HTML document with
         // metadata needed to set up the liveview websocket connection.
-        let session_data = SessionData::request(&url, &format, options).await?;
+        let session_data = SessionData::request(&url, &format, options, client).await?;
         let websocket_url = session_data.get_live_socket_url()?;
 
         let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone()))
@@ -629,7 +628,7 @@ impl LiveSocket {
 
         let join_payload = channel.join(self.timeout()).await?;
 
-        debug!("Join payload: {join_payload:#?}");
+        trace!("Join payload: {join_payload:#?}");
         let document = match join_payload {
             Payload::JSONPayload {
                 json: JSON::Object { ref object },
@@ -637,7 +636,7 @@ impl LiveSocket {
                 if let Some(rendered) = object.get("rendered") {
                     let rendered = rendered.to_string();
                     let root: RootDiff = serde_json::from_str(rendered.as_str())?;
-                    debug!("root diff: {root:#?}");
+                    trace!("root diff: {root:#?}");
                     let root: Root = root.try_into()?;
                     let rendered: String = root.clone().try_into()?;
                     let mut document = crate::parser::parse(&rendered)?;

@@ -34,6 +34,10 @@ impl Document {
     pub(crate) fn inner(&self) -> Arc<Mutex<super::Document>> {
         self.inner.clone()
     }
+
+    pub fn arc_set_event_handler(&self, handler: Arc<dyn DocumentChangeHandler>) {
+        self.inner.lock().expect("lock poisoned!").event_callback = Some(handler);
+    }
 }
 
 #[uniffi::export]

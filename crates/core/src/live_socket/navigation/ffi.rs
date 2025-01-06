@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use phoenix_channels_client::{Payload, Socket, JSON};
-use reqwest::Url;
+use reqwest::{cookie::Jar, redirect::Policy, Client, Url};
 
 pub type HistoryId = u64;
 const RETRY_REASONS: &[&str] = &["stale", "unauthorized"];
@@ -113,6 +113,10 @@ impl NavEvent {
 }
 
 use super::{super::error::LiveSocketError, LiveSocket, NavCtx};
+#[cfg(not(test))]
+use crate::live_socket::socket::COOKIE_JAR;
+#[cfg(test)]
+use crate::live_socket::socket::TEST_COOKIE_JAR;
 use crate::live_socket::{socket::SessionData, LiveChannel};
 
 impl LiveSocket {
@@ -163,7 +167,18 @@ impl LiveSocket {
                 let format = self.session_data.try_lock()?.format.clone();
                 let options = self.session_data.try_lock()?.connect_opts.clone();
 
-                let session_data = SessionData::request(&url, &format, options).await?;
+                #[cfg(not(test))]
+                let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
+
+                #[cfg(test)]
+                let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
+
+                let client = reqwest::Client::builder()
+                    .cookie_provider(jar.clone())
+                    .redirect(Policy::none())
+                    .build()?;
+
+                let session_data = SessionData::request(&url, &format, options, client).await?;
                 let websocket_url = session_data.get_live_socket_url()?;
                 let socket =
                     Socket::spawn(websocket_url, Some(session_data.cookies.clone())).await?;
