@@ -40,10 +40,10 @@ browser = [
 cookie_store = "0.21.1"
 reqwest_cookie_store = "0.8.0"
 cranelift-entity = { version = "0.115" }
-fixedbitset = { version = "0.4" }
+fixedbitset = { version = "0.5" }
 fxhash = { version = "0.2" }
 html5gum = { git = "https://github.com/liveviewnative/html5gum", branch = "lvn" }
-petgraph = { version = "0.6", default-features = false, features = [
+petgraph = { version = "0.7", default-features = false, features = [
     "graphmap",
 ] }
 futures = "0.3.31"
