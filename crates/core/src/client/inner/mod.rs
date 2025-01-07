@@ -1,24 +1,22 @@
+mod channel_init;
 mod cookie_store;
 mod logging;
 
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
+use channel_init::*;
 use cookie_store::PersistentCookieStore;
 use log::debug;
 use logging::*;
-use phoenix_channels_client::{Number, Payload, Socket, SocketStatus, Topic, JSON};
+use phoenix_channels_client::{Payload, Socket, SocketStatus, JSON};
 use reqwest::{redirect::Policy, Client, Url};
 
 use super::{LiveViewClientConfiguration, LogLevel};
 use crate::{
-    diff::fragment::{Root, RootDiff},
     dom::Document,
     live_socket::{
         navigation::{HistoryId, NavCtx, NavEventHandler, NavHistoryEntry, NavOptions},
-        LiveChannel, LiveSocketError, SessionData,
+        ConnectOpts, LiveChannel, LiveSocketError, SessionData,
     },
 };
 
@@ -34,6 +32,7 @@ pub struct LiveViewClientInner {
 }
 
 impl LiveViewClientInner {
+    /// The first connection and initialization, fetches the dead render and opens the default channel.
     pub async fn initial_connect(
         config: LiveViewClientConfiguration,
         url: String,
@@ -43,6 +42,7 @@ impl LiveViewClientInner {
         debug!("Configuration: {config:?}");
 
         let cookie_store = PersistentCookieStore::new(config.persistence_provider.clone());
+
         let http_client = Client::builder()
             .cookie_provider(Arc::new(cookie_store))
             .redirect(Policy::none())
@@ -64,7 +64,6 @@ impl LiveViewClientInner {
 
         debug!("Initiating Websocket connection: {websocket_url:?}");
         let socket = Socket::spawn(websocket_url, Some(cookies)).await?;
-
         let socket = Mutex::new(socket);
 
         debug!("Joining liveview Channel");
@@ -101,6 +100,52 @@ impl LiveViewClientInner {
             livereload_channel: livereload_channel.into(),
             session_data: session_data.into(),
         })
+    }
+
+    pub async fn recconect(&self, url: String, opts: ConnectOpts) -> Result<(), LiveSocketError> {
+        debug!("Reestablishing connection with settings: url: {url:?}, opts: {opts:?}");
+
+        let url = Url::parse(&url)?;
+        let new_session = SessionData::request(
+            &url,
+            &self.config.format.to_string(),
+            opts,
+            self.http_client.clone(),
+        )
+        .await?;
+
+        let websocket_url = new_session.get_live_socket_url()?;
+        let cookies = new_session.cookies.clone();
+
+        debug!("Initiating new websocket connection: {websocket_url:?}");
+        let socket = Socket::spawn(websocket_url, Some(cookies)).await?;
+
+        let old_socket = self.socket.try_lock()?.clone();
+        let _ = old_socket.disconnect().await;
+        *self.socket.try_lock()? = socket;
+
+        *self.session_data.try_lock()? = new_session;
+
+        debug!("Rejoining liveview channel");
+        let new_channel =
+            join_liveview_channel(&self.config, &self.socket, &self.session_data, None).await?;
+
+        if let Some(handler) = &self.config.patch_handler {
+            new_channel.document.arc_set_event_handler(handler.clone());
+        }
+
+        let old_channel = self.liveview_channel.try_lock()?.channel.clone();
+        old_channel.leave().await?;
+        *self.liveview_channel.try_lock()? = new_channel;
+
+        if self.session_data.try_lock()?.has_live_reload {
+            debug!("Rejoining livereload channel");
+            let new_livereload =
+                join_livereload_channel(&self.config, &self.socket, &self.session_data).await?;
+            *self.livereload_channel.try_lock()? = Some(new_livereload);
+        }
+
+        Ok(())
     }
 
     pub fn set_log_level(&self, level: LogLevel) {
@@ -293,6 +338,12 @@ impl LiveViewClientInner {
         Ok(self.socket.try_lock()?.clone())
     }
 
+    pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {
+        self.liveview_channel
+            .try_lock()?
+            .get_phx_upload_id(phx_target_name)
+    }
+
     pub fn channel(&self) -> Result<Arc<LiveChannel>, LiveSocketError> {
         Ok(self.liveview_channel.try_lock()?.clone())
     }
@@ -320,179 +371,4 @@ impl LiveViewClientInner {
     pub fn status(&self) -> Result<SocketStatus, LiveSocketError> {
         Ok(self.socket.try_lock()?.status())
     }
-}
-
-/// TODO: Clean up things below this line
-const CSRF_KEY: &str = "_csrf_token";
-const MOUNT_KEY: &str = "_mounts";
-const FMT_KEY: &str = "_format";
-
-pub async fn join_liveview_channel(
-    config: &LiveViewClientConfiguration,
-    socket: &Mutex<Arc<Socket>>,
-    session_data: &Mutex<SessionData>,
-    redirect: Option<String>,
-) -> Result<Arc<LiveChannel>, LiveSocketError> {
-    let ws_timeout = std::time::Duration::from_millis(config.websocket_timeout);
-
-    let sock = socket.try_lock()?.clone();
-    sock.connect(ws_timeout).await?;
-
-    let mut collected_join_params = HashMap::from([
-        (
-            MOUNT_KEY.to_string(),
-            JSON::Numb {
-                number: Number::PosInt { pos: 0 },
-            },
-        ),
-        (
-            CSRF_KEY.to_string(),
-            JSON::Str {
-                string: session_data.try_lock()?.csrf_token.clone(),
-            },
-        ),
-        (
-            FMT_KEY.to_string(),
-            JSON::Str {
-                string: session_data.try_lock()?.format.clone(),
-            },
-        ),
-    ]);
-    if let Some(join_params) = config.join_params.clone() {
-        for (key, value) in &join_params {
-            collected_join_params.insert(key.clone(), value.clone());
-        }
-    }
-    let redirect_or_url: (String, JSON) = if let Some(redirect) = redirect {
-        ("redirect".to_string(), JSON::Str { string: redirect })
-    } else {
-        (
-            "url".to_string(),
-            JSON::Str {
-                string: session_data.try_lock()?.url.to_string(),
-            },
-        )
-    };
-    let join_payload = Payload::JSONPayload {
-        json: JSON::Object {
-            object: HashMap::from([
-                (
-                    "static".to_string(),
-                    JSON::Str {
-                        string: session_data.try_lock()?.phx_static.clone(),
-                    },
-                ),
-                (
-                    "session".to_string(),
-                    JSON::Str {
-                        string: session_data.try_lock()?.phx_session.clone(),
-                    },
-                ),
-                // TODO: Add redirect key. Swift code:
-                // (redirect ? "redirect": "url"): self.url.absoluteString,
-                redirect_or_url,
-                (
-                    "params".to_string(),
-                    // TODO: Merge join_params with this simple object.
-                    JSON::Object {
-                        object: collected_join_params,
-                    },
-                ),
-            ]),
-        },
-    };
-
-    let channel = sock
-        .channel(
-            Topic::from_string(format!("lv:{}", session_data.try_lock()?.phx_id)),
-            Some(join_payload),
-        )
-        .await?;
-
-    let join_payload = channel.join(ws_timeout).await?;
-
-    debug!("Join payload: {join_payload:#?}");
-    let document = match join_payload {
-        Payload::JSONPayload {
-            json: JSON::Object { ref object },
-        } => {
-            if let Some(rendered) = object.get("rendered") {
-                let rendered = rendered.to_string();
-                let root: RootDiff = serde_json::from_str(rendered.as_str())?;
-                debug!("root diff: {root:#?}");
-                let root: Root = root.try_into()?;
-                let rendered: String = root.clone().try_into()?;
-                let mut document = crate::parser::parse(&rendered)?;
-                document.fragment_template = Some(root);
-                Some(document)
-            } else {
-                None
-            }
-        }
-        _ => None,
-    }
-    .ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
-
-    Ok(LiveChannel {
-        channel,
-        join_payload,
-        join_params: config.join_params.clone().unwrap_or_default(),
-        socket: socket.try_lock()?.clone(),
-        document: document.into(),
-        timeout: ws_timeout,
-    }
-    .into())
-}
-
-const LVN_VSN: &str = "2.0.0";
-const LVN_VSN_KEY: &str = "vsn";
-
-pub async fn join_livereload_channel(
-    config: &LiveViewClientConfiguration,
-    socket: &Mutex<Arc<Socket>>,
-    session_data: &Mutex<SessionData>,
-) -> Result<Arc<LiveChannel>, LiveSocketError> {
-    let ws_timeout = std::time::Duration::from_millis(config.websocket_timeout);
-
-    let mut url = session_data.try_lock()?.url.clone();
-
-    let websocket_scheme = match url.scheme() {
-        "https" => "wss",
-        "http" => "ws",
-        scheme => {
-            return Err(LiveSocketError::SchemeNotSupported {
-                scheme: scheme.to_string(),
-            })
-        }
-    };
-    let _ = url.set_scheme(websocket_scheme);
-    url.set_path("phoenix/live_reload/socket/websocket");
-    url.query_pairs_mut().append_pair(LVN_VSN_KEY, LVN_VSN);
-
-    // TODO: get these out of the client
-    let cookies = session_data.try_lock()?.cookies.clone();
-
-    // TODO: Reuse the socket from before? why are we mixing sockets here?
-    let new_socket = Socket::spawn(url.clone(), Some(cookies)).await?;
-    new_socket.connect(ws_timeout).await?;
-
-    debug!("Joining live reload channel on url {url}");
-    let socket = socket.try_lock()?.clone();
-    let channel = socket
-        .channel(Topic::from_string("phoenix:live_reload".to_string()), None)
-        .await?;
-
-    debug!("Created channel for live reload socket");
-    let join_payload = channel.join(ws_timeout).await?;
-    let document = Document::empty();
-
-    Ok(LiveChannel {
-        channel,
-        join_params: Default::default(),
-        join_payload,
-        socket, // TODO: this field is prone to memory leakage
-        document: document.into(),
-        timeout: ws_timeout,
-    }
-    .into())
 }

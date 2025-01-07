@@ -39,6 +39,7 @@ browser = [
 [dependencies]
 cookie_store = "0.21.1"
 reqwest_cookie_store = "0.8.0"
+serde_urlencoded = "0.7.1"
 cranelift-entity = { version = "0.115" }
 fixedbitset = { version = "0.5" }
 fxhash = { version = "0.2" }

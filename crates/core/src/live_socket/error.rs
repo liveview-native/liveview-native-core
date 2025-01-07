@@ -13,6 +13,8 @@ use crate::{
 pub enum LiveSocketError {
     #[error("Internal Socket Locks would block.")]
     WouldLock,
+    #[error("Form Data Failed to Serialize. {error}")]
+    FormData { error: String },
     #[error("Internal Socket Locks poisoned.")]
     LockPoisoned,
     #[error("Error disconnecting")]
@@ -132,6 +134,14 @@ impl<T> From<std::sync::TryLockError<T>> for LiveSocketError {
 impl<T> From<std::sync::PoisonError<T>> for LiveSocketError {
     fn from(_: std::sync::PoisonError<T>) -> Self {
         Self::LockPoisoned
+    }
+}
+
+impl From<serde_urlencoded::ser::Error> for LiveSocketError {
+    fn from(e: serde_urlencoded::ser::Error) -> Self {
+        Self::FormData {
+            error: format!("{e}"),
+        }
     }
 }
 

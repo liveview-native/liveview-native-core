@@ -10,8 +10,10 @@ use std::{
 };
 
 use config::*;
+use futures::future::try_join_all;
 use inner::LiveViewClientInner;
 use phoenix_channels_client::{Socket, SocketStatus, JSON};
+use reqwest::header::CONTENT_TYPE;
 
 use crate::{
     dom::{
@@ -20,7 +22,7 @@ use crate::{
     },
     live_socket::{
         navigation::{HistoryId, NavEventHandler, NavHistoryEntry, NavOptions},
-        LiveChannel, LiveSocketError,
+        ConnectOpts, LiveChannel, LiveSocketError, Method,
     },
     persistence::SecurePersistentStore,
 };
@@ -125,11 +127,34 @@ impl LiveViewClient {
     }
 
     pub async fn reconnect(&self, url: String) -> Result<(), LiveSocketError> {
-        todo!()
+        self.inner.recconect(url, Default::default()).await?;
+        Ok(())
     }
 
     pub async fn post_form(&self, form: Form, url: String) -> Result<(), LiveSocketError> {
-        todo!()
+        let form_data = serde_urlencoded::to_string(form.fields)?;
+
+        let mut headers = HashMap::new();
+        headers.insert(
+            CONTENT_TYPE.to_string(),
+            "application/x-www-form-urlencoded".to_string(),
+        );
+
+        let opts = ConnectOpts {
+            headers: Some(headers),
+            body: Some(form_data),
+            method: Some(Method::Post),
+            timeout_ms: 30_000, // Actually unused
+        };
+
+        self.inner.recconect(url, opts).await?;
+
+        let chan = self.inner.channel()?;
+        let futs = form.files.iter().map(|file| chan.upload_file(file));
+
+        try_join_all(futs).await?;
+
+        Ok(())
     }
 }
 
@@ -193,15 +218,19 @@ impl LiveViewClient {
     // TODO: socket and channel should probably be arcswaps, if they can be,
     // This will still leave the user with a stupid amount of dangling state when they navigate...
     pub fn socket(&self) -> Result<Arc<Socket>, LiveSocketError> {
-        Ok(self.inner.socket()?)
+        self.inner.socket()
     }
 
     pub fn channel(&self) -> Result<Arc<LiveChannel>, LiveSocketError> {
-        Ok(self.inner.channel()?)
+        self.inner.channel()
+    }
+
+    pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {
+        self.inner.get_phx_upload_id(phx_target_name)
     }
 
     pub fn live_reload_channel(&self) -> Result<Option<Arc<LiveChannel>>, LiveSocketError> {
-        Ok(self.inner.live_reload_channel()?)
+        self.inner.live_reload_channel()
     }
 
     pub fn join_url(&self) -> Result<String, LiveSocketError> {

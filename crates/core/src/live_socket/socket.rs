@@ -13,6 +13,7 @@ use reqwest::{
     redirect::Policy,
     Client, Method as ReqMethod,
 };
+use serde::{Deserialize, Serialize};
 
 use super::navigation::{NavCtx, NavOptions};
 pub use super::{LiveChannel, LiveSocketError};
@@ -129,6 +130,25 @@ pub struct SessionData {
     pub has_live_reload: bool,
     /// A list of cookies sent over with the dead render.
     pub cookies: Vec<String>,
+}
+
+//TODO: Move this into the protocol module when it exists
+/// The expected structure of a json payload send upon joining a liveview channel
+#[derive(Serialize)]
+struct JoinRequestPayload {
+    #[serde(rename = "static")]
+    static_token: String,
+    session: String,
+    #[serde(flatten)]
+    url_or_redirect: UrlOrRedirect,
+    params: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+enum UrlOrRedirect {
+    Url { url: String },
+    Redirect { redirect: String },
 }
 
 impl SessionData {
@@ -294,6 +314,39 @@ impl SessionData {
         debug!("websocket url: {websocket_url}");
 
         Ok(websocket_url)
+    }
+
+    pub fn create_join_payload(
+        &self,
+        additional_params: &Option<HashMap<String, JSON>>,
+        redirect: Option<String>,
+    ) -> Payload {
+        let mut params = HashMap::new();
+        params.insert(MOUNT_KEY.to_string(), serde_json::json!(0));
+        params.insert(CSRF_KEY.to_string(), serde_json::json!(self.csrf_token));
+        params.insert(FMT_KEY.to_string(), serde_json::json!(self.format));
+
+        if let Some(join_params) = additional_params {
+            params.extend(
+                join_params
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone().into())),
+            );
+        }
+
+        let payload = JoinRequestPayload {
+            static_token: self.phx_static.clone(),
+            session: self.phx_session.clone(),
+            url_or_redirect: redirect
+                .map(|r| UrlOrRedirect::Redirect { redirect: r })
+                .unwrap_or_else(|| UrlOrRedirect::Url {
+                    url: self.url.to_string(),
+                }),
+            params,
+        };
+
+        let json = serde_json::to_value(payload).expect("Serde Error");
+        Payload::JSONPayload { json: json.into() }
     }
 }
 
@@ -554,69 +607,7 @@ impl LiveSocket {
 
         let session_data = lock!(self.session_data).clone();
 
-        let mut collected_join_params = HashMap::from([
-            (
-                MOUNT_KEY.to_string(),
-                JSON::Numb {
-                    number: Number::PosInt { pos: 0 },
-                },
-            ),
-            (
-                CSRF_KEY.to_string(),
-                JSON::Str {
-                    string: session_data.csrf_token,
-                },
-            ),
-            (
-                FMT_KEY.to_string(),
-                JSON::Str {
-                    string: session_data.format,
-                },
-            ),
-        ]);
-        if let Some(join_params) = join_params.clone() {
-            for (key, value) in &join_params {
-                collected_join_params.insert(key.clone(), value.clone());
-            }
-        }
-        let redirect_or_url: (String, JSON) = if let Some(redirect) = redirect {
-            ("redirect".to_string(), JSON::Str { string: redirect })
-        } else {
-            (
-                "url".to_string(),
-                JSON::Str {
-                    string: session_data.url.to_string(),
-                },
-            )
-        };
-        let join_payload = Payload::JSONPayload {
-            json: JSON::Object {
-                object: HashMap::from([
-                    (
-                        "static".to_string(),
-                        JSON::Str {
-                            string: session_data.phx_static,
-                        },
-                    ),
-                    (
-                        "session".to_string(),
-                        JSON::Str {
-                            string: session_data.phx_session,
-                        },
-                    ),
-                    // TODO: Add redirect key. Swift code:
-                    // (redirect ? "redirect": "url"): self.url.absoluteString,
-                    redirect_or_url,
-                    (
-                        "params".to_string(),
-                        // TODO: Merge join_params with this simple object.
-                        JSON::Object {
-                            object: collected_join_params,
-                        },
-                    ),
-                ]),
-            },
-        };
+        let join_payload = session_data.create_join_payload(&join_params, redirect);
 
         let channel = self
             .socket()
