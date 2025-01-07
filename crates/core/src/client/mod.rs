@@ -1,7 +1,5 @@
 mod config;
-mod cookie_store;
 mod inner;
-mod logging;
 
 #[cfg(test)]
 mod tests;
@@ -123,10 +121,10 @@ pub struct LiveViewClient {
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveViewClient {
     pub fn set_log_level(&self, level: LogLevel) {
-        logging::set_log_level(level)
+        self.inner.set_log_level(level)
     }
 
-    pub async fn connect(&self, url: String) -> Result<(), LiveSocketError> {
+    pub async fn reconnect(&self, url: String) -> Result<(), LiveSocketError> {
         todo!()
     }
 

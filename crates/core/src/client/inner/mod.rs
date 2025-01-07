@@ -1,15 +1,19 @@
+mod cookie_store;
+mod logging;
+
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
 };
 
+use cookie_store::PersistentCookieStore;
 use log::debug;
-use phoenix_channels_client::{Number, Payload, PhoenixError, Socket, SocketStatus, Topic, JSON};
+use logging::*;
+use phoenix_channels_client::{Number, Payload, Socket, SocketStatus, Topic, JSON};
 use reqwest::{redirect::Policy, Client, Url};
 
-use super::LiveViewClientConfiguration;
+use super::{LiveViewClientConfiguration, LogLevel};
 use crate::{
-    client::{cookie_store::PersistentCookieStore, logging::init_log},
     diff::fragment::{Root, RootDiff},
     dom::Document,
     live_socket::{
@@ -97,6 +101,10 @@ impl LiveViewClientInner {
             livereload_channel: livereload_channel.into(),
             session_data: session_data.into(),
         })
+    }
+
+    pub fn set_log_level(&self, level: LogLevel) {
+        set_log_level(level)
     }
 }
 /// Navigation related api.

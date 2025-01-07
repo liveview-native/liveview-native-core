@@ -60,7 +60,7 @@ impl Default for Platform {
         }
         #[cfg(not(any(target_vendor = "apple", target_os = "android")))]
         {
-            Platform::Other("html".to_string())
+            Platform::Other("undefined_format".to_string())
         }
     }
 }

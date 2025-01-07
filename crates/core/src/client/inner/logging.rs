@@ -3,7 +3,7 @@ use std::{io::Write, sync::Once};
 use env_logger::{Builder, Env};
 use log::LevelFilter;
 
-use super::LogLevel;
+use super::super::config::LogLevel;
 
 static INIT_LOG: Once = Once::new();
 
