@@ -167,6 +167,7 @@ impl LiveSocket {
                 let format = self.session_data.try_lock()?.format.clone();
                 let options = self.session_data.try_lock()?.connect_opts.clone();
 
+                //TODO: punt the to an argument. move this on to the LiveViewClient
                 #[cfg(not(test))]
                 let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
 

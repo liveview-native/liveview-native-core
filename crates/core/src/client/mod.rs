@@ -13,7 +13,7 @@ use std::{
 
 use config::*;
 use inner::LiveViewClientInner;
-use phoenix_channels_client::{SocketStatus, JSON};
+use phoenix_channels_client::{Socket, SocketStatus, JSON};
 
 use crate::{
     dom::{
@@ -22,7 +22,7 @@ use crate::{
     },
     live_socket::{
         navigation::{HistoryId, NavEventHandler, NavHistoryEntry, NavOptions},
-        LiveChannel, LiveSocket, LiveSocketError,
+        LiveChannel, LiveSocketError,
     },
     persistence::SecurePersistentStore,
 };
@@ -111,15 +111,13 @@ impl LiveViewClientBuilder {
         let config = self.config.lock().unwrap().clone();
         let inner = LiveViewClientInner::initial_connect(config, url).await?;
 
-        Ok(LiveViewClient {
-            inner: inner.into(),
-        })
+        Ok(LiveViewClient { inner })
     }
 }
 
 #[derive(uniffi::Object)]
 pub struct LiveViewClient {
-    inner: Mutex<LiveViewClientInner>,
+    inner: LiveViewClientInner,
 }
 
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
@@ -141,19 +139,19 @@ impl LiveViewClient {
 #[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveViewClient {
     pub async fn navigate(&self, url: String, opts: NavOptions) -> Result<(), LiveSocketError> {
-        todo!()
+        self.inner.navigate(url, opts).await
     }
 
     pub async fn reload(&self, info: Option<Vec<u8>>) -> Result<(), LiveSocketError> {
-        todo!()
+        self.inner.reload(info).await
     }
 
     pub async fn back(&self, info: Option<Vec<u8>>) -> Result<(), LiveSocketError> {
-        todo!()
+        self.inner.back(info).await
     }
 
     pub async fn forward(&self, info: Option<Vec<u8>>) -> Result<(), LiveSocketError> {
-        todo!()
+        self.inner.forward(info).await
     }
 
     pub async fn traverse_to(
@@ -161,66 +159,70 @@ impl LiveViewClient {
         id: HistoryId,
         info: Option<Vec<u8>>,
     ) -> Result<(), LiveSocketError> {
-        todo!()
+        self.inner.traverse_to(id, info).await
     }
 
     pub fn can_go_back(&self) -> bool {
-        todo!()
+        self.inner.can_go_back()
     }
 
     pub fn can_go_forward(&self) -> bool {
-        todo!()
+        self.inner.can_go_forward()
     }
 
     pub fn can_traverse_to(&self, id: HistoryId) -> bool {
-        todo!()
+        self.inner.can_traverse_to(id)
     }
 
     pub fn get_entries(&self) -> Vec<NavHistoryEntry> {
-        todo!()
+        self.inner.get_entries()
     }
 
     pub fn current(&self) -> Option<NavHistoryEntry> {
-        todo!()
+        self.inner.current()
     }
 
-    pub fn set_event_handler(&self, handler: Box<dyn NavEventHandler>) {
-        todo!()
+    pub fn set_event_handler(
+        &self,
+        handler: Box<dyn NavEventHandler>,
+    ) -> Result<(), LiveSocketError> {
+        self.inner.set_event_handler(handler)
     }
 }
 
-// Connection and session management functionality ported from LiveSocket
 #[cfg_attr(not(target_family = "wasm"), uniffi::export)]
 impl LiveViewClient {
-    pub fn socket(&self) -> Arc<LiveSocket> {
-        todo!()
+    // TODO: socket and channel should probably be arcswaps, if they can be,
+    // This will still leave the user with a stupid amount of dangling state when they navigate...
+    pub fn socket(&self) -> Result<Arc<Socket>, LiveSocketError> {
+        Ok(self.inner.socket()?)
     }
 
-    pub fn channel(&self) -> Arc<LiveChannel> {
-        todo!()
+    pub fn channel(&self) -> Result<Arc<LiveChannel>, LiveSocketError> {
+        Ok(self.inner.channel()?)
     }
 
-    pub fn live_reload_channel(&self) -> Option<Arc<LiveChannel>> {
-        todo!()
+    pub fn live_reload_channel(&self) -> Result<Option<Arc<LiveChannel>>, LiveSocketError> {
+        Ok(self.inner.live_reload_channel()?)
     }
 
-    pub fn join_url(&self) -> String {
-        todo!()
+    pub fn join_url(&self) -> Result<String, LiveSocketError> {
+        self.inner.join_url()
     }
 
-    pub fn csrf_token(&self) -> String {
-        todo!()
+    pub fn csrf_token(&self) -> Result<String, LiveSocketError> {
+        self.inner.csrf_token()
     }
 
-    pub fn dead_render(&self) -> Arc<ffi::Document> {
-        todo!()
+    pub fn dead_render(&self) -> Result<Arc<ffi::Document>, LiveSocketError> {
+        Ok(Arc::new(self.inner.dead_render()?.into()))
     }
 
-    pub fn style_urls(&self) -> Vec<String> {
-        todo!()
+    pub fn style_urls(&self) -> Result<Vec<String>, LiveSocketError> {
+        self.inner.style_urls()
     }
 
-    pub fn status(&self) -> SocketStatus {
-        todo!()
+    pub fn status(&self) -> Result<SocketStatus, LiveSocketError> {
+        self.inner.status()
     }
 }
