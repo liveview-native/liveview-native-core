@@ -32,7 +32,7 @@ pub struct LiveViewClientBuilder {
     config: Mutex<LiveViewClientConfiguration>,
 }
 
-#[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
+#[uniffi::export(async_runtime = "tokio")]
 impl LiveViewClientBuilder {
     #[uniffi::constructor]
     pub fn new() -> Self {
@@ -120,7 +120,7 @@ pub struct LiveViewClient {
     inner: LiveViewClientInner,
 }
 
-#[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
+#[uniffi::export(async_runtime = "tokio")]
 impl LiveViewClient {
     pub fn set_log_level(&self, level: LogLevel) {
         self.inner.set_log_level(level)
@@ -159,7 +159,7 @@ impl LiveViewClient {
 }
 
 // Navigation-related functionality ported from LiveSocket
-#[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
+#[uniffi::export(async_runtime = "tokio")]
 impl LiveViewClient {
     pub async fn navigate(&self, url: String, opts: NavOptions) -> Result<(), LiveSocketError> {
         self.inner.navigate(url, opts).await

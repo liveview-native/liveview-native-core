@@ -1,4 +1,6 @@
+#[cfg(feature = "liveview-channels")]
 pub mod client;
+
 pub mod diff;
 pub mod dom;
 mod error;
