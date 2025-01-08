@@ -47,7 +47,7 @@ pub fn init_log(level: LogLevel) {
             })
             .filter(None, level.into())
             .try_init()
-            .expect("LOG INTIALIZATION FAILED");
+            .expect("LOG INITIALIZATION FAILED");
     });
 }
 

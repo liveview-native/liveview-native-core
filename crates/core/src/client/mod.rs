@@ -127,7 +127,7 @@ impl LiveViewClient {
     }
 
     pub async fn reconnect(&self, url: String) -> Result<(), LiveSocketError> {
-        self.inner.recconect(url, Default::default()).await?;
+        self.inner.reconnect(url, Default::default()).await?;
         Ok(())
     }
 
@@ -147,7 +147,7 @@ impl LiveViewClient {
             timeout_ms: 30_000, // Actually unused
         };
 
-        self.inner.recconect(url, opts).await?;
+        self.inner.reconnect(url, opts).await?;
 
         let chan = self.inner.channel()?;
         let futs = form.files.iter().map(|file| chan.upload_file(file));

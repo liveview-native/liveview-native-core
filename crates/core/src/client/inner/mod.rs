@@ -102,7 +102,7 @@ impl LiveViewClientInner {
         })
     }
 
-    pub async fn recconect(&self, url: String, opts: ConnectOpts) -> Result<(), LiveSocketError> {
+    pub async fn reconnect(&self, url: String, opts: ConnectOpts) -> Result<(), LiveSocketError> {
         debug!("Reestablishing connection with settings: url: {url:?}, opts: {opts:?}");
 
         let url = Url::parse(&url)?;
