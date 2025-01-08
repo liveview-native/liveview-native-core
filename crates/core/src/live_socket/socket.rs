@@ -8,7 +8,7 @@ use std::{
 use log::{debug, trace};
 use phoenix_channels_client::{url::Url, Payload, Socket, SocketStatus, Topic, JSON};
 use reqwest::{
-    cookie::Jar,
+    cookie::{CookieStore, Jar},
     header::{HeaderMap, LOCATION, SET_COOKIE},
     redirect::Policy,
     Client, Method as ReqMethod,
@@ -440,12 +440,23 @@ impl LiveSocket {
 
         let status = resp.status();
 
-        let cookies = resp
-            .headers()
-            .get_all(SET_COOKIE)
-            .into_iter()
-            .filter_map(|text| Some(text.to_str().ok()?.to_owned()))
-            .collect();
+        #[cfg(not(test))]
+        let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
+
+        #[cfg(test)]
+        let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
+
+        let cookies = jar
+            .cookies(&url)
+            .as_ref()
+            .and_then(|cookie_text| cookie_text.to_str().ok())
+            .map(|text| {
+                text.split(";")
+                    .map(str::trim)
+                    .map(String::from)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
 
         let url = resp.url().clone();
         let resp_text = resp.text().await?;
