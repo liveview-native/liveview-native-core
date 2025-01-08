@@ -4,7 +4,9 @@
 use std::sync::Arc;
 
 use phoenix_channels_client::{Payload, Socket, JSON};
-use reqwest::{cookie::Jar, redirect::Policy, Client, Url};
+#[cfg(not(test))]
+use reqwest::cookie::Jar;
+use reqwest::{redirect::Policy, Url};
 
 pub type HistoryId = u64;
 const RETRY_REASONS: &[&str] = &["stale", "unauthorized"];

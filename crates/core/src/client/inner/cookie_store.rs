@@ -118,7 +118,7 @@ mod tests {
         let persistent_cookie =
             "session=123; Domain=example.com; Expires=Fri, 31 Dec 9999 23:59:59 GMT";
 
-        let headers = vec![HeaderValue::from_static(persistent_cookie)];
+        let headers = [HeaderValue::from_static(persistent_cookie)];
 
         cookie_store.set_cookies(&mut headers.iter(), &url);
         cookie_store.save();
@@ -136,7 +136,7 @@ mod tests {
 
         let store = PersistentCookieStore::new(None);
         let url = "https://example.com".parse().unwrap();
-        let headers = vec![HeaderValue::from_static("session=123")];
+        let headers = [HeaderValue::from_static("session=123")];
 
         store.set_cookies(&mut headers.iter(), &url);
         store.save();

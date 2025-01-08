@@ -6,14 +6,14 @@ use std::{
 };
 
 use log::{debug, trace};
-use phoenix_channels_client::{url::Url, Number, Payload, Socket, SocketStatus, Topic, JSON};
+use phoenix_channels_client::{url::Url, Payload, Socket, SocketStatus, Topic, JSON};
 use reqwest::{
-    cookie::{CookieStore, Jar},
+    cookie::Jar,
     header::{HeaderMap, LOCATION, SET_COOKIE},
     redirect::Policy,
     Client, Method as ReqMethod,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use super::navigation::{NavCtx, NavOptions};
 pub use super::{LiveChannel, LiveSocketError};
