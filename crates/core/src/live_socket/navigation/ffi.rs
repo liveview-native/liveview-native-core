@@ -8,64 +8,9 @@ use phoenix_channels_client::{Payload, Socket, JSON};
 use reqwest::cookie::Jar;
 use reqwest::{redirect::Policy, Url};
 
-pub type HistoryId = u64;
+use crate::callbacks::*;
+
 const RETRY_REASONS: &[&str] = &["stale", "unauthorized"];
-
-#[uniffi::export(callback_interface)]
-pub trait NavEventHandler: Send + Sync {
-    /// This callback instruments events that occur when your user navigates to a
-    /// new view. You can add serialized metadata to these events as a byte buffer
-    /// through the [NavOptions] object.
-    fn handle_event(&self, event: NavEvent) -> HandlerResponse;
-}
-
-/// User emitted response from [NavEventHandler::handle_event].
-/// Determines whether or not the default navigation action is taken.
-#[derive(uniffi::Enum, Clone, Debug, PartialEq, Default)]
-pub enum HandlerResponse {
-    #[default]
-    /// Return this to proceed as normal.
-    Default,
-    /// Return this to cancel the navigation before it occurs.
-    PreventDefault,
-}
-
-#[derive(uniffi::Enum, Clone, Debug, PartialEq)]
-pub enum NavEventType {
-    /// Pushing a new event onto the history stack
-    Push,
-    /// Replacing the most recent event on the history stack
-    Replace,
-    /// Reloading the view in place
-    Reload,
-    /// Skipping multiple items on the history stack, leaving them in tact.
-    Traverse,
-}
-
-#[derive(uniffi::Record, Clone, Debug, PartialEq)]
-pub struct NavHistoryEntry {
-    /// The target url.
-    pub url: String,
-    /// Unique id for this piece of nav entry state.
-    pub id: HistoryId,
-    /// state passed in by the user, to be passed in to the navigation event callback.
-    pub state: Option<Vec<u8>>,
-}
-
-/// An event emitted when the user navigates between views.
-#[derive(uniffi::Record, Clone, Debug, PartialEq)]
-pub struct NavEvent {
-    /// The type of event being emitted.
-    pub event: NavEventType,
-    /// True if from and to point to the same path.
-    pub same_document: bool,
-    /// The previous location of the page, if there was one.
-    pub from: Option<NavHistoryEntry>,
-    /// Destination URL.
-    pub to: NavHistoryEntry,
-    /// Additional user provided metadata handed to the event handler.
-    pub info: Option<Vec<u8>>,
-}
 
 /// An action taken with respect to the history stack
 /// when [NavCtx::navigate] is executed. defaults to
@@ -118,12 +63,15 @@ impl NavEvent {
     }
 }
 
-use super::{super::error::LiveSocketError, LiveSocket, NavCtx};
+use super::{LiveSocket, NavCtx};
 #[cfg(not(test))]
 use crate::live_socket::socket::COOKIE_JAR;
 #[cfg(test)]
 use crate::live_socket::socket::TEST_COOKIE_JAR;
-use crate::live_socket::{socket::SessionData, LiveChannel};
+use crate::{
+    error::LiveSocketError,
+    live_socket::{socket::SessionData, LiveChannel},
+};
 
 impl LiveSocket {
     /// Tries to navigate to the current item in the NavCtx.

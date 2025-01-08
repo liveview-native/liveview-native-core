@@ -3,9 +3,9 @@ use std::{collections::HashMap, sync::Arc};
 use phoenix_channels_client::JSON;
 
 use crate::{
+    callbacks::{SecurePersistentStore, *},
     dom::DocumentChangeHandler,
-    live_socket::{navigation::NavEventHandler, LiveFile},
-    persistence::SecurePersistentStore,
+    live_socket::LiveFile,
 };
 
 #[derive(uniffi::Enum, Debug, Clone, Default, Copy)]

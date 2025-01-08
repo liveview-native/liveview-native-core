@@ -16,15 +16,13 @@ use phoenix_channels_client::{Socket, SocketStatus, JSON};
 use reqwest::header::CONTENT_TYPE;
 
 use crate::{
+    callbacks::*,
     dom::{
         ffi::{self},
         DocumentChangeHandler,
     },
-    live_socket::{
-        navigation::{HistoryId, NavEventHandler, NavHistoryEntry, NavOptions},
-        ConnectOpts, LiveChannel, LiveSocketError, Method,
-    },
-    persistence::SecurePersistentStore,
+    error::LiveSocketError,
+    live_socket::{navigation::NavOptions, ConnectOpts, LiveChannel, Method},
 };
 
 #[derive(uniffi::Object, Default)]

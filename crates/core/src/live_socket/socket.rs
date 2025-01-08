@@ -16,10 +16,11 @@ use reqwest::{
 use serde::Serialize;
 
 use super::navigation::{NavCtx, NavOptions};
-pub use super::{LiveChannel, LiveSocketError};
+pub use super::LiveChannel;
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{ffi::Document as FFiDocument, AttributeName, Document, ElementName, Selector},
+    error::LiveSocketError,
     parser::parse,
 };
 
@@ -439,7 +440,8 @@ impl LiveSocket {
 
         let status = resp.status();
 
-        let cookies = headers
+        let cookies = resp
+            .headers()
             .get_all(SET_COOKIE)
             .into_iter()
             .filter_map(|text| Some(text.to_str().ok()?.to_owned()))

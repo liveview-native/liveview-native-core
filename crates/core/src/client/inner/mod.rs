@@ -13,10 +13,12 @@ use reqwest::{redirect::Policy, Client, Url};
 
 use super::{LiveViewClientConfiguration, LogLevel};
 use crate::{
+    callbacks::*,
     dom::Document,
+    error::LiveSocketError,
     live_socket::{
-        navigation::{HistoryId, NavCtx, NavEventHandler, NavHistoryEntry, NavOptions},
-        ConnectOpts, LiveChannel, LiveSocketError, SessionData,
+        navigation::{NavCtx, NavOptions},
+        ConnectOpts, LiveChannel, SessionData,
     },
 };
 

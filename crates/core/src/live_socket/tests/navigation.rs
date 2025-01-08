@@ -5,7 +5,13 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
 use super::assert_doc_eq;
-use crate::live_socket::{navigation::*, LiveSocket};
+use crate::{
+    callbacks::*,
+    live_socket::{
+        navigation::{NavCtx, NavOptions},
+        LiveSocket,
+    },
+};
 
 // Mock event handler used to validate the internal
 // navigation objects state.

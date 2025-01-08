@@ -1,5 +1,4 @@
 mod channel;
-mod error;
 pub mod navigation;
 mod socket;
 
@@ -7,7 +6,6 @@ mod socket;
 mod tests;
 
 pub use channel::{LiveChannel, LiveFile};
-pub use error::{LiveSocketError, UploadError};
 pub use socket::{ConnectOpts, LiveSocket, Method, SessionData};
 
 pub struct UploadConfig {

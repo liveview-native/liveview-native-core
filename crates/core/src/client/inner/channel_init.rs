@@ -7,7 +7,8 @@ use super::LiveViewClientConfiguration;
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::Document,
-    live_socket::{LiveChannel, LiveSocketError, SessionData},
+    error::LiveSocketError,
+    live_socket::{LiveChannel, SessionData},
 };
 
 const LVN_VSN: &str = "2.0.0";

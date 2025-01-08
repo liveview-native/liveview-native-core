@@ -3,7 +3,7 @@ use std::sync::Arc;
 use log::{error, warn};
 use reqwest::{cookie::CookieStore, header::HeaderValue, Url};
 
-use crate::persistence::SecurePersistentStore;
+use crate::callbacks::SecurePersistentStore;
 
 const COOKIE_STORE_KEY: &str = "COOKIE_CACHE";
 

@@ -4,13 +4,14 @@ use futures::{future::FutureExt, pin_mut, select};
 use log::{debug, error};
 use phoenix_channels_client::{Channel, Event, Number, Payload, Socket, Topic, JSON};
 
-use super::{LiveSocketError, UploadConfig, UploadError};
+use super::UploadConfig;
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{
         ffi::{Document as FFiDocument, DocumentChangeHandler},
         AttributeName, AttributeValue, Document, LiveChannelStatus, Selector,
     },
+    error::*,
     parser::parse,
 };
 

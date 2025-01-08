@@ -6,6 +6,7 @@ pub use ffi::*;
 use reqwest::Url;
 
 use super::socket::LiveSocket;
+use crate::callbacks::*;
 
 #[derive(Clone, Default)]
 struct HandlerInternal(pub Option<Arc<dyn NavEventHandler>>);

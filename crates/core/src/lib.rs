@@ -1,12 +1,11 @@
 #[cfg(feature = "liveview-channels")]
 pub mod client;
 
+mod callbacks;
 pub mod diff;
 pub mod dom;
 mod error;
 pub mod parser;
-mod persistence;
-pub mod styles;
 
 #[cfg(feature = "liveview-channels")]
 pub mod live_socket;
