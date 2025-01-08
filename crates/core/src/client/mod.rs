@@ -27,7 +27,7 @@ use crate::{
     persistence::SecurePersistentStore,
 };
 
-#[derive(uniffi::Object)]
+#[derive(uniffi::Object, Default)]
 pub struct LiveViewClientBuilder {
     config: Mutex<LiveViewClientConfiguration>,
 }

@@ -28,12 +28,12 @@ pub enum Platform {
     Other(String),
 }
 
-impl ToString for Platform {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Platform {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Platform::Swiftui => SWIFTUI.into(),
-            Platform::Jetpack => JETPACK.into(),
-            Platform::Other(o) => o.clone(),
+            Platform::Swiftui => f.write_str(SWIFTUI),
+            Platform::Jetpack => f.write_str(JETPACK),
+            Platform::Other(o) => f.write_str(o),
         }
     }
 }
@@ -50,16 +50,12 @@ impl From<String> for Platform {
 
 impl Default for Platform {
     fn default() -> Self {
-        #[cfg(target_vendor = "apple")]
-        {
+        // this could be cfg blocks but clippy complains
+        if cfg!(target_vendor = "apple") {
             Platform::Swiftui
-        }
-        #[cfg(target_os = "android")]
-        {
+        } else if cfg!(target_os = "android") {
             Platform::Jetpack
-        }
-        #[cfg(not(any(target_vendor = "apple", target_os = "android")))]
-        {
+        } else {
             Platform::Other("undefined_format".to_string())
         }
     }

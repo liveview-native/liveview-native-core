@@ -94,11 +94,11 @@ impl LiveViewClientInner {
         Ok(Self {
             config,
             http_client,
+            socket,
+            session_data,
             nav_ctx: nav_ctx.into(),
-            socket: socket.into(),
             liveview_channel: liveview_channel.into(),
             livereload_channel: livereload_channel.into(),
-            session_data: session_data.into(),
         })
     }
 
@@ -152,7 +152,6 @@ impl LiveViewClientInner {
         set_log_level(level)
     }
 }
-/// Navigation related api.
 
 impl LiveViewClientInner {
     const RETRY_REASONS: &[&str] = &["stale", "unauthorized"];
