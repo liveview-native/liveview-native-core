@@ -1,9 +1,11 @@
 mod ffi;
 
-use super::socket::LiveSocket;
+use std::sync::Arc;
+
 pub use ffi::*;
 use reqwest::Url;
-use std::sync::Arc;
+
+use super::socket::LiveSocket;
 
 #[derive(Clone, Default)]
 struct HandlerInternal(pub Option<Arc<dyn NavEventHandler>>);
