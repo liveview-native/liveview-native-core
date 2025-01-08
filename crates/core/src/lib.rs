@@ -4,8 +4,10 @@ pub mod client;
 mod callbacks;
 pub mod diff;
 pub mod dom;
-mod error;
+
 pub mod parser;
+
+mod error;
 
 #[cfg(feature = "liveview-channels")]
 pub mod live_socket;
