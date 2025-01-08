@@ -57,6 +57,13 @@ pub struct NavHistoryEntry {
     pub state: Option<Vec<u8>>,
 }
 
+impl NavHistoryEntry {
+    /// Create a new navigation history entry
+    pub fn new(url: String, id: HistoryId, state: Option<Vec<u8>>) -> Self {
+        Self { url, id, state }
+    }
+}
+
 /// An event emitted when the user navigates between views.
 #[derive(uniffi::Record, Clone, Debug, PartialEq)]
 pub struct NavEvent {

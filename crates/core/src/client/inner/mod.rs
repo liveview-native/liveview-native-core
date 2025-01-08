@@ -1,6 +1,7 @@
 mod channel_init;
 mod cookie_store;
 mod logging;
+mod navigation;
 
 use std::sync::{Arc, Mutex};
 
@@ -8,6 +9,7 @@ use channel_init::*;
 use cookie_store::PersistentCookieStore;
 use log::debug;
 use logging::*;
+use navigation::NavCtx;
 use phoenix_channels_client::{Payload, Socket, SocketStatus, JSON};
 use reqwest::{redirect::Policy, Client, Url};
 
@@ -16,10 +18,7 @@ use crate::{
     callbacks::*,
     dom::Document,
     error::LiveSocketError,
-    live_socket::{
-        navigation::{NavCtx, NavOptions},
-        ConnectOpts, LiveChannel, SessionData,
-    },
+    live_socket::{navigation::NavOptions, ConnectOpts, LiveChannel, SessionData},
 };
 
 pub struct LiveViewClientInner {

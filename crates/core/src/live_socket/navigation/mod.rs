@@ -36,16 +36,6 @@ pub struct NavCtx {
     navigation_event_handler: HandlerInternal,
 }
 
-impl NavHistoryEntry {
-    pub fn new(url: Url, id: HistoryId, state: Option<Vec<u8>>) -> Self {
-        Self {
-            url: url.to_string(),
-            id,
-            state,
-        }
-    }
-}
-
 impl NavCtx {
     /// Navigate to `url` with behavior and metadata specified in `opts`.
     /// Returns the current history ID if changed
