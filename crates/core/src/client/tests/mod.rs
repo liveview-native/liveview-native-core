@@ -178,10 +178,7 @@ async fn test_back_and_forward_navigation() {
 </VStack>"#;
     assert_doc_eq!(expected, doc.to_string());
 
-    // Test forward navigation
-    assert!(client
-        .can_go_forward()
-        .expect("Failed to check forward navigation"));
+    assert!(client.can_go_forward(), "Forward navigation impossible");
     client
         .forward(None)
         .await
