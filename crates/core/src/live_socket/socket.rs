@@ -21,7 +21,6 @@ use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{ffi::Document as FFiDocument, AttributeName, Document, ElementName, Selector},
     error::LiveSocketError,
-    parser::parse,
 };
 
 #[macro_export]
@@ -465,7 +464,7 @@ impl LiveSocket {
             return Err(LiveSocketError::ConnectionError(resp_text));
         }
 
-        let dead_render = parse(&resp_text)?;
+        let dead_render = Document::parse(&resp_text)?;
         trace!("document:\n{dead_render}\n\n\n");
         Ok((dead_render, cookies, url, headers))
     }
@@ -643,7 +642,7 @@ impl LiveSocket {
                     trace!("root diff: {root:#?}");
                     let root: Root = root.try_into()?;
                     let rendered: String = root.clone().try_into()?;
-                    let mut document = crate::parser::parse(&rendered)?;
+                    let mut document = Document::parse(&rendered)?;
                     document.fragment_template = Some(root);
                     Some(document)
                 } else {

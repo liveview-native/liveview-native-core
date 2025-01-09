@@ -10,8 +10,6 @@ mod callbacks;
 pub mod diff;
 pub mod dom;
 
-pub mod parser;
-
 mod error;
 
 #[cfg(feature = "liveview-channels")]

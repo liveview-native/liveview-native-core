@@ -10,7 +10,6 @@ use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{ffi::Document as FFiDocument, AttributeName, AttributeValue, Document, Selector},
     error::*,
-    parser::parse,
 };
 
 #[derive(uniffi::Object)]
@@ -96,7 +95,7 @@ impl LiveChannel {
                     let root: RootDiff = serde_json::from_str(rendered.as_str())?;
                     let root: Root = root.try_into()?;
                     let root: String = root.try_into()?;
-                    let document = parse(&root)?;
+                    let document = Document::parse(&root)?;
 
                     Some(document)
                 } else {

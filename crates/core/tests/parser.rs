@@ -1,11 +1,11 @@
 use liveview_native_core::{
-    dom::{AttributeName, NodeData},
-    parser, InternedString,
+    dom::{AttributeName, Document, NodeData},
+    InternedString,
 };
 
 #[test]
 fn parser_simple() {
-    let result = parser::parse("<html lang=\"en\"><head><meta charset=\"utf-8\"/><meta name=\"title\" content=\"Test\"/></head><body><a href=\"about:blank\">Hello World!</a></body></html>");
+    let result = Document::parse("<html lang=\"en\"><head><meta charset=\"utf-8\"/><meta name=\"title\" content=\"Test\"/></head><body><a href=\"about:blank\">Hello World!</a></body></html>");
     assert!(result.is_ok());
     let document = result.unwrap();
     let root = document.root();
@@ -22,7 +22,7 @@ fn parser_simple() {
 
 #[test]
 fn parser_whitespace_handling() {
-    let result = parser::parse(
+    let result = Document::parse(
         r#"
 <html lang="en">
     <head>
@@ -55,7 +55,7 @@ fn parser_whitespace_handling() {
 
 #[test]
 fn parser_preserve_upcase() {
-    let result = parser::parse("<Component id=5><SubComponent id=7><a href=\"about:blank\">Hello World!</a></SubComponent></Component>");
+    let result = Document::parse("<Component id=5><SubComponent id=7><a href=\"about:blank\">Hello World!</a></SubComponent></Component>");
     assert!(result.is_ok());
     let document = result.unwrap();
     let root = document.root();

@@ -11,7 +11,7 @@ pub use super::{
 use crate::{
     callbacks::*,
     diff::{fragment::RenderError, PatchResult},
-    parser::ParseError,
+    dom::parser::ParseError,
 };
 
 #[derive(Clone, uniffi::Object)]

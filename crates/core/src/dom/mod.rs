@@ -1,6 +1,7 @@
 mod attribute;
 pub mod ffi;
 mod node;
+mod parser;
 mod printer;
 mod select;
 
@@ -23,6 +24,7 @@ use self::printer::Printer;
 pub use self::{
     attribute::{Attribute, AttributeName, AttributeValue},
     node::{Element, ElementName, NodeData, NodeRef},
+    parser::ParseError,
     printer::PrintOptions,
     select::{SelectionIter, Selector},
 };
@@ -32,7 +34,6 @@ use crate::{
         fragment::{FragmentMerge, RenderError, Root, RootDiff},
         PatchResult,
     },
-    parser,
 };
 
 /// A `Document` represents a virtual DOM, and supports common operations typically performed against them.
@@ -530,7 +531,7 @@ impl Document {
         let fragment: RootDiff = serde_json::from_str(&input).map_err(RenderError::from)?;
         let root: Root = fragment.try_into()?;
         let rendered: String = root.clone().try_into()?;
-        let mut document = crate::parser::parse(&rendered)?;
+        let mut document = crate::dom::parser::parse(&rendered)?;
         document.fragment_template = Some(root);
         Ok(document)
     }

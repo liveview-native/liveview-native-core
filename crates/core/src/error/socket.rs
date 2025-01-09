@@ -6,7 +6,7 @@ use phoenix_channels_client::{
 
 use crate::{
     diff::fragment::{MergeError, RenderError},
-    parser::ParseError,
+    dom::ParseError,
 };
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]

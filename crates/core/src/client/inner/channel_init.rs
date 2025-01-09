@@ -14,6 +14,7 @@ use crate::{
 const LVN_VSN: &str = "2.0.0";
 const LVN_VSN_KEY: &str = "vsn";
 
+/// TODO: Post refactor turn this into a private constructor on a LiveChannel
 pub async fn join_liveview_channel(
     config: &LiveViewClientConfiguration,
     socket: &Mutex<Arc<Socket>>,
@@ -45,7 +46,7 @@ pub async fn join_liveview_channel(
                 trace!("root diff: {root:#?}");
                 let root: Root = root.try_into()?;
                 let rendered: String = root.clone().try_into()?;
-                let mut document = crate::parser::parse(&rendered)?;
+                let mut document = Document::parse(&rendered)?;
                 document.fragment_template = Some(root);
                 Some(document)
             } else {
