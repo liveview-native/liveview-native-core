@@ -1,4 +1,8 @@
-use crate::{client::LiveViewClientConfiguration, dom::Document, LiveViewClient};
+use crate::{
+    client::{LiveViewClientConfiguration, Platform},
+    dom::Document,
+    LiveViewClient,
+};
 
 macro_rules! assert_doc_eq {
     ($gold:expr, $test:expr) => {
@@ -17,7 +21,8 @@ const HOST: &str = "127.0.0.1:4001";
 #[tokio::test]
 async fn test_basic_connection() {
     let url = format!("http://{HOST}/hello");
-    let config = LiveViewClientConfiguration::default();
+    let mut config = LiveViewClientConfiguration::default();
+    config.format = Platform::Swiftui;
     let client = LiveViewClient::initial_connect(config, url)
         .await
         .expect("Failed to create client");
@@ -38,7 +43,8 @@ async fn test_basic_connection() {
 #[tokio::test]
 async fn test_style_urls() {
     let url = format!("http://{HOST}/hello");
-    let config = LiveViewClientConfiguration::default();
+    let mut config = LiveViewClientConfiguration::default();
+    config.format = Platform::Swiftui;
 
     let client = LiveViewClient::initial_connect(config, url)
         .await
@@ -54,7 +60,9 @@ async fn test_style_urls() {
 #[tokio::test]
 async fn test_basic_navigation() {
     let url = format!("http://{HOST}/nav/first_page");
-    let config = LiveViewClientConfiguration::default();
+    let mut config = LiveViewClientConfiguration::default();
+    config.format = Platform::Swiftui;
+
     let client = LiveViewClient::initial_connect(config, url)
         .await
         .expect("Failed to create client");
