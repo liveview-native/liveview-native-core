@@ -1,5 +1,5 @@
 mod config;
-mod inner;
+pub(crate) mod inner;
 
 #[cfg(test)]
 mod tests;
