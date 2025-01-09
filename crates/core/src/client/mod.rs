@@ -19,7 +19,7 @@ use crate::{
     callbacks::*,
     dom::ffi::{self},
     error::LiveSocketError,
-    live_socket::{navigation::NavOptions, ConnectOpts, LiveChannel, Method},
+    live_socket::{navigation::NavOptions, ConnectOpts, LiveChannel, LiveFile, Method},
 };
 
 #[derive(uniffi::Object, Default)]
@@ -126,8 +126,21 @@ impl LiveViewClient {
         Ok(())
     }
 
-    pub async fn post_form(&self, form: Form, url: String) -> Result<(), LiveSocketError> {
-        let form_data = serde_urlencoded::to_string(form.fields)?;
+    pub async fn upload_files(&self, files: Vec<Arc<LiveFile>>) -> Result<(), LiveSocketError> {
+        let chan = self.inner.channel()?;
+        let futs = files.iter().map(|file| chan.upload_file(file));
+
+        try_join_all(futs).await?;
+
+        Ok(())
+    }
+
+    pub async fn post_form(
+        &self,
+        form: HashMap<String, String>,
+        url: String,
+    ) -> Result<(), LiveSocketError> {
+        let form_data = serde_urlencoded::to_string(form)?;
 
         let mut headers = HashMap::new();
         headers.insert(
@@ -139,16 +152,10 @@ impl LiveViewClient {
             headers: Some(headers),
             body: Some(form_data),
             method: Some(Method::Post),
-            timeout_ms: 30_000, // Actually unused
+            timeout_ms: 30_000, // Actually unused, should remove at one point
         };
 
         self.inner.reconnect(url, opts).await?;
-
-        let chan = self.inner.channel()?;
-        let futs = form.files.iter().map(|file| chan.upload_file(file));
-
-        try_join_all(futs).await?;
-
         Ok(())
     }
 }

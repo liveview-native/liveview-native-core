@@ -1,3 +1,5 @@
+mod upload;
+
 use crate::{
     client::{LiveViewClientConfiguration, Platform},
     dom::Document,

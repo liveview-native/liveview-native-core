@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use channel_init::*;
 use cookie_store::PersistentCookieStore;
+use futures::future::try_join_all;
 use log::debug;
 use logging::*;
 use navigation::NavCtx;
@@ -19,7 +20,7 @@ use crate::{
     callbacks::*,
     dom::{ffi::Document as FFIDocument, Document},
     error::LiveSocketError,
-    live_socket::{navigation::NavOptions, ConnectOpts, LiveChannel, SessionData},
+    live_socket::{navigation::NavOptions, ConnectOpts, LiveChannel, LiveFile, SessionData},
 };
 
 pub struct LiveViewClientInner {
@@ -301,6 +302,14 @@ impl LiveViewClientInner {
         let url = Url::parse(&url)?;
         self.try_nav_outer(|ctx| ctx.navigate(url, opts, true))
             .await
+    }
+
+    pub async fn upload_files(&self, files: Vec<Arc<LiveFile>>) -> Result<(), LiveSocketError> {
+        let chan = self.channel()?;
+        let futs = files.iter().map(|file| chan.upload_file(file));
+        try_join_all(futs).await?;
+
+        Ok(())
     }
 
     pub async fn reload(&self, info: Option<Vec<u8>>) -> Result<(), LiveSocketError> {

@@ -57,12 +57,6 @@ impl Default for Platform {
     }
 }
 
-#[derive(uniffi::Record, Clone)]
-pub struct Form {
-    pub fields: HashMap<String, String>,
-    pub files: Vec<Arc<LiveFile>>,
-}
-
 #[derive(Clone)]
 pub struct LiveViewClientConfiguration {
     /// Provides a way to store persistent state between sessions. Used for cookies and potentially persistent settings.
