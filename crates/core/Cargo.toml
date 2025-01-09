@@ -26,6 +26,7 @@ liveview-channels = [
     "uniffi/tokio",
     "cookie_store",
     "reqwest_cookie_store",
+    "tokio",
 ]
 liveview-channels-tls = [
     "liveview-channels",
@@ -66,6 +67,8 @@ cookie_store = { version = "0.21.1", default-features = false, optional = true }
 reqwest_cookie_store = { version = "0.8.0", default-features = false, optional = true }
 env_logger = "0.11.1"
 uniffi = { workspace = true }
+
+tokio = { version = "1.42", features = ["full"], optional = true }
 phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client.git", branch = "main", optional = true, default-features = false }
 # This is for wasm support on phoenix-channels-client
 #phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client.git", branch = "simlay/webassembly-support", optional = true, default-features = false }
@@ -78,7 +81,6 @@ paste = { version = "1.0" }
 pretty_assertions = { version = "1.4.0" }
 text-diff = { version = "0.4.0" }
 uniffi = { workspace = true, features = ["bindgen-tests", "tokio"] }
-tokio = { version = "1.42", features = ["full"] }
 
 # For image generation for tests
 image = "0.25.1"

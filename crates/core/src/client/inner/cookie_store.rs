@@ -14,10 +14,6 @@ pub struct PersistentCookieStore {
 
 impl PersistentCookieStore {
     pub fn new(persistent_store: Option<Arc<dyn SecurePersistentStore>>) -> Self {
-        if persistent_store.is_none() {
-            warn!("No persistent store provided - cookies will not be persisted");
-        }
-
         let cookie_store = if let Some(store) = &persistent_store {
             if let Some(binary_json) = store.get(COOKIE_STORE_KEY.to_owned()) {
                 match cookie_store::serde::json::load(binary_json.as_slice()) {

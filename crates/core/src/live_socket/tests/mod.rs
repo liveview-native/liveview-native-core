@@ -92,7 +92,6 @@ async fn channels_drop_on_shutdown() {
         .join_liveview_channel(None, None)
         .await
         .expect("Failed to join channel");
-
     let chan_clone = live_channel.channel().clone();
     let handle = tokio::spawn(async move {
         live_channel

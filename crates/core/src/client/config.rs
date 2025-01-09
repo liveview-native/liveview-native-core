@@ -63,7 +63,7 @@ pub struct Form {
     pub files: Vec<Arc<LiveFile>>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct LiveViewClientConfiguration {
     /// Provides a way to store persistent state between sessions. Used for cookies and potentially persistent settings.
     pub persistence_provider: Option<Arc<dyn SecurePersistentStore>>,
@@ -83,6 +83,24 @@ pub struct LiveViewClientConfiguration {
     pub format: Platform,
     /// The additional parameters passed to the live channel on join
     pub join_params: Option<HashMap<String, JSON>>,
+}
+
+impl Default for LiveViewClientConfiguration {
+    fn default() -> Self {
+        const DEAD_RENDER_TIMEOUT_MS: u64 = 30_000;
+        const WEBSOCKET_TIMEOUT_MS: u64 = 5_000;
+
+        Self {
+            persistence_provider: None,
+            patch_handler: None,
+            navigation_handler: None,
+            log_level: LogLevel::Info,
+            dead_render_timeout: DEAD_RENDER_TIMEOUT_MS,
+            websocket_timeout: WEBSOCKET_TIMEOUT_MS,
+            format: Platform::default(),
+            join_params: None,
+        }
+    }
 }
 
 impl std::fmt::Debug for LiveViewClientConfiguration {

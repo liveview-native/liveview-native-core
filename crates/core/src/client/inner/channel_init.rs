@@ -72,6 +72,7 @@ pub async fn join_livereload_channel(
     config: &LiveViewClientConfiguration,
     socket: &Mutex<Arc<Socket>>,
     session_data: &Mutex<SessionData>,
+    cookies: Option<Vec<String>>,
 ) -> Result<Arc<LiveChannel>, LiveSocketError> {
     let ws_timeout = std::time::Duration::from_millis(config.websocket_timeout);
 
@@ -90,16 +91,11 @@ pub async fn join_livereload_channel(
     url.set_path("phoenix/live_reload/socket/websocket");
     url.query_pairs_mut().append_pair(LVN_VSN_KEY, LVN_VSN);
 
-    // TODO: get these out of the client
-    let cookies = session_data.try_lock()?.cookies.clone();
-
-    // TODO: Reuse the socket from before? why are we mixing sockets here?
-    let new_socket = Socket::spawn(url.clone(), Some(cookies)).await?;
+    let new_socket = Socket::spawn(url.clone(), cookies).await?;
     new_socket.connect(ws_timeout).await?;
 
     debug!("Joining live reload channel on url {url}");
-    let socket = socket.try_lock()?.clone();
-    let channel = socket
+    let channel = new_socket
         .channel(Topic::from_string("phoenix:live_reload".to_string()), None)
         .await?;
 
@@ -111,7 +107,9 @@ pub async fn join_livereload_channel(
         channel,
         join_params: Default::default(),
         join_payload,
-        socket, // TODO: this field is prone to memory leakage
+        // Q: I copy pasted this from the old implementation,
+        // why use the old socket ?
+        socket: socket.try_lock()?.clone(),
         document: document.into(),
         timeout: ws_timeout,
     }

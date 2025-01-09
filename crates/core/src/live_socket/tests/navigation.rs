@@ -50,7 +50,7 @@ impl NavigationInspector {
 
 impl NavEvent {
     // utility function so I can sugar out boiler plate code in tests.
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         Self {
             to: NavHistoryEntry {
                 url: String::new(),

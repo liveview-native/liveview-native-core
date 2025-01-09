@@ -23,7 +23,8 @@ pub fn init_log(level: LogLevel) {
     INIT_LOG.call_once(|| {
         let env = Env::default();
         let mut builder = Builder::from_env(env);
-        builder
+        let _ = builder
+            .is_test(cfg!(test))
             .format(|buf, record| {
                 if record.level() == log::Level::Error {
                     writeln!(
@@ -46,8 +47,7 @@ pub fn init_log(level: LogLevel) {
                 }
             })
             .filter(None, level.into())
-            .try_init()
-            .expect("LOG INITIALIZATION FAILED");
+            .try_init();
     });
 }
 

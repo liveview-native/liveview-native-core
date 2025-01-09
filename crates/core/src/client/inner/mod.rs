@@ -11,12 +11,13 @@ use log::debug;
 use logging::*;
 use navigation::NavCtx;
 use phoenix_channels_client::{Payload, Socket, SocketStatus, JSON};
-use reqwest::{redirect::Policy, Client, Url};
+use reqwest::{cookie::CookieStore, redirect::Policy, Client, Url};
+use tokio::task::JoinHandle;
 
 use super::{LiveViewClientConfiguration, LogLevel};
 use crate::{
     callbacks::*,
-    dom::Document,
+    dom::{ffi::Document as FFIDocument, Document},
     error::LiveSocketError,
     live_socket::{navigation::NavOptions, ConnectOpts, LiveChannel, SessionData},
 };
@@ -30,6 +31,8 @@ pub struct LiveViewClientInner {
     liveview_channel: Mutex<Arc<LiveChannel>>,
     livereload_channel: Mutex<Option<Arc<LiveChannel>>>,
     session_data: Mutex<SessionData>,
+    merge_task: Mutex<JoinHandle<Result<(), LiveSocketError>>>,
+    cookie_store: Arc<PersistentCookieStore>,
 }
 
 impl LiveViewClientInner {
@@ -42,10 +45,11 @@ impl LiveViewClientInner {
         debug!("Initializing LiveViewClient.");
         debug!("Configuration: {config:?}");
 
-        let cookie_store = PersistentCookieStore::new(config.persistence_provider.clone());
+        let cookie_store: Arc<_> =
+            PersistentCookieStore::new(config.persistence_provider.clone()).into();
 
         let http_client = Client::builder()
-            .cookie_provider(Arc::new(cookie_store))
+            .cookie_provider(cookie_store.clone())
             .redirect(Policy::none())
             .build()
             .expect("Failed to build HTTP client");
@@ -57,14 +61,24 @@ impl LiveViewClientInner {
         let session_data =
             SessionData::request(&url, &format, Default::default(), http_client.clone()).await?;
 
+        let cookies = cookie_store.cookies(&url).map(|header| {
+            header
+                .to_str()
+                .unwrap_or_default()
+                .split("; ")
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        });
+
+        let websocket_url = session_data.get_live_socket_url()?;
+
+        // TODO: remove cookies from session data
+        //let cookies = session_data.cookies.clone();
+
         let session_data = Mutex::new(session_data);
 
-        let websocket_url = session_data.try_lock()?.get_live_socket_url()?;
-
-        let cookies = session_data.try_lock()?.cookies.clone();
-
-        debug!("Initiating Websocket connection: {websocket_url:?}");
-        let socket = Socket::spawn(websocket_url, Some(cookies)).await?;
+        log::info!("Initiating Websocket connection: {websocket_url:?} , cookies: {cookies:?}");
+        let socket = Socket::spawn(websocket_url, cookies.clone()).await?;
         let socket = Mutex::new(socket);
 
         debug!("Joining liveview Channel");
@@ -76,9 +90,12 @@ impl LiveViewClientInner {
                 .arc_set_event_handler(handler.clone())
         }
 
+        let chan_clone = liveview_channel.clone();
+        let merge_task = tokio::task::spawn(async move { chan_clone.merge_diffs().await });
+
         let livereload_channel = if session_data.try_lock()?.has_live_reload {
             debug!("Joining liveReload Channel");
-            join_livereload_channel(&config, &socket, &session_data)
+            join_livereload_channel(&config, &socket, &session_data, cookies)
                 .await?
                 .into()
         } else {
@@ -100,6 +117,8 @@ impl LiveViewClientInner {
             nav_ctx: nav_ctx.into(),
             liveview_channel: liveview_channel.into(),
             livereload_channel: livereload_channel.into(),
+            merge_task: merge_task.into(),
+            cookie_store,
         })
     }
 
@@ -116,10 +135,18 @@ impl LiveViewClientInner {
         .await?;
 
         let websocket_url = new_session.get_live_socket_url()?;
-        let cookies = new_session.cookies.clone();
+
+        let cookies = self.cookie_store.cookies(&url).map(|header| {
+            header
+                .to_str()
+                .unwrap_or_default()
+                .split("; ")
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        });
 
         debug!("Initiating new websocket connection: {websocket_url:?}");
-        let socket = Socket::spawn(websocket_url, Some(cookies)).await?;
+        let socket = Socket::spawn(websocket_url, cookies.clone()).await?;
 
         let old_socket = self.socket.try_lock()?.clone();
         let _ = old_socket.disconnect().await;
@@ -135,6 +162,10 @@ impl LiveViewClientInner {
             new_channel.document.arc_set_event_handler(handler.clone());
         }
 
+        let chan_clone = new_channel.clone();
+        let merge_task = tokio::task::spawn(async move { chan_clone.merge_diffs().await });
+        *self.merge_task.try_lock()? = merge_task;
+
         let old_channel = self.liveview_channel.try_lock()?.channel.clone();
         old_channel.leave().await?;
         *self.liveview_channel.try_lock()? = new_channel;
@@ -142,7 +173,8 @@ impl LiveViewClientInner {
         if self.session_data.try_lock()?.has_live_reload {
             debug!("Rejoining livereload channel");
             let new_livereload =
-                join_livereload_channel(&self.config, &self.socket, &self.session_data).await?;
+                join_livereload_channel(&self.config, &self.socket, &self.session_data, cookies)
+                    .await?;
             *self.livereload_channel.try_lock()? = Some(new_livereload);
         }
 
@@ -230,6 +262,10 @@ impl LiveViewClientInner {
                         .document
                         .arc_set_event_handler(event_handler.clone())
                 }
+
+                let chan_clone = channel.clone();
+                let merge_task = tokio::task::spawn(async move { chan_clone.merge_diffs().await });
+                *self.merge_task.try_lock()? = merge_task;
 
                 *self.liveview_channel.try_lock()? = channel;
                 Ok(())
@@ -358,6 +394,14 @@ impl LiveViewClientInner {
 
     pub fn csrf_token(&self) -> Result<String, LiveSocketError> {
         Ok(self.session_data.try_lock()?.csrf_token.clone())
+    }
+
+    pub fn document(&self) -> Result<FFIDocument, LiveSocketError> {
+        Ok(self.liveview_channel.try_lock()?.document())
+    }
+
+    pub fn join_document(&self) -> Result<Document, LiveSocketError> {
+        self.liveview_channel.try_lock()?.join_document()
     }
 
     pub fn dead_render(&self) -> Result<Document, LiveSocketError> {
