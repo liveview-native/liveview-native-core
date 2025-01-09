@@ -72,9 +72,6 @@ impl LiveViewClientInner {
 
         let websocket_url = session_data.get_live_socket_url()?;
 
-        // TODO: remove cookies from session data
-        //let cookies = session_data.cookies.clone();
-
         let session_data = Mutex::new(session_data);
 
         log::info!("Initiating Websocket connection: {websocket_url:?} , cookies: {cookies:?}");
