@@ -17,10 +17,7 @@ use reqwest::header::CONTENT_TYPE;
 
 use crate::{
     callbacks::*,
-    dom::{
-        ffi::{self},
-        DocumentChangeHandler,
-    },
+    dom::ffi::{self},
     error::LiveSocketError,
     live_socket::{navigation::NavOptions, ConnectOpts, LiveChannel, Method},
 };

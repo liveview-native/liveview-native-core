@@ -3,14 +3,13 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use super::ChangeType;
 pub use super::{
     attribute::Attribute,
     node::{Node, NodeData, NodeRef},
     printer::PrintOptions,
-    DocumentChangeHandler,
 };
 use crate::{
+    callbacks::*,
     diff::{fragment::RenderError, PatchResult},
     parser::ParseError,
 };

@@ -27,6 +27,7 @@ pub use self::{
     select::{SelectionIter, Selector},
 };
 use crate::{
+    callbacks::DocumentChangeHandler,
     diff::{
         fragment::{FragmentMerge, RenderError, Root, RootDiff},
         PatchResult,
@@ -613,73 +614,6 @@ impl Document {
         .flatten()
         .or(meta_csrf_token)
     }
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, uniffi::Enum)]
-pub enum ChangeType {
-    Change = 0,
-    Add = 1,
-    Remove = 2,
-    Replace = 3,
-}
-
-#[derive(Copy, Clone, uniffi::Enum)]
-pub enum EventType {
-    Changed, // { change: ChangeType },
-}
-
-#[derive(Clone, uniffi::Enum)]
-pub enum ControlFlow {
-    ExitOk,
-    ExitErr(String),
-    ContinueListening,
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq, uniffi::Enum)]
-pub enum LiveChannelStatus {
-    /// [Channel] is waiting for the [Socket](crate::Socket) to
-    /// [Socket::connect](crate::Socket::connect) or automatically reconnect.
-    WaitingForSocketToConnect,
-    /// [Socket::status](crate::Socket::status) is
-    /// [SocketStatus::Connected](crate::SocketStatus::Connected) and [Channel] is waiting for
-    /// [Channel::join] to be called.
-    WaitingToJoin,
-    /// [Channel::join] was called and awaiting response from server.
-    Joining,
-    /// [Channel::join] was called previously, but the [Socket](crate::Socket) was disconnected and
-    /// reconnected.
-    WaitingToRejoin,
-    /// [Channel::join] was called and the server responded that the [Channel::topic] was joined
-    /// using [Channel::payload].
-    Joined,
-    /// [Channel::leave] was called and awaiting response from server.
-    Leaving,
-    /// [Channel::leave] was called and the server responded that the [Channel::topic] was left.
-    Left,
-    /// [Channel::shutdown] was called, but the async task hasn't exited yet.
-    ShuttingDown,
-    /// The async task has exited.
-    ShutDown,
-}
-
-/// Implements the change handling logic for inbound virtual dom
-/// changes. Your logic for handling document patches should go here.
-#[uniffi::export(callback_interface)]
-pub trait DocumentChangeHandler: Send + Sync {
-    /// This callback should implement your dom manipulation logic
-    /// after receiving patches from LVN.
-    fn handle_document_change(
-        &self,
-        change_type: ChangeType,
-        node_ref: Arc<NodeRef>,
-        node_data: NodeData,
-        parent: Option<Arc<NodeRef>>,
-    );
-
-    /// Called when the channel status changes. Background operations like [LiveChannel::merge_diffs]
-    /// will exit with a status based on the return [ControlFlow] of this callback.
-    fn handle_channel_status(&self, channel_status: LiveChannelStatus) -> ControlFlow;
 }
 
 /// This trait is used to provide functionality common to construction/mutating documents

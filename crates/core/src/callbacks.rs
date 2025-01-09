@@ -1,3 +1,7 @@
+use std::sync::Arc;
+
+use crate::dom::{NodeData, NodeRef};
+
 /// Provides secure persistent storage for session data like cookies.
 /// Implementations should handle platform-specific storage (e.g. NSUserDefaults on iOS)
 /// and ensure data is stored securely as some of it may be session tokens.
@@ -77,4 +81,72 @@ pub struct NavEvent {
     pub to: NavHistoryEntry,
     /// Additional user provided metadata handed to the event handler.
     pub info: Option<Vec<u8>>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, uniffi::Enum)]
+pub enum LiveChannelStatus {
+    /// [Channel] is waiting for the [Socket](crate::Socket) to
+    /// [Socket::connect](crate::Socket::connect) or automatically reconnect.
+    WaitingForSocketToConnect,
+    /// [Socket::status](crate::Socket::status) is
+    /// [SocketStatus::Connected](crate::SocketStatus::Connected) and [Channel] is waiting for
+    /// [Channel::join] to be called.
+    WaitingToJoin,
+    /// [Channel::join] was called and awaiting response from server.
+    Joining,
+    /// [Channel::join] was called previously, but the [Socket](crate::Socket) was disconnected and
+    /// reconnected.
+    WaitingToRejoin,
+    /// [Channel::join] was called and the server responded that the [Channel::topic] was joined
+    /// using [Channel::payload].
+    Joined,
+    /// [Channel::leave] was called and awaiting response from server.
+    Leaving,
+    /// [Channel::leave] was called and the server responded that the [Channel::topic] was left.
+    Left,
+    /// [Channel::shutdown] was called, but the async task hasn't exited yet.
+    ShuttingDown,
+    /// The async task has exited.
+    ShutDown,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, uniffi::Enum)]
+pub enum ChangeType {
+    Change = 0,
+    Add = 1,
+    Remove = 2,
+    Replace = 3,
+}
+
+#[derive(Copy, Clone, uniffi::Enum)]
+pub enum EventType {
+    Changed, // { change: ChangeType },
+}
+
+#[derive(Clone, uniffi::Enum)]
+pub enum ControlFlow {
+    ExitOk,
+    ExitErr(String),
+    ContinueListening,
+}
+
+/// Implements the change handling logic for inbound virtual dom
+/// changes. Your logic for handling document patches should go here.
+#[uniffi::export(callback_interface)]
+pub trait DocumentChangeHandler: Send + Sync {
+    /// This callback should implement your dom manipulation logic
+    /// after receiving patches from LVN.
+    fn handle_document_change(
+        &self,
+        change_type: ChangeType,
+        node_ref: Arc<NodeRef>,
+        node_data: NodeData,
+        parent: Option<Arc<NodeRef>>,
+    );
+
+    /// Called when the channel status changes. Background operations like [LiveChannel::merge_diffs]
+    /// will exit with a status based on the return [ControlFlow] of this callback.
+    /// TODO: this should be deprecated after core takes responsibility for channel clean up
+    fn handle_channel_status(&self, channel_status: LiveChannelStatus) -> ControlFlow;
 }

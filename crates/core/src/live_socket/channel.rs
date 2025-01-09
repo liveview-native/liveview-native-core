@@ -6,11 +6,9 @@ use phoenix_channels_client::{Channel, Event, Number, Payload, Socket, Topic, JS
 
 use super::UploadConfig;
 use crate::{
+    callbacks::*,
     diff::fragment::{Root, RootDiff},
-    dom::{
-        ffi::{Document as FFiDocument, DocumentChangeHandler},
-        AttributeName, AttributeValue, Document, LiveChannelStatus, Selector,
-    },
+    dom::{ffi::Document as FFiDocument, AttributeName, AttributeValue, Document, Selector},
     error::*,
     parser::parse,
 };
@@ -211,9 +209,9 @@ impl LiveChannel {
 
                    if let Some(handler) = handler {
                        match handler.handle_channel_status(new_status?.into()) {
-                           crate::dom::ControlFlow::ExitOk => return Ok(()),
-                           crate::dom::ControlFlow::ExitErr(error) => return Err(LiveSocketError::ChannelStatusUserError { error }),
-                           crate::dom::ControlFlow::ContinueListening => {},
+                           crate::callbacks::ControlFlow::ExitOk => return Ok(()),
+                           crate::callbacks::ControlFlow::ExitErr(error) => return Err(LiveSocketError::ChannelStatusUserError { error }),
+                           crate::callbacks::ControlFlow::ContinueListening => {},
                         };
                    }  else {
                        match new_status? {
