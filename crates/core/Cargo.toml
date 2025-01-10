@@ -67,7 +67,7 @@ paste = { version = "1.0" }
 pretty_assertions = { version = "1.4.0" }
 text-diff = { version = "0.4.0" }
 uniffi = { workspace = true, features = ["bindgen-tests", "tokio"] }
-tokio = { version = "1.42", features = ["full"] }
+tokio = { version = "1.43", features = ["full"] }
 env_logger = "0.11.1"
 
 # For image generation for tests
