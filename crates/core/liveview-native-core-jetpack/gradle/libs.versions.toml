@@ -1,5 +1,5 @@
 [versions]
-android-gradle-plugin = "8.7.0"
+android-gradle-plugin = "8.8.0"
 jna = "5.16.0"
 kotlinx-coroutines = "1.10.0"
 androidx-test-ext = "1.2.1"
