@@ -41,6 +41,16 @@ impl PersistentCookieStore {
             persistent_store,
         }
     }
+    pub fn get_cookie_list(&self, url: &Url) -> Option<Vec<String>> {
+        self.cookies(&url).map(|header| {
+            header
+                .to_str()
+                .unwrap_or_default()
+                .split("; ")
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>()
+        })
+    }
 
     pub fn save(&self) {
         let Some(store) = &self.persistent_store else {

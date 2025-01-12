@@ -1,5 +1,6 @@
 mod channel_init;
 mod cookie_store;
+mod event_loop;
 mod logging;
 mod navigation;
 
@@ -7,13 +8,15 @@ use std::sync::{Arc, Mutex};
 
 use channel_init::*;
 use cookie_store::PersistentCookieStore;
+use event_loop::EventLoop;
+pub(crate) use event_loop::EventLoopHandle;
 use futures::future::try_join_all;
 use log::debug;
 use logging::*;
 use navigation::NavCtx;
-use phoenix_channels_client::{Payload, Socket, SocketStatus, JSON};
-use reqwest::{cookie::CookieStore, redirect::Policy, Client, Url};
-use tokio::task::JoinHandle;
+use phoenix_channels_client::{ChannelStatus, EventPayload, Payload, Socket, SocketStatus, JSON};
+use reqwest::{redirect::Policy, Client, Url};
+use tokio::sync::broadcast;
 
 use super::{LiveViewClientConfiguration, LogLevel};
 use crate::{
@@ -23,20 +26,177 @@ use crate::{
     live_socket::{navigation::NavOptions, ConnectOpts, LiveChannel, LiveFile, SessionData},
 };
 
-pub struct LiveViewClientInner {
+pub(crate) struct LiveViewClientState {
     /// Manages navigation state, events
     config: LiveViewClientConfiguration,
+    /// A book keeping context for navigation events.
     nav_ctx: Mutex<NavCtx>,
+    /// HTTP client used to request dead renders.
     http_client: Client,
     socket: Mutex<Arc<Socket>>,
+    /// The main channel which passes user interaction events
+    /// and receives changes to the "dom"
     liveview_channel: Mutex<Arc<LiveChannel>>,
+    /// In debug mode LiveView has a debug channel which sends
+    /// asset update events, this is derived from an iframe on the page
+    /// which also may be present on errored out connections.
     livereload_channel: Mutex<Option<Arc<LiveChannel>>>,
+    /// Data acquired from the dead render, should only change between
+    /// reconnects.
     session_data: Mutex<SessionData>,
-    merge_task: Mutex<JoinHandle<Result<(), LiveSocketError>>>,
+    /// Responsible for holding cookies and serializing them to disk
     cookie_store: Arc<PersistentCookieStore>,
 }
 
+pub struct LiveViewClientInner {
+    state: Arc<LiveViewClientState>,
+    event_loop: EventLoop,
+}
+
+// First implement the accessor methods on LiveViewClientInner
 impl LiveViewClientInner {
+    pub async fn initial_connect(
+        config: LiveViewClientConfiguration,
+        url: String,
+    ) -> Result<Self, LiveSocketError> {
+        let state = LiveViewClientState::initial_connect(config, url).await?;
+        let state = Arc::new(state);
+        let event_loop = EventLoop::new(state.clone());
+        Ok(Self { state, event_loop })
+    }
+
+    pub async fn reconnect(&self, url: String, opts: ConnectOpts) -> Result<(), LiveSocketError> {
+        self.state.reconnect(url, opts).await?;
+        self.event_loop.replace_livechannel();
+        Ok(())
+    }
+
+    pub async fn upload_files(&self, files: Vec<Arc<LiveFile>>) -> Result<(), LiveSocketError> {
+        let chan = self.channel()?;
+        let futs = files.iter().map(|file| chan.upload_file(file));
+        try_join_all(futs).await?;
+
+        Ok(())
+    }
+
+    pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {
+        self.state
+            .liveview_channel
+            .try_lock()?
+            .get_phx_upload_id(phx_target_name)
+    }
+
+    pub fn channel(&self) -> Result<Arc<LiveChannel>, LiveSocketError> {
+        Ok(self.state.liveview_channel.try_lock()?.clone())
+    }
+
+    // TODO: a live reload channel is distinct from a live channel in a couple important
+    // ways, it should be it's own struct.
+    pub fn live_reload_channel(&self) -> Result<Option<Arc<LiveChannel>>, LiveSocketError> {
+        Ok(self.state.livereload_channel.try_lock()?.clone())
+    }
+
+    pub fn join_url(&self) -> Result<String, LiveSocketError> {
+        Ok(self.state.session_data.try_lock()?.url.to_string())
+    }
+
+    pub fn csrf_token(&self) -> Result<String, LiveSocketError> {
+        Ok(self.state.session_data.try_lock()?.csrf_token.clone())
+    }
+
+    /// Returns the current document state.
+    pub fn document(&self) -> Result<FFIDocument, LiveSocketError> {
+        Ok(self.state.liveview_channel.try_lock()?.document())
+    }
+
+    /// Returns the state of the document upon the initial websocket connection.
+    pub fn join_document(&self) -> Result<Document, LiveSocketError> {
+        self.state.liveview_channel.try_lock()?.join_document()
+    }
+
+    /// To establish the websocket connection, the client depends on an initial HTTP
+    /// request pull an html document and extract several pieces of meta data from it.
+    /// This function returns that initial document.
+    pub fn dead_render(&self) -> Result<Document, LiveSocketError> {
+        Ok(self.state.session_data.try_lock()?.dead_render.clone())
+    }
+
+    pub fn style_urls(&self) -> Result<Vec<String>, LiveSocketError> {
+        Ok(self.state.session_data.try_lock()?.style_urls.clone())
+    }
+
+    pub fn status(&self) -> Result<SocketStatus, LiveSocketError> {
+        Ok(self.state.socket.try_lock()?.status())
+    }
+
+    pub async fn navigate(
+        &self,
+        url: String,
+        opts: NavOptions,
+    ) -> Result<HistoryId, LiveSocketError> {
+        let res = self.state.navigate(url, opts).await?;
+        self.event_loop.replace_livechannel();
+        Ok(res)
+    }
+
+    pub async fn reload(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
+        let res = self.state.reload(info).await?;
+        self.event_loop.replace_livechannel();
+        Ok(res)
+    }
+
+    pub async fn back(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
+        let res = self.state.back(info).await?;
+        self.event_loop.replace_livechannel();
+        Ok(res)
+    }
+
+    pub async fn forward(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
+        let res = self.state.forward(info).await?;
+        self.event_loop.replace_livechannel();
+        Ok(res)
+    }
+
+    pub async fn traverse_to(
+        &self,
+        id: HistoryId,
+        info: Option<Vec<u8>>,
+    ) -> Result<HistoryId, LiveSocketError> {
+        let res = self.state.traverse_to(id, info).await?;
+        self.event_loop.replace_livechannel();
+        Ok(res)
+    }
+
+    pub fn can_go_back(&self) -> bool {
+        self.state.can_go_back()
+    }
+
+    pub fn can_go_forward(&self) -> bool {
+        self.state.can_go_forward()
+    }
+
+    pub fn can_traverse_to(&self, id: HistoryId) -> bool {
+        self.state.can_traverse_to(id)
+    }
+
+    pub fn get_entries(&self) -> Vec<NavHistoryEntry> {
+        self.state.get_entries()
+    }
+
+    pub fn current(&self) -> Option<NavHistoryEntry> {
+        self.state.current()
+    }
+
+    pub(crate) fn create_event_loop_handle(&self) -> EventLoopHandle {
+        self.event_loop.create_handle()
+    }
+
+    pub fn set_log_level(&self, level: LogLevel) {
+        set_log_level(level)
+    }
+}
+
+impl LiveViewClientState {
     /// The first connection and initialization, fetches the dead render and opens the default channel.
     pub async fn initial_connect(
         config: LiveViewClientConfiguration,
@@ -62,14 +222,7 @@ impl LiveViewClientInner {
         let session_data =
             SessionData::request(&url, &format, Default::default(), http_client.clone()).await?;
 
-        let cookies = cookie_store.cookies(&url).map(|header| {
-            header
-                .to_str()
-                .unwrap_or_default()
-                .split("; ")
-                .map(|s| s.to_string())
-                .collect::<Vec<String>>()
-        });
+        let cookies = cookie_store.get_cookie_list(&url);
 
         let websocket_url = session_data.get_live_socket_url()?;
 
@@ -87,9 +240,6 @@ impl LiveViewClientInner {
                 .document
                 .arc_set_event_handler(handler.clone())
         }
-
-        let chan_clone = liveview_channel.clone();
-        let merge_task = tokio::task::spawn(async move { chan_clone.merge_diffs().await });
 
         let livereload_channel = if session_data.try_lock()?.has_live_reload {
             debug!("Joining liveReload Channel");
@@ -115,7 +265,6 @@ impl LiveViewClientInner {
             nav_ctx: nav_ctx.into(),
             liveview_channel: liveview_channel.into(),
             livereload_channel: livereload_channel.into(),
-            merge_task: merge_task.into(),
             cookie_store,
         })
     }
@@ -134,14 +283,7 @@ impl LiveViewClientInner {
 
         let websocket_url = new_session.get_live_socket_url()?;
 
-        let cookies = self.cookie_store.cookies(&url).map(|header| {
-            header
-                .to_str()
-                .unwrap_or_default()
-                .split("; ")
-                .map(|s| s.to_string())
-                .collect::<Vec<String>>()
-        });
+        let cookies = self.cookie_store.get_cookie_list(&url);
 
         debug!("Initiating new websocket connection: {websocket_url:?}");
         let socket = Socket::spawn(websocket_url, cookies.clone()).await?;
@@ -160,10 +302,7 @@ impl LiveViewClientInner {
             new_channel.document.arc_set_event_handler(handler.clone());
         }
 
-        let chan_clone = new_channel.clone();
-        let merge_task = tokio::task::spawn(async move { chan_clone.merge_diffs().await });
-        *self.merge_task.try_lock()? = merge_task;
-
+        // this lifecyle stuff is going to get finnicky
         let old_channel = self.liveview_channel.try_lock()?.channel.clone();
         old_channel.leave().await?;
         *self.liveview_channel.try_lock()? = new_channel;
@@ -178,13 +317,9 @@ impl LiveViewClientInner {
 
         Ok(())
     }
-
-    pub fn set_log_level(&self, level: LogLevel) {
-        set_log_level(level)
-    }
 }
 
-impl LiveViewClientInner {
+impl LiveViewClientState {
     const RETRY_REASONS: &[&str] = &["stale", "unauthorized"];
     async fn try_nav(&self) -> Result<(), LiveSocketError> {
         let current = self
@@ -261,10 +396,6 @@ impl LiveViewClientInner {
                         .arc_set_event_handler(event_handler.clone())
                 }
 
-                let chan_clone = channel.clone();
-                let merge_task = tokio::task::spawn(async move { chan_clone.merge_diffs().await });
-                *self.merge_task.try_lock()? = merge_task;
-
                 *self.liveview_channel.try_lock()? = channel;
                 Ok(())
             }
@@ -282,7 +413,7 @@ impl LiveViewClientInner {
         }
     }
 
-    async fn try_nav_outer<F>(&self, nav_action: F) -> Result<(), LiveSocketError>
+    async fn try_nav_outer<F>(&self, nav_action: F) -> Result<HistoryId, LiveSocketError>
     where
         F: FnOnce(&mut NavCtx) -> Option<HistoryId>,
     {
@@ -291,36 +422,34 @@ impl LiveViewClientInner {
             nav_action(&mut nav_ctx)
         };
 
-        if new_id.is_none() {
-            return Err(LiveSocketError::NavigationImpossible);
+        match new_id {
+            Some(id) => {
+                self.try_nav().await?;
+                Ok(id)
+            }
+            None => Err(LiveSocketError::NavigationImpossible),
         }
-
-        self.try_nav().await
     }
 
-    pub async fn navigate(&self, url: String, opts: NavOptions) -> Result<(), LiveSocketError> {
+    pub async fn navigate(
+        &self,
+        url: String,
+        opts: NavOptions,
+    ) -> Result<HistoryId, LiveSocketError> {
         let url = Url::parse(&url)?;
         self.try_nav_outer(|ctx| ctx.navigate(url, opts, true))
             .await
     }
 
-    pub async fn upload_files(&self, files: Vec<Arc<LiveFile>>) -> Result<(), LiveSocketError> {
-        let chan = self.channel()?;
-        let futs = files.iter().map(|file| chan.upload_file(file));
-        try_join_all(futs).await?;
-
-        Ok(())
-    }
-
-    pub async fn reload(&self, info: Option<Vec<u8>>) -> Result<(), LiveSocketError> {
+    pub async fn reload(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
         self.try_nav_outer(|ctx| ctx.reload(info, true)).await
     }
 
-    pub async fn back(&self, info: Option<Vec<u8>>) -> Result<(), LiveSocketError> {
+    pub async fn back(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
         self.try_nav_outer(|ctx| ctx.back(info, true)).await
     }
 
-    pub async fn forward(&self, info: Option<Vec<u8>>) -> Result<(), LiveSocketError> {
+    pub async fn forward(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
         self.try_nav_outer(|ctx| ctx.forward(info, true)).await
     }
 
@@ -328,7 +457,7 @@ impl LiveViewClientInner {
         &self,
         id: HistoryId,
         info: Option<Vec<u8>>,
-    ) -> Result<(), LiveSocketError> {
+    ) -> Result<HistoryId, LiveSocketError> {
         self.try_nav_outer(|ctx| ctx.traverse_to(id, info, true))
             .await
     }
@@ -363,62 +492,5 @@ impl LiveViewClientInner {
 
     pub fn current(&self) -> Option<NavHistoryEntry> {
         self.nav_ctx.try_lock().ok().and_then(|ctx| ctx.current())
-    }
-
-    pub fn set_event_handler(
-        &self,
-        handler: Box<dyn NavEventHandler>,
-    ) -> Result<(), LiveSocketError> {
-        self.nav_ctx.try_lock()?.set_event_handler(handler.into());
-        Ok(())
-    }
-}
-
-// First implement the accessor methods on LiveViewClientInner
-impl LiveViewClientInner {
-    pub fn socket(&self) -> Result<Arc<Socket>, LiveSocketError> {
-        Ok(self.socket.try_lock()?.clone())
-    }
-
-    pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {
-        self.liveview_channel
-            .try_lock()?
-            .get_phx_upload_id(phx_target_name)
-    }
-
-    pub fn channel(&self) -> Result<Arc<LiveChannel>, LiveSocketError> {
-        Ok(self.liveview_channel.try_lock()?.clone())
-    }
-
-    pub fn live_reload_channel(&self) -> Result<Option<Arc<LiveChannel>>, LiveSocketError> {
-        Ok(self.livereload_channel.try_lock()?.clone())
-    }
-
-    pub fn join_url(&self) -> Result<String, LiveSocketError> {
-        Ok(self.session_data.try_lock()?.url.to_string())
-    }
-
-    pub fn csrf_token(&self) -> Result<String, LiveSocketError> {
-        Ok(self.session_data.try_lock()?.csrf_token.clone())
-    }
-
-    pub fn document(&self) -> Result<FFIDocument, LiveSocketError> {
-        Ok(self.liveview_channel.try_lock()?.document())
-    }
-
-    pub fn join_document(&self) -> Result<Document, LiveSocketError> {
-        self.liveview_channel.try_lock()?.join_document()
-    }
-
-    pub fn dead_render(&self) -> Result<Document, LiveSocketError> {
-        Ok(self.session_data.try_lock()?.dead_render.clone())
-    }
-
-    pub fn style_urls(&self) -> Result<Vec<String>, LiveSocketError> {
-        Ok(self.session_data.try_lock()?.style_urls.clone())
-    }
-
-    pub fn status(&self) -> Result<SocketStatus, LiveSocketError> {
-        Ok(self.socket.try_lock()?.status())
     }
 }

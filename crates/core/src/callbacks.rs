@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use crate::dom::{NodeData, NodeRef};
+use phoenix_channels_client::EventPayload;
+
+use crate::dom::{ffi::Document, NodeData, NodeRef};
 
 /// Provides secure persistent storage for session data like cookies.
 /// Implementations should handle platform-specific storage (e.g. NSUserDefaults on iOS)
@@ -145,8 +147,24 @@ pub trait DocumentChangeHandler: Send + Sync {
         parent: Option<Arc<NodeRef>>,
     );
 
-    /// Called when the channel status changes. Background operations like [LiveChannel::merge_diffs]
-    /// will exit with a status based on the return [ControlFlow] of this callback.
-    /// TODO: this should be deprecated after core takes responsibility for channel clean up
-    fn handle_channel_status(&self, channel_status: LiveChannelStatus) -> ControlFlow;
+    /// This is called on a new livechannel connection every
+    /// time a new view connects. It passes the new document,
+    /// which changes will be applied to.
+    fn handle_new_document(&self, document: Arc<Document>);
+}
+
+/// Implement this if you need to instrument all replies and status
+/// changes on the current live channel.
+#[uniffi::export(callback_interface)]
+pub trait LiveChannelEventHandler: Send + Sync {
+    /// Whenever a server sent event or reply to a user
+    /// message is receiver the event payload is passed to this
+    /// callback. by default the client handles diff events and will
+    /// handle live_patch, live_reload, etc, in the future
+    fn handle_event(&self, event: EventPayload);
+    /// Whenever the status of the current LiveChannel changes
+    /// This callback is invoked.
+    fn handle_status_change(&self, event: LiveChannelStatus);
+    /// Called whenever the internal livechannel is swapped out
+    fn live_channel_changed(&self);
 }

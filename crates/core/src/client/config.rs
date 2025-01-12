@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use phoenix_channels_client::JSON;
 
-use crate::{callbacks::*, live_socket::LiveFile};
+use crate::callbacks::*;
 
 #[derive(uniffi::Enum, Debug, Clone, Default, Copy)]
 pub enum LogLevel {
@@ -18,6 +18,7 @@ const SWIFTUI: &str = "swiftui";
 const JETPACK: &str = "jetpack";
 
 #[derive(uniffi::Enum, Debug, Clone)]
+/// Represents one of our supported platforms.
 pub enum Platform {
     Swiftui,
     Jetpack,
@@ -59,6 +60,9 @@ impl Default for Platform {
 
 #[derive(Clone)]
 pub struct LiveViewClientConfiguration {
+    /// Instruments all server side events and changes in the current LiveChannel state, including when
+    /// the channel is swapped out.
+    pub live_channel_handler: Option<Arc<dyn LiveChannelEventHandler>>,
     /// Provides a way to store persistent state between sessions. Used for cookies and potentially persistent settings.
     pub persistence_provider: Option<Arc<dyn SecurePersistentStore>>,
     /// Instruments the patches provided by `diff` events.
@@ -85,6 +89,7 @@ impl Default for LiveViewClientConfiguration {
         const WEBSOCKET_TIMEOUT_MS: u64 = 5_000;
 
         Self {
+            live_channel_handler: None,
             persistence_provider: None,
             patch_handler: None,
             navigation_handler: None,

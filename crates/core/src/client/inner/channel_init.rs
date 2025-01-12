@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use log::{debug, trace};
 use phoenix_channels_client::{Payload, Socket, Topic, JSON};
@@ -21,7 +24,7 @@ pub async fn join_liveview_channel(
     session_data: &Mutex<SessionData>,
     redirect: Option<String>,
 ) -> Result<Arc<LiveChannel>, LiveSocketError> {
-    let ws_timeout = std::time::Duration::from_millis(config.websocket_timeout);
+    let ws_timeout = Duration::from_millis(config.websocket_timeout);
 
     let sock = socket.try_lock()?.clone();
     sock.connect(ws_timeout).await?;
@@ -74,7 +77,7 @@ pub async fn join_livereload_channel(
     session_data: &Mutex<SessionData>,
     cookies: Option<Vec<String>>,
 ) -> Result<Arc<LiveChannel>, LiveSocketError> {
-    let ws_timeout = std::time::Duration::from_millis(config.websocket_timeout);
+    let ws_timeout = Duration::from_millis(config.websocket_timeout);
 
     let mut url = session_data.try_lock()?.url.clone();
 

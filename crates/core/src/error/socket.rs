@@ -11,6 +11,8 @@ use crate::{
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum LiveSocketError {
+    #[error("call to `call` failed.")]
+    Call,
     #[error("Internal Socket Locks would block.")]
     WouldLock,
     #[error("Form Data Failed to Serialize. {error}")]

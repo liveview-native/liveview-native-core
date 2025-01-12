@@ -198,26 +198,10 @@ impl LiveChannel {
                    };
                }
                new_status = status => {
-
-                   let handler = document
-                       .inner()
-                       .lock()
-                       .expect("lock poisoned")
-                       .event_callback
-                       .clone();
-
-                   if let Some(handler) = handler {
-                       match handler.handle_channel_status(new_status?.into()) {
-                           crate::callbacks::ControlFlow::ExitOk => return Ok(()),
-                           crate::callbacks::ControlFlow::ExitErr(error) => return Err(LiveSocketError::ChannelStatusUserError { error }),
-                           crate::callbacks::ControlFlow::ContinueListening => {},
-                        };
-                   }  else {
-                       match new_status? {
-                        phoenix_channels_client::ChannelStatus::Left => return Ok(()),
-                        phoenix_channels_client::ChannelStatus::ShutDown => return Ok(()),
-                        _ => {},
-                      }
+                   match new_status? {
+                       phoenix_channels_client::ChannelStatus::Left => return Ok(()),
+                       phoenix_channels_client::ChannelStatus::ShutDown => return Ok(()),
+                       _ => {},
                    }
                }
             };

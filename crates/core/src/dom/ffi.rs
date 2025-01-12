@@ -3,6 +3,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use phoenix_channels_client::JSON;
+
 pub use super::{
     attribute::Attribute,
     node::{Node, NodeData, NodeRef},
@@ -63,6 +65,58 @@ impl Document {
 
     pub fn set_event_handler(&self, handler: Box<dyn DocumentChangeHandler>) {
         self.inner.lock().expect("lock poisoned!").event_callback = Some(Arc::from(handler));
+    }
+
+    pub fn merge_deserialized_fragment_json(&self, json: JSON) -> Result<(), RenderError> {
+        let results = self
+            .inner
+            .lock()
+            .expect("lock poisoned!")
+            .merge_fragment_json(json.into())?;
+
+        let Some(handler) = self
+            .inner
+            .lock()
+            .expect("lock poisoned")
+            .event_callback
+            .clone()
+        else {
+            return Ok(());
+        };
+
+        for patch in results.into_iter() {
+            match patch {
+                PatchResult::Add { node, parent, data } => {
+                    handler.handle_document_change(
+                        ChangeType::Add,
+                        node.into(),
+                        data,
+                        Some(parent.into()),
+                    );
+                }
+                PatchResult::Remove { node, parent, data } => {
+                    handler.handle_document_change(
+                        ChangeType::Remove,
+                        node.into(),
+                        data,
+                        Some(parent.into()),
+                    );
+                }
+                PatchResult::Change { node, data } => {
+                    handler.handle_document_change(ChangeType::Change, node.into(), data, None);
+                }
+                PatchResult::Replace { node, parent, data } => {
+                    handler.handle_document_change(
+                        ChangeType::Replace,
+                        node.into(),
+                        data,
+                        Some(parent.into()),
+                    );
+                }
+            }
+        }
+
+        Ok(())
     }
 
     pub fn merge_fragment_json(&self, json: &str) -> Result<(), RenderError> {

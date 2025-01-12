@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use super::*;
 use crate::{
     callbacks::*,
-    dom::{NodeData, NodeRef},
+    dom::{ffi::Document, NodeData, NodeRef},
 };
 mod error;
 mod navigation;
@@ -67,11 +67,8 @@ impl DocumentChangeHandler for Inspector {
             .expect("Message Never Received.");
     }
 
-    fn handle_channel_status(&self, channel_status: LiveChannelStatus) -> ControlFlow {
-        match channel_status {
-            LiveChannelStatus::Left | LiveChannelStatus::ShutDown => ControlFlow::ExitOk,
-            _ => ControlFlow::ContinueListening,
-        }
+    fn handle_new_document(&self, document: Arc<Document>) {
+        let _ = document;
     }
 }
 

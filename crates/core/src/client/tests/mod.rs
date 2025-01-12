@@ -1,3 +1,4 @@
+mod streaming;
 mod upload;
 
 use crate::{
