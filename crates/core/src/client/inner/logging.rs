@@ -28,7 +28,7 @@ pub fn set_log_level(level: LogLevel) {
     log::set_max_level(level.into())
 }
 
-#[cfg(target_os = "android")]
+#[cfg(all(target_os = "android", not(test)))]
 mod platform {
     use super::*;
 
