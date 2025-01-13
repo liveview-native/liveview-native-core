@@ -196,7 +196,7 @@ impl LiveViewClient {
     }
 
     pub fn channel(&self) -> LiveViewClientChannel {
-        let inner = self.inner.create_event_loop_handle();
+        let inner = self.inner.create_channel();
         LiveViewClientChannel { inner }
     }
 }
@@ -309,7 +309,7 @@ impl LiveViewClient {
 /// A thin message sending interface that will
 /// send messages through the current websocket.
 pub struct LiveViewClientChannel {
-    inner: inner::EventLoopHandle,
+    inner: inner::LiveViewClientChannel,
 }
 
 #[uniffi::export(async_runtime = "tokio")]

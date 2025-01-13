@@ -148,8 +148,10 @@ pub trait DocumentChangeHandler: Send + Sync {
     );
 
     /// This is called on a new livechannel connection every
-    /// time a new view connects. It passes the new document,
-    /// which changes will be applied to.
+    /// time a new view connects. It passes the new document
+    /// which changes will be applied to. When this is called,
+    /// replace the previous document you were observing with [DocumentChangeHandler::handle_document_change]
+    /// with the new one.
     fn handle_new_document(&self, document: Arc<Document>);
 }
 

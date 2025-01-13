@@ -42,7 +42,7 @@ impl PersistentCookieStore {
         }
     }
     pub fn get_cookie_list(&self, url: &Url) -> Option<Vec<String>> {
-        self.cookies(&url).map(|header| {
+        self.cookies(url).map(|header| {
             header
                 .to_str()
                 .unwrap_or_default()

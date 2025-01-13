@@ -8,7 +8,7 @@ use tokio::sync::mpsc;
 use super::LiveViewClientState;
 use crate::{dom::ffi, error::LiveSocketError};
 
-pub(crate) struct EventLoopHandle {
+pub struct LiveViewClientChannel {
     /// Allows sending events back to the main event loop
     message_sender: mpsc::UnboundedSender<ClientMessage>,
 }
@@ -171,9 +171,9 @@ impl EventLoop {
         let _ = self.msg_tx.send(ClientMessage::UpdateChannel);
     }
 
-    pub fn create_handle(&self) -> EventLoopHandle {
+    pub fn create_handle(&self) -> LiveViewClientChannel {
         let msg_tx = self.msg_tx.clone();
-        EventLoopHandle {
+        LiveViewClientChannel {
             message_sender: msg_tx,
         }
     }
@@ -226,14 +226,14 @@ fn handle_reply(document: &ffi::Document, reply: &Payload) -> Result<(), LiveSoc
     };
 
     // TODO: handle these
-    if let Some(_) = object.get("live_patch") {}
-    if let Some(_) = object.get("live_redirect") {}
-    if let Some(_) = object.get("redirect") {}
+    // if let Some(_) = object.get("live_patch") {}
+    // if let Some(_) = object.get("live_redirect") {}
+    // if let Some(_) = object.get("redirect") {}
 
     Ok(())
 }
 
-impl EventLoopHandle {
+impl LiveViewClientChannel {
     pub async fn call(&self, event: Event, payload: Payload) -> Result<Payload, LiveSocketError> {
         let (response_tx, response_rx) = oneshot::channel();
 

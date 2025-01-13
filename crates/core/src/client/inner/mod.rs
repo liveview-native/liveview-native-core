@@ -9,14 +9,13 @@ use std::sync::{Arc, Mutex};
 use channel_init::*;
 use cookie_store::PersistentCookieStore;
 use event_loop::EventLoop;
-pub(crate) use event_loop::EventLoopHandle;
+pub(crate) use event_loop::LiveViewClientChannel;
 use futures::future::try_join_all;
 use log::debug;
 use logging::*;
 use navigation::NavCtx;
-use phoenix_channels_client::{ChannelStatus, EventPayload, Payload, Socket, SocketStatus, JSON};
+use phoenix_channels_client::{Payload, Socket, SocketStatus, JSON};
 use reqwest::{redirect::Policy, Client, Url};
-use tokio::sync::broadcast;
 
 use super::{LiveViewClientConfiguration, LogLevel};
 use crate::{
@@ -187,7 +186,7 @@ impl LiveViewClientInner {
         self.state.current()
     }
 
-    pub(crate) fn create_event_loop_handle(&self) -> EventLoopHandle {
+    pub fn create_channel(&self) -> LiveViewClientChannel {
         self.event_loop.create_handle()
     }
 
