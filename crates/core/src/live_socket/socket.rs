@@ -172,7 +172,7 @@ impl SessionData {
             LiveSocket::get_dead_render(url, format, &connect_opts, client).await?;
         //TODO: remove cookies, pull it from the cookie client cookie store.
 
-        log::info!("dead_reader: {dead_render:?}");
+        log::trace!("dead_reader: {dead_render}");
         let csrf_token = dead_render
             .get_csrf_token()
             .ok_or(LiveSocketError::CSRFTokenMissing)?;

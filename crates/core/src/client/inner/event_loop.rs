@@ -36,7 +36,6 @@ pub(crate) struct EventLoop {
 impl EventLoop {
     pub fn new(client_state: Arc<LiveViewClientState>) -> Self {
         let (msg_tx, mut msg_rx) = mpsc::unbounded_channel();
-        let msg_tx_clone = msg_tx.clone();
 
         let mut live_channel = client_state
             .liveview_channel
@@ -81,11 +80,11 @@ impl EventLoop {
                             match msg {
                                 ClientMessage::Call { response_tx, event, payload } => {
                                     let call_result = live_channel.channel.call(event, payload, live_channel.timeout).await;
+
                                     if let Ok(reply) = call_result {
                                         if let Err(e) = handle_reply(&document, &reply) {
                                            error!("Failure while handling server reply: {e:?}");
                                         }
-
 
                                         if let Some(handler) = &live_channel_handler {
                                             let event = EventPayload {
@@ -162,7 +161,7 @@ impl EventLoop {
         });
 
         Self {
-            msg_tx: msg_tx_clone,
+            msg_tx,
             main_background_task,
         }
     }

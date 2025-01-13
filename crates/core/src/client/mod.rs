@@ -22,7 +22,6 @@ use crate::{
     live_socket::{navigation::NavOptions, ConnectOpts, LiveChannel, LiveFile, Method},
 };
 
-#[derive(uniffi::Object, Default)]
 /// A configuration interface for building a [LiveViewClient].
 /// Options on this object will used for all http and websocket connections
 /// through out the current session.
@@ -30,6 +29,7 @@ use crate::{
 /// Additionally provides the [LiveViewClient] with callbacks and essential functionality,
 /// without proper configuration your client may not function properly.
 /// See [LiveViewClientBuilder::set_persistence_provider]
+#[derive(uniffi::Object, Default)]
 pub struct LiveViewClientBuilder {
     config: Mutex<LiveViewClientConfiguration>,
 }

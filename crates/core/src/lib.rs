@@ -1,8 +1,6 @@
 #[cfg(feature = "liveview-channels")]
 pub mod client;
 
-pub mod protocol;
-
 #[cfg(feature = "liveview-channels")]
 pub use client::inner::LiveViewClientInner as LiveViewClient;
 #[cfg(feature = "liveview-channels")]
