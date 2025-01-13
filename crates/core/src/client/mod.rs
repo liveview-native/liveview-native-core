@@ -53,6 +53,13 @@ impl LiveViewClientBuilder {
         config.persistence_provider = Some(provider.into());
     }
 
+    /// Provides the [LiveViewClient] with a way to store Cookies, and potentially other
+    /// user session data like settings.
+    pub fn set_live_channel_event_handler(&self, handler: Box<dyn LiveChannelEventHandler>) {
+        let mut config = self.config.lock().unwrap();
+        config.live_channel_handler = Some(handler.into());
+    }
+
     /// Set A list of JSON parameters which will be passed to the websocket
     /// when joining By default the client will send the
     /// `_mounts` , `_csrf`, and `_format` parameters. These can be overridden here.
@@ -157,8 +164,17 @@ pub struct LiveViewClient {
 
 #[uniffi::export(async_runtime = "tokio")]
 impl LiveViewClient {
-    pub async fn reconnect(&self, url: String) -> Result<(), LiveSocketError> {
-        self.inner.reconnect(url, Default::default()).await?;
+    pub async fn reconnect(
+        &self,
+        url: String,
+        additional_headers: Option<HashMap<String, String>>,
+    ) -> Result<(), LiveSocketError> {
+        let opts = ConnectOpts {
+            headers: additional_headers,
+            ..Default::default()
+        };
+
+        self.inner.reconnect(url, opts).await?;
         Ok(())
     }
 
@@ -172,12 +188,13 @@ impl LiveViewClient {
 
     pub async fn post_form(
         &self,
-        form: HashMap<String, String>,
         url: String,
+        form: HashMap<String, String>,
+        additional_headers: Option<HashMap<String, String>>,
     ) -> Result<(), LiveSocketError> {
         let form_data = serde_urlencoded::to_string(form)?;
 
-        let mut headers = HashMap::new();
+        let mut headers = additional_headers.unwrap_or_default();
         headers.insert(
             CONTENT_TYPE.to_string(),
             "application/x-www-form-urlencoded".to_string(),

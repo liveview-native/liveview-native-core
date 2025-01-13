@@ -342,7 +342,7 @@ impl LiveViewClientState {
             &self.config,
             &self.socket,
             &self.session_data,
-            &additional_params,
+            additional_params,
             Some(current.url.clone()),
         )
         .await
@@ -398,7 +398,7 @@ impl LiveViewClientState {
                     &self.config,
                     &self.socket,
                     &self.session_data,
-                    &additional_params,
+                    additional_params,
                     None,
                 )
                 .await?;

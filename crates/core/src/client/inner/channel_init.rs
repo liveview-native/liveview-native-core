@@ -33,7 +33,7 @@ pub async fn join_liveview_channel(
 
     let sent_join_payload = session_data.try_lock()?.create_join_payload(
         &config.join_params,
-        &additional_params,
+        additional_params,
         redirect,
     );
 

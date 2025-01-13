@@ -161,7 +161,7 @@ pub trait LiveChannelEventHandler: Send + Sync {
     /// Whenever a server sent event or reply to a user
     /// message is receiver the event payload is passed to this
     /// callback. by default the client handles diff events and will
-    /// handle live_patch, live_reload, etc, in the future
+    /// handle assets_change, live_patch, live_reload, etc, in the future
     fn handle_event(&self, event: phoenix_channels_client::EventPayload);
     /// Whenever the status of the current LiveChannel changes
     /// This callback is invoked.
