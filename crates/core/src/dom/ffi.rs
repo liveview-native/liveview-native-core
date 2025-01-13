@@ -3,8 +3,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use phoenix_channels_client::JSON;
-
 pub use super::{
     attribute::Attribute,
     node::{Node, NodeData, NodeRef},
@@ -39,35 +37,12 @@ impl Document {
     pub fn arc_set_event_handler(&self, handler: Arc<dyn DocumentChangeHandler>) {
         self.inner.lock().expect("lock poisoned!").event_callback = Some(handler);
     }
-}
 
-#[uniffi::export]
-impl Document {
-    #[uniffi::constructor]
-    pub fn parse(input: String) -> Result<Arc<Self>, ParseError> {
-        Ok(Arc::new(Self {
-            inner: Arc::new(Mutex::new(super::Document::parse(input)?)),
-        }))
-    }
-
-    #[uniffi::constructor]
-    pub fn empty() -> Arc<Self> {
-        Arc::new(Self {
-            inner: Arc::new(Mutex::new(super::Document::empty())),
-        })
-    }
-
-    #[uniffi::constructor]
-    pub fn parse_fragment_json(input: String) -> Result<Arc<Self>, RenderError> {
-        let inner = Arc::new(Mutex::new(super::Document::parse_fragment_json(input)?));
-        Ok(Arc::new(Self { inner }))
-    }
-
-    pub fn set_event_handler(&self, handler: Box<dyn DocumentChangeHandler>) {
-        self.inner.lock().expect("lock poisoned!").event_callback = Some(Arc::from(handler));
-    }
-
-    pub fn merge_deserialized_fragment_json(&self, json: JSON) -> Result<(), RenderError> {
+    #[cfg(feature = "liveview-channels")]
+    pub fn merge_deserialized_fragment_json(
+        &self,
+        json: phoenix_channels_client::JSON,
+    ) -> Result<(), RenderError> {
         let results = self
             .inner
             .lock()
@@ -117,6 +92,33 @@ impl Document {
         }
 
         Ok(())
+    }
+}
+
+#[uniffi::export]
+impl Document {
+    #[uniffi::constructor]
+    pub fn parse(input: String) -> Result<Arc<Self>, ParseError> {
+        Ok(Arc::new(Self {
+            inner: Arc::new(Mutex::new(super::Document::parse(input)?)),
+        }))
+    }
+
+    #[uniffi::constructor]
+    pub fn empty() -> Arc<Self> {
+        Arc::new(Self {
+            inner: Arc::new(Mutex::new(super::Document::empty())),
+        })
+    }
+
+    #[uniffi::constructor]
+    pub fn parse_fragment_json(input: String) -> Result<Arc<Self>, RenderError> {
+        let inner = Arc::new(Mutex::new(super::Document::parse_fragment_json(input)?));
+        Ok(Arc::new(Self { inner }))
+    }
+
+    pub fn set_event_handler(&self, handler: Box<dyn DocumentChangeHandler>) {
+        self.inner.lock().expect("lock poisoned!").event_callback = Some(Arc::from(handler));
     }
 
     pub fn merge_fragment_json(&self, json: &str) -> Result<(), RenderError> {

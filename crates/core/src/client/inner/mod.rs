@@ -301,7 +301,7 @@ impl LiveViewClientState {
             new_channel.document.arc_set_event_handler(handler.clone());
         }
 
-        // this lifecyle stuff is going to get finnicky
+        // this lifecycle stuff is going to get finnicky
         let old_channel = self.liveview_channel.try_lock()?.channel.clone();
         old_channel.leave().await?;
         *self.liveview_channel.try_lock()? = new_channel;

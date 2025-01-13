@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use phoenix_channels_client::EventPayload;
-
 use crate::dom::{ffi::Document, NodeData, NodeRef};
 
 /// Provides secure persistent storage for session data like cookies.
@@ -157,13 +155,14 @@ pub trait DocumentChangeHandler: Send + Sync {
 
 /// Implement this if you need to instrument all replies and status
 /// changes on the current live channel.
-#[cfg_attr(not(target_family = "wasm"), uniffi::export(callback_interface))]
+#[cfg(feature = "liveview-channels")]
+#[uniffi::export(callback_interface)]
 pub trait LiveChannelEventHandler: Send + Sync {
     /// Whenever a server sent event or reply to a user
     /// message is receiver the event payload is passed to this
     /// callback. by default the client handles diff events and will
     /// handle live_patch, live_reload, etc, in the future
-    fn handle_event(&self, event: EventPayload);
+    fn handle_event(&self, event: phoenix_channels_client::EventPayload);
     /// Whenever the status of the current LiveChannel changes
     /// This callback is invoked.
     fn handle_status_change(&self, event: LiveChannelStatus);
