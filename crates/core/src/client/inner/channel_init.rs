@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -22,6 +23,7 @@ pub async fn join_liveview_channel(
     config: &LiveViewClientConfiguration,
     socket: &Mutex<Arc<Socket>>,
     session_data: &Mutex<SessionData>,
+    additional_params: &Option<HashMap<String, JSON>>,
     redirect: Option<String>,
 ) -> Result<Arc<LiveChannel>, LiveSocketError> {
     let ws_timeout = Duration::from_millis(config.websocket_timeout);
@@ -29,9 +31,11 @@ pub async fn join_liveview_channel(
     let sock = socket.try_lock()?.clone();
     sock.connect(ws_timeout).await?;
 
-    let sent_join_payload = session_data
-        .try_lock()?
-        .create_join_payload(&config.join_params, redirect);
+    let sent_join_payload = session_data.try_lock()?.create_join_payload(
+        &config.join_params,
+        &additional_params,
+        redirect,
+    );
 
     let topic = Topic::from_string(format!("lv:{}", session_data.try_lock()?.phx_id));
     let channel = sock.channel(topic, Some(sent_join_payload)).await?;

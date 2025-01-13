@@ -81,6 +81,8 @@ pub struct LiveViewClientConfiguration {
     pub format: Platform,
     /// The additional parameters passed to the live channel on join
     pub join_params: Option<HashMap<String, JSON>>,
+    /// Additional headers to pass upon fetching each dead render
+    pub headers: Option<HashMap<String, String>>,
 }
 
 impl Default for LiveViewClientConfiguration {
@@ -98,6 +100,7 @@ impl Default for LiveViewClientConfiguration {
             websocket_timeout: WEBSOCKET_TIMEOUT_MS,
             format: Platform::default(),
             join_params: None,
+            headers: None,
         }
     }
 }

@@ -1,7 +1,7 @@
 //! # FFI Navigation Types
 //!
 //! Types and utilities for interacting with the navigation API for the FFI api consumers.
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use phoenix_channels_client::{Payload, Socket, JSON};
 #[cfg(not(test))]
@@ -27,6 +27,9 @@ pub enum NavAction {
 /// Options for calls to [NavCtx::navigate]
 #[derive(Default, uniffi::Record)]
 pub struct NavOptions {
+    /// Additional params to be passed upon joining the liveview channel.
+    #[uniffi(default = None)]
+    pub join_params: Option<HashMap<String, JSON>>,
     /// see [NavAction], defaults to [NavAction::Push].
     #[uniffi(default = None)]
     pub action: Option<NavAction>,
@@ -37,6 +40,16 @@ pub struct NavOptions {
     /// revisiting a given view.
     #[uniffi(default = None)]
     pub state: Option<Vec<u8>>,
+}
+
+#[derive(Default, uniffi::Record)]
+pub struct NavActionOptions {
+    /// Additional params to be passed upon joining the liveview channel.
+    #[uniffi(default = None)]
+    pub join_params: Option<HashMap<String, JSON>>,
+    /// Ephemeral extra information to be pushed to the even handler.
+    #[uniffi(default = None)]
+    pub extra_event_info: Option<Vec<u8>>,
 }
 
 impl NavEvent {

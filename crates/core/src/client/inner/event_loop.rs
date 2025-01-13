@@ -203,6 +203,7 @@ fn handle_event(document: &ffi::Document, event: &EventPayload) -> Result<(), Li
             "live_patch" => {}
             "live_redirect" => {}
             "redirect" => {}
+            "assets_change" => {}
             _ => {}
         },
     };
@@ -228,6 +229,7 @@ fn handle_reply(document: &ffi::Document, reply: &Payload) -> Result<(), LiveSoc
     // if let Some(_) = object.get("live_patch") {}
     // if let Some(_) = object.get("live_redirect") {}
     // if let Some(_) = object.get("redirect") {}
+    // if let Some(_) = object.get("assets_change") {}
 
     Ok(())
 }

@@ -1885,6 +1885,8 @@ extension DecodingError {
 }
 
 final class SimpleHandler: DocumentChangeHandler {
+    
+    
     let callback: (NodeRef, NodeData, NodeRef?) -> Void
     let doc_change_callback: (Document) -> Void
 

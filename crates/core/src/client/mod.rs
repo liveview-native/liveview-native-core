@@ -19,7 +19,10 @@ use crate::{
     callbacks::*,
     dom::ffi::{self},
     error::LiveSocketError,
-    live_socket::{navigation::NavOptions, ConnectOpts, LiveChannel, LiveFile, Method},
+    live_socket::{
+        navigation::{NavActionOptions, NavOptions},
+        ConnectOpts, LiveChannel, LiveFile, Method,
+    },
 };
 
 /// A configuration interface for building a [LiveViewClient].
@@ -215,20 +218,20 @@ impl LiveViewClient {
 
     /// Dispose of the current channel and remount the view. Replaces the current view
     /// event data with the bytes in `info`
-    pub async fn reload(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
-        self.inner.reload(info).await
+    pub async fn reload(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        self.inner.reload(opts).await
     }
 
     /// Navigates back one step in the history stack.
     /// This function fails if there are no items in history.
-    pub async fn back(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
-        self.inner.back(info).await
+    pub async fn back(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        self.inner.back(opts).await
     }
 
     /// Navigates back one step in the history stack.
     /// This function fails if there are no items ahead of this one in history.
-    pub async fn forward(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
-        self.inner.forward(info).await
+    pub async fn forward(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        self.inner.forward(opts).await
     }
 
     /// Navigates to the entry with `id`. Retaining the state of the current history stack.
@@ -236,9 +239,9 @@ impl LiveViewClient {
     pub async fn traverse_to(
         &self,
         id: HistoryId,
-        info: Option<Vec<u8>>,
+        opts: NavActionOptions,
     ) -> Result<HistoryId, LiveSocketError> {
-        self.inner.traverse_to(id, info).await
+        self.inner.traverse_to(id, opts).await
     }
 
     pub fn can_go_back(&self) -> bool {

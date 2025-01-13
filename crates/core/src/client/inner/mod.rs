@@ -4,7 +4,10 @@ mod event_loop;
 mod logging;
 mod navigation;
 
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use channel_init::*;
 use cookie_store::PersistentCookieStore;
@@ -22,7 +25,10 @@ use crate::{
     callbacks::*,
     dom::{ffi::Document as FFIDocument, Document},
     error::LiveSocketError,
-    live_socket::{navigation::NavOptions, ConnectOpts, LiveChannel, LiveFile, SessionData},
+    live_socket::{
+        navigation::{NavActionOptions, NavOptions},
+        ConnectOpts, LiveChannel, LiveFile, SessionData,
+    },
 };
 
 pub(crate) struct LiveViewClientState {
@@ -138,19 +144,19 @@ impl LiveViewClientInner {
         Ok(res)
     }
 
-    pub async fn reload(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
+    pub async fn reload(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
         let res = self.state.reload(info).await?;
         self.event_loop.replace_livechannel();
         Ok(res)
     }
 
-    pub async fn back(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
+    pub async fn back(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
         let res = self.state.back(info).await?;
         self.event_loop.replace_livechannel();
         Ok(res)
     }
 
-    pub async fn forward(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
+    pub async fn forward(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
         let res = self.state.forward(info).await?;
         self.event_loop.replace_livechannel();
         Ok(res)
@@ -159,7 +165,7 @@ impl LiveViewClientInner {
     pub async fn traverse_to(
         &self,
         id: HistoryId,
-        info: Option<Vec<u8>>,
+        info: NavActionOptions,
     ) -> Result<HistoryId, LiveSocketError> {
         let res = self.state.traverse_to(id, info).await?;
         self.event_loop.replace_livechannel();
@@ -232,7 +238,8 @@ impl LiveViewClientState {
         let socket = Mutex::new(socket);
 
         debug!("Joining liveview Channel");
-        let liveview_channel = join_liveview_channel(&config, &socket, &session_data, None).await?;
+        let liveview_channel =
+            join_liveview_channel(&config, &socket, &session_data, &None, None).await?;
 
         if let Some(handler) = &config.patch_handler {
             liveview_channel
@@ -295,7 +302,8 @@ impl LiveViewClientState {
 
         debug!("Rejoining liveview channel");
         let new_channel =
-            join_liveview_channel(&self.config, &self.socket, &self.session_data, None).await?;
+            join_liveview_channel(&self.config, &self.socket, &self.session_data, &None, None)
+                .await?;
 
         if let Some(handler) = &self.config.patch_handler {
             new_channel.document.arc_set_event_handler(handler.clone());
@@ -320,20 +328,21 @@ impl LiveViewClientState {
 
 impl LiveViewClientState {
     const RETRY_REASONS: &[&str] = &["stale", "unauthorized"];
-    async fn try_nav(&self) -> Result<(), LiveSocketError> {
+    async fn try_nav(
+        &self,
+        additional_params: &Option<HashMap<String, JSON>>,
+    ) -> Result<(), LiveSocketError> {
         let current = self
             .nav_ctx
             .try_lock()?
             .current()
             .ok_or(LiveSocketError::NavigationImpossible)?;
 
-        let chan = &self.liveview_channel.try_lock()?.channel.clone();
-        chan.leave().await?;
-
         match join_liveview_channel(
             &self.config,
             &self.socket,
             &self.session_data,
+            &additional_params,
             Some(current.url.clone()),
         )
         .await
@@ -385,9 +394,14 @@ impl LiveViewClientState {
                 *self.socket.try_lock()? = new_socket;
                 *self.session_data.try_lock()? = new_session_data;
 
-                let channel =
-                    join_liveview_channel(&self.config, &self.socket, &self.session_data, None)
-                        .await?;
+                let channel = join_liveview_channel(
+                    &self.config,
+                    &self.socket,
+                    &self.session_data,
+                    &additional_params,
+                    None,
+                )
+                .await?;
 
                 if let Some(event_handler) = &self.config.patch_handler {
                     channel
@@ -395,10 +409,16 @@ impl LiveViewClientState {
                         .arc_set_event_handler(event_handler.clone())
                 }
 
+                let chan = &self.liveview_channel.try_lock()?.channel.clone();
+                chan.leave().await?;
+
                 *self.liveview_channel.try_lock()? = channel;
                 Ok(())
             }
             Ok(channel) => {
+                let chan = &self.liveview_channel.try_lock()?.channel.clone();
+                chan.leave().await?;
+
                 if let Some(event_handler) = &self.config.patch_handler {
                     channel
                         .document
@@ -412,7 +432,11 @@ impl LiveViewClientState {
         }
     }
 
-    async fn try_nav_outer<F>(&self, nav_action: F) -> Result<HistoryId, LiveSocketError>
+    async fn try_nav_outer<F>(
+        &self,
+        additional_params: &Option<HashMap<String, JSON>>,
+        nav_action: F,
+    ) -> Result<HistoryId, LiveSocketError>
     where
         F: FnOnce(&mut NavCtx) -> Option<HistoryId>,
     {
@@ -423,7 +447,7 @@ impl LiveViewClientState {
 
         match new_id {
             Some(id) => {
-                self.try_nav().await?;
+                self.try_nav(additional_params).await?;
                 Ok(id)
             }
             None => Err(LiveSocketError::NavigationImpossible),
@@ -433,32 +457,44 @@ impl LiveViewClientState {
     pub async fn navigate(
         &self,
         url: String,
-        opts: NavOptions,
+        mut opts: NavOptions,
     ) -> Result<HistoryId, LiveSocketError> {
         let url = Url::parse(&url)?;
-        self.try_nav_outer(|ctx| ctx.navigate(url, opts, true))
-            .await
+        self.try_nav_outer(&opts.join_params.take(), |ctx| {
+            ctx.navigate(url, opts, true)
+        })
+        .await
     }
 
-    pub async fn reload(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
-        self.try_nav_outer(|ctx| ctx.reload(info, true)).await
+    pub async fn reload(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        self.try_nav_outer(&opts.join_params, |ctx| {
+            ctx.reload(opts.extra_event_info, true)
+        })
+        .await
+    }
+    pub async fn back(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        self.try_nav_outer(&opts.join_params, |ctx| {
+            ctx.back(opts.extra_event_info, true)
+        })
+        .await
     }
 
-    pub async fn back(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
-        self.try_nav_outer(|ctx| ctx.back(info, true)).await
-    }
-
-    pub async fn forward(&self, info: Option<Vec<u8>>) -> Result<HistoryId, LiveSocketError> {
-        self.try_nav_outer(|ctx| ctx.forward(info, true)).await
+    pub async fn forward(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        self.try_nav_outer(&opts.join_params, |ctx| {
+            ctx.forward(opts.extra_event_info, true)
+        })
+        .await
     }
 
     pub async fn traverse_to(
         &self,
         id: HistoryId,
-        info: Option<Vec<u8>>,
+        opts: NavActionOptions,
     ) -> Result<HistoryId, LiveSocketError> {
-        self.try_nav_outer(|ctx| ctx.traverse_to(id, info, true))
-            .await
+        self.try_nav_outer(&opts.join_params, |ctx| {
+            ctx.traverse_to(id, opts.extra_event_info, true)
+        })
+        .await
     }
 
     pub fn can_go_back(&self) -> bool {
