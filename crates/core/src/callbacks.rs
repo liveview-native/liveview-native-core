@@ -157,7 +157,7 @@ pub trait DocumentChangeHandler: Send + Sync {
 
 /// Implement this if you need to instrument all replies and status
 /// changes on the current live channel.
-#[uniffi::export(callback_interface)]
+#[cfg_attr(not(target_family = "wasm"), uniffi::export(callback_interface))]
 pub trait LiveChannelEventHandler: Send + Sync {
     /// Whenever a server sent event or reply to a user
     /// message is receiver the event payload is passed to this

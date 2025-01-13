@@ -27,7 +27,7 @@ use crate::{
 /// Options on this object will used for all http and websocket connections
 /// through out the current session.
 ///
-/// Additionally provides the [LiveViewClient] with callabcks and essential functionality,
+/// Additionally provides the [LiveViewClient] with callbacks and essential functionality,
 /// without proper configuration your client may not function properly.
 /// See [LiveViewClientBuilder::set_persistence_provider]
 pub struct LiveViewClientBuilder {
@@ -52,7 +52,7 @@ impl LiveViewClientBuilder {
 
     /// Set A list of JSON parameters which will be passed to the websocket
     /// when joining By default the client will send the
-    /// `_mounts` , `_csrf`, and `_format` parameters. These can be overidden here.
+    /// `_mounts` , `_csrf`, and `_format` parameters. These can be overridden here.
     pub fn set_channel_join_params(&self, join_params: HashMap<String, JSON>) {
         let mut config = self.config.lock().unwrap();
         config.join_params = join_params.into();

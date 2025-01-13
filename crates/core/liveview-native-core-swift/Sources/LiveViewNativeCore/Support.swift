@@ -1886,11 +1886,14 @@ extension DecodingError {
 
 final class SimpleHandler: DocumentChangeHandler {
     let callback: (NodeRef, NodeData, NodeRef?) -> Void
+    let doc_change_callback: (Document) -> Void
 
     init(
-        _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void
+        _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void,
+        _ doc_change_callback: @escaping (Document) -> Void
     ) {
         self.callback = callback
+        self.doc_change_callback = doc_change_callback
     }
 
     func handleDocumentChange(
@@ -1908,20 +1911,8 @@ final class SimpleHandler: DocumentChangeHandler {
         }
     }
 
-    func handleChannelStatus(_ channelStatus: LiveChannelStatus) -> ControlFlow {
-        switch channelStatus {
-        case .joined,
-            .joining,
-            .leaving,
-            .shuttingDown,
-            .waitingForSocketToConnect,
-            .waitingToJoin,
-            .waitingToRejoin:
-            return .continueListening
-        case .left,
-            .shutDown:
-            return .exitOk
-        }
+    func handleNewDocument(_ document: Document) {
+        self.doc_change_callback(document)
     }
 
 }
@@ -1944,12 +1935,15 @@ extension Document {
         return try self.mergeFragmentJson(payload)
     }
 
-    public func on(_ event: EventType, _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void)
-    {
-
-        let simple = SimpleHandler(callback)
+    public func on(
+        _ event: EventType,
+        _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void,
+        _ doc_change_callback: @escaping (Document) -> Void
+    ) {
+        let simple = SimpleHandler(callback, doc_change_callback)
         self.setEventHandler(simple)
     }
+
     public func toString() -> String {
         return self.render()
     }
