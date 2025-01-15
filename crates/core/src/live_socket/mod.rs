@@ -1,14 +1,12 @@
 mod channel;
-mod error;
-mod navigation;
+pub mod navigation;
 mod socket;
 
 #[cfg(test)]
 mod tests;
 
-pub use channel::LiveChannel;
-pub use error::{LiveSocketError, UploadError};
-pub use socket::LiveSocket;
+pub use channel::{LiveChannel, LiveFile};
+pub use socket::{ConnectOpts, LiveSocket, Method, SessionData};
 
 pub struct UploadConfig {
     chunk_size: u64,
