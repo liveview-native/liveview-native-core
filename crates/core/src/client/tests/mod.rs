@@ -251,8 +251,11 @@ async fn test_back_and_forward_navigation() {
 #[tokio::test]
 async fn thermostat_click() {
     let url = format!("http://{HOST}/thermostat");
-    let mut config = LiveViewClientConfiguration::default();
-    config.format = Platform::Swiftui;
+
+    let config = LiveViewClientConfiguration {
+        format: Platform::Swiftui,
+        ..Default::default()
+    };
 
     let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await

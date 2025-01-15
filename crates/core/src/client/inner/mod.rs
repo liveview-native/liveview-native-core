@@ -231,8 +231,10 @@ impl LiveViewClientState {
         let url = Url::parse(&url)?;
         let format = config.format.to_string();
 
-        let mut opts = ConnectOpts::default();
-        opts.headers = client_opts.headers;
+        let opts = ConnectOpts {
+            headers: client_opts.headers,
+            ..ConnectOpts::default()
+        };
 
         debug!("Retrieving session data from: {url:?}");
         let session_data = SessionData::request(&url, &format, opts, http_client.clone()).await?;
