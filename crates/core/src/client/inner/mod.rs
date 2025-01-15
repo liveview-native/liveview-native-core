@@ -7,6 +7,7 @@ mod navigation;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 use channel_init::*;
@@ -20,7 +21,7 @@ use navigation::NavCtx;
 use phoenix_channels_client::{Payload, Socket, SocketStatus, JSON};
 use reqwest::{redirect::Policy, Client, Url};
 
-use super::{LiveViewClientConfiguration, LogLevel};
+use super::{ClientConnectOpts, LiveViewClientConfiguration, LogLevel};
 use crate::{
     callbacks::*,
     dom::{ffi::Document as FFIDocument, Document},
@@ -63,15 +64,21 @@ impl LiveViewClientInner {
     pub async fn initial_connect(
         config: LiveViewClientConfiguration,
         url: String,
+        client_opts: ClientConnectOpts,
     ) -> Result<Self, LiveSocketError> {
-        let state = LiveViewClientState::initial_connect(config, url).await?;
+        let state = LiveViewClientState::initial_connect(config, url, client_opts).await?;
         let state = Arc::new(state);
         let event_loop = EventLoop::new(state.clone());
         Ok(Self { state, event_loop })
     }
 
-    pub async fn reconnect(&self, url: String, opts: ConnectOpts) -> Result<(), LiveSocketError> {
-        self.state.reconnect(url, opts).await?;
+    pub(crate) async fn reconnect(
+        &self,
+        url: String,
+        opts: ConnectOpts,
+        join_params: Option<HashMap<String, JSON>>,
+    ) -> Result<(), LiveSocketError> {
+        self.state.reconnect(url, opts, join_params).await?;
         self.event_loop.replace_livechannel();
         Ok(())
     }
@@ -206,6 +213,7 @@ impl LiveViewClientState {
     pub async fn initial_connect(
         config: LiveViewClientConfiguration,
         url: String,
+        client_opts: ClientConnectOpts,
     ) -> Result<Self, LiveSocketError> {
         init_log(config.log_level);
         debug!("Initializing LiveViewClient.");
@@ -223,9 +231,11 @@ impl LiveViewClientState {
         let url = Url::parse(&url)?;
         let format = config.format.to_string();
 
+        let mut opts = ConnectOpts::default();
+        opts.headers = client_opts.headers;
+
         debug!("Retrieving session data from: {url:?}");
-        let session_data =
-            SessionData::request(&url, &format, Default::default(), http_client.clone()).await?;
+        let session_data = SessionData::request(&url, &format, opts, http_client.clone()).await?;
 
         let cookies = cookie_store.get_cookie_list(&url);
 
@@ -237,9 +247,16 @@ impl LiveViewClientState {
         let socket = Socket::spawn(websocket_url, cookies.clone()).await?;
         let socket = Mutex::new(socket);
 
+        let ws_timeout = Duration::from_millis(config.websocket_timeout);
         debug!("Joining liveview Channel");
-        let liveview_channel =
-            join_liveview_channel(&config, &socket, &session_data, &None, None).await?;
+        let liveview_channel = join_liveview_channel(
+            &socket,
+            &session_data,
+            &client_opts.join_params,
+            None,
+            ws_timeout,
+        )
+        .await?;
 
         if let Some(handler) = &config.patch_handler {
             liveview_channel
@@ -275,7 +292,13 @@ impl LiveViewClientState {
         })
     }
 
-    pub async fn reconnect(&self, url: String, opts: ConnectOpts) -> Result<(), LiveSocketError> {
+    /// Reconnect the websocket at the given url
+    pub async fn reconnect(
+        &self,
+        url: String,
+        opts: ConnectOpts,
+        join_params: Option<HashMap<String, JSON>>,
+    ) -> Result<(), LiveSocketError> {
         debug!("Reestablishing connection with settings: url: {url:?}, opts: {opts:?}");
 
         let url = Url::parse(&url)?;
@@ -299,22 +322,25 @@ impl LiveViewClientState {
         *self.socket.try_lock()? = socket;
 
         *self.session_data.try_lock()? = new_session;
-
+        let ws_timeout = Duration::from_millis(self.config.websocket_timeout);
         debug!("Rejoining liveview channel");
-        let new_channel =
-            join_liveview_channel(&self.config, &self.socket, &self.session_data, &None, None)
-                .await?;
+        let new_channel = join_liveview_channel(
+            &self.socket,
+            &self.session_data,
+            &join_params,
+            None,
+            ws_timeout,
+        )
+        .await?;
 
         if let Some(handler) = &self.config.patch_handler {
             new_channel.document.arc_set_event_handler(handler.clone());
         }
 
-        // this lifecycle stuff is going to get finnicky
-        let old_channel = self.liveview_channel.try_lock()?.channel.clone();
-        old_channel.leave().await?;
         *self.liveview_channel.try_lock()? = new_channel;
+        let has_reload = self.session_data.try_lock()?.has_live_reload;
 
-        if self.session_data.try_lock()?.has_live_reload {
+        if has_reload {
             debug!("Rejoining livereload channel");
             let new_livereload =
                 join_livereload_channel(&self.config, &self.socket, &self.session_data, cookies)
@@ -338,12 +364,13 @@ impl LiveViewClientState {
             .current()
             .ok_or(LiveSocketError::NavigationImpossible)?;
 
+        let ws_timeout = Duration::from_millis(self.config.websocket_timeout);
         match join_liveview_channel(
-            &self.config,
             &self.socket,
             &self.session_data,
             additional_params,
             Some(current.url.clone()),
+            ws_timeout,
         )
         .await
         {
@@ -395,11 +422,11 @@ impl LiveViewClientState {
                 *self.session_data.try_lock()? = new_session_data;
 
                 let channel = join_liveview_channel(
-                    &self.config,
                     &self.socket,
                     &self.session_data,
                     additional_params,
                     None,
+                    ws_timeout,
                 )
                 .await?;
 

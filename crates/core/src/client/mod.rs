@@ -12,7 +12,7 @@ use std::{
 use config::*;
 use futures::future::try_join_all;
 use inner::LiveViewClientInner;
-use phoenix_channels_client::{Event, Payload, SocketStatus, JSON};
+use phoenix_channels_client::{Event, Payload, SocketStatus};
 use reqwest::header::CONTENT_TYPE;
 
 use crate::{
@@ -58,14 +58,6 @@ impl LiveViewClientBuilder {
     pub fn set_live_channel_event_handler(&self, handler: Box<dyn LiveChannelEventHandler>) {
         let mut config = self.config.lock().unwrap();
         config.live_channel_handler = Some(handler.into());
-    }
-
-    /// Set A list of JSON parameters which will be passed to the websocket
-    /// when joining By default the client will send the
-    /// `_mounts` , `_csrf`, and `_format` parameters. These can be overridden here.
-    pub fn set_channel_join_params(&self, join_params: HashMap<String, JSON>) {
-        let mut config = self.config.lock().unwrap();
-        config.join_params = join_params.into();
     }
 
     /// The [DocumentChangeHandler] here will be called whenever a diff event
@@ -118,12 +110,6 @@ impl LiveViewClientBuilder {
         config.format = format;
     }
 
-    /// Retrieve the value set in [LiveViewClientBuilder::set_channel_join_params]
-    pub fn channel_join_params(&self) -> Option<HashMap<String, JSON>> {
-        let config = self.config.lock().unwrap();
-        config.join_params.clone()
-    }
-
     /// Returns the current log level setting.
     pub fn log_level(&self) -> LogLevel {
         let config = self.config.lock().unwrap();
@@ -149,9 +135,13 @@ impl LiveViewClientBuilder {
     }
 
     /// Attempt to establish a new, connected [LiveViewClient] with the param set above
-    pub async fn connect(&self, url: String) -> Result<LiveViewClient, LiveSocketError> {
+    pub async fn connect(
+        &self,
+        url: String,
+        opts: ClientConnectOpts,
+    ) -> Result<LiveViewClient, LiveSocketError> {
         let config = self.config.lock().unwrap().clone();
-        let inner = LiveViewClientInner::initial_connect(config, url).await?;
+        let inner = LiveViewClientInner::initial_connect(config, url, opts).await?;
 
         Ok(LiveViewClient { inner })
     }
@@ -167,14 +157,16 @@ impl LiveViewClient {
     pub async fn reconnect(
         &self,
         url: String,
-        additional_headers: Option<HashMap<String, String>>,
+        client_opts: ClientConnectOpts,
     ) -> Result<(), LiveSocketError> {
         let opts = ConnectOpts {
-            headers: additional_headers,
+            headers: client_opts.headers,
             ..Default::default()
         };
 
-        self.inner.reconnect(url, opts).await?;
+        self.inner
+            .reconnect(url, opts, client_opts.join_params)
+            .await?;
         Ok(())
     }
 
@@ -190,24 +182,26 @@ impl LiveViewClient {
         &self,
         url: String,
         form: HashMap<String, String>,
-        additional_headers: Option<HashMap<String, String>>,
+        mut client_opts: ClientConnectOpts,
     ) -> Result<(), LiveSocketError> {
         let form_data = serde_urlencoded::to_string(form)?;
 
-        let mut headers = additional_headers.unwrap_or_default();
+        let headers = client_opts.headers.get_or_insert_default();
         headers.insert(
             CONTENT_TYPE.to_string(),
             "application/x-www-form-urlencoded".to_string(),
         );
 
         let opts = ConnectOpts {
-            headers: Some(headers),
+            headers: client_opts.headers,
             body: Some(form_data),
             method: Some(Method::Post),
             timeout_ms: 30_000, // Actually unused, should remove at one point
         };
 
-        self.inner.reconnect(url, opts).await?;
+        self.inner
+            .reconnect(url, opts, client_opts.join_params)
+            .await?;
         Ok(())
     }
 

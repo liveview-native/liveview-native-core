@@ -172,7 +172,7 @@ impl SessionData {
             LiveSocket::get_dead_render(url, format, &connect_opts, client).await?;
         //TODO: remove cookies, pull it from the cookie client cookie store.
 
-        log::trace!("dead_reader: {dead_render}");
+        log::trace!("dead render retrived:\n {dead_render}");
         let csrf_token = dead_render
             .get_csrf_token()
             .ok_or(LiveSocketError::CSRFTokenMissing)?;
@@ -319,7 +319,6 @@ impl SessionData {
 
     pub fn create_join_payload(
         &self,
-        config_params: &Option<HashMap<String, JSON>>,
         additional_params: &Option<HashMap<String, JSON>>,
         redirect: Option<String>,
     ) -> Payload {
@@ -327,15 +326,6 @@ impl SessionData {
         params.insert(MOUNT_KEY.to_string(), serde_json::json!(0));
         params.insert(CSRF_KEY.to_string(), serde_json::json!(self.csrf_token));
         params.insert(FMT_KEY.to_string(), serde_json::json!(self.format));
-
-        if let Some(join_params) = config_params {
-            params.extend(
-                join_params
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.clone().into())),
-            );
-        }
-
         if let Some(join_params) = additional_params {
             params.extend(
                 join_params
@@ -629,7 +619,7 @@ impl LiveSocket {
 
         let session_data = lock!(self.session_data).clone();
 
-        let join_payload = session_data.create_join_payload(&join_params, &None, redirect);
+        let join_payload = session_data.create_join_payload(&join_params, redirect);
 
         let channel = self
             .socket()

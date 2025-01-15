@@ -20,23 +20,18 @@ const LVN_VSN_KEY: &str = "vsn";
 
 /// TODO: Post refactor turn this into a private constructor on a LiveChannel
 pub async fn join_liveview_channel(
-    config: &LiveViewClientConfiguration,
     socket: &Mutex<Arc<Socket>>,
     session_data: &Mutex<SessionData>,
     additional_params: &Option<HashMap<String, JSON>>,
     redirect: Option<String>,
+    ws_timeout: std::time::Duration,
 ) -> Result<Arc<LiveChannel>, LiveSocketError> {
-    let ws_timeout = Duration::from_millis(config.websocket_timeout);
-
     let sock = socket.try_lock()?.clone();
     sock.connect(ws_timeout).await?;
 
-    let sent_join_payload = session_data.try_lock()?.create_join_payload(
-        &config.join_params,
-        additional_params,
-        redirect,
-    );
-
+    let sent_join_payload = session_data
+        .try_lock()?
+        .create_join_payload(additional_params, redirect);
     let topic = Topic::from_string(format!("lv:{}", session_data.try_lock()?.phx_id));
     let channel = sock.channel(topic, Some(sent_join_payload)).await?;
 
@@ -67,7 +62,7 @@ pub async fn join_liveview_channel(
     Ok(LiveChannel {
         channel,
         join_payload,
-        join_params: config.join_params.clone().unwrap_or_default(),
+        join_params: additional_params.clone().unwrap_or_default(),
         socket: socket.try_lock()?.clone(),
         document: document.into(),
         timeout: ws_timeout,

@@ -56,7 +56,8 @@ async fn streaming_connect() -> Result<(), String> {
     let mut config = LiveViewClientConfiguration::default();
     config.patch_handler = Some(Arc::new(inspector));
     config.format = Platform::Swiftui;
-    let _client = LiveViewClient::initial_connect(config, url)
+
+    let _client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 

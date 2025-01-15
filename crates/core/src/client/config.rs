@@ -58,6 +58,16 @@ impl Default for Platform {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default, uniffi::Record)]
+pub struct ClientConnectOpts {
+    /// Params passed upon joining the live socket
+    #[uniffi(default = None)]
+    pub join_params: Option<HashMap<String, JSON>>,
+    /// Headers passed while fetching the dead render
+    #[uniffi(default = None)]
+    pub headers: Option<HashMap<String, String>>,
+}
+
 #[derive(Clone)]
 pub struct LiveViewClientConfiguration {
     /// Instruments all server side events and changes in the current LiveChannel state, including when
@@ -79,8 +89,6 @@ pub struct LiveViewClientConfiguration {
     pub websocket_timeout: u64,
     /// The _format argument passed on connection.
     pub format: Platform,
-    /// The additional parameters passed to the live channel on join
-    pub join_params: Option<HashMap<String, JSON>>,
 }
 
 impl Default for LiveViewClientConfiguration {
@@ -97,7 +105,6 @@ impl Default for LiveViewClientConfiguration {
             dead_render_timeout: DEAD_RENDER_TIMEOUT_MS,
             websocket_timeout: WEBSOCKET_TIMEOUT_MS,
             format: Platform::default(),
-            join_params: None,
         }
     }
 }

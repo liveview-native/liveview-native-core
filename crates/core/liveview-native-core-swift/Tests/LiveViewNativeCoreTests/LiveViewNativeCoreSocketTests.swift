@@ -41,7 +41,7 @@ final class LiveViewNativeCoreSocketTests: XCTestCase {
 
     func testBasicConnection() async throws {
         let builder = LiveViewClientBuilder()
-        let client = try await builder.connect("http://127.0.0.1:4001/hello")
+        let client = try await builder.connect("http://127.0.0.1:4001/hello", ClientConnectOpts())
         let document = try client.document()
 
         let expected = """
@@ -59,7 +59,8 @@ final class LiveViewNativeCoreSocketTests: XCTestCase {
 
     func testNavigation() async throws {
         let builder = LiveViewClientBuilder()
-        let client = try await builder.connect("http://127.0.0.1:4001/nav/first_page")
+        let client = try await builder.connect(
+            "http://127.0.0.1:4001/nav/first_page", ClientConnectOpts())
 
         let initialDoc = try client.document()
         let expectedInitial = """

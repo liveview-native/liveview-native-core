@@ -107,6 +107,9 @@ impl EventLoop {
                                     let _ = live_channel.channel.cast(event, payload).await;
                                 },
                                 ClientMessage::UpdateChannel => {
+
+                                    let _  = live_channel.channel().leave().await;
+
                                     live_channel = client_state
                                         .liveview_channel
                                         .lock()

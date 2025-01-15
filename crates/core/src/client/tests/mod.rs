@@ -36,7 +36,7 @@ async fn test_basic_connection() {
     let url = format!("http://{HOST}/hello");
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
-    let client = LiveViewClient::initial_connect(config, url)
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -51,6 +51,38 @@ async fn test_basic_connection() {
 </VStack>"#;
 
     assert_doc_eq!(expected, initial_doc.to_string());
+
+    let url = format!("http://{HOST}/hello");
+    client
+        .reconnect(url, Default::default(), None)
+        .await
+        .expect("reconnect failed");
+
+    let initial_doc = client.document().expect("Failed to get initial page");
+
+    assert_doc_eq!(expected, initial_doc.to_string());
+
+    let url = format!("http://{HOST}/nav/first_page");
+
+    client
+        .reconnect(url, Default::default(), None)
+        .await
+        .expect("reconnect failed");
+
+    let doc = client.document().expect("Failed to get document");
+    let expected = r#"
+<Group id="flash-group" />
+<VStack>
+    <Text>
+        first_page
+    </Text>
+    <NavigationLink id="Next" destination="/nav/next">
+        <Text>
+            NEXT
+        </Text>
+    </NavigationLink>
+</VStack>"#;
+    assert_doc_eq!(expected, doc.to_string());
 }
 
 #[tokio::test]
@@ -59,7 +91,7 @@ async fn test_style_urls() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::initial_connect(config, url)
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -76,7 +108,7 @@ async fn test_basic_navigation() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::initial_connect(config, url)
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -124,7 +156,7 @@ async fn test_back_and_forward_navigation() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::initial_connect(config, url)
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -222,7 +254,7 @@ async fn thermostat_click() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::initial_connect(config, url)
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 

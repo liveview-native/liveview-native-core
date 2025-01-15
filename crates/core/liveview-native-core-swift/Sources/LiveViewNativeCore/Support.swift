@@ -1884,13 +1884,12 @@ extension DecodingError {
     }
 }
 
-final class SimpleHandler: DocumentChangeHandler {
-    
-    
+public final class SimplePatchHandler: DocumentChangeHandler {
+
     let callback: (NodeRef, NodeData, NodeRef?) -> Void
     let doc_change_callback: (Document) -> Void
 
-    init(
+    public init(
         _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void,
         _ doc_change_callback: @escaping (Document) -> Void
     ) {
@@ -1898,7 +1897,7 @@ final class SimpleHandler: DocumentChangeHandler {
         self.doc_change_callback = doc_change_callback
     }
 
-    func handleDocumentChange(
+    public func handleDocumentChange(
         _ changeType: ChangeType, _ node: NodeRef, _ data: NodeData, _ parent: NodeRef?
     ) {
         switch changeType {
@@ -1913,10 +1912,66 @@ final class SimpleHandler: DocumentChangeHandler {
         }
     }
 
-    func handleNewDocument(_ document: Document) {
+    public func handleNewDocument(_ document: Document) {
         self.doc_change_callback(document)
     }
 
+}
+
+public final class SimpleEventHandler: LiveChannelEventHandler {
+    let event_callback: (EventPayload) -> Void
+    let status_callback: (LiveChannelStatus) -> Void
+    let change_callback: () -> Void
+
+    public init(
+        _ event_callback: @escaping (EventPayload) -> Void,
+        _ status_callback: @escaping (LiveChannelStatus) -> Void,
+        _ change_callback: @escaping () -> Void
+    ) {
+        self.event_callback = event_callback
+        self.status_callback = status_callback
+        self.change_callback = change_callback
+    }
+
+    public func handleEvent(_ event: EventPayload) {
+        self.event_callback(event)
+    }
+
+    public func handleStatusChange(_ event: LiveChannelStatus) {
+        self.status_callback(event)
+    }
+
+    public func liveChannelChanged() {
+        self.change_callback()
+    }
+}
+
+public final class SimpleStore: SecurePersistentStore {
+    let remove_callback: (String) -> Void
+    let get_callback: (String) -> Data?
+    let set_callback: (String, Data) -> Void
+
+    public init(
+        _ remove_callback: @escaping (String) -> Void,
+        _ get_callback: @escaping (String) -> Data?,
+        _ set_callback: @escaping (String, Data) -> Void
+    ) {
+        self.remove_callback = remove_callback
+        self.get_callback = get_callback
+        self.set_callback = set_callback
+    }
+
+    public func removeEntry(_ key: String) {
+        self.remove_callback(key)
+    }
+
+    public func get(_ key: String) -> Data? {
+        return self.get_callback(key)
+    }
+
+    public func set(_ key: String, _ value: Data) {
+        self.set_callback(key, value)
+    }
 }
 
 extension Document {
@@ -1942,7 +1997,7 @@ extension Document {
         _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void,
         _ doc_change_callback: @escaping (Document) -> Void
     ) {
-        let simple = SimpleHandler(callback, doc_change_callback)
+        let simple = SimplePatchHandler(callback, doc_change_callback)
         self.setEventHandler(simple)
     }
 
