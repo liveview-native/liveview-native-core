@@ -276,7 +276,7 @@ async fn basic_nav_flow() {
 
     let url = format!("http://{HOST}/nav/{second}");
     let live_channel = live_socket
-        .navigate(url, Arc::new(live_channel), Default::default())
+        .navigate(url, None, Default::default())
         .await
         .expect("navigate");
 
