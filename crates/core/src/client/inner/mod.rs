@@ -14,7 +14,6 @@ use channel_init::*;
 use cookie_store::PersistentCookieStore;
 use event_loop::EventLoop;
 pub(crate) use event_loop::LiveViewClientChannel;
-use futures::future::try_join_all;
 use log::debug;
 use logging::*;
 use navigation::NavCtx;
@@ -83,11 +82,9 @@ impl LiveViewClientInner {
         Ok(())
     }
 
-    pub async fn upload_files(&self, files: Vec<Arc<LiveFile>>) -> Result<(), LiveSocketError> {
+    pub async fn upload_file(&self, file: Arc<LiveFile>) -> Result<(), LiveSocketError> {
         let chan = self.channel()?;
-        let futs = files.iter().map(|file| chan.upload_file(file));
-        try_join_all(futs).await?;
-
+        chan.upload_file(&file).await?;
         Ok(())
     }
 

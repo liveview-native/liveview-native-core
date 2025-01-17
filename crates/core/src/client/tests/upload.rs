@@ -56,7 +56,7 @@ async fn test_single_chunk_file_upload() {
     );
 
     client
-        .upload_files(vec![file.into()])
+        .upload_file(file.into())
         .await
         .expect("Failed to upload file");
 }
@@ -91,7 +91,7 @@ async fn test_multi_chunk_text_upload() {
     );
 
     client
-        .upload_files(vec![file.into()])
+        .upload_file(file.into())
         .await
         .expect("Failed to upload file");
 }
@@ -121,7 +121,7 @@ async fn test_multi_chunk_file_upload() {
     );
 
     client
-        .upload_files(vec![file.into()])
+        .upload_file(file.into())
         .await
         .expect("Failed to upload file");
 }
@@ -156,7 +156,7 @@ async fn test_file_too_large_error() {
         phx_upload_id,
     );
 
-    let error = client.upload_files(vec![file.into()]).await.err().unwrap();
+    let error = client.upload_file(file.into()).await.err().unwrap();
 
     match error {
         LiveSocketError::Upload {
@@ -195,7 +195,7 @@ async fn test_incorrect_file_type_error() {
         phx_upload_id,
     );
 
-    let error = client.upload_files(vec![file.into()]).await.err().unwrap();
+    let error = client.upload_file(file.into()).await.err().unwrap();
 
     match error {
         LiveSocketError::Upload {
