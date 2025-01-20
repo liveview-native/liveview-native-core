@@ -12,7 +12,7 @@ use std::{
 use config::*;
 use futures::future::try_join_all;
 use inner::LiveViewClientInner;
-use phoenix_channels_client::{Event, Payload, SocketStatus};
+use phoenix_channels_client::{Payload, SocketStatus};
 use reqwest::header::CONTENT_TYPE;
 
 use crate::{

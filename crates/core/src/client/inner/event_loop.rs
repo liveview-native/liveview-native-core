@@ -200,7 +200,7 @@ async fn handle_client_message(
 
             match call_result {
                 Ok(reply) => {
-                    if let Err(e) = handle_reply(&document, &reply) {
+                    if let Err(e) = handle_reply(document, &reply) {
                         error!("Failure while handling server reply: {e:?}");
                     }
 
