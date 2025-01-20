@@ -189,11 +189,11 @@ impl LiveViewClientInner {
     }
 
     pub fn get_entries(&self) -> Vec<NavHistoryEntry> {
-        self.state.get_entries()
+        self.state.get_history_entries()
     }
 
     pub fn current(&self) -> Option<NavHistoryEntry> {
-        self.state.current()
+        self.state.current_history_entry()
     }
 
     pub fn create_channel(&self) -> LiveViewClientChannel {
@@ -544,14 +544,14 @@ impl LiveViewClientState {
             .unwrap_or(false)
     }
 
-    pub fn get_entries(&self) -> Vec<NavHistoryEntry> {
+    pub fn get_history_entries(&self) -> Vec<NavHistoryEntry> {
         self.nav_ctx
             .try_lock()
             .map(|ctx| ctx.entries())
             .unwrap_or_default()
     }
 
-    pub fn current(&self) -> Option<NavHistoryEntry> {
+    pub fn current_history_entry(&self) -> Option<NavHistoryEntry> {
         self.nav_ctx.try_lock().ok().and_then(|ctx| ctx.current())
     }
 }

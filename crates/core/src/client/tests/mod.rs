@@ -277,9 +277,11 @@ async fn thermostat_click() {
 
     assert_doc_eq!(expected, initial_doc.to_string());
 
-    let event = Event::from_string("event".into());
     let payload = json_payload!({"type": "click", "event": "inc_temperature", "value": {}});
-    channel.call(event, payload).await.expect("error on click");
+    channel
+        .call("event".into(), payload)
+        .await
+        .expect("error on click");
 
     let expected = r#"
     <Group id="flash-group" />

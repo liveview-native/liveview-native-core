@@ -328,11 +328,15 @@ pub struct LiveViewClientChannel {
 
 #[uniffi::export(async_runtime = "tokio")]
 impl LiveViewClientChannel {
-    pub async fn call(&self, event: Event, payload: Payload) -> Result<Payload, LiveSocketError> {
-        self.inner.call(event, payload).await
+    pub async fn call(
+        &self,
+        event_name: String,
+        payload: Payload,
+    ) -> Result<Payload, LiveSocketError> {
+        self.inner.call(event_name, payload).await
     }
 
-    pub async fn cast(&self, event: Event, payload: Payload) {
-        self.inner.cast(event, payload).await
+    pub async fn cast(&self, event_name: String, payload: Payload) {
+        self.inner.cast(event_name, payload).await
     }
 }
