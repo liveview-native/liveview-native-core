@@ -511,15 +511,15 @@ dependencies = [
 
 [[package]]
 name = "cranelift-bitset"
-version = "0.115.0"
+version = "0.116.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9bd49369f76c77e34e641af85d0956869237832c118964d08bf5f51f210875a"
+checksum = "ab925581363040c22dc89ac7b9b0825364d0960761002a60a1997f06071633f9"
 
 [[package]]
 name = "cranelift-entity"
-version = "0.115.0"
+version = "0.116.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "118597e3a9cf86c3556fa579a7a23b955fa18231651a52a77a2475d305a9cf84"
+checksum = "f6632a6d2de04256e8fb072ac4a89f6803217780a979c8d254f4cfcd732db86d"
 dependencies = [
  "cranelift-bitset",
 ]
