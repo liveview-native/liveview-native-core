@@ -1,8 +1,6 @@
 mod streaming;
 mod upload;
 
-use phoenix_channels_client::Event;
-
 use crate::{
     client::{LiveViewClientConfiguration, Platform},
     dom::Document,

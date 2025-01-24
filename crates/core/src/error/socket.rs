@@ -13,6 +13,8 @@ use crate::{
 pub enum LiveSocketError {
     #[error("call to `call` failed: {error}.")]
     Call { error: String },
+    #[error("call to `cast` failed: {error}.")]
+    Cast { error: String },
     #[error("Internal Socket Locks would block.")]
     WouldLock,
     #[error("Form Data Failed to Serialize. {error}")]

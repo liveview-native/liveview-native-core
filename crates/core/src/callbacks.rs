@@ -1,6 +1,11 @@
 use std::sync::Arc;
 
-use crate::dom::{ffi::Document, NodeData, NodeRef};
+use phoenix_channels_client::{Socket, SocketStatus};
+
+use crate::{
+    dom::{ffi::Document, NodeData, NodeRef},
+    live_socket::LiveChannel,
+};
 
 /// Provides secure persistent storage for session data like cookies.
 /// Implementations should handle platform-specific storage (e.g. NSUserDefaults on iOS)
@@ -144,28 +149,39 @@ pub trait DocumentChangeHandler: Send + Sync {
         node_data: NodeData,
         parent: Option<Arc<NodeRef>>,
     );
-
-    /// This is called on a new livechannel connection every
-    /// time a new view connects. It passes the new document
-    /// which changes will be applied to. When this is called,
-    /// replace the previous document you were observing with [DocumentChangeHandler::handle_document_change]
-    /// with the new one.
-    fn handle_new_document(&self, document: Arc<Document>);
 }
 
 /// Implement this if you need to instrument all replies and status
 /// changes on the current live channel.
 #[cfg(feature = "liveview-channels")]
 #[uniffi::export(callback_interface)]
-pub trait LiveChannelEventHandler: Send + Sync {
+pub trait NetworkEventHandler: Send + Sync {
     /// Whenever a server sent event or reply to a user
     /// message is receiver the event payload is passed to this
     /// callback. by default the client handles diff events and will
     /// handle assets_change, live_patch, live_reload, etc, in the future
     fn handle_event(&self, event: phoenix_channels_client::EventPayload);
-    /// Whenever the status of the current LiveChannel changes
-    /// This callback is invoked.
-    fn handle_status_change(&self, event: LiveChannelStatus);
-    /// Called whenever the internal livechannel is swapped out
-    fn live_channel_changed(&self);
+
+    /// Called when the current LiveChannel status changes.
+    fn handle_channel_status_change(&self, event: LiveChannelStatus);
+
+    /// Called when the LiveSocket status changes.
+    fn handle_socket_status_change(&self, event: SocketStatus);
+
+    /// Called when the view is reloaded, provides the new document.
+    /// This means that the previous livechannel has been dropped and
+    /// a new livechannel has been established
+    ///
+    /// The socket may be the same as the previous view if the navigation
+    /// API was used within the same livesession, if this is the case
+    /// `socket_is_new` will be false
+    ///
+    /// If the socket was reconnected for any reason `socket_is_new` will be true.
+    fn handle_view_reloaded(
+        &self,
+        new_document: Arc<Document>,
+        new_channel: Arc<LiveChannel>,
+        current_socket: Arc<Socket>,
+        socket_is_new: bool,
+    );
 }

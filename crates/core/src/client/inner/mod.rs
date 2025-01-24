@@ -38,6 +38,7 @@ pub(crate) struct LiveViewClientState {
     nav_ctx: Mutex<NavCtx>,
     /// HTTP client used to request dead renders.
     http_client: Client,
+    /// The main websocket for this page
     socket: Mutex<Arc<Socket>>,
     /// The main channel which passes user interaction events
     /// and receives changes to the "dom"
@@ -55,7 +56,15 @@ pub(crate) struct LiveViewClientState {
 
 pub struct LiveViewClientInner {
     state: Arc<LiveViewClientState>,
+    /// A long polling task on the current websocket,
+    /// because the socket is in an Arc for uniffi reasons the
+    /// `event_loop` must be notified whenever it changes with [EventLoop::refresh_view]
     event_loop: EventLoop,
+}
+
+struct NavigationSummary {
+    history_id: HistoryId,
+    websocket_reconnected: bool,
 }
 
 // First implement the accessor methods on LiveViewClientInner
@@ -78,7 +87,7 @@ impl LiveViewClientInner {
         join_params: Option<HashMap<String, JSON>>,
     ) -> Result<(), LiveSocketError> {
         self.state.reconnect(url, opts, join_params).await?;
-        self.event_loop.replace_livechannel();
+        self.event_loop.refresh_view(true);
         Ok(())
     }
 
@@ -144,26 +153,26 @@ impl LiveViewClientInner {
         opts: NavOptions,
     ) -> Result<HistoryId, LiveSocketError> {
         let res = self.state.navigate(url, opts).await?;
-        self.event_loop.replace_livechannel();
-        Ok(res)
+        self.event_loop.refresh_view(res.websocket_reconnected);
+        Ok(res.history_id)
     }
 
     pub async fn reload(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
         let res = self.state.reload(info).await?;
-        self.event_loop.replace_livechannel();
-        Ok(res)
+        self.event_loop.refresh_view(res.websocket_reconnected);
+        Ok(res.history_id)
     }
 
     pub async fn back(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
         let res = self.state.back(info).await?;
-        self.event_loop.replace_livechannel();
-        Ok(res)
+        self.event_loop.refresh_view(res.websocket_reconnected);
+        Ok(res.history_id)
     }
 
     pub async fn forward(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
         let res = self.state.forward(info).await?;
-        self.event_loop.replace_livechannel();
-        Ok(res)
+        self.event_loop.refresh_view(res.websocket_reconnected);
+        Ok(res.history_id)
     }
 
     pub async fn traverse_to(
@@ -172,8 +181,8 @@ impl LiveViewClientInner {
         info: NavActionOptions,
     ) -> Result<HistoryId, LiveSocketError> {
         let res = self.state.traverse_to(id, info).await?;
-        self.event_loop.replace_livechannel();
-        Ok(res)
+        self.event_loop.refresh_view(res.websocket_reconnected);
+        Ok(res.history_id)
     }
 
     pub fn can_go_back(&self) -> bool {
@@ -353,10 +362,15 @@ impl LiveViewClientState {
 
 impl LiveViewClientState {
     const RETRY_REASONS: &[&str] = &["stale", "unauthorized"];
+    /// try to do the internal nav, attempting to fix
+    /// recoverable errors which occur when connecting across
+    /// auth state, live_sessions and respecting redirects.
+    /// If the websocket needed to be refreshed this returns true
+    /// otherwise it returns false.
     async fn try_nav(
         &self,
         additional_params: &Option<HashMap<String, JSON>>,
-    ) -> Result<(), LiveSocketError> {
+    ) -> Result<bool, LiveSocketError> {
         let current = self
             .nav_ctx
             .try_lock()?
@@ -439,7 +453,7 @@ impl LiveViewClientState {
                 chan.leave().await?;
 
                 *self.liveview_channel.try_lock()? = channel;
-                Ok(())
+                Ok(true)
             }
             Ok(channel) => {
                 let chan = &self.liveview_channel.try_lock()?.channel.clone();
@@ -452,7 +466,7 @@ impl LiveViewClientState {
                 }
 
                 *self.liveview_channel.try_lock()? = channel;
-                Ok(())
+                Ok(false)
             }
             Err(e) => Err(e),
         }
@@ -462,10 +476,12 @@ impl LiveViewClientState {
         &self,
         additional_params: &Option<HashMap<String, JSON>>,
         nav_action: F,
-    ) -> Result<HistoryId, LiveSocketError>
+    ) -> Result<NavigationSummary, LiveSocketError>
     where
         F: FnOnce(&mut NavCtx) -> Option<HistoryId>,
     {
+        // try the navigation action, if it's impossible the returned
+        // history id will be None.
         let new_id = {
             let mut nav_ctx = self.nav_ctx.try_lock()?;
             nav_action(&mut nav_ctx)
@@ -473,18 +489,22 @@ impl LiveViewClientState {
 
         match new_id {
             Some(id) => {
-                self.try_nav(additional_params).await?;
-                Ok(id)
+                // actually do the navigation, updating everything in one fell swoop
+                let websocket_reconnected = self.try_nav(additional_params).await?;
+                Ok(NavigationSummary {
+                    history_id: id,
+                    websocket_reconnected,
+                })
             }
             None => Err(LiveSocketError::NavigationImpossible),
         }
     }
 
-    pub async fn navigate(
+    async fn navigate(
         &self,
         url: String,
         mut opts: NavOptions,
-    ) -> Result<HistoryId, LiveSocketError> {
+    ) -> Result<NavigationSummary, LiveSocketError> {
         let url = Url::parse(&url)?;
         self.try_nav_outer(&opts.join_params.take(), |ctx| {
             ctx.navigate(url, opts, true)
@@ -492,66 +512,67 @@ impl LiveViewClientState {
         .await
     }
 
-    pub async fn reload(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+    async fn reload(&self, opts: NavActionOptions) -> Result<NavigationSummary, LiveSocketError> {
         self.try_nav_outer(&opts.join_params, |ctx| {
             ctx.reload(opts.extra_event_info, true)
         })
         .await
     }
-    pub async fn back(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+
+    async fn back(&self, opts: NavActionOptions) -> Result<NavigationSummary, LiveSocketError> {
         self.try_nav_outer(&opts.join_params, |ctx| {
             ctx.back(opts.extra_event_info, true)
         })
         .await
     }
 
-    pub async fn forward(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+    async fn forward(&self, opts: NavActionOptions) -> Result<NavigationSummary, LiveSocketError> {
         self.try_nav_outer(&opts.join_params, |ctx| {
             ctx.forward(opts.extra_event_info, true)
         })
         .await
     }
 
-    pub async fn traverse_to(
+    async fn traverse_to(
         &self,
         id: HistoryId,
         opts: NavActionOptions,
-    ) -> Result<HistoryId, LiveSocketError> {
+    ) -> Result<NavigationSummary, LiveSocketError> {
         self.try_nav_outer(&opts.join_params, |ctx| {
             ctx.traverse_to(id, opts.extra_event_info, true)
         })
         .await
     }
 
-    pub fn can_go_back(&self) -> bool {
+    fn can_go_back(&self) -> bool {
         self.nav_ctx
             .try_lock()
             .map(|ctx| ctx.can_go_back())
             .unwrap_or(false)
     }
 
-    pub fn can_go_forward(&self) -> bool {
+    fn can_go_forward(&self) -> bool {
         self.nav_ctx
             .try_lock()
             .map(|ctx| ctx.can_go_forward())
             .unwrap_or(false)
     }
 
-    pub fn can_traverse_to(&self, id: HistoryId) -> bool {
+    fn can_traverse_to(&self, id: HistoryId) -> bool {
         self.nav_ctx
             .try_lock()
             .map(|ctx| ctx.can_traverse_to(id))
             .unwrap_or(false)
     }
 
-    pub fn get_history_entries(&self) -> Vec<NavHistoryEntry> {
+    fn get_history_entries(&self) -> Vec<NavHistoryEntry> {
         self.nav_ctx
             .try_lock()
             .map(|ctx| ctx.entries())
             .unwrap_or_default()
     }
 
-    pub fn current_history_entry(&self) -> Option<NavHistoryEntry> {
+    fn current_history_entry(&self) -> Option<NavHistoryEntry> {
         self.nav_ctx.try_lock().ok().and_then(|ctx| ctx.current())
     }
 }

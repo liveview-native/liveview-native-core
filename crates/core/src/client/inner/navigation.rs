@@ -297,23 +297,6 @@ mod test {
         }
     }
 
-    //impl NavEvent {
-    //    // utility function so I can sugar out boiler plate code in tests.
-    //    pub fn empty() -> Self {
-    //        Self {
-    //            to: NavHistoryEntry {
-    //                url: String::new(),
-    //                id: 0,
-    //                state: None,
-    //            },
-    //            event: NavEventType::Push,
-    //            same_document: false,
-    //            from: None,
-    //            info: None,
-    //        }
-    //    }
-    //}
-
     #[test]
     fn basic_internal_nav() {
         let handler = Arc::new(NavigationInspector::new());

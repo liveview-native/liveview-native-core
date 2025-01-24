@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use super::*;
 use crate::{
     callbacks::*,
-    dom::{ffi::Document, NodeData, NodeRef},
+    dom::{NodeData, NodeRef},
 };
 mod error;
 mod navigation;
@@ -65,10 +65,6 @@ impl DocumentChangeHandler for Inspector {
         self.tx
             .send((change_type, node_data))
             .expect("Message Never Received.");
-    }
-
-    fn handle_new_document(&self, document: Arc<Document>) {
-        let _ = document;
     }
 }
 

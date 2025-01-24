@@ -55,7 +55,7 @@ impl LiveViewClientBuilder {
 
     /// Provides the [LiveViewClient] with a way to store Cookies, and potentially other
     /// user session data like settings.
-    pub fn set_live_channel_event_handler(&self, handler: Box<dyn LiveChannelEventHandler>) {
+    pub fn set_live_channel_event_handler(&self, handler: Box<dyn NetworkEventHandler>) {
         let mut config = self.config.lock().unwrap();
         config.live_channel_handler = Some(handler.into());
     }

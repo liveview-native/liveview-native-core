@@ -8,7 +8,7 @@ use tokio::{
 use super::*;
 use crate::{
     client::{ChangeType, DocumentChangeHandler},
-    dom::{self, NodeData, NodeRef},
+    dom::{NodeData, NodeRef},
 };
 
 const MAX_TRIES: u64 = 10;
@@ -39,10 +39,6 @@ impl DocumentChangeHandler for Inspector {
         self.tx
             .send((change_type, node_data))
             .expect("Message Never Received.");
-    }
-
-    fn handle_new_document(&self, document: std::sync::Arc<dom::ffi::Document>) {
-        let _ = document;
     }
 }
 
