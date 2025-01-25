@@ -1918,32 +1918,43 @@ public final class SimplePatchHandler: DocumentChangeHandler {
 
 }
 
-public final class SimpleEventHandler: LiveChannelEventHandler {
+public final class SimpleEventHandler: NetworkEventHandler {
     let event_callback: (EventPayload) -> Void
-    let status_callback: (LiveChannelStatus) -> Void
-    let change_callback: () -> Void
+    let chan_status_callback: (LiveChannelStatus) -> Void
+    let socket_status_callback: (SocketStatus) -> Void
+    let refresh: (Document, LiveChannel, Socket, Bool) -> Void
 
     public init(
         _ event_callback: @escaping (EventPayload) -> Void,
-        _ status_callback: @escaping (LiveChannelStatus) -> Void,
-        _ change_callback: @escaping () -> Void
+        _ chan_status_callback: @escaping (LiveChannelStatus) -> Void,
+        _ sock_status_callback: @escaping (SocketStatus) -> Void,
+        _ change_callback: @escaping (Document, LiveChannel, Socket, Bool) -> Void
     ) {
         self.event_callback = event_callback
-        self.status_callback = status_callback
-        self.change_callback = change_callback
+        self.chan_status_callback = chan_status_callback
+        self.socket_status_callback = sock_status_callback
+        self.refresh = change_callback
     }
 
     public func handleEvent(_ event: EventPayload) {
         self.event_callback(event)
     }
 
-    public func handleStatusChange(_ event: LiveChannelStatus) {
-        self.status_callback(event)
+    public func handleChannelStatusChange(_ status: LiveChannelStatus) {
+        self.chan_status_callback(status)
     }
 
-    public func liveChannelChanged() {
-        self.change_callback()
+    public func handleSocketStatusChange(_ status: SocketStatus) {
+        self.socket_status_callback(status)
     }
+
+    public func handleViewReloaded(
+        _ newDocument: Document, _ newChannel: LiveChannel, _ currentSocket: Socket,
+        _ socketIsNew: Bool
+    ) {
+        self.refresh(newDocument, newChannel, currentSocket, socketIsNew)
+    }
+
 }
 
 public final class SimpleStore: SecurePersistentStore {
