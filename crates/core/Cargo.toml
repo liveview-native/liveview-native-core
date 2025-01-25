@@ -51,7 +51,7 @@ oslog = "0.2.0"
 
 [dependencies]
 serde_urlencoded = "0.7.1"
-cranelift-entity = { version = "0.115" }
+cranelift-entity = { version = "0.116" }
 fixedbitset = { version = "0.5" }
 fxhash = { version = "0.2" }
 html5gum = { git = "https://github.com/liveviewnative/html5gum", branch = "lvn" }
