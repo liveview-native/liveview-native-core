@@ -150,7 +150,7 @@ func testBasicNavFlow() async throws {
 
     XCTAssertEqual(doc.render(), exp.render())
 
-    let secondChannel = try await liveSocket.navigate(secondUrl, liveChannel, NavOptions())
+    let secondChannel = try await liveSocket.navigate(secondUrl, .none, NavOptions())
 
     let secondDoc = secondChannel.document()
 

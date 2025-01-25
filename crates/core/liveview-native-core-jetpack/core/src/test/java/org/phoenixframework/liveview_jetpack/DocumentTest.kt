@@ -274,7 +274,7 @@ class DocumentTest {
         assertEquals(exp.render(), doc.render())
 
         val secondUrl = "http://$host/nav/second_page"
-        val secondChannel = liveSocket.navigate(secondUrl, liveChannel, NavOptions())
+        val secondChannel = liveSocket.navigate(secondUrl, null, NavOptions())
 
         val secondDoc = secondChannel.document()
 
