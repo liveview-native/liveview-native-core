@@ -60,8 +60,6 @@ class SimpleChangeHandler : DocumentChangeHandler {
     ) {
         println("${changeType}")
     }
-
-    override fun `handleNewDocument`(`document`: Document) {}
 }
 
 class DocumentTest {
