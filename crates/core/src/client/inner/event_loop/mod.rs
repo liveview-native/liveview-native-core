@@ -139,7 +139,7 @@ impl EventLoop {
         }
     }
 
-    /// This must be called after any function which succesfully
+    /// This must be called after any function which successfully
     /// changes the underlying live channel, this includes full recconnects
     pub fn refresh_view(&self, socket_reconnected: bool) {
         let _ = self
