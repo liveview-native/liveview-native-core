@@ -132,6 +132,11 @@ impl LiveViewClientInner {
         self.state.liveview_channel.try_lock()?.join_document()
     }
 
+    /// returns the join payload
+    pub fn join_payload(&self) -> Result<Payload, LiveSocketError> {
+        Ok(self.state.liveview_channel.try_lock()?.join_payload.clone())
+    }
+
     /// To establish the websocket connection, the client depends on an initial HTTP
     /// request pull an html document and extract several pieces of meta data from it.
     /// This function returns that initial document.

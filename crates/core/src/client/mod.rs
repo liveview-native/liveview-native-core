@@ -298,6 +298,10 @@ impl LiveViewClient {
         self.inner.join_url()
     }
 
+    pub fn join_payload(&self) -> Result<Payload, LiveSocketError> {
+        self.inner.join_payload()
+    }
+
     pub fn csrf_token(&self) -> Result<String, LiveSocketError> {
         self.inner.csrf_token()
     }
