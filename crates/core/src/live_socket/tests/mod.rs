@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use super::*;
 use crate::dom::{
@@ -28,6 +28,7 @@ macro_rules! assert_doc_eq {
 }
 
 pub(crate) use assert_doc_eq;
+use socket::{brian_get_dead_render, ConnectOpts};
 use tokio::sync::mpsc::*;
 
 struct Inspector {
@@ -108,6 +109,16 @@ async fn channels_drop_on_shutdown() {
 
     assert!(handle.is_finished());
     assert_eq!(chan_clone.status(), ChannelStatus::ShutDown);
+}
+
+#[tokio::test]
+async fn get_dead_render() {
+    let connect_url = "http://127.0.0.1:4001/hello".into();
+    let mut opts = ConnectOpts::default();
+    opts.headers = HashMap::from([("Content-Type".into(), "text/swiftui".into())]).into();
+    let _ = brian_get_dead_render(connect_url, opts)
+        .await
+        .expect("Bad result");
 }
 
 #[tokio::test]

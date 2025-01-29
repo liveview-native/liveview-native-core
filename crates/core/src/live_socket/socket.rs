@@ -293,6 +293,119 @@ impl SessionData {
     }
 }
 
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn brian_get_dead_render(
+    url: String,
+    options: ConnectOpts,
+) -> Result<FFiDocument, LiveSocketError> {
+    let ConnectOpts {
+        headers,
+        body,
+        method,
+        timeout_ms,
+    } = options;
+
+    let url = Url::parse(&url)?;
+    let method = method.clone().unwrap_or(Method::Get).into();
+
+    // TODO: Check if params contains all of phx_id, phx_static, phx_session and csrf_token, if
+    // it does maybe we don't need to do a full dead render.
+    // let mut url = url.clone();
+    // if url.query_pairs().all(|(name, _)| name != FMT_KEY) {
+    //     url.query_pairs_mut().append_pair(FMT_KEY, &format);
+    // }
+
+    let headers = (&headers.clone().unwrap_or_default())
+        .try_into()
+        .map_err(|e| LiveSocketError::InvalidHeader {
+            error: format!("{e:?}"),
+        })?;
+
+    #[cfg(not(test))]
+    let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
+
+    #[cfg(test)]
+    let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
+
+    let client = reqwest::Client::builder()
+        .cookie_provider(jar.clone())
+        .redirect(Policy::none())
+        .build()?;
+
+    let req = reqwest::Request::new(method, url.clone());
+    let builder = reqwest::RequestBuilder::from_parts(client, req);
+
+    let builder = if let Some(body) = body {
+        builder.body(body.clone())
+    } else {
+        builder
+    };
+
+    let timeout = Duration::from_millis(timeout_ms);
+    let (client, request) = builder.timeout(timeout).headers(headers).build_split();
+
+    let mut resp = client.execute(request?).await?;
+    let mut headers = resp.headers().clone();
+
+    for _ in 0..MAX_REDIRECTS {
+        if !resp.status().is_redirection() {
+            log::debug!("{resp:?}");
+            break;
+        }
+        log::debug!("-- REDIRECTING -- ");
+        log::debug!("{resp:?}");
+
+        let location = resp
+            .headers()
+            .get(LOCATION)
+            .and_then(|loc| str::from_utf8(loc.as_bytes()).ok())
+            .and_then(|loc| url.join(loc).ok())
+            .ok_or_else(|| LiveSocketError::Request {
+                error: "No valid redirect location in 300 response".into(),
+            })?;
+
+        // if location.query_pairs().all(|(name, _)| name != FMT_KEY) {
+        //     location.query_pairs_mut().append_pair(FMT_KEY, &format);
+        // }
+
+        resp = client.get(location).send().await?;
+
+        // TODO: Remove this when persistent state is managed by core
+        let cookies = resp.headers().get_all(SET_COOKIE);
+
+        for cookie in cookies {
+            if headers.try_append(SET_COOKIE, cookie.clone()).is_err() {
+                log::error!("Could not collect set cookie headers");
+            }
+        }
+    }
+
+    let status = resp.status();
+
+    let cookies = jar
+        .cookies(&url)
+        .as_ref()
+        .and_then(|cookie_text| cookie_text.to_str().ok())
+        .map(|text| {
+            text.split(";")
+                .map(str::trim)
+                .map(String::from)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    let url = resp.url().clone();
+    let resp_text = resp.text().await?;
+
+    if !status.is_success() {
+        return Err(LiveSocketError::ConnectionError(resp_text));
+    }
+
+    let dead_render = parse(&resp_text)?;
+    debug!("document:\n{dead_render}\n\n\n");
+    Ok(dead_render.into())
+}
+
 #[derive(uniffi::Object)]
 pub struct LiveSocket {
     pub socket: Mutex<Arc<Socket>>,

@@ -38,6 +38,12 @@ final class LiveViewNativeCoreSocketTests: XCTestCase {
         status = socket.status()
         XCTAssertEqual(status, .shutDown)
     }
+
+    func testGetDeadRender() async throws {
+        var opts = ConnectOpts()
+        opts.headers = ["Content-Type": "text/swiftui"]
+        let deadRender = try await getDeadRender(connect_url, opts)
+    }
 }
 
 // This is a PNG located at crates/core/tests/support/tinycross.png
