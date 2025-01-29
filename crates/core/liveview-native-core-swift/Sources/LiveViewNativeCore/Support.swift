@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 extension LiveViewNativeCore.ChannelStatus: @unchecked Sendable {}
@@ -1884,38 +1885,68 @@ extension DecodingError {
     }
 }
 
-public final class SimplePatchHandler: DocumentChangeHandler {
+public struct PatchEvent {
+    public let node: NodeRef
+    public let data: NodeData
+    public let parent: NodeRef?
+    public let changeType: ChangeType
+}
 
+public struct NetworkEvent {
+    public let event: EventPayload
+}
+
+public struct ChannelStatusEvent {
+    public let status: LiveChannelStatus
+}
+
+public struct SocketStatusEvent {
+    public let status: SocketStatus
+}
+
+public struct ViewReloadEvent {
+   public let document: Document
+   public let channel: LiveChannel
+   public let socket: Socket
+   public let isNewSocket: Bool
+}
+
+public final class SimplePatchHandler: DocumentChangeHandler {
     let callback: (NodeRef, NodeData, NodeRef?) -> Void
-    let doc_change_callback: (Document) -> Void
+
+    public let patchEventSubject = PassthroughSubject<PatchEvent, Never>()
 
     public init(
-        _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void,
-        _ doc_change_callback: @escaping (Document) -> Void
+        _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void
     ) {
         self.callback = callback
-        self.doc_change_callback = doc_change_callback
     }
 
     public func handleDocumentChange(
         _ changeType: ChangeType, _ node: NodeRef, _ data: NodeData, _ parent: NodeRef?
     ) {
-        switch changeType {
-        case .add:
-            self.callback(parent!, data, parent)
-        case .remove:
-            self.callback(parent!, data, parent)
-        case .change:
-            self.callback(node, data, parent)
-        case .replace:
-            self.callback(parent!, data, parent)
-        }
-    }
+        // Emit event to stream
+        let event = PatchEvent(
+            node: node,
+            data: data,
+            parent: parent,
+            changeType: changeType
+        )
+        
+        patchEventSubject.send(event)
 
-    public func handleNewDocument(_ document: Document) {
-        self.doc_change_callback(document)
+        // Execute original callback logic
+//        switch changeType {
+//        case .add:
+//            self.callback(parent!, data, parent)
+//        case .remove:
+//            self.callback(parent!, data, parent)
+//        case .change:
+//            self.callback(node, data, parent)
+//        case .replace:
+//            self.callback(parent!, data, parent)
+//        }
     }
-
 }
 
 public final class SimpleEventHandler: NetworkEventHandler {
@@ -1924,11 +1955,16 @@ public final class SimpleEventHandler: NetworkEventHandler {
     let socket_status_callback: (SocketStatus) -> Void
     let refresh: (Document, LiveChannel, Socket, Bool) -> Void
 
+    public let networkEventSubject = PassthroughSubject<NetworkEvent, Never>()
+    public let channelStatusSubject = PassthroughSubject<ChannelStatusEvent, Never>()
+    public let socketStatusSubject = PassthroughSubject<SocketStatusEvent, Never>()
+    public let viewReloadSubject = PassthroughSubject<ViewReloadEvent, Never>()
+
     public init(
-        _ event_callback: @escaping (EventPayload) -> Void,
-        _ chan_status_callback: @escaping (LiveChannelStatus) -> Void,
-        _ sock_status_callback: @escaping (SocketStatus) -> Void,
-        _ change_callback: @escaping (Document, LiveChannel, Socket, Bool) -> Void
+        event_callback: @escaping (EventPayload) -> Void,
+        chan_status_callback: @escaping (LiveChannelStatus) -> Void,
+        sock_status_callback: @escaping (SocketStatus) -> Void,
+        change_callback: @escaping (Document, LiveChannel, Socket, Bool) -> Void
     ) {
         self.event_callback = event_callback
         self.chan_status_callback = chan_status_callback
@@ -1937,24 +1973,33 @@ public final class SimpleEventHandler: NetworkEventHandler {
     }
 
     public func handleEvent(_ event: EventPayload) {
-        self.event_callback(event)
+        networkEventSubject.send(NetworkEvent(event: event))
+        //self.event_callback(event)
     }
 
     public func handleChannelStatusChange(_ status: LiveChannelStatus) {
-        self.chan_status_callback(status)
+        channelStatusSubject.send(ChannelStatusEvent(status: status))
+        //self.chan_status_callback(status)
     }
 
     public func handleSocketStatusChange(_ status: SocketStatus) {
-        self.socket_status_callback(status)
+        socketStatusSubject.send(SocketStatusEvent(status: status))
+        //self.socket_status_callback(status)
     }
 
     public func handleViewReloaded(
         _ newDocument: Document, _ newChannel: LiveChannel, _ currentSocket: Socket,
         _ socketIsNew: Bool
     ) {
-        self.refresh(newDocument, newChannel, currentSocket, socketIsNew)
+        let event = ViewReloadEvent(
+            document: newDocument,
+            channel: newChannel,
+            socket: currentSocket,
+            isNewSocket: socketIsNew
+        )
+        viewReloadSubject.send(event)
+        //self.refresh(newDocument, newChannel, currentSocket, socketIsNew)
     }
-
 }
 
 public final class SimpleStore: SecurePersistentStore {
@@ -2005,11 +2050,10 @@ extension Document {
 
     public func on(
         _ event: EventType,
-        _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void,
-        _ doc_change_callback: @escaping (Document) -> Void
+        _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void
     ) {
-        let simple = SimplePatchHandler(callback, doc_change_callback)
-        self.setEventHandler(simple)
+        //let simple = SimplePatchHandler(callback)
+        //sself.setEventHandler(simple)
     }
 
     public func toString() -> String {

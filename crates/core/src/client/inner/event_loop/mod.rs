@@ -3,7 +3,7 @@ mod state;
 use std::sync::Arc;
 
 use futures::{channel::oneshot, pin_mut, select, FutureExt};
-use log::error;
+use log::{debug, error};
 use phoenix_channels_client::{CallError, Event, Payload};
 use state::EventLoopState;
 use tokio::sync::mpsc;
@@ -109,6 +109,7 @@ impl EventLoop {
                                error!("Failure while handling server reply: {e:?}");
                            }
 
+                           debug!("server event: {payload:?}");
                            state.on_event(payload);
                        }
                        // connectivity changes

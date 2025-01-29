@@ -12,7 +12,7 @@ use std::{
 use config::*;
 use futures::future::try_join_all;
 use inner::LiveViewClientInner;
-use phoenix_channels_client::{Payload, SocketStatus};
+use phoenix_channels_client::{Payload, SocketStatus, JSON};
 use reqwest::header::CONTENT_TYPE;
 
 use crate::{
@@ -24,6 +24,8 @@ use crate::{
         ConnectOpts, LiveChannel, LiveFile, Method,
     },
 };
+
+const CSRF_HEADER: &str = "x-csrf-token";
 
 /// A configuration interface for building a [LiveViewClient].
 /// Options on this object will used for all http and websocket connections
@@ -161,12 +163,20 @@ impl LiveViewClient {
     ) -> Result<(), LiveSocketError> {
         let opts = ConnectOpts {
             headers: client_opts.headers,
+            body: client_opts.request_body,
+            method: client_opts.method,
             ..Default::default()
         };
 
         self.inner
             .reconnect(url, opts, client_opts.join_params)
             .await?;
+
+        Ok(())
+    }
+
+    pub async fn disconnect(&self) -> Result<(), LiveSocketError> {
+        self.inner.disconnect().await?;
         Ok(())
     }
 
@@ -182,26 +192,26 @@ impl LiveViewClient {
         &self,
         url: String,
         form: HashMap<String, String>,
-        mut client_opts: ClientConnectOpts,
+        join_params: Option<HashMap<String, JSON>>,
+        mut headers: Option<HashMap<String, String>>,
     ) -> Result<(), LiveSocketError> {
         let form_data = serde_urlencoded::to_string(form)?;
 
-        let headers = client_opts.headers.get_or_insert_default();
-        headers.insert(
+        let header_map = headers.get_or_insert_default();
+        header_map.insert(
             CONTENT_TYPE.to_string(),
             "application/x-www-form-urlencoded".to_string(),
         );
+        header_map.insert(CSRF_HEADER.to_string(), self.csrf_token()?);
 
         let opts = ConnectOpts {
-            headers: client_opts.headers,
-            body: Some(form_data),
+            headers,
+            body: Some(form_data.into_bytes()),
             method: Some(Method::Post),
             timeout_ms: 30_000, // Actually unused, should remove at one point
         };
 
-        self.inner
-            .reconnect(url, opts, client_opts.join_params)
-            .await?;
+        self.inner.reconnect(url, opts, join_params).await?;
         Ok(())
     }
 

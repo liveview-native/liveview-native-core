@@ -73,6 +73,9 @@ mod platform {
     pub fn init_log(level: LogLevel) {
         if let Err(e) = oslog::OsLogger::new("com.liveview.core.lib")
             .level_filter(level.into())
+            // For some reason uniffi really loves printing every fn call, for a dom, that sucks
+            .category_level_filter("liveview_native_core::dom::node", LevelFilter::Warn)
+            .category_level_filter("liveview_native_core::dom::ffi", LevelFilter::Warn)
             .init()
         {
             eprintln!("{e}");
@@ -119,6 +122,8 @@ mod platform {
                 }
             })
             .filter(None, level.into())
+            .filter(Some("liveview_native_core::dom::node"), LevelFilter::Warn)
+            .filter(Some("liveview_native_core::dom::ffi"), LevelFilter::Warn)
             .try_init();
     }
 }

@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use phoenix_channels_client::JSON;
 
-use crate::callbacks::*;
+use crate::{callbacks::*, live_socket::Method};
 
 #[derive(uniffi::Enum, Debug, Clone, Default, Copy)]
 pub enum LogLevel {
@@ -66,6 +66,10 @@ pub struct ClientConnectOpts {
     /// Headers passed while fetching the dead render
     #[uniffi(default = None)]
     pub headers: Option<HashMap<String, String>>,
+    #[uniffi(default = None)]
+    pub method: Option<Method>,
+    #[uniffi(default = None)]
+    pub request_body: Option<Vec<u8>>,
 }
 
 #[derive(Clone)]

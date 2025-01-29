@@ -91,7 +91,7 @@ pub struct ConnectOpts {
     #[uniffi(default = None)]
     pub headers: Option<HashMap<String, String>>,
     #[uniffi(default = None)]
-    pub body: Option<String>,
+    pub body: Option<Vec<u8>>,
     #[uniffi(default = None)]
     pub method: Option<Method>,
     #[uniffi(default = 30_000)]

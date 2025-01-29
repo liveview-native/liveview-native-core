@@ -1,7 +1,7 @@
 use std::{future::Future, sync::Arc};
 
 use futures::FutureExt;
-use log::error;
+use log::{debug, error};
 use phoenix_channels_client::{
     CallError, ChannelStatus, ChannelStatuses, Event, EventPayload, Events, EventsError, Payload,
     PhoenixEvent, Socket, SocketStatus, SocketStatuses, StatusesError, WebSocketError, JSON,
@@ -200,6 +200,7 @@ impl EventLoopState {
                 event,
                 payload,
             } => {
+                debug!("call payload: {event:?} , {payload:?}");
                 let call_result = self.call(event, payload).await;
 
                 match call_result {

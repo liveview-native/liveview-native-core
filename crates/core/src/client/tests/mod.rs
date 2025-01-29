@@ -63,7 +63,7 @@ async fn test_basic_connection() {
     let url = format!("http://{HOST}/nav/first_page");
 
     client
-        .reconnect(url, Default::default(), None)
+        .reconnect(url.clone(), Default::default(), None)
         .await
         .expect("reconnect failed");
 
@@ -80,6 +80,15 @@ async fn test_basic_connection() {
         </Text>
     </NavigationLink>
 </VStack>"#;
+    assert_doc_eq!(expected, doc.to_string());
+
+    client.disconnect().await.expect("disconnect failed");
+
+    client
+        .reconnect(url, Default::default(), None)
+        .await
+        .expect("reconnect failed");
+
     assert_doc_eq!(expected, doc.to_string());
 }
 

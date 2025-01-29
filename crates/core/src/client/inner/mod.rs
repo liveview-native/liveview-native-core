@@ -77,7 +77,8 @@ impl LiveViewClientInner {
         let state = LiveViewClientState::initial_connect(config, url, client_opts).await?;
         let state = Arc::new(state);
         let event_loop = EventLoop::new(state.clone());
-        Ok(Self { state, event_loop })
+        let out = Self { state, event_loop };
+        Ok(out)
     }
 
     pub(crate) async fn reconnect(
@@ -87,6 +88,13 @@ impl LiveViewClientInner {
         join_params: Option<HashMap<String, JSON>>,
     ) -> Result<(), LiveSocketError> {
         self.state.reconnect(url, opts, join_params).await?;
+        self.event_loop.refresh_view(true);
+        Ok(())
+    }
+
+    pub(crate) async fn disconnect(&self) -> Result<(), LiveSocketError> {
+        let socket = self.state.socket.try_lock()?.clone();
+        let _ = socket.disconnect().await;
         self.event_loop.refresh_view(true);
         Ok(())
     }
@@ -332,6 +340,7 @@ impl LiveViewClientState {
 
         let old_socket = self.socket.try_lock()?.clone();
         let _ = old_socket.disconnect().await;
+
         *self.socket.try_lock()? = socket;
 
         *self.session_data.try_lock()? = new_session;
@@ -383,6 +392,10 @@ impl LiveViewClientState {
             .ok_or(LiveSocketError::NavigationImpossible)?;
 
         let ws_timeout = Duration::from_millis(self.config.websocket_timeout);
+
+        let chan = self.liveview_channel.try_lock()?.channel();
+        chan.leave().await?;
+
         match join_liveview_channel(
             &self.socket,
             &self.session_data,
