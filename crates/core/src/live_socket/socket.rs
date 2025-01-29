@@ -294,7 +294,7 @@ impl SessionData {
 }
 
 #[uniffi::export(async_runtime = "tokio")]
-pub async fn brian_get_dead_render(
+pub async fn get_dead_render(
     url: String,
     options: ConnectOpts,
 ) -> Result<FFiDocument, LiveSocketError> {
@@ -382,7 +382,7 @@ pub async fn brian_get_dead_render(
 
     let status = resp.status();
 
-    let cookies = jar
+    let _cookies = jar
         .cookies(&url)
         .as_ref()
         .and_then(|cookie_text| cookie_text.to_str().ok())
@@ -394,7 +394,7 @@ pub async fn brian_get_dead_render(
         })
         .unwrap_or_default();
 
-    let url = resp.url().clone();
+    let _url = resp.url().clone();
     let resp_text = resp.text().await?;
 
     if !status.is_success() {

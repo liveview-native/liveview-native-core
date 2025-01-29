@@ -28,7 +28,7 @@ macro_rules! assert_doc_eq {
 }
 
 pub(crate) use assert_doc_eq;
-use socket::{brian_get_dead_render, ConnectOpts};
+use socket::{get_dead_render, ConnectOpts};
 use tokio::sync::mpsc::*;
 
 struct Inspector {
@@ -116,7 +116,7 @@ async fn get_dead_render() {
     let connect_url = "http://127.0.0.1:4001/hello".into();
     let mut opts = ConnectOpts::default();
     opts.headers = HashMap::from([("Content-Type".into(), "text/swiftui".into())]).into();
-    let _ = brian_get_dead_render(connect_url, opts)
+    let _ = get_dead_render(connect_url, opts)
         .await
         .expect("Bad result");
 }
