@@ -1,9 +1,10 @@
-use super::{json_payload, HOST};
+use std::sync::{Arc, Mutex};
+
 use phoenix_channels_client::{Event, EventPayload, Payload, Socket, SocketStatus, JSON};
 use pretty_assertions::assert_eq;
 use serde_json::json;
-use std::sync::{Arc, Mutex};
 
+use super::{json_payload, HOST};
 use crate::{
     client::{
         HandlerResponse, LiveChannelStatus, LiveViewClientConfiguration, NavEvent, NavEventHandler,
@@ -59,7 +60,7 @@ impl MockMessageStore {
     pub fn dump_and_panic(&self) {
         let messages = self.messages.lock().unwrap();
         panic!(
-            "Explicity panic in test - dumping all messages \n: {:#?}",
+            "Explicitly panic in test - dumping all messages \n: {:#?}",
             *messages
         );
     }
