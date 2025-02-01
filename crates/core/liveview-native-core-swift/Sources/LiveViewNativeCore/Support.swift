@@ -1912,85 +1912,48 @@ public struct ViewReloadEvent {
 }
 
 public final class SimplePatchHandler: DocumentChangeHandler {
-    let callback: (NodeRef, NodeData, NodeRef?) -> Void
-
     public let patchEventSubject = PassthroughSubject<PatchEvent, Never>()
-
-    public init(
-        _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void
-    ) {
-        self.callback = callback
-    }
-
-    public func handleDocumentChange(
-        _ changeType: ChangeType, _ node: NodeRef, _ data: NodeData, _ parent: NodeRef?
-    ) {
-        // Emit event to stream
+    
+    public init() {}
+    
+    public func handleDocumentChange(_ changeType: ChangeType, _ nodeRef: NodeRef, _ nodeData: NodeData, _ parent: NodeRef?)
+    {
         let event = PatchEvent(
-            node: node,
-            data: data,
+            node: nodeRef,
+            data: nodeData,
             parent: parent,
             changeType: changeType
         )
         
         patchEventSubject.send(event)
-
-        // Execute original callback logic
-//        switch changeType {
-//        case .add:
-//            self.callback(parent!, data, parent)
-//        case .remove:
-//            self.callback(parent!, data, parent)
-//        case .change:
-//            self.callback(node, data, parent)
-//        case .replace:
-//            self.callback(parent!, data, parent)
-//        }
     }
 }
 
 public final class SimpleEventHandler: NetworkEventHandler {
-    let event_callback: (EventPayload) -> Void
-    let chan_status_callback: (LiveChannelStatus) -> Void
-    let socket_status_callback: (SocketStatus) -> Void
-    let refresh: (Document, LiveChannel, Socket, Bool) -> Void
-
+    
     public let networkEventSubject = PassthroughSubject<NetworkEvent, Never>()
     public let channelStatusSubject = PassthroughSubject<ChannelStatusEvent, Never>()
     public let socketStatusSubject = PassthroughSubject<SocketStatusEvent, Never>()
     public let viewReloadSubject = PassthroughSubject<ViewReloadEvent, Never>()
-
+    
     public init(
-        event_callback: @escaping (EventPayload) -> Void,
-        chan_status_callback: @escaping (LiveChannelStatus) -> Void,
-        sock_status_callback: @escaping (SocketStatus) -> Void,
-        change_callback: @escaping (Document, LiveChannel, Socket, Bool) -> Void
     ) {
-        self.event_callback = event_callback
-        self.chan_status_callback = chan_status_callback
-        self.socket_status_callback = sock_status_callback
-        self.refresh = change_callback
     }
-
+    
     public func handleEvent(_ event: EventPayload) {
         networkEventSubject.send(NetworkEvent(event: event))
-        //self.event_callback(event)
     }
-
+    
     public func handleChannelStatusChange(_ status: LiveChannelStatus) {
         channelStatusSubject.send(ChannelStatusEvent(status: status))
-        //self.chan_status_callback(status)
     }
-
+    
     public func handleSocketStatusChange(_ status: SocketStatus) {
         socketStatusSubject.send(SocketStatusEvent(status: status))
-        //self.socket_status_callback(status)
     }
-
-    public func handleViewReloaded(
-        _ newDocument: Document, _ newChannel: LiveChannel, _ currentSocket: Socket,
-        _ socketIsNew: Bool
-    ) {
+    
+    public func handleViewReloaded(_ newDocument: Document, _ newChannel: LiveChannel, _ currentSocket: Socket, _ socketIsNew: Bool)
+     {
         let event = ViewReloadEvent(
             document: newDocument,
             channel: newChannel,
@@ -1998,38 +1961,47 @@ public final class SimpleEventHandler: NetworkEventHandler {
             isNewSocket: socketIsNew
         )
         viewReloadSubject.send(event)
-        //self.refresh(newDocument, newChannel, currentSocket, socketIsNew)
+    }
+}
+
+public final class SimpleNavHandler: NavEventHandler {
+    public let navEventSubject = PassthroughSubject<NavEvent, Never>()
+    
+    public init() {}
+    
+    public func handleEvent(_ event: NavEvent) -> HandlerResponse {
+        navEventSubject.send(event)
+        return HandlerResponse.default
     }
 }
 
 public final class SimpleStore: SecurePersistentStore {
-    let remove_callback: (String) -> Void
-    let get_callback: (String) -> Data?
-    let set_callback: (String, Data) -> Void
-
+    let onRemove: (String) -> Void
+    let onGet: (String) -> Data?
+    let onSet: (String, Data) -> Void
+    
     public init(
-        _ remove_callback: @escaping (String) -> Void,
-        _ get_callback: @escaping (String) -> Data?,
-        _ set_callback: @escaping (String, Data) -> Void
+        onRemove: @escaping (String) -> Void,
+        onGet: @escaping (String) -> Data?,
+        onSet: @escaping (String, Data) -> Void
     ) {
-        self.remove_callback = remove_callback
-        self.get_callback = get_callback
-        self.set_callback = set_callback
+        self.onRemove = onRemove
+        self.onGet = onGet
+        self.onSet = onSet
     }
-
+    
     public func removeEntry(_ key: String) {
-        self.remove_callback(key)
+        self.onRemove(key)
     }
-
+    
     public func get(_ key: String) -> Data? {
-        return self.get_callback(key)
+        return self.onGet(key)
     }
-
+    
     public func set(_ key: String, _ value: Data) {
-        self.set_callback(key, value)
+        self.onSet(key, value)
     }
 }
-
 extension Document {
     public subscript(ref: NodeRef) -> Node {
         return self.getNode(ref)

@@ -76,7 +76,7 @@ pub struct ClientConnectOpts {
 pub struct LiveViewClientConfiguration {
     /// Instruments all server side events and changes in the current LiveChannel state, including when
     /// the channel is swapped out.
-    pub live_channel_handler: Option<Arc<dyn NetworkEventHandler>>,
+    pub network_event_handler: Option<Arc<dyn NetworkEventHandler>>,
     /// Provides a way to store persistent state between sessions. Used for cookies and potentially persistent settings.
     pub persistence_provider: Option<Arc<dyn SecurePersistentStore>>,
     /// Instruments the patches provided by `diff` events.
@@ -101,7 +101,7 @@ impl Default for LiveViewClientConfiguration {
         const WEBSOCKET_TIMEOUT_MS: u64 = 5_000;
 
         Self {
-            live_channel_handler: None,
+            network_event_handler: None,
             persistence_provider: None,
             patch_handler: None,
             navigation_handler: None,

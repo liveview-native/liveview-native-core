@@ -46,6 +46,8 @@ pub enum HandlerResponse {
 
 #[derive(uniffi::Enum, Clone, Debug, PartialEq)]
 pub enum NavEventType {
+    /// Changing the url of the object on the top of the stack
+    Patch,
     /// Pushing a new event onto the history stack
     Push,
     /// Replacing the most recent event on the history stack

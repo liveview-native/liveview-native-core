@@ -70,6 +70,27 @@ impl NavCtx {
         Some(next_id)
     }
 
+    pub fn patch(&mut self, url_path: String, emit_event: bool) -> Option<HistoryId> {
+        let old_dest = self.current()?;
+        let old_id = old_dest.id;
+        let old_url = Url::parse(&old_dest.url).ok()?;
+        let new_url = old_url.join(&url_path).ok()?;
+
+        let new_dest =
+            NavHistoryEntry::new(new_url.to_string(), old_dest.id, old_dest.state.clone());
+
+        let event = NavEvent::new(NavEventType::Patch, new_dest.clone(), old_dest.into(), None);
+
+        match self.handle_event(event, emit_event) {
+            HandlerResponse::Default => {
+                self.replace_entry(new_dest);
+            }
+            HandlerResponse::PreventDefault => return None,
+        };
+
+        Some(old_id)
+    }
+
     // Returns true if the navigator can go back one entry.
     pub fn can_go_back(&self) -> bool {
         self.history.len() >= 2

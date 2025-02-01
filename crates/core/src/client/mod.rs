@@ -59,7 +59,7 @@ impl LiveViewClientBuilder {
     /// user session data like settings.
     pub fn set_live_channel_event_handler(&self, handler: Box<dyn NetworkEventHandler>) {
         let mut config = self.config.lock().unwrap();
-        config.live_channel_handler = Some(handler.into());
+        config.network_event_handler = Some(handler.into());
     }
 
     /// The [DocumentChangeHandler] here will be called whenever a diff event
@@ -287,7 +287,7 @@ impl LiveViewClient {
     /// Returns the current history entry, Should virtually never return a nullish
     /// value unless a connection error has occurred and not been properly recovered from.
     pub fn current(&self) -> Option<NavHistoryEntry> {
-        self.inner.current()
+        self.inner.current_history_entry()
     }
 }
 

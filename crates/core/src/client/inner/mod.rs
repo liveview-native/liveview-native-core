@@ -165,27 +165,23 @@ impl LiveViewClientInner {
         url: String,
         opts: NavOptions,
     ) -> Result<HistoryId, LiveSocketError> {
-        let res = self.state.navigate(url, opts).await?;
-        self.event_loop.refresh_view(res.websocket_reconnected);
-        Ok(res.history_id)
+        let res = self.state.navigate(url, opts).await;
+        self.event_loop.handle_navigation_summary(res).await
     }
 
     pub async fn reload(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
-        let res = self.state.reload(info).await?;
-        self.event_loop.refresh_view(res.websocket_reconnected);
-        Ok(res.history_id)
+        let res = self.state.reload(info).await;
+        self.event_loop.handle_navigation_summary(res).await
     }
 
     pub async fn back(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
-        let res = self.state.back(info).await?;
-        self.event_loop.refresh_view(res.websocket_reconnected);
-        Ok(res.history_id)
+        let res = self.state.back(info).await;
+        self.event_loop.handle_navigation_summary(res).await
     }
 
     pub async fn forward(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
-        let res = self.state.forward(info).await?;
-        self.event_loop.refresh_view(res.websocket_reconnected);
-        Ok(res.history_id)
+        let res = self.state.forward(info).await;
+        self.event_loop.handle_navigation_summary(res).await
     }
 
     pub async fn traverse_to(
@@ -193,9 +189,8 @@ impl LiveViewClientInner {
         id: HistoryId,
         info: NavActionOptions,
     ) -> Result<HistoryId, LiveSocketError> {
-        let res = self.state.traverse_to(id, info).await?;
-        self.event_loop.refresh_view(res.websocket_reconnected);
-        Ok(res.history_id)
+        let res = self.state.traverse_to(id, info).await;
+        self.event_loop.handle_navigation_summary(res).await
     }
 
     pub fn can_go_back(&self) -> bool {
@@ -214,7 +209,7 @@ impl LiveViewClientInner {
         self.state.get_history_entries()
     }
 
-    pub fn current(&self) -> Option<NavHistoryEntry> {
+    pub fn current_history_entry(&self) -> Option<NavHistoryEntry> {
         self.state.current_history_entry()
     }
 
@@ -521,10 +516,10 @@ impl LiveViewClientState {
     async fn navigate(
         &self,
         url: String,
-        mut opts: NavOptions,
+        opts: NavOptions,
     ) -> Result<NavigationSummary, LiveSocketError> {
         let url = Url::parse(&url)?;
-        self.try_nav_outer(&opts.join_params.take(), |ctx| {
+        self.try_nav_outer(&opts.join_params.clone(), |ctx| {
             ctx.navigate(url, opts, true)
         })
         .await
@@ -549,6 +544,15 @@ impl LiveViewClientState {
             ctx.forward(opts.extra_event_info, true)
         })
         .await
+    }
+
+    fn patch(&self, url_path: String) -> Result<NavigationSummary, LiveSocketError> {
+        let id = self.nav_ctx.try_lock()?.patch(url_path, true);
+
+        Ok(NavigationSummary {
+            history_id: id.unwrap_or(0),
+            websocket_reconnected: false,
+        })
     }
 
     async fn traverse_to(

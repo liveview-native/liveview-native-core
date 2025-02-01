@@ -1,7 +1,7 @@
 use std::{future::Future, sync::Arc};
 
 use futures::FutureExt;
-use log::{debug, error};
+use log::error;
 use phoenix_channels_client::{
     CallError, ChannelStatus, ChannelStatuses, Event, EventPayload, Events, EventsError, Payload,
     PhoenixEvent, Socket, SocketStatus, SocketStatuses, StatusesError, WebSocketError, JSON,
@@ -10,11 +10,21 @@ use tokio::select;
 
 use super::{ClientMessage, LiveViewClientState, NetworkEventHandler};
 use crate::{
-    client::LiveChannelStatus,
+    client::{HistoryId, LiveChannelStatus},
     dom::ffi::{self, Document},
     error::LiveSocketError,
-    live_socket::LiveChannel,
+    live_socket::{
+        navigation::{NavAction, NavOptions},
+        LiveChannel,
+    },
+    protocol::{LiveRedirect, RedirectKind, RedirectMode},
 };
+
+pub enum ReplyAction {
+    Redirected { id: HistoryId },
+    DiffMerged,
+    None,
+}
 
 pub struct EventLoopState {
     /// The DOM for the current view
@@ -65,7 +75,7 @@ impl EventLoopState {
             live_reload,
             socket_statuses: channel.socket.statuses(),
             live_view_channel: channel.into(),
-            network_handler: client_state.config.live_channel_handler.clone(),
+            network_handler: client_state.config.network_event_handler.clone(),
             client_state,
         }
     }
@@ -200,12 +210,14 @@ impl EventLoopState {
                 event,
                 payload,
             } => {
-                debug!("call payload: {event:?} , {payload:?}");
                 let call_result = self.call(event, payload).await;
 
                 match call_result {
                     Ok(reply) => {
-                        if let Err(e) = self.handle_reply(&reply, channel_updated, socket_updated) {
+                        if let Err(e) = self
+                            .handle_reply(&reply, channel_updated, socket_updated)
+                            .await
+                        {
                             error!("Failure while handling server reply: {e:?}");
                         }
 
@@ -233,33 +245,95 @@ impl EventLoopState {
                 *channel_updated = true;
                 *socket_updated = socket_reconnected
             }
+            ClientMessage::HandleSocketReply { payload, tx } => {
+                let result = self
+                    .handle_reply(&payload, channel_updated, socket_updated)
+                    .await;
+
+                let event = EventPayload {
+                    event: Event::Phoenix {
+                        phoenix: PhoenixEvent::Reply,
+                    },
+                    payload,
+                };
+
+                self.on_event(event);
+
+                let _ = tx.send(result);
+            }
         }
     }
 
-    fn handle_reply(
+    async fn handle_redirect(
         &self,
-        reply: &Payload,
+        redirect: &JSON,
         _channel_updated: &mut bool,
         _socket_updated: &mut bool,
-    ) -> Result<(), LiveSocketError> {
+    ) -> Result<HistoryId, LiveSocketError> {
+        let json = redirect.clone().into();
+        let redirect: LiveRedirect = serde_json::from_value(json)?;
+        let url = self.client_state.session_data.try_lock()?.url.clone();
+        let url = url.join(&redirect.to)?;
+
+        match redirect.mode {
+            Some(RedirectMode::Patch) => {
+                // TODO: get this to call handle_params
+                Ok(0)
+            }
+            None | Some(RedirectMode::ReplaceTop) => {
+                let action = match redirect.kind {
+                    Some(RedirectKind::Push) | None => NavAction::Push,
+                    Some(RedirectKind::Replace) => NavAction::Replace,
+                };
+
+                let opts = NavOptions {
+                    action: Some(action),
+                    join_params: self.live_view_channel.channel.join_params.clone().into(),
+                    ..NavOptions::default()
+                };
+
+                let res = self.client_state.navigate(url.to_string(), opts).await?;
+                Ok(res.history_id)
+            }
+        }
+    }
+
+    async fn handle_reply(
+        &self,
+        reply: &Payload,
+        channel_updated: &mut bool,
+        socket_updated: &mut bool,
+    ) -> Result<ReplyAction, LiveSocketError> {
         let Payload::JSONPayload {
             json: JSON::Object { object },
         } = reply
         else {
-            return Ok(());
+            return Ok(ReplyAction::None);
         };
+
+        if let Some(object) = object.get("live_redirect") {
+            let id = self
+                .handle_redirect(object, channel_updated, socket_updated)
+                .await?;
+
+            return Ok(ReplyAction::Redirected { id });
+        }
+
+        if let Some(object) = object.get("redirect") {
+            let id = self
+                .handle_redirect(object, channel_updated, socket_updated)
+                .await?;
+            return Ok(ReplyAction::Redirected { id });
+        }
 
         if let Some(diff) = object.get("diff") {
             self.document
                 .merge_deserialized_fragment_json(diff.clone())?;
+
+            return Ok(ReplyAction::DiffMerged);
         };
 
-        // TODO: handle these
-        // if let Some(_) = object.get("live_patch") {}
-        // if let Some(_) = object.get("live_redirect") {}
-        // if let Some(_) = object.get("redirect") {}
-
-        Ok(())
+        Ok(ReplyAction::None)
     }
 
     pub async fn handle_server_event(
@@ -305,32 +379,36 @@ impl EventLoopState {
                 }
                 // TODO: Handle this
                 "live_patch" => {
-                    let Payload::JSONPayload { .. } = &event.payload else {
+                    let Payload::JSONPayload { json, .. } = &event.payload else {
                         error!("Live patch was not json!");
                         return Ok(());
                     };
-                    // this should call handle_params/3 somehow without reconnecting just modifying the current
-                    // url
+
+                    let json = json.clone().into();
+                    let redirect: LiveRedirect = serde_json::from_value(json)?;
+
+                    self.client_state.patch(redirect.to)?;
                 }
                 // TODO: Handle this
                 "live_redirect" => {
-                    let Payload::JSONPayload { .. } = &event.payload else {
+                    let Payload::JSONPayload { json, .. } = &event.payload else {
                         error!("Live redirect was not json!");
                         return Ok(());
                     };
+
                     // respect `to` `kind` and `mode` relative to current url base
+                    self.handle_redirect(json, channel_updated, socket_updated)
+                        .await?;
                 }
-                // TODO: handle this
                 "redirect" => {
-                    let Payload::JSONPayload {
-                        json: JSON::Object { .. },
-                        ..
-                    } = &event.payload
-                    else {
+                    let Payload::JSONPayload { json, .. } = &event.payload else {
                         error!("Live redirect was not json!");
                         return Ok(());
                     };
+
                     // navigate replacing top, using `to` relative to current url base
+                    self.handle_redirect(json, channel_updated, socket_updated)
+                        .await?;
                 }
                 _ => {}
             },

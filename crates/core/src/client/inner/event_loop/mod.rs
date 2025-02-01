@@ -3,13 +3,15 @@ mod state;
 use std::sync::Arc;
 
 use futures::{channel::oneshot, pin_mut, select, FutureExt};
-use log::{debug, error};
+use log::error;
 use phoenix_channels_client::{CallError, Event, Payload};
-use state::EventLoopState;
+use state::{EventLoopState, ReplyAction};
 use tokio::sync::mpsc;
 
-use super::{LiveViewClientState, NetworkEventHandler};
+use super::{HistoryId, LiveViewClientState, NavigationSummary, NetworkEventHandler};
 use crate::error::LiveSocketError;
+
+const MAX_REDIRECTS: u32 = 10;
 
 pub struct LiveViewClientChannel {
     /// Allows sending events back to the main event loop
@@ -56,8 +58,15 @@ pub enum ClientMessage {
     },
     /// Send a message and don't wait for a response
     Cast { event: Event, payload: Payload },
-    /// Replace the current channel/
+    /// Replace the current channel
     RefreshView { socket_reconnected: bool },
+    /// For internal use, error events are not broadcast
+    /// from the socket when you attempt to connect to a channel.
+    /// So we reinject them into the event loop with these messages
+    HandleSocketReply {
+        payload: Payload,
+        tx: oneshot::Sender<Result<ReplyAction, LiveSocketError>>,
+    },
 }
 
 pub(crate) struct EventLoop {
@@ -109,7 +118,6 @@ impl EventLoop {
                                error!("Failure while handling server reply: {e:?}");
                            }
 
-                           debug!("server event: {payload:?}");
                            state.on_event(payload);
                        }
                        // connectivity changes
@@ -141,11 +149,67 @@ impl EventLoop {
     }
 
     /// This must be called after any function which successfully
-    /// changes the underlying live channel, this includes full recconnects
+    /// changes the underlying live channel, if `socket_reconnected` is true
+    /// listeners to refresh events will also be notified. `socket_reconnected` is
+    /// the equivalent of a full liveview reload like a `live_redirect` or an web
+    /// page reload.
     pub fn refresh_view(&self, socket_reconnected: bool) {
         let _ = self
             .msg_tx
             .send(ClientMessage::RefreshView { socket_reconnected });
+    }
+
+    pub async fn handle_navigation_summary(
+        &self,
+        summary: Result<NavigationSummary, LiveSocketError>,
+    ) -> Result<HistoryId, LiveSocketError> {
+        match summary {
+            Ok(res) => {
+                self.refresh_view(res.websocket_reconnected);
+                Ok(res.history_id)
+            }
+            Err(LiveSocketError::JoinRejection { error }) => {
+                let mut result = self.handle_navigation_error(&error).await;
+                let mut retry_count = 0;
+
+                while let Err(LiveSocketError::JoinRejection { error }) = &result {
+                    if retry_count > MAX_REDIRECTS {
+                        return result;
+                    }
+                    result = self.handle_navigation_error(error).await;
+                    retry_count += 1;
+                }
+
+                result
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// During navigation sometimes an error containing `live_redirects` can
+    /// be emitted. these errors are not forwarded to the main event loop by default
+    /// so we forward them here.
+    async fn handle_navigation_error(
+        &self,
+        payload: &Payload,
+    ) -> Result<HistoryId, LiveSocketError> {
+        let (tx, result) = oneshot::channel();
+
+        let _ = self.msg_tx.send(ClientMessage::HandleSocketReply {
+            payload: payload.clone(),
+            tx,
+        });
+
+        let action = result.await.map_err(|_| LiveSocketError::Call {
+            error: String::from("Response cancelled while handling navigation error"),
+        })??;
+
+        match action {
+            ReplyAction::Redirected { id } => Ok(id),
+            _ => Err(LiveSocketError::JoinRejection {
+                error: payload.clone(),
+            }),
+        }
     }
 
     pub fn create_handle(&self) -> LiveViewClientChannel {

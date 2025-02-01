@@ -9,6 +9,7 @@ pub use client::LiveViewClientBuilder;
 mod callbacks;
 pub mod diff;
 pub mod dom;
+mod protocol;
 
 mod error;
 
