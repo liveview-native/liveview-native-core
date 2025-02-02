@@ -1905,55 +1905,57 @@ public struct SocketStatusEvent {
 }
 
 public struct ViewReloadEvent {
-   public let document: Document
-   public let channel: LiveChannel
-   public let socket: Socket
-   public let isNewSocket: Bool
+    public let document: Document
+    public let channel: LiveChannel
+    public let socket: Socket
+    public let isNewSocket: Bool
 }
 
 public final class SimplePatchHandler: DocumentChangeHandler {
     public let patchEventSubject = PassthroughSubject<PatchEvent, Never>()
-    
+
     public init() {}
-    
-    public func handleDocumentChange(_ changeType: ChangeType, _ nodeRef: NodeRef, _ nodeData: NodeData, _ parent: NodeRef?)
-    {
+
+    public func handleDocumentChange(
+        _ changeType: ChangeType, _ nodeRef: NodeRef, _ nodeData: NodeData, _ parent: NodeRef?
+    ) {
         let event = PatchEvent(
             node: nodeRef,
             data: nodeData,
             parent: parent,
             changeType: changeType
         )
-        
+
         patchEventSubject.send(event)
     }
 }
 
 public final class SimpleEventHandler: NetworkEventHandler {
-    
+
     public let networkEventSubject = PassthroughSubject<NetworkEvent, Never>()
     public let channelStatusSubject = PassthroughSubject<ChannelStatusEvent, Never>()
     public let socketStatusSubject = PassthroughSubject<SocketStatusEvent, Never>()
     public let viewReloadSubject = PassthroughSubject<ViewReloadEvent, Never>()
-    
-    public init(
-    ) {
+
+    public init() {
     }
-    
+
     public func handleEvent(_ event: EventPayload) {
         networkEventSubject.send(NetworkEvent(event: event))
     }
-    
+
     public func handleChannelStatusChange(_ status: LiveChannelStatus) {
         channelStatusSubject.send(ChannelStatusEvent(status: status))
     }
-    
+
     public func handleSocketStatusChange(_ status: SocketStatus) {
         socketStatusSubject.send(SocketStatusEvent(status: status))
     }
-    
-    public func handleViewReloaded(_ newDocument: Document, _ newChannel: LiveChannel, _ currentSocket: Socket, _ socketIsNew: Bool)
-     {
+
+    public func handleViewReloaded(
+        _ newDocument: Document, _ newChannel: LiveChannel, _ currentSocket: Socket,
+        _ socketIsNew: Bool
+    ) {
         let event = ViewReloadEvent(
             document: newDocument,
             channel: newChannel,
@@ -1964,44 +1966,55 @@ public final class SimpleEventHandler: NetworkEventHandler {
     }
 }
 
+public class SimplePersistentStore: SecurePersistentStore {
+    private let storageDirectory: URL
+
+    public init() {
+        let fileManager = FileManager.default
+        let directory = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        self.storageDirectory = directory.appendingPathComponent(
+            "PersistentStore", isDirectory: true)
+
+        try? fileManager.createDirectory(
+            at: storageDirectory,
+            withIntermediateDirectories: true)
+    }
+
+    private func fileURL(for key: String) -> URL {
+        storageDirectory.appendingPathComponent(key)
+    }
+
+    public func removeEntry(_ key: String) {
+        let fileURL = fileURL(for: key)
+        try? FileManager.default.removeItem(at: fileURL)
+    }
+
+    public func get(_ key: String) -> Data? {
+        let fileURL = fileURL(for: key)
+        guard let data = try? Data(contentsOf: fileURL) else {
+            return nil
+        }
+        return data
+    }
+
+    public func set(_ key: String, _ value: Data) {
+        let fileURL = fileURL(for: key)
+        let data = Data(value)
+        try? data.write(to: fileURL)
+    }
+}
+
 public final class SimpleNavHandler: NavEventHandler {
     public let navEventSubject = PassthroughSubject<NavEvent, Never>()
-    
+
     public init() {}
-    
+
     public func handleEvent(_ event: NavEvent) -> HandlerResponse {
         navEventSubject.send(event)
         return HandlerResponse.default
     }
 }
 
-public final class SimpleStore: SecurePersistentStore {
-    let onRemove: (String) -> Void
-    let onGet: (String) -> Data?
-    let onSet: (String, Data) -> Void
-    
-    public init(
-        onRemove: @escaping (String) -> Void,
-        onGet: @escaping (String) -> Data?,
-        onSet: @escaping (String, Data) -> Void
-    ) {
-        self.onRemove = onRemove
-        self.onGet = onGet
-        self.onSet = onSet
-    }
-    
-    public func removeEntry(_ key: String) {
-        self.onRemove(key)
-    }
-    
-    public func get(_ key: String) -> Data? {
-        return self.onGet(key)
-    }
-    
-    public func set(_ key: String, _ value: Data) {
-        self.onSet(key, value)
-    }
-}
 extension Document {
     public subscript(ref: NodeRef) -> Node {
         return self.getNode(ref)

@@ -149,6 +149,10 @@ impl LiveViewClientBuilder {
     }
 }
 
+/// The main entry for any LiveView native client.
+/// It is initialized with a [LiveClientBuilder], using many
+/// different callback objects to instrument a background event loop
+/// which creates connections and responds to server events as needed.
 #[derive(uniffi::Object)]
 pub struct LiveViewClient {
     inner: LiveViewClientInner,
@@ -180,6 +184,11 @@ impl LiveViewClient {
         Ok(())
     }
 
+    /// Uploads the live files in `files`
+    ///
+    /// Note: currently the replies in the file upload work flow are
+    /// not responded to or respect in the main event loop, this means there will be
+    /// no progress updates as the file is uploaded.
     pub async fn upload_files(&self, files: Vec<Arc<LiveFile>>) -> Result<(), LiveSocketError> {
         let chan = self.inner.channel()?;
         let futs = files.iter().map(|file| chan.upload_file(file));
@@ -188,6 +197,9 @@ impl LiveViewClient {
         Ok(())
     }
 
+    /// Attempts to reconnect to a view by posting a form with fields `form`
+    /// reestablishing the liveview with `join_params` and using the headers provided
+    /// to fetch the dead render. automatically adds the content type header.
     pub async fn post_form(
         &self,
         url: String,
@@ -215,10 +227,14 @@ impl LiveViewClient {
         Ok(())
     }
 
+    /// Set the log level for the current process.
     pub fn set_log_level(&self, level: LogLevel) {
         self.inner.set_log_level(level)
     }
 
+    /// Returns a handle to the current background event loop.
+    /// This can be used to send messages as you would
+    /// with a live_channel.
     pub fn channel(&self) -> LiveViewClientChannel {
         let inner = self.inner.create_channel();
         LiveViewClientChannel { inner }
@@ -265,10 +281,12 @@ impl LiveViewClient {
         self.inner.traverse_to(id, opts).await
     }
 
+    /// returns true if the navigation stack can support going backwards.
     pub fn can_go_back(&self) -> bool {
         self.inner.can_go_back()
     }
 
+    /// returns true if the navigation stack can support navigating forwards.
     pub fn can_go_forward(&self) -> bool {
         self.inner.can_go_forward()
     }
@@ -293,6 +311,9 @@ impl LiveViewClient {
 
 #[cfg_attr(not(target_family = "wasm"), uniffi::export)]
 impl LiveViewClient {
+    /// Returns an ID for a given upload target. Uploads in phoenix live view
+    /// need an ID to indicate to the server which upload is being targeted. The meta
+    /// data is contained in the document - this is a convenience function for fetching it.
     pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {
         self.inner.get_phx_upload_id(phx_target_name)
     }
@@ -300,34 +321,53 @@ impl LiveViewClient {
     // TODO: the live reload channel should not be a user concern. It can appear in
     // an error page, as well as a successful dead render, the client config should have a callback handler
     // which any given live reload channel can use
+    /// Returns the live reload channel if it exists, you should not need to listen for
+    /// `asset_change` events on this for any reason - this API is intended to be deprecated.
     pub fn live_reload_channel(&self) -> Result<Option<Arc<LiveChannel>>, LiveSocketError> {
         self.inner.live_reload_channel()
     }
 
+    /// Returns the url which provided the current views dead render.
     pub fn join_url(&self) -> Result<String, LiveSocketError> {
         self.inner.join_url()
     }
 
+    /// Returns the payload returned upon joining the live view channel of
+    /// the current view.
     pub fn join_payload(&self) -> Result<Payload, LiveSocketError> {
         self.inner.join_payload()
     }
 
+    /// Returns the csrf token found on the current dead render.
     pub fn csrf_token(&self) -> Result<String, LiveSocketError> {
         self.inner.csrf_token()
     }
 
+    /// Returns the dead render fetched before establishing the main websocket connection.
+    ///
+    /// A dead render is an html page containing meta data needed to establish a
+    /// websocket connection and a live view channel on the websocket. It also
+    /// may contain a live reload channel -- a side channel for pushing events
+    /// related to asset changes made by a developer which force a total reload.
     pub fn dead_render(&self) -> Result<Arc<ffi::Document>, LiveSocketError> {
         Ok(Arc::new(self.inner.dead_render()?.into()))
     }
 
+    /// Returns a document which contains the current state of the live view
+    /// in a platform specific markup. This will change under your feet as diffs are
+    /// applied by the server. It also may change as the live view is reloaded, in order
+    /// to have a pointer to the most up to date document make sure to instrument the
+    /// network events callback object in the [LiveViewClientBuilder] object.
     pub fn document(&self) -> Result<ffi::Document, LiveSocketError> {
         self.inner.document()
     }
 
+    /// returns the urls for style objects referenced by the current live view.
     pub fn style_urls(&self) -> Result<Vec<String>, LiveSocketError> {
         self.inner.style_urls()
     }
 
+    /// Returns the current socket status
     pub fn status(&self) -> Result<SocketStatus, LiveSocketError> {
         self.inner.status()
     }
@@ -342,6 +382,8 @@ pub struct LiveViewClientChannel {
 
 #[uniffi::export(async_runtime = "tokio")]
 impl LiveViewClientChannel {
+    /// Sends an event to the server waiting for a reply.
+    /// If you do not care about the result of a call then use [LivViewClientChannel::cast]
     pub async fn call(
         &self,
         event_name: String,
@@ -350,6 +392,7 @@ impl LiveViewClientChannel {
         self.inner.call(event_name, payload).await
     }
 
+    /// Sends an event to the server without waiting for a reply.
     pub async fn cast(&self, event_name: String, payload: Payload) {
         self.inner.cast(event_name, payload).await
     }

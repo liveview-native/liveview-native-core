@@ -73,6 +73,7 @@ impl PersistentCookieStore {
 impl CookieStore for PersistentCookieStore {
     fn set_cookies(&self, cookie_headers: &mut dyn Iterator<Item = &HeaderValue>, url: &Url) {
         CookieStore::set_cookies(self.store.as_ref(), cookie_headers, url);
+        self.save();
     }
 
     fn cookies(&self, url: &Url) -> Option<HeaderValue> {
