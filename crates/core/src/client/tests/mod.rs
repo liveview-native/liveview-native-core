@@ -14,6 +14,7 @@ macro_rules! json_payload {
         phoenix_channels_client::Payload::JSONPayload { json: val.into() }
     }};
 }
+
 pub(crate) use json_payload;
 
 macro_rules! assert_doc_eq {

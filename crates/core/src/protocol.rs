@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-/// a reply
+/// Replies can contain redirect information either in a
+/// live_redirect (new channel) or a full redirect (new socket)
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LiveRedirect {
     pub kind: Option<RedirectKind>,
     pub to: String,
-    pub mode: Option<RedirectMode>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -13,11 +13,4 @@ pub struct LiveRedirect {
 pub enum RedirectKind {
     Push,
     Replace,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum RedirectMode {
-    ReplaceTop,
-    Patch,
 }

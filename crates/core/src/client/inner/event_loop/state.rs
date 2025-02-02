@@ -17,7 +17,7 @@ use crate::{
         navigation::{NavAction, NavOptions},
         LiveChannel,
     },
-    protocol::{LiveRedirect, RedirectKind, RedirectMode},
+    protocol::{LiveRedirect, RedirectKind},
 };
 
 pub enum ReplyAction {
@@ -275,27 +275,19 @@ impl EventLoopState {
         let url = self.client_state.session_data.try_lock()?.url.clone();
         let url = url.join(&redirect.to)?;
 
-        match redirect.mode {
-            Some(RedirectMode::Patch) => {
-                // TODO: get this to call handle_params
-                Ok(0)
-            }
-            None | Some(RedirectMode::ReplaceTop) => {
-                let action = match redirect.kind {
-                    Some(RedirectKind::Push) | None => NavAction::Push,
-                    Some(RedirectKind::Replace) => NavAction::Replace,
-                };
+        let action = match redirect.kind {
+            Some(RedirectKind::Push) | None => NavAction::Push,
+            Some(RedirectKind::Replace) => NavAction::Replace,
+        };
 
-                let opts = NavOptions {
-                    action: Some(action),
-                    join_params: self.live_view_channel.channel.join_params.clone().into(),
-                    ..NavOptions::default()
-                };
+        let opts = NavOptions {
+            action: Some(action),
+            join_params: self.live_view_channel.channel.join_params.clone().into(),
+            ..NavOptions::default()
+        };
 
-                let res = self.client_state.navigate(url.to_string(), opts).await?;
-                Ok(res.history_id)
-            }
-        }
+        let res = self.client_state.navigate(url.to_string(), opts).await?;
+        Ok(res.history_id)
     }
 
     async fn handle_reply(
@@ -377,7 +369,6 @@ impl EventLoopState {
                     *socket_updated = true;
                     *channel_updated = true;
                 }
-                // TODO: Handle this
                 "live_patch" => {
                     let Payload::JSONPayload { json, .. } = &event.payload else {
                         error!("Live patch was not json!");
@@ -389,7 +380,6 @@ impl EventLoopState {
 
                     self.client_state.patch(redirect.to)?;
                 }
-                // TODO: Handle this
                 "live_redirect" => {
                     let Payload::JSONPayload { json, .. } = &event.payload else {
                         error!("Live redirect was not json!");
