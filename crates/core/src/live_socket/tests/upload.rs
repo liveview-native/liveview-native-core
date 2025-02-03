@@ -1,8 +1,7 @@
 use channel::LiveFile;
-use socket::LiveSocketError;
-use upload::UploadError;
 
 use super::*;
+use crate::error::{LiveSocketError, UploadError};
 
 // This is from
 // https://github.com/image-rs/image/blob/4989d5f83a4a1aaaf7b1fd1f33f7b4db1d3404d3/examples/tile/main.rs

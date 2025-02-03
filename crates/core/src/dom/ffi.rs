@@ -3,16 +3,15 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use super::ChangeType;
 pub use super::{
     attribute::Attribute,
     node::{Node, NodeData, NodeRef},
     printer::PrintOptions,
-    DocumentChangeHandler,
 };
 use crate::{
+    callbacks::*,
     diff::{fragment::RenderError, PatchResult},
-    parser::ParseError,
+    dom::parser::ParseError,
 };
 
 #[derive(Clone, uniffi::Object)]
@@ -33,6 +32,66 @@ impl Document {
     #[cfg(feature = "liveview-channels")]
     pub(crate) fn inner(&self) -> Arc<Mutex<super::Document>> {
         self.inner.clone()
+    }
+
+    pub fn arc_set_event_handler(&self, handler: Arc<dyn DocumentChangeHandler>) {
+        self.inner.lock().expect("lock poisoned!").event_callback = Some(handler);
+    }
+
+    #[cfg(feature = "liveview-channels")]
+    pub fn merge_deserialized_fragment_json(
+        &self,
+        json: phoenix_channels_client::JSON,
+    ) -> Result<(), RenderError> {
+        let results = self
+            .inner
+            .lock()
+            .expect("lock poisoned!")
+            .merge_fragment_json(json.into())?;
+
+        let Some(handler) = self
+            .inner
+            .lock()
+            .expect("lock poisoned")
+            .event_callback
+            .clone()
+        else {
+            return Ok(());
+        };
+
+        for patch in results.into_iter() {
+            match patch {
+                PatchResult::Add { node, parent, data } => {
+                    handler.handle_document_change(
+                        ChangeType::Add,
+                        node.into(),
+                        data,
+                        Some(parent.into()),
+                    );
+                }
+                PatchResult::Remove { node, parent, data } => {
+                    handler.handle_document_change(
+                        ChangeType::Remove,
+                        node.into(),
+                        data,
+                        Some(parent.into()),
+                    );
+                }
+                PatchResult::Change { node, data } => {
+                    handler.handle_document_change(ChangeType::Change, node.into(), data, None);
+                }
+                PatchResult::Replace { node, parent, data } => {
+                    handler.handle_document_change(
+                        ChangeType::Replace,
+                        node.into(),
+                        data,
+                        Some(parent.into()),
+                    );
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 

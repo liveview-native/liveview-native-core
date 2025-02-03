@@ -1,4 +1,5 @@
 use super::*;
+use crate::error::*;
 
 #[tokio::test]
 async fn dead_render_error() {

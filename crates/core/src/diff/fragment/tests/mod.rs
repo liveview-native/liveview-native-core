@@ -57,6 +57,7 @@ fn stream_parsing() {
 #[macro_export]
 macro_rules! json_struct {
     ($($token:tt)*) => {{
+        use serde_json::json;
         serde_json::from_value(json!($($token)*))
             .expect("Error deserializing JSON")
     }};

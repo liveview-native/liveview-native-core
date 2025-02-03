@@ -9,8 +9,8 @@ final class SimpleHandler: DocumentChangeHandler {
         print("Handler:", changeType, ", node:", nodeRef.ref())
     }
 
-    func handleChannelStatus(_ channelStatus: LiveChannelStatus) -> ControlFlow {
-        return .continueListening
+    func handleNewDocument(_ document: Document) {
+
     }
 }
 final class LiveViewNativeTreeTests: XCTestCase {

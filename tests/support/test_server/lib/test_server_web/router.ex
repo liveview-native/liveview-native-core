@@ -41,6 +41,7 @@ defmodule TestServerWeb.Router do
     live("/nav/:dynamic", NavLive)
     live("/upload", SimpleLiveUpload)
     live("/stream", SimpleLiveStream)
+    live("/push_navigate", RedirectExampleLive)
   end
 
   # Other scopes may use custom stacks.

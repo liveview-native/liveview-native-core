@@ -14,6 +14,9 @@ use fxhash::FxHashMap;
 #[rustfmt::skip]
 #[allow(nonstandard_style, non_upper_case_globals)]
 pub mod symbols {
+    // TODO: this is overoptimized, we use NONE of the interned strings here as parsing HTML is not
+    // not a goal of the library. we should remove this at one point.
+    //
     // During the build step, `build.rs` will output the generated atoms to `OUT_DIR` to avoid
     // adding it to the source directory, so we just directly include the generated code here.
     include!(concat!(env!("OUT_DIR"), "/strings.rs"));

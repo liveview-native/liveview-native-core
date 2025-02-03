@@ -6,13 +6,19 @@ use phoenix_channels_client::{
 
 use crate::{
     diff::fragment::{MergeError, RenderError},
-    parser::ParseError,
+    dom::ParseError,
 };
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum LiveSocketError {
+    #[error("call to `call` failed: {error}.")]
+    Call { error: String },
+    #[error("call to `cast` failed: {error}.")]
+    Cast { error: String },
     #[error("Internal Socket Locks would block.")]
     WouldLock,
+    #[error("Form Data Failed to Serialize. {error}")]
+    FormData { error: String },
     #[error("Internal Socket Locks poisoned.")]
     LockPoisoned,
     #[error("Error disconnecting")]
@@ -135,6 +141,14 @@ impl<T> From<std::sync::PoisonError<T>> for LiveSocketError {
     }
 }
 
+impl From<serde_urlencoded::ser::Error> for LiveSocketError {
+    fn from(e: serde_urlencoded::ser::Error) -> Self {
+        Self::FormData {
+            error: format!("{e}"),
+        }
+    }
+}
+
 impl From<PhoenixError> for LiveSocketError {
     fn from(value: PhoenixError) -> Self {
         match value {
@@ -217,6 +231,7 @@ impl From<SpawnError> for LiveSocketError {
         Self::from(PhoenixError::from(value))
     }
 }
+
 impl From<reqwest::Error> for LiveSocketError {
     fn from(value: reqwest::Error) -> Self {
         Self::Request {
@@ -224,6 +239,7 @@ impl From<reqwest::Error> for LiveSocketError {
         }
     }
 }
+
 impl From<serde_json::Error> for LiveSocketError {
     fn from(value: serde_json::Error) -> Self {
         Self::Serde {

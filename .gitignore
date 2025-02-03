@@ -31,3 +31,6 @@ Package.resolved
 crates/wasm/phoenix_live_view
 crates/wasm/liveview-native-core-wasm-*
 crates/wasm/liveview-native-core-wasm-*.tgz
+
+### When vendoring in as a swift package
+.swiftpm
