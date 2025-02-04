@@ -231,6 +231,7 @@ impl LiveViewClientState {
     ) -> Result<Self, LiveSocketError> {
         init_log(config.log_level);
         debug!("Initializing LiveViewClient.");
+        debug!("LiveViewCore Version: {}", env!("CARGO_PKG_VERSION"));
         debug!("Configuration: {config:?}");
 
         let cookie_store: Arc<_> =

@@ -81,12 +81,6 @@ impl CookieStore for PersistentCookieStore {
     }
 }
 
-impl Drop for PersistentCookieStore {
-    fn drop(&mut self) {
-        self.save();
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::{collections::HashMap, sync::Mutex};
