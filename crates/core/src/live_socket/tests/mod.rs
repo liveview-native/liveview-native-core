@@ -1,8 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
 use super::*;
-use crate::dom::{
-    ChangeType, ControlFlow, DocumentChangeHandler, LiveChannelStatus, NodeData, NodeRef,
+use crate::{
+    callbacks::*,
+    dom::{NodeData, NodeRef},
 };
 mod error;
 mod navigation;
@@ -65,13 +66,6 @@ impl DocumentChangeHandler for Inspector {
             .send((change_type, node_data))
             .expect("Message Never Received.");
     }
-
-    fn handle_channel_status(&self, channel_status: LiveChannelStatus) -> ControlFlow {
-        match channel_status {
-            LiveChannelStatus::Left | LiveChannelStatus::ShutDown => ControlFlow::ExitOk,
-            _ => ControlFlow::ContinueListening,
-        }
-    }
 }
 
 #[tokio::test]
@@ -91,7 +85,6 @@ async fn channels_drop_on_shutdown() {
         .join_liveview_channel(None, None)
         .await
         .expect("Failed to join channel");
-
     let chan_clone = live_channel.channel().clone();
     let handle = tokio::spawn(async move {
         live_channel

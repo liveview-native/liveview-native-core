@@ -5,21 +5,22 @@ use std::{
     time::Duration,
 };
 
-use log::debug;
-use phoenix_channels_client::{url::Url, Number, Payload, Socket, SocketStatus, Topic, JSON};
+use log::{debug, trace};
+use phoenix_channels_client::{url::Url, Payload, Socket, SocketStatus, Topic, JSON};
 use reqwest::{
     cookie::{CookieStore, Jar},
     header::{HeaderMap, LOCATION, SET_COOKIE},
     redirect::Policy,
-    Method as ReqMethod,
+    Client, Method as ReqMethod,
 };
+use serde::Serialize;
 
 use super::navigation::{NavCtx, NavOptions};
-pub use super::{LiveChannel, LiveSocketError};
+pub use super::LiveChannel;
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{ffi::Document as FFiDocument, AttributeName, Document, ElementName, Selector},
-    parser::parse,
+    error::LiveSocketError,
 };
 
 #[macro_export]
@@ -35,13 +36,13 @@ macro_rules! lock {
 #[cfg(not(test))]
 use std::sync::OnceLock;
 #[cfg(not(test))]
-static COOKIE_JAR: OnceLock<Arc<Jar>> = OnceLock::new();
+pub static COOKIE_JAR: OnceLock<Arc<Jar>> = OnceLock::new();
 
 // Each test runs in a separate thread and should make requests
 // as if it is an isolated session.
 #[cfg(test)]
 thread_local! {
-    static TEST_COOKIE_JAR: Arc<Jar> = Arc::default();
+    pub static TEST_COOKIE_JAR: Arc<Jar> = Arc::default();
 }
 
 const MAX_REDIRECTS: usize = 10;
@@ -90,7 +91,7 @@ pub struct ConnectOpts {
     #[uniffi(default = None)]
     pub headers: Option<HashMap<String, String>>,
     #[uniffi(default = None)]
-    pub body: Option<String>,
+    pub body: Option<Vec<u8>>,
     #[uniffi(default = None)]
     pub method: Option<Method>,
     #[uniffi(default = 30_000)]
@@ -111,6 +112,7 @@ impl Default for ConnectOpts {
 /// Static information ascertained from the dead render when connecting.
 #[derive(Clone, Debug)]
 pub struct SessionData {
+    /// reply headers
     pub join_headers: HashMap<String, Vec<String>>,
     pub connect_opts: ConnectOpts,
     /// Cross site request forgery, security token, sent with dead render.
@@ -131,11 +133,31 @@ pub struct SessionData {
     pub cookies: Vec<String>,
 }
 
+//TODO: Move this into the protocol module when it exists
+/// The expected structure of a json payload send upon joining a liveview channel
+#[derive(Serialize)]
+struct JoinRequestPayload {
+    #[serde(rename = "static")]
+    static_token: String,
+    session: String,
+    #[serde(flatten)]
+    url_or_redirect: UrlOrRedirect,
+    params: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+enum UrlOrRedirect {
+    Url { url: String },
+    Redirect { redirect: String },
+}
+
 impl SessionData {
     pub async fn request(
         url: &Url,
         format: &String,
         connect_opts: ConnectOpts,
+        client: Client,
     ) -> Result<Self, LiveSocketError> {
         // NEED:
         // these from inside data-phx-main
@@ -146,9 +168,12 @@ impl SessionData {
         // Top level:
         // csrf-token
         // "iframe[src=\"/phoenix/live_reload/frame\"]"
-        let (dead_render, cookies, url, header_map) =
-            LiveSocket::get_dead_render(url, format, &connect_opts).await?;
 
+        let (dead_render, cookies, url, header_map) =
+            LiveSocket::get_dead_render(url, format, &connect_opts, client).await?;
+        //TODO: remove cookies, pull it from the cookie client cookie store.
+
+        log::trace!("dead render retrieved:\n {dead_render}");
         let csrf_token = dead_render
             .get_csrf_token()
             .ok_or(LiveSocketError::CSRFTokenMissing)?;
@@ -164,7 +189,7 @@ impl SessionData {
             }))
             .last();
 
-        debug!("MAIN DIV: {main_div_attributes:?}");
+        trace!("main div attributes: {main_div_attributes:?}");
 
         let main_div_attributes = dead_render
             .select(Selector::Attribute(AttributeName {
@@ -188,7 +213,7 @@ impl SessionData {
         let phx_id = phx_id.ok_or(LiveSocketError::PhoenixIDMissing)?;
         let phx_static = phx_static.ok_or(LiveSocketError::PhoenixStaticMissing)?;
         let phx_session = phx_session.ok_or(LiveSocketError::PhoenixSessionMissing)?;
-        debug!("phx_id = {phx_id:?}, session = {phx_session:?}, static = {phx_static:?}");
+        trace!("phx_id = {phx_id:?}, session = {phx_session:?}, static = {phx_static:?}");
 
         // A Style looks like:
         // <Style url="/assets/app.swiftui.styles" />
@@ -256,7 +281,8 @@ impl SessionData {
             cookies,
         };
 
-        debug!("Session data successfully acquired {out:?}");
+        debug!("Session data successfully acquired");
+        debug!("{out:?}");
 
         Ok(out)
     }
@@ -291,6 +317,38 @@ impl SessionData {
 
         Ok(websocket_url)
     }
+
+    pub fn create_join_payload(
+        &self,
+        additional_params: &Option<HashMap<String, JSON>>,
+        redirect: Option<String>,
+    ) -> Payload {
+        let mut params = HashMap::new();
+        params.insert(MOUNT_KEY.to_string(), serde_json::json!(0));
+        params.insert(CSRF_KEY.to_string(), serde_json::json!(self.csrf_token));
+        params.insert(FMT_KEY.to_string(), serde_json::json!(self.format));
+        if let Some(join_params) = additional_params {
+            params.extend(
+                join_params
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone().into())),
+            );
+        }
+
+        let payload = JoinRequestPayload {
+            static_token: self.phx_static.clone(),
+            session: self.phx_session.clone(),
+            url_or_redirect: redirect
+                .map(|r| UrlOrRedirect::Redirect { redirect: r })
+                .unwrap_or_else(|| UrlOrRedirect::Url {
+                    url: self.url.to_string(),
+                }),
+            params,
+        };
+
+        let json = serde_json::to_value(payload).expect("Serde Error");
+        Payload::JSONPayload { json: json.into() }
+    }
 }
 
 #[derive(uniffi::Object)]
@@ -308,6 +366,7 @@ impl LiveSocket {
         url: &Url,
         format: &str,
         options: &ConnectOpts,
+        client: Client,
     ) -> Result<(Document, Vec<String>, Url, HeaderMap), LiveSocketError> {
         let ConnectOpts {
             headers,
@@ -330,17 +389,6 @@ impl LiveSocket {
             .map_err(|e| LiveSocketError::InvalidHeader {
                 error: format!("{e:?}"),
             })?;
-
-        #[cfg(not(test))]
-        let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
-
-        #[cfg(test)]
-        let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
-
-        let client = reqwest::Client::builder()
-            .cookie_provider(jar.clone())
-            .redirect(Policy::none())
-            .build()?;
 
         let req = reqwest::Request::new(method, url.clone());
         let builder = reqwest::RequestBuilder::from_parts(client, req);
@@ -392,6 +440,12 @@ impl LiveSocket {
 
         let status = resp.status();
 
+        #[cfg(not(test))]
+        let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
+
+        #[cfg(test)]
+        let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
+
         let cookies = jar
             .cookies(&url)
             .as_ref()
@@ -411,8 +465,8 @@ impl LiveSocket {
             return Err(LiveSocketError::ConnectionError(resp_text));
         }
 
-        let dead_render = parse(&resp_text)?;
-        debug!("document:\n{dead_render}\n\n\n");
+        let dead_render = Document::parse(&resp_text)?;
+        trace!("document:\n{dead_render}\n\n\n");
         Ok((dead_render, cookies, url, headers))
     }
 }
@@ -453,9 +507,20 @@ impl LiveSocket {
         let url = Url::parse(&url)?;
         let options = options.unwrap_or_default();
 
+        #[cfg(not(test))]
+        let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
+
+        #[cfg(test)]
+        let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
+
+        let client = reqwest::Client::builder()
+            .cookie_provider(jar.clone())
+            .redirect(Policy::none())
+            .build()?;
+
         // Make HTTP request to get initial dead render, an HTML document with
         // metadata needed to set up the liveview websocket connection.
-        let session_data = SessionData::request(&url, &format, options).await?;
+        let session_data = SessionData::request(&url, &format, options, client).await?;
         let websocket_url = session_data.get_live_socket_url()?;
 
         let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone()))
@@ -555,69 +620,7 @@ impl LiveSocket {
 
         let session_data = lock!(self.session_data).clone();
 
-        let mut collected_join_params = HashMap::from([
-            (
-                MOUNT_KEY.to_string(),
-                JSON::Numb {
-                    number: Number::PosInt { pos: 0 },
-                },
-            ),
-            (
-                CSRF_KEY.to_string(),
-                JSON::Str {
-                    string: session_data.csrf_token,
-                },
-            ),
-            (
-                FMT_KEY.to_string(),
-                JSON::Str {
-                    string: session_data.format,
-                },
-            ),
-        ]);
-        if let Some(join_params) = join_params.clone() {
-            for (key, value) in &join_params {
-                collected_join_params.insert(key.clone(), value.clone());
-            }
-        }
-        let redirect_or_url: (String, JSON) = if let Some(redirect) = redirect {
-            ("redirect".to_string(), JSON::Str { string: redirect })
-        } else {
-            (
-                "url".to_string(),
-                JSON::Str {
-                    string: session_data.url.to_string(),
-                },
-            )
-        };
-        let join_payload = Payload::JSONPayload {
-            json: JSON::Object {
-                object: HashMap::from([
-                    (
-                        "static".to_string(),
-                        JSON::Str {
-                            string: session_data.phx_static,
-                        },
-                    ),
-                    (
-                        "session".to_string(),
-                        JSON::Str {
-                            string: session_data.phx_session,
-                        },
-                    ),
-                    // TODO: Add redirect key. Swift code:
-                    // (redirect ? "redirect": "url"): self.url.absoluteString,
-                    redirect_or_url,
-                    (
-                        "params".to_string(),
-                        // TODO: Merge join_params with this simple object.
-                        JSON::Object {
-                            object: collected_join_params,
-                        },
-                    ),
-                ]),
-            },
-        };
+        let join_payload = session_data.create_join_payload(&join_params, redirect);
 
         let channel = self
             .socket()
@@ -629,7 +632,7 @@ impl LiveSocket {
 
         let join_payload = channel.join(self.timeout()).await?;
 
-        debug!("Join payload: {join_payload:#?}");
+        trace!("Join payload: {join_payload:#?}");
         let document = match join_payload {
             Payload::JSONPayload {
                 json: JSON::Object { ref object },
@@ -637,10 +640,10 @@ impl LiveSocket {
                 if let Some(rendered) = object.get("rendered") {
                     let rendered = rendered.to_string();
                     let root: RootDiff = serde_json::from_str(rendered.as_str())?;
-                    debug!("root diff: {root:#?}");
+                    trace!("root diff: {root:#?}");
                     let root: Root = root.try_into()?;
                     let rendered: String = root.clone().try_into()?;
-                    let mut document = crate::parser::parse(&rendered)?;
+                    let mut document = Document::parse(&rendered)?;
                     document.fragment_template = Some(root);
                     Some(document)
                 } else {

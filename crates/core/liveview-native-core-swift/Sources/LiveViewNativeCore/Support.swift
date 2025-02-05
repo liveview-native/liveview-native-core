@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 extension LiveViewNativeCore.ChannelStatus: @unchecked Sendable {}
@@ -1884,46 +1885,134 @@ extension DecodingError {
     }
 }
 
-final class SimpleHandler: DocumentChangeHandler {
-    let callback: (NodeRef, NodeData, NodeRef?) -> Void
+public struct PatchEvent {
+    public let node: NodeRef
+    public let data: NodeData
+    public let parent: NodeRef?
+    public let changeType: ChangeType
+}
 
-    init(
-        _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void
+public struct NetworkEvent {
+    public let event: EventPayload
+}
+
+public struct ChannelStatusEvent {
+    public let status: LiveChannelStatus
+}
+
+public struct SocketStatusEvent {
+    public let status: SocketStatus
+}
+
+public struct ViewReloadEvent {
+    public let document: Document
+    public let channel: LiveChannel
+    public let socket: Socket
+    public let isNewSocket: Bool
+}
+
+public final class SimplePatchHandler: DocumentChangeHandler {
+    public let patchEventSubject = PassthroughSubject<PatchEvent, Never>()
+
+    public init() {}
+
+    public func handleDocumentChange(
+        _ changeType: ChangeType, _ nodeRef: NodeRef, _ nodeData: NodeData, _ parent: NodeRef?
     ) {
-        self.callback = callback
+        let event = PatchEvent(
+            node: nodeRef,
+            data: nodeData,
+            parent: parent,
+            changeType: changeType
+        )
+
+        patchEventSubject.send(event)
+    }
+}
+
+public final class SimpleEventHandler: NetworkEventHandler {
+
+    public let networkEventSubject = PassthroughSubject<NetworkEvent, Never>()
+    public let channelStatusSubject = PassthroughSubject<ChannelStatusEvent, Never>()
+    public let socketStatusSubject = PassthroughSubject<SocketStatusEvent, Never>()
+    public let viewReloadSubject = PassthroughSubject<ViewReloadEvent, Never>()
+
+    public init() {
     }
 
-    func handleDocumentChange(
-        _ changeType: ChangeType, _ node: NodeRef, _ data: NodeData, _ parent: NodeRef?
+    public func handleEvent(_ event: EventPayload) {
+        networkEventSubject.send(NetworkEvent(event: event))
+    }
+
+    public func handleChannelStatusChange(_ status: LiveChannelStatus) {
+        channelStatusSubject.send(ChannelStatusEvent(status: status))
+    }
+
+    public func handleSocketStatusChange(_ status: SocketStatus) {
+        socketStatusSubject.send(SocketStatusEvent(status: status))
+    }
+
+    public func handleViewReloaded(
+        _ newDocument: Document, _ newChannel: LiveChannel, _ currentSocket: Socket,
+        _ socketIsNew: Bool
     ) {
-        switch changeType {
-        case .add:
-            self.callback(parent!, data, parent)
-        case .remove:
-            self.callback(parent!, data, parent)
-        case .change:
-            self.callback(node, data, parent)
-        case .replace:
-            self.callback(parent!, data, parent)
-        }
+        let event = ViewReloadEvent(
+            document: newDocument,
+            channel: newChannel,
+            socket: currentSocket,
+            isNewSocket: socketIsNew
+        )
+        viewReloadSubject.send(event)
+    }
+}
+
+public class SimplePersistentStore: SecurePersistentStore {
+    private let storageDirectory: URL
+
+    public init() {
+        let fileManager = FileManager.default
+        let directory = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        self.storageDirectory = directory.appendingPathComponent(
+            "PersistentStore", isDirectory: true)
+
+        try? fileManager.createDirectory(
+            at: storageDirectory,
+            withIntermediateDirectories: true)
     }
 
-    func handleChannelStatus(_ channelStatus: LiveChannelStatus) -> ControlFlow {
-        switch channelStatus {
-        case .joined,
-            .joining,
-            .leaving,
-            .shuttingDown,
-            .waitingForSocketToConnect,
-            .waitingToJoin,
-            .waitingToRejoin:
-            return .continueListening
-        case .left,
-            .shutDown:
-            return .exitOk
-        }
+    private func fileURL(for key: String) -> URL {
+        storageDirectory.appendingPathComponent(key)
     }
 
+    public func removeEntry(_ key: String) {
+        let fileURL = fileURL(for: key)
+        try? FileManager.default.removeItem(at: fileURL)
+    }
+
+    public func get(_ key: String) -> Data? {
+        let fileURL = fileURL(for: key)
+        guard let data = try? Data(contentsOf: fileURL) else {
+            return nil
+        }
+        return data
+    }
+
+    public func set(_ key: String, _ value: Data) {
+        let fileURL = fileURL(for: key)
+        let data = Data(value)
+        try? data.write(to: fileURL)
+    }
+}
+
+public final class SimpleNavHandler: NavEventHandler {
+    public let navEventSubject = PassthroughSubject<NavEvent, Never>()
+
+    public init() {}
+
+    public func handleEvent(_ event: NavEvent) -> HandlerResponse {
+        navEventSubject.send(event)
+        return HandlerResponse.default
+    }
 }
 
 extension Document {
@@ -1944,12 +2033,14 @@ extension Document {
         return try self.mergeFragmentJson(payload)
     }
 
-    public func on(_ event: EventType, _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void)
-    {
-
-        let simple = SimpleHandler(callback)
-        self.setEventHandler(simple)
+    public func on(
+        _ event: EventType,
+        _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void
+    ) {
+        //let simple = SimplePatchHandler(callback)
+        //sself.setEventHandler(simple)
     }
+
     public func toString() -> String {
         return self.render()
     }

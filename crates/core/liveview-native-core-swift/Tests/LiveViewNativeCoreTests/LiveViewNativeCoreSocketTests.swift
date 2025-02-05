@@ -38,6 +38,70 @@ final class LiveViewNativeCoreSocketTests: XCTestCase {
         status = socket.status()
         XCTAssertEqual(status, .shutDown)
     }
+
+    func testBasicConnection() async throws {
+        let builder = LiveViewClientBuilder()
+        let client = try await builder.connect("http://127.0.0.1:4001/hello", ClientConnectOpts())
+        let document = try client.document()
+
+        let expected = """
+            <Group id="flash-group" />
+            <VStack>
+                <Text>
+                    Hello SwiftUI!
+                </Text>
+            </VStack>
+            """
+
+        let exp = try Document.parse(expected)
+        XCTAssertEqual(document.render(), exp.render())
+    }
+
+    func testNavigation() async throws {
+        let builder = LiveViewClientBuilder()
+        let client = try await builder.connect(
+            "http://127.0.0.1:4001/nav/first_page", ClientConnectOpts())
+
+        let initialDoc = try client.document()
+        let expectedInitial = """
+            <Group id="flash-group" />
+            <VStack>
+                <Text>
+                    first_page
+                </Text>
+                <NavigationLink id="Next" destination="/nav/next">
+                    <Text>
+                        NEXT
+                    </Text>
+                </NavigationLink>
+            </VStack>
+            """
+        let expInitial = try Document.parse(expectedInitial)
+        XCTAssertEqual(initialDoc.render(), expInitial.render())
+
+        let secondPageId = try await client.navigate(
+            "http://127.0.0.1:4001/nav/second_page", NavOptions())
+
+        // document should change.
+        // TODO: validate doc change is sent in event loop
+        let secondDoc = try client.document()
+        let expectedSecond = """
+            <Group id="flash-group" />
+            <VStack>
+                <Text>
+                    second_page
+                </Text>
+                <NavigationLink id="Next" destination="/nav/next">
+                    <Text>
+                        NEXT
+                    </Text>
+                </NavigationLink>
+            </VStack>
+            """
+        let expSecond = try Document.parse(expectedSecond)
+        XCTAssertEqual(secondDoc.render(), expSecond.render())
+
+    }
 }
 
 // This is a PNG located at crates/core/tests/support/tinycross.png

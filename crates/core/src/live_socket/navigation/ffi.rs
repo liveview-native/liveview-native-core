@@ -4,66 +4,13 @@
 use std::collections::HashMap;
 
 use phoenix_channels_client::{Payload, Socket, JSON};
-use reqwest::Url;
+#[cfg(not(test))]
+use reqwest::cookie::Jar;
+use reqwest::{redirect::Policy, Url};
 
-pub type HistoryId = u64;
+use crate::callbacks::*;
+
 const RETRY_REASONS: &[&str] = &["stale", "unauthorized"];
-
-#[uniffi::export(callback_interface)]
-pub trait NavEventHandler: Send + Sync {
-    /// This callback instruments events that occur when your user navigates to a
-    /// new view. You can add serialized metadata to these events as a byte buffer
-    /// through the [NavOptions] object.
-    fn handle_event(&self, event: NavEvent) -> HandlerResponse;
-}
-
-/// User emitted response from [NavEventHandler::handle_event].
-/// Determines whether or not the default navigation action is taken.
-#[derive(uniffi::Enum, Clone, Debug, PartialEq, Default)]
-pub enum HandlerResponse {
-    #[default]
-    /// Return this to proceed as normal.
-    Default,
-    /// Return this to cancel the navigation before it occurs.
-    PreventDefault,
-}
-
-#[derive(uniffi::Enum, Clone, Debug, PartialEq)]
-pub enum NavEventType {
-    /// Pushing a new event onto the history stack
-    Push,
-    /// Replacing the most recent event on the history stack
-    Replace,
-    /// Reloading the view in place
-    Reload,
-    /// Skipping multiple items on the history stack, leaving them in tact.
-    Traverse,
-}
-
-#[derive(uniffi::Record, Clone, Debug, PartialEq)]
-pub struct NavHistoryEntry {
-    /// The target url.
-    pub url: String,
-    /// Unique id for this piece of nav entry state.
-    pub id: HistoryId,
-    /// state passed in by the user, to be passed in to the navigation event callback.
-    pub state: Option<Vec<u8>>,
-}
-
-/// An event emitted when the user navigates between views.
-#[derive(uniffi::Record, Clone, Debug, PartialEq)]
-pub struct NavEvent {
-    /// The type of event being emitted.
-    pub event: NavEventType,
-    /// True if from and to point to the same path.
-    pub same_document: bool,
-    /// The previous location of the page, if there was one.
-    pub from: Option<NavHistoryEntry>,
-    /// Destination URL.
-    pub to: NavHistoryEntry,
-    /// Additional user provided metadata handed to the event handler.
-    pub info: Option<Vec<u8>>,
-}
 
 /// An action taken with respect to the history stack
 /// when [NavCtx::navigate] is executed. defaults to
@@ -80,6 +27,9 @@ pub enum NavAction {
 /// Options for calls to [NavCtx::navigate]
 #[derive(Default, uniffi::Record)]
 pub struct NavOptions {
+    /// Additional params to be passed upon joining the liveview channel.
+    #[uniffi(default = None)]
+    pub join_params: Option<HashMap<String, JSON>>,
     /// see [NavAction], defaults to [NavAction::Push].
     #[uniffi(default = None)]
     pub action: Option<NavAction>,
@@ -90,6 +40,16 @@ pub struct NavOptions {
     /// revisiting a given view.
     #[uniffi(default = None)]
     pub state: Option<Vec<u8>>,
+}
+
+#[derive(Default, uniffi::Record)]
+pub struct NavActionOptions {
+    /// Additional params to be passed upon joining the liveview channel.
+    #[uniffi(default = None)]
+    pub join_params: Option<HashMap<String, JSON>>,
+    /// Ephemeral extra information to be pushed to the even handler.
+    #[uniffi(default = None)]
+    pub extra_event_info: Option<Vec<u8>>,
 }
 
 impl NavEvent {
@@ -116,8 +76,15 @@ impl NavEvent {
     }
 }
 
-use super::{super::error::LiveSocketError, LiveSocket, NavCtx};
-use crate::live_socket::{socket::SessionData, LiveChannel};
+use super::{LiveSocket, NavCtx};
+#[cfg(not(test))]
+use crate::live_socket::socket::COOKIE_JAR;
+#[cfg(test)]
+use crate::live_socket::socket::TEST_COOKIE_JAR;
+use crate::{
+    error::LiveSocketError,
+    live_socket::{socket::SessionData, LiveChannel},
+};
 
 impl LiveSocket {
     /// Tries to navigate to the current item in the NavCtx.
@@ -162,7 +129,19 @@ impl LiveSocket {
                 let format = self.session_data.try_lock()?.format.clone();
                 let options = self.session_data.try_lock()?.connect_opts.clone();
 
-                let session_data = SessionData::request(&url, &format, options).await?;
+                //TODO: punt the to an argument. move this on to the LiveViewClient
+                #[cfg(not(test))]
+                let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
+
+                #[cfg(test)]
+                let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
+
+                let client = reqwest::Client::builder()
+                    .cookie_provider(jar.clone())
+                    .redirect(Policy::none())
+                    .build()?;
+
+                let session_data = SessionData::request(&url, &format, options, client).await?;
                 let websocket_url = session_data.get_live_socket_url()?;
                 let socket =
                     Socket::spawn(websocket_url, Some(session_data.cookies.clone())).await?;
