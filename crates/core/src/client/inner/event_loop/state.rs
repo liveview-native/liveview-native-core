@@ -119,7 +119,7 @@ impl EventLoopState {
         let new_livereload_channel = self.client_state.livereload_channel.lock().unwrap().clone();
         self.live_reload = new_livereload_channel.map(ChannelState::from);
 
-        self.on_reload(
+        self.user_reload_callback(
             self.document.clone().into(),
             self.live_view_channel.channel.clone(),
             self.live_view_channel.channel.socket.clone(),
@@ -168,25 +168,25 @@ impl EventLoopState {
     }
 
     /// Call the user provided call back for receiving a
-    pub fn on_event(&self, event: EventPayload) {
+    pub(super) fn user_event_callback(&self, event: EventPayload) {
         if let Some(handler) = &self.network_handler {
             handler.handle_event(event);
         }
     }
 
-    pub fn on_channel_status(&self, status: LiveChannelStatus) {
+    pub(super) fn user_channel_callback(&self, status: LiveChannelStatus) {
         if let Some(handler) = &self.network_handler {
             handler.handle_channel_status_change(status);
         }
     }
 
-    pub fn on_socket_status(&self, status: SocketStatus) {
+    pub(super) fn user_socket_callback(&self, status: SocketStatus) {
         if let Some(handler) = &self.network_handler {
             handler.handle_socket_status_change(status);
         }
     }
 
-    pub fn on_reload(
+    pub(super) fn user_reload_callback(
         &self,
         new_document: Arc<Document>,
         new_channel: Arc<LiveChannel>,
@@ -228,7 +228,7 @@ impl EventLoopState {
                             payload: reply.clone(),
                         };
 
-                        self.on_event(event);
+                        self.user_event_callback(event);
 
                         let _ = response_tx.send(Ok(reply));
                     }
@@ -257,7 +257,7 @@ impl EventLoopState {
                     payload,
                 };
 
-                self.on_event(event);
+                self.user_event_callback(event);
 
                 let _ = tx.send(result);
             }

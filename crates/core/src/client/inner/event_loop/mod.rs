@@ -118,18 +118,18 @@ impl EventLoop {
                                error!("Failure while handling server reply: {e:?}");
                            }
 
-                           state.on_event(payload);
+                           state.user_event_callback(payload);
                        }
                        // connectivity changes
                        new_status = chan_status => {
                            match new_status {
-                               Ok(status) => state.on_channel_status(status.into()),
+                               Ok(status) => state.user_channel_callback(status.into()),
                                Err(e) => error!("Error fetching liveview status: {e}"),
                            }
                        }
                        new_status = socket_status => {
                            match new_status {
-                               Ok(status) => state.on_socket_status(status),
+                               Ok(status) => state.user_socket_callback(status),
                                Err(e) => error!("Error fetching liveview status: {e}"),
                            }
                        }
