@@ -4,14 +4,12 @@ use futures::{future::FutureExt, pin_mut, select};
 use log::{debug, error};
 use phoenix_channels_client::{Channel, Event, Number, Payload, Socket, Topic, JSON};
 
-use super::{LiveSocketError, UploadConfig, UploadError};
+use super::UploadConfig;
 use crate::{
+    callbacks::*,
     diff::fragment::{Root, RootDiff},
-    dom::{
-        ffi::{Document as FFiDocument, DocumentChangeHandler},
-        AttributeName, AttributeValue, Document, LiveChannelStatus, Selector,
-    },
-    parser::parse,
+    dom::{ffi::Document as FFiDocument, AttributeName, AttributeValue, Document, Selector},
+    error::*,
 };
 
 #[derive(uniffi::Object)]
@@ -26,6 +24,7 @@ pub struct LiveChannel {
 
 #[derive(uniffi::Object)]
 pub struct LiveFile {
+    // TODO: this really ought to be a data stream callback.
     contents: Vec<u8>,
     mime_type: String,
     name: String,
@@ -96,7 +95,7 @@ impl LiveChannel {
                     let root: RootDiff = serde_json::from_str(rendered.as_str())?;
                     let root: Root = root.try_into()?;
                     let root: String = root.try_into()?;
-                    let document = parse(&root)?;
+                    let document = Document::parse(&root)?;
 
                     Some(document)
                 } else {
@@ -199,26 +198,10 @@ impl LiveChannel {
                    };
                }
                new_status = status => {
-
-                   let handler = document
-                       .inner()
-                       .lock()
-                       .expect("lock poisoned")
-                       .event_callback
-                       .clone();
-
-                   if let Some(handler) = handler {
-                       match handler.handle_channel_status(new_status?.into()) {
-                           crate::dom::ControlFlow::ExitOk => return Ok(()),
-                           crate::dom::ControlFlow::ExitErr(error) => return Err(LiveSocketError::ChannelStatusUserError { error }),
-                           crate::dom::ControlFlow::ContinueListening => {},
-                        };
-                   }  else {
-                       match new_status? {
-                        phoenix_channels_client::ChannelStatus::Left => return Ok(()),
-                        phoenix_channels_client::ChannelStatus::ShutDown => return Ok(()),
-                        _ => {},
-                      }
+                   match new_status? {
+                       phoenix_channels_client::ChannelStatus::Left => return Ok(()),
+                       phoenix_channels_client::ChannelStatus::ShutDown => return Ok(()),
+                       _ => {},
                    }
                }
             };

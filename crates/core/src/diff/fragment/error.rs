@@ -43,7 +43,7 @@ pub enum RenderError {
     #[error("Serde Error {0}")]
     SerdeError(#[from] serde_json::Error),
     #[error("Parse Error {0}")]
-    ParseError(#[from] crate::parser::ParseError),
+    ParseError(#[from] crate::dom::ParseError),
 }
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]

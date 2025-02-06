@@ -1,7 +1,6 @@
 use liveview_native_core::{
     diff::{self, Patch},
-    dom::*,
-    parser::ParseError,
+    dom::{ParseError, *},
 };
 use paste::paste;
 use text_diff::print_diff;

@@ -5,7 +5,13 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
 use super::assert_doc_eq;
-use crate::live_socket::{navigation::*, LiveSocket};
+use crate::{
+    callbacks::*,
+    live_socket::{
+        navigation::{NavCtx, NavOptions},
+        LiveSocket,
+    },
+};
 
 // Mock event handler used to validate the internal
 // navigation objects state.
@@ -44,7 +50,7 @@ impl NavigationInspector {
 
 impl NavEvent {
     // utility function so I can sugar out boiler plate code in tests.
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         Self {
             to: NavHistoryEntry {
                 url: String::new(),
@@ -276,7 +282,7 @@ async fn basic_nav_flow() {
 
     let url = format!("http://{HOST}/nav/{second}");
     let live_channel = live_socket
-        .navigate(url, Arc::new(live_channel), Default::default())
+        .navigate(url, None, Default::default())
         .await
         .expect("navigate");
 
