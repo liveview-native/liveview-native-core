@@ -138,6 +138,42 @@ pub enum ControlFlow {
     ContinueListening,
 }
 
+#[derive(Clone, Debug, PartialEq, uniffi::Enum)]
+pub enum NavigationCall {
+    /// calls to [LiveViewClient::initial_connect]
+    Initialization,
+    /// calls to [LiveViewClient::navigate]
+    Navigate,
+    /// calls to [LiveViewClient::forward]
+    Forward,
+    /// calls to [LiveViewClient::back]
+    Back,
+    /// calls to [LiveViewClient::traverse_to]
+    Traverse,
+    /// calls to [LiveViewClient::reload]
+    Reload,
+    /// calls to [LiveViewClient::disconnect]
+    Disconnect,
+    /// calls to [LiveViewClient::reconnect] and [LiveViewClient::post_form]
+    Reconnect,
+}
+
+/// The issuer of the event that triggered a given live reload
+#[derive(Clone, Debug, PartialEq, uniffi::Enum)]
+pub enum Issuer {
+    /// An external function call from the [LiveViewClient] external API
+    External(NavigationCall),
+    /// A "live_reload" message on any channel.
+    LiveReload,
+    /// A "redirect" message on any channel.
+    Redirect,
+    /// A "live_redirect" message on any channel.
+    LiveRedirect,
+    /// An "asset_change" message on a live reload channel.
+    AssetChange,
+    Other(String),
+}
+
 /// Implements the change handling logic for inbound virtual dom
 /// changes. Your logic for handling document patches should go here.
 #[uniffi::export(callback_interface)]
@@ -181,6 +217,7 @@ pub trait NetworkEventHandler: Send + Sync {
     /// If the socket was reconnected for any reason `socket_is_new` will be true.
     fn handle_view_reloaded(
         &self,
+        issuer: Issuer,
         new_document: Arc<Document>,
         new_channel: Arc<LiveChannel>,
         current_socket: Arc<Socket>,

@@ -7,8 +7,8 @@ use serde_json::json;
 use super::{json_payload, HOST};
 use crate::{
     client::{
-        HandlerResponse, LiveChannelStatus, LiveViewClientConfiguration, NavEvent, NavEventHandler,
-        NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
+        HandlerResponse, Issuer, LiveChannelStatus, LiveViewClientConfiguration, NavEvent,
+        NavEventHandler, NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
     },
     dom::{self},
     live_socket::LiveChannel,
@@ -21,7 +21,7 @@ pub enum MockMessage {
     NetworkEvent(Event, Payload),
     ChannelStatus(LiveChannelStatus),
     SocketStatus(SocketStatus),
-    ViewReload { socket_is_new: bool },
+    ViewReload { issuer: Issuer, socket_is_new: bool },
 }
 
 #[macro_export]
@@ -131,13 +131,16 @@ impl NetworkEventHandler for MockNetworkEventHandler {
 
     fn handle_view_reloaded(
         &self,
+        issuer: Issuer,
         _new_document: Arc<dom::ffi::Document>,
         _new_channel: Arc<LiveChannel>,
         _current_socket: Arc<Socket>,
         socket_is_new: bool,
     ) {
-        self.message_store
-            .add_message(MockMessage::ViewReload { socket_is_new });
+        self.message_store.add_message(MockMessage::ViewReload {
+            issuer,
+            socket_is_new,
+        });
     }
 }
 

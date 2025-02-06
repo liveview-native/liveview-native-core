@@ -8,7 +8,9 @@ use phoenix_channels_client::{CallError, Event, Payload};
 use state::{EventLoopState, ReplyAction};
 use tokio::sync::mpsc;
 
-use super::{HistoryId, LiveViewClientState, NavigationSummary, NetworkEventHandler};
+use super::{
+    HistoryId, Issuer, LiveViewClientState, NavigationCall, NavigationSummary, NetworkEventHandler,
+};
 use crate::error::LiveSocketError;
 
 const MAX_REDIRECTS: u32 = 10;
@@ -59,7 +61,10 @@ pub enum ClientMessage {
     /// Send a message and don't wait for a response
     Cast { event: Event, payload: Payload },
     /// Replace the current channel
-    RefreshView { socket_reconnected: bool },
+    RefreshView {
+        socket_reconnected: bool,
+        issuer: Issuer,
+    },
     /// For internal use, error events are not broadcast
     /// from the socket when you attempt to connect to a channel.
     /// So we reinject them into the event loop with these messages
@@ -79,12 +84,12 @@ impl EventLoop {
         let (msg_tx, mut msg_rx) = mpsc::unbounded_channel();
         let mut state = EventLoopState::new(client_state);
 
-        state.refresh_view(true);
+        state.refresh_view(Issuer::External(NavigationCall::Initialization), true);
 
         let main_background_task = tokio::spawn(async move {
             // the main event loop
             loop {
-                let mut view_refresh_needed = false;
+                let mut view_refresh_issuer = None;
                 let mut socket_reconnected = false;
 
                 {
@@ -105,7 +110,7 @@ impl EventLoop {
                                error!("All client message handlers dropped.");
                                continue;
                            };
-                           let _ = state.handle_client_message(msg, &mut view_refresh_needed, &mut socket_reconnected).await;
+                           let _ = state.handle_client_message(msg, &mut view_refresh_issuer, &mut socket_reconnected).await;
                        }
                        // networks events from the server
                        event = server_event => {
@@ -114,7 +119,7 @@ impl EventLoop {
                               continue;
                            };
 
-                           if let Err(e) = state.handle_server_event(&payload, &mut view_refresh_needed, &mut socket_reconnected).await {
+                           if let Err(e) = state.handle_server_event(&payload, &mut view_refresh_issuer, &mut socket_reconnected).await {
                                error!("Failure while handling server reply: {e:?}");
                            }
 
@@ -136,9 +141,8 @@ impl EventLoop {
                     }
                 }
 
-                dbg!(view_refresh_needed);
-                if view_refresh_needed {
-                    state.refresh_view(socket_reconnected);
+                if let Some(issuer) = view_refresh_issuer {
+                    state.refresh_view(issuer, socket_reconnected);
                 }
             }
         });
@@ -154,19 +158,21 @@ impl EventLoop {
     /// listeners to refresh events will also be notified. `socket_reconnected` is
     /// the equivalent of a full liveview reload like a `live_redirect` or an web
     /// page reload.
-    pub fn refresh_view(&self, socket_reconnected: bool) {
-        let _ = self
-            .msg_tx
-            .send(ClientMessage::RefreshView { socket_reconnected });
+    pub fn refresh_view(&self, socket_reconnected: bool, issuer: Issuer) {
+        let _ = self.msg_tx.send(ClientMessage::RefreshView {
+            socket_reconnected,
+            issuer,
+        });
     }
 
     pub async fn handle_navigation_summary(
         &self,
         summary: Result<NavigationSummary, LiveSocketError>,
+        issuer: Issuer,
     ) -> Result<HistoryId, LiveSocketError> {
         match summary {
             Ok(res) => {
-                self.refresh_view(res.websocket_reconnected);
+                self.refresh_view(res.websocket_reconnected, issuer);
                 Ok(res.history_id)
             }
             Err(LiveSocketError::JoinRejection { error }) => {
@@ -182,7 +188,7 @@ impl EventLoop {
                 }
 
                 if result.is_ok() {
-                    self.refresh_view(true);
+                    self.refresh_view(true, issuer);
                 }
 
                 result
@@ -210,7 +216,7 @@ impl EventLoop {
         })??;
 
         match action {
-            ReplyAction::Redirected { id } => Ok(id),
+            ReplyAction::Redirected { summary, .. } => Ok(summary.history_id),
             _ => Err(LiveSocketError::JoinRejection {
                 error: payload.clone(),
             }),
