@@ -10,7 +10,7 @@ use tokio::select;
 
 use super::{ClientMessage, LiveViewClientState, NetworkEventHandler};
 use crate::{
-    client::{inner::NavigationSummary, HistoryId, Issuer, LiveChannelStatus},
+    client::{inner::NavigationSummary, Issuer, LiveChannelStatus},
     dom::ffi::{self, Document},
     error::LiveSocketError,
     live_socket::{
