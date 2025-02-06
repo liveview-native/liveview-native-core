@@ -145,11 +145,13 @@ impl NetworkEventHandler for MockNetworkEventHandler {
 async fn test_navigation_handler() {
     let store = Arc::new(MockMessageStore::new());
     let nav_handler = Arc::new(MockNavEventHandler::new(store.clone()));
+    let net_handler = Arc::new(MockNetworkEventHandler::new(store.clone()));
 
     let url = format!("http://{HOST}/nav/first_page");
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
     config.navigation_handler = Some(nav_handler);
+    config.network_event_handler = Some(net_handler);
 
     let client = LiveViewClient::initial_connect(config, url.clone(), Default::default())
         .await
@@ -169,6 +171,8 @@ async fn test_navigation_handler() {
         to: NavHistoryEntry::new(next_url, 2, None),
         info: None,
     }));
+    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+    assert_any!(store, |m| { matches!(m, MockMessage::ViewReload { .. }) });
 }
 
 #[tokio::test]
@@ -212,6 +216,8 @@ async fn test_redirect_internals() {
         }
         false
     });
+
+    assert_any!(store, |m| { matches!(m, MockMessage::ViewReload { .. }) });
 
     store.clear();
 

@@ -14,7 +14,7 @@ use channel_init::*;
 use cookie_store::PersistentCookieStore;
 use event_loop::EventLoop;
 pub(crate) use event_loop::LiveViewClientChannel;
-use log::debug;
+use log::{debug, warn};
 use logging::*;
 use navigation::NavCtx;
 use phoenix_channels_client::{Payload, Socket, SocketStatus, JSON};
@@ -62,6 +62,7 @@ pub struct LiveViewClientInner {
     event_loop: EventLoop,
 }
 
+#[derive(Debug, Clone)]
 struct NavigationSummary {
     history_id: HistoryId,
     websocket_reconnected: bool,
@@ -232,6 +233,15 @@ impl LiveViewClientState {
         init_log(config.log_level);
         debug!("Initializing LiveViewClient.");
         debug!("LiveViewCore Version: {}", env!("CARGO_PKG_VERSION"));
+
+        if config.network_event_handler.is_none() {
+            warn!("Network event handler is not set: You will not be able to instrument events such as view reloads and server push events.")
+        }
+
+        if config.navigation_handler.is_none() {
+            warn!("Navigation handler is not set: you will not be able to instrument internal and external calls to `navigate`, `traverse`, `back` and `forward`.")
+        }
+
         debug!("Configuration: {config:?}");
 
         let cookie_store: Arc<_> =

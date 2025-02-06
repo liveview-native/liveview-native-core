@@ -136,6 +136,7 @@ impl EventLoop {
                     }
                 }
 
+                dbg!(view_refresh_needed);
                 if view_refresh_needed {
                     state.refresh_view(socket_reconnected);
                 }
@@ -178,6 +179,10 @@ impl EventLoop {
                     }
                     result = self.handle_navigation_error(error).await;
                     retry_count += 1;
+                }
+
+                if result.is_ok() {
+                    self.refresh_view(true);
                 }
 
                 result

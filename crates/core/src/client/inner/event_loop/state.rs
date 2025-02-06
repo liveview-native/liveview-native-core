@@ -267,8 +267,8 @@ impl EventLoopState {
     async fn handle_redirect(
         &self,
         redirect: &JSON,
-        _channel_updated: &mut bool,
-        _socket_updated: &mut bool,
+        channel_updated: &mut bool,
+        socket_updated: &mut bool,
     ) -> Result<HistoryId, LiveSocketError> {
         let json = redirect.clone().into();
         let redirect: LiveRedirect = serde_json::from_value(json)?;
@@ -287,6 +287,10 @@ impl EventLoopState {
         };
 
         let res = self.client_state.navigate(url.to_string(), opts).await?;
+
+        *channel_updated = true;
+        *socket_updated = res.websocket_reconnected;
+
         Ok(res.history_id)
     }
 
