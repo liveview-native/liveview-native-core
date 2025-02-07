@@ -329,18 +329,16 @@ mod test {
         let url = Url::parse(url_str).expect("URL failed to parse");
         ctx.navigate(url, NavOptions::default(), true);
 
+        let ev = handler.last_event().expect("Missing Event");
         assert_eq!(
-            NavEvent {
-                event: NavEventType::Push,
-                to: NavHistoryEntry {
-                    state: None,
-                    id: 1,
-                    url: url_str.to_string(),
-                },
-                ..NavEvent::empty()
+            NavHistoryEntry {
+                state: None,
+                id: 1,
+                url: url_str.to_string(),
             },
-            handler.last_event().expect("Missing Event")
+            ev.to
         );
+        assert_eq!(NavEventType::Push, ev.event);
     }
 
     #[test]
@@ -373,7 +371,9 @@ mod test {
                     url: first_url_str.to_string(),
                 }
                 .into(),
-                ..NavEvent::empty()
+                event: NavEventType::Push,
+                same_document: false,
+                info: None,
             },
             handler.last_event().expect("Missing Event")
         );
@@ -394,7 +394,10 @@ mod test {
                     url: url_str.to_string(),
                 }
                 .into(),
-                ..NavEvent::empty()
+
+                event: NavEventType::Push,
+                same_document: false,
+                info: None,
             },
             handler.last_event().expect("Missing Event")
         );

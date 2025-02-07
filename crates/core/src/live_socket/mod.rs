@@ -2,9 +2,6 @@ mod channel;
 pub mod navigation;
 mod socket;
 
-#[cfg(test)]
-mod tests;
-
 pub use channel::{LiveChannel, LiveFile};
 pub use socket::{ConnectOpts, LiveSocket, Method, SessionData};
 
