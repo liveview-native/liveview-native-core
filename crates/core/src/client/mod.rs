@@ -166,7 +166,6 @@ impl LiveViewClient {
             headers: client_opts.headers,
             body: client_opts.request_body,
             method: client_opts.method,
-            ..Default::default()
         };
 
         self.inner
