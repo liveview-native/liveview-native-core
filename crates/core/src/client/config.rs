@@ -179,6 +179,7 @@ pub struct NavActionOptions {
 
 /// Connection Options for the initial dead render fetch
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+#[derive(Default)]
 pub struct DeadRenderFetchOpts {
     #[uniffi(default = None)]
     pub headers: Option<HashMap<String, String>>,
@@ -188,15 +189,6 @@ pub struct DeadRenderFetchOpts {
     pub method: Option<Method>,
 }
 
-impl Default for DeadRenderFetchOpts {
-    fn default() -> Self {
-        Self {
-            headers: None,
-            body: None,
-            method: None,
-        }
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Enum)]
 #[repr(u8)]
