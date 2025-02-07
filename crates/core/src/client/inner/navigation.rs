@@ -4,7 +4,7 @@ use reqwest::Url;
 
 use crate::{
     callbacks::*,
-    live_socket::navigation::{NavAction, NavOptions},
+    client::{NavAction, NavOptions},
 };
 
 #[derive(Clone, Default)]
@@ -292,6 +292,7 @@ mod test {
     use std::sync::Mutex;
 
     use super::*;
+    use crate::client::NavOptions;
 
     // Mock event handler used to validate the internal
     // navigation objects state.
@@ -394,7 +395,6 @@ mod test {
                     url: url_str.to_string(),
                 }
                 .into(),
-
                 event: NavEventType::Push,
                 same_document: false,
                 info: None,

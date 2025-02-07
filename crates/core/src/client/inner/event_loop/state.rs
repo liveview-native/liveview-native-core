@@ -10,13 +10,11 @@ use tokio::select;
 
 use super::{ClientMessage, LiveViewClientState, NetworkEventHandler};
 use crate::{
-    client::{inner::NavigationSummary, Issuer, LiveChannelStatus},
+    client::{
+        inner::NavigationSummary, Issuer, LiveChannel, LiveChannelStatus, NavAction, NavOptions,
+    },
     dom::ffi::{self, Document},
     error::LiveSocketError,
-    live_socket::{
-        navigation::{NavAction, NavOptions},
-        LiveChannel,
-    },
     protocol::{LiveRedirect, RedirectKind},
 };
 
