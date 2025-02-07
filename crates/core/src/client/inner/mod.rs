@@ -14,7 +14,7 @@ use channel_init::*;
 use cookie_store::PersistentCookieStore;
 use event_loop::EventLoop;
 pub(crate) use event_loop::LiveViewClientChannel;
-use log::debug;
+use log::{debug, warn};
 use logging::*;
 use navigation::NavCtx;
 use phoenix_channels_client::{Payload, Socket, SocketStatus, JSON};
@@ -62,6 +62,7 @@ pub struct LiveViewClientInner {
     event_loop: EventLoop,
 }
 
+#[derive(Debug, Clone)]
 struct NavigationSummary {
     history_id: HistoryId,
     websocket_reconnected: bool,
@@ -81,6 +82,7 @@ impl LiveViewClientInner {
         Ok(out)
     }
 
+    // not for internal use
     pub(crate) async fn reconnect(
         &self,
         url: String,
@@ -88,14 +90,17 @@ impl LiveViewClientInner {
         join_params: Option<HashMap<String, JSON>>,
     ) -> Result<(), LiveSocketError> {
         self.state.reconnect(url, opts, join_params).await?;
-        self.event_loop.refresh_view(true);
+        self.event_loop
+            .refresh_view(true, Issuer::External(NavigationCall::Reconnect));
         Ok(())
     }
 
+    // not for internal use
     pub(crate) async fn disconnect(&self) -> Result<(), LiveSocketError> {
         let socket = self.state.socket.try_lock()?.clone();
         let _ = socket.disconnect().await;
-        self.event_loop.refresh_view(true);
+        self.event_loop
+            .refresh_view(true, Issuer::External(NavigationCall::Disconnect));
         Ok(())
     }
 
@@ -160,37 +165,52 @@ impl LiveViewClientInner {
         Ok(self.state.socket.try_lock()?.status())
     }
 
+    // not for internal use
     pub async fn navigate(
         &self,
         url: String,
         opts: NavOptions,
     ) -> Result<HistoryId, LiveSocketError> {
         let res = self.state.navigate(url, opts).await;
-        self.event_loop.handle_navigation_summary(res).await
+        self.event_loop
+            .handle_navigation_summary(res, Issuer::External(NavigationCall::Navigate))
+            .await
     }
 
+    // not for internal use
     pub async fn reload(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
         let res = self.state.reload(info).await;
-        self.event_loop.handle_navigation_summary(res).await
+        self.event_loop
+            .handle_navigation_summary(res, Issuer::External(NavigationCall::Reload))
+            .await
     }
 
+    // not for internal use
     pub async fn back(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
         let res = self.state.back(info).await;
-        self.event_loop.handle_navigation_summary(res).await
+        self.event_loop
+            .handle_navigation_summary(res, Issuer::External(NavigationCall::Back))
+            .await
     }
 
+    // not for internal use
     pub async fn forward(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
         let res = self.state.forward(info).await;
-        self.event_loop.handle_navigation_summary(res).await
+        self.event_loop
+            .handle_navigation_summary(res, Issuer::External(NavigationCall::Forward))
+            .await
     }
 
+    // not for internal use
     pub async fn traverse_to(
         &self,
         id: HistoryId,
         info: NavActionOptions,
     ) -> Result<HistoryId, LiveSocketError> {
         let res = self.state.traverse_to(id, info).await;
-        self.event_loop.handle_navigation_summary(res).await
+        self.event_loop
+            .handle_navigation_summary(res, Issuer::External(NavigationCall::Traverse))
+            .await
     }
 
     pub fn can_go_back(&self) -> bool {
@@ -232,6 +252,15 @@ impl LiveViewClientState {
         init_log(config.log_level);
         debug!("Initializing LiveViewClient.");
         debug!("LiveViewCore Version: {}", env!("CARGO_PKG_VERSION"));
+
+        if config.network_event_handler.is_none() {
+            warn!("Network event handler is not set: You will not be able to instrument events such as view reloads and server push events.")
+        }
+
+        if config.navigation_handler.is_none() {
+            warn!("Navigation handler is not set: you will not be able to instrument internal and external calls to `navigate`, `traverse`, `back` and `forward`.")
+        }
+
         debug!("Configuration: {config:?}");
 
         let cookie_store: Arc<_> =

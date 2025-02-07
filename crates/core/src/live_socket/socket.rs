@@ -228,7 +228,7 @@ impl SessionData {
                     .iter()
                     .filter(|attr| attr.name.name == "url")
                     .map(|attr| attr.value.clone())
-                    .last()
+                    .next_back()
                     .flatten()
             })
             .collect();
@@ -246,7 +246,7 @@ impl SessionData {
                     .iter()
                     .filter(|attr| attr.name.name == "src")
                     .map(|attr| attr.value.clone())
-                    .last()
+                    .next_back()
                     .flatten()
             })
             .filter(|iframe_src| iframe_src == "/phoenix/live_reload/frame")

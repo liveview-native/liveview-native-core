@@ -10,7 +10,7 @@ use tokio::select;
 
 use super::{ClientMessage, LiveViewClientState, NetworkEventHandler};
 use crate::{
-    client::{HistoryId, LiveChannelStatus},
+    client::{inner::NavigationSummary, Issuer, LiveChannelStatus},
     dom::ffi::{self, Document},
     error::LiveSocketError,
     live_socket::{
@@ -21,7 +21,10 @@ use crate::{
 };
 
 pub enum ReplyAction {
-    Redirected { id: HistoryId },
+    Redirected {
+        summary: NavigationSummary,
+        issuer: Issuer,
+    },
     DiffMerged,
     None,
 }
@@ -106,7 +109,7 @@ impl EventLoopState {
 
     /// Called when the owning `LiveViewClient` has been updated
     /// and has a new valid live channel - livereaload channel, and/or live socket.
-    pub fn refresh_view(&mut self, socket_reconnect: bool) {
+    pub fn refresh_view(&mut self, issuer: Issuer, socket_reconnect: bool) {
         let new_live_channel = self.client_state.liveview_channel.lock().unwrap().clone();
         self.socket_statuses = new_live_channel.socket.statuses();
         self.live_view_channel = ChannelState::from(new_live_channel.clone());
@@ -119,7 +122,8 @@ impl EventLoopState {
         let new_livereload_channel = self.client_state.livereload_channel.lock().unwrap().clone();
         self.live_reload = new_livereload_channel.map(ChannelState::from);
 
-        self.on_reload(
+        self.user_reload_callback(
+            issuer,
             self.document.clone().into(),
             self.live_view_channel.channel.clone(),
             self.live_view_channel.channel.socket.clone(),
@@ -168,40 +172,47 @@ impl EventLoopState {
     }
 
     /// Call the user provided call back for receiving a
-    pub fn on_event(&self, event: EventPayload) {
+    pub(super) fn user_event_callback(&self, event: EventPayload) {
         if let Some(handler) = &self.network_handler {
             handler.handle_event(event);
         }
     }
 
-    pub fn on_channel_status(&self, status: LiveChannelStatus) {
+    pub(super) fn user_channel_callback(&self, status: LiveChannelStatus) {
         if let Some(handler) = &self.network_handler {
             handler.handle_channel_status_change(status);
         }
     }
 
-    pub fn on_socket_status(&self, status: SocketStatus) {
+    pub(super) fn user_socket_callback(&self, status: SocketStatus) {
         if let Some(handler) = &self.network_handler {
             handler.handle_socket_status_change(status);
         }
     }
 
-    pub fn on_reload(
+    pub(super) fn user_reload_callback(
         &self,
+        issuer: Issuer,
         new_document: Arc<Document>,
         new_channel: Arc<LiveChannel>,
         current_socket: Arc<Socket>,
         socket_is_new: bool,
     ) {
         if let Some(handler) = &self.network_handler {
-            handler.handle_view_reloaded(new_document, new_channel, current_socket, socket_is_new);
+            handler.handle_view_reloaded(
+                issuer,
+                new_document,
+                new_channel,
+                current_socket,
+                socket_is_new,
+            );
         }
     }
 
     pub async fn handle_client_message(
         &self,
         message: ClientMessage,
-        channel_updated: &mut bool,
+        channel_updated: &mut Option<Issuer>,
         socket_updated: &mut bool,
     ) {
         match message {
@@ -214,11 +225,17 @@ impl EventLoopState {
 
                 match call_result {
                     Ok(reply) => {
-                        if let Err(e) = self
-                            .handle_reply(&reply, channel_updated, socket_updated)
-                            .await
-                        {
-                            error!("Failure while handling server reply: {e:?}");
+                        let reply_action = self.handle_reply(&reply).await;
+
+                        match &reply_action {
+                            Ok(ReplyAction::Redirected { summary, issuer }) => {
+                                *channel_updated = Some(issuer.clone());
+                                *socket_updated = summary.websocket_reconnected;
+                            }
+                            Ok(_) => {}
+                            Err(e) => {
+                                error!("Failure while handling server reply: {e:?}");
+                            }
                         }
 
                         let event = EventPayload {
@@ -228,7 +245,7 @@ impl EventLoopState {
                             payload: reply.clone(),
                         };
 
-                        self.on_event(event);
+                        self.user_event_callback(event);
 
                         let _ = response_tx.send(Ok(reply));
                     }
@@ -241,14 +258,26 @@ impl EventLoopState {
             ClientMessage::Cast { event, payload } => {
                 let _ = self.cast(event, payload).await;
             }
-            ClientMessage::RefreshView { socket_reconnected } => {
-                *channel_updated = true;
+            ClientMessage::RefreshView {
+                socket_reconnected,
+                issuer,
+            } => {
+                *channel_updated = Some(issuer);
                 *socket_updated = socket_reconnected
             }
             ClientMessage::HandleSocketReply { payload, tx } => {
-                let result = self
-                    .handle_reply(&payload, channel_updated, socket_updated)
-                    .await;
+                let result = self.handle_reply(&payload).await;
+
+                match &result {
+                    Ok(ReplyAction::Redirected { summary, issuer }) => {
+                        *channel_updated = Some(issuer.clone());
+                        *socket_updated = summary.websocket_reconnected;
+                    }
+                    Ok(_) => {}
+                    Err(e) => {
+                        error!("Failure while handling server reply: {e:?}");
+                    }
+                }
 
                 let event = EventPayload {
                     event: Event::Phoenix {
@@ -257,19 +286,14 @@ impl EventLoopState {
                     payload,
                 };
 
-                self.on_event(event);
+                self.user_event_callback(event);
 
                 let _ = tx.send(result);
             }
         }
     }
 
-    async fn handle_redirect(
-        &self,
-        redirect: &JSON,
-        _channel_updated: &mut bool,
-        _socket_updated: &mut bool,
-    ) -> Result<HistoryId, LiveSocketError> {
+    async fn handle_redirect(&self, redirect: &JSON) -> Result<NavigationSummary, LiveSocketError> {
         let json = redirect.clone().into();
         let redirect: LiveRedirect = serde_json::from_value(json)?;
         let url = self.client_state.session_data.try_lock()?.url.clone();
@@ -286,16 +310,10 @@ impl EventLoopState {
             ..NavOptions::default()
         };
 
-        let res = self.client_state.navigate(url.to_string(), opts).await?;
-        Ok(res.history_id)
+        self.client_state.navigate(url.to_string(), opts).await
     }
 
-    async fn handle_reply(
-        &self,
-        reply: &Payload,
-        channel_updated: &mut bool,
-        socket_updated: &mut bool,
-    ) -> Result<ReplyAction, LiveSocketError> {
+    async fn handle_reply(&self, reply: &Payload) -> Result<ReplyAction, LiveSocketError> {
         let Payload::JSONPayload {
             json: JSON::Object { object },
         } = reply
@@ -304,18 +322,19 @@ impl EventLoopState {
         };
 
         if let Some(object) = object.get("live_redirect") {
-            let id = self
-                .handle_redirect(object, channel_updated, socket_updated)
-                .await?;
-
-            return Ok(ReplyAction::Redirected { id });
+            let summary = self.handle_redirect(object).await?;
+            return Ok(ReplyAction::Redirected {
+                summary,
+                issuer: Issuer::LiveRedirect,
+            });
         }
 
         if let Some(object) = object.get("redirect") {
-            let id = self
-                .handle_redirect(object, channel_updated, socket_updated)
-                .await?;
-            return Ok(ReplyAction::Redirected { id });
+            let summary = self.handle_redirect(object).await?;
+            return Ok(ReplyAction::Redirected {
+                summary,
+                issuer: Issuer::Redirect,
+            });
         }
 
         if let Some(diff) = object.get("diff") {
@@ -331,7 +350,7 @@ impl EventLoopState {
     pub async fn handle_server_event(
         &self,
         event: &EventPayload,
-        channel_updated: &mut bool,
+        channel_updated: &mut Option<Issuer>,
         socket_updated: &mut bool,
     ) -> Result<(), LiveSocketError> {
         match &event.event {
@@ -367,7 +386,7 @@ impl EventLoopState {
                         .await?;
 
                     *socket_updated = true;
-                    *channel_updated = true;
+                    *channel_updated = Some(Issuer::AssetChange);
                 }
                 "live_patch" => {
                     let Payload::JSONPayload { json, .. } = &event.payload else {
@@ -387,8 +406,9 @@ impl EventLoopState {
                     };
 
                     // respect `to` `kind` and `mode` relative to current url base
-                    self.handle_redirect(json, channel_updated, socket_updated)
-                        .await?;
+                    let result = self.handle_redirect(json).await?;
+                    *channel_updated = Some(Issuer::LiveRedirect);
+                    *socket_updated = result.websocket_reconnected;
                 }
                 "redirect" => {
                     let Payload::JSONPayload { json, .. } = &event.payload else {
@@ -397,8 +417,9 @@ impl EventLoopState {
                     };
 
                     // navigate replacing top, using `to` relative to current url base
-                    self.handle_redirect(json, channel_updated, socket_updated)
-                        .await?;
+                    let result = self.handle_redirect(json).await?;
+                    *channel_updated = Some(Issuer::Redirect);
+                    *socket_updated = result.websocket_reconnected;
                 }
                 _ => {}
             },
