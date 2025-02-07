@@ -35,6 +35,30 @@ pub struct NavCtx {
     navigation_event_handler: HandlerInternal,
 }
 
+impl NavEvent {
+    fn new(
+        event: NavEventType,
+        to: NavHistoryEntry,
+        from: Option<NavHistoryEntry>,
+        info: Option<Vec<u8>>,
+    ) -> Self {
+        let new_url = Url::parse(&to.url).ok();
+        let old_url = from.as_ref().and_then(|dest| Url::parse(&dest.url).ok());
+
+        let same_document = old_url
+            .zip(new_url)
+            .is_some_and(|(old, new)| old.path() == new.path());
+
+        NavEvent {
+            event,
+            same_document,
+            from,
+            to,
+            info,
+        }
+    }
+}
+
 impl NavCtx {
     /// Navigate to `url` with behavior and metadata specified in `opts`.
     /// Returns the current history ID if changed

@@ -2,14 +2,10 @@ use std::sync::Arc;
 
 #[cfg(feature = "liveview-channels")]
 use phoenix_channels_client::{Socket, SocketStatus};
-use reqwest::Url;
 
+use crate::dom::{NodeData, NodeRef};
 #[cfg(feature = "liveview-channels")]
-use crate::dom::ffi::Document;
-use crate::{
-    client::LiveChannel,
-    dom::{NodeData, NodeRef},
-};
+use crate::{client::LiveChannel, dom::ffi::Document};
 
 /// Provides secure persistent storage for session data like cookies.
 /// Implementations should handle platform-specific storage (e.g. NSUserDefaults on iOS)
@@ -92,30 +88,6 @@ pub struct NavEvent {
     pub to: NavHistoryEntry,
     /// Additional user provided metadata handed to the event handler.
     pub info: Option<Vec<u8>>,
-}
-
-impl NavEvent {
-    pub(crate) fn new(
-        event: NavEventType,
-        to: NavHistoryEntry,
-        from: Option<NavHistoryEntry>,
-        info: Option<Vec<u8>>,
-    ) -> Self {
-        let new_url = Url::parse(&to.url).ok();
-        let old_url = from.as_ref().and_then(|dest| Url::parse(&dest.url).ok());
-
-        let same_document = old_url
-            .zip(new_url)
-            .is_some_and(|(old, new)| old.path() == new.path());
-
-        NavEvent {
-            event,
-            same_document,
-            from,
-            to,
-            info,
-        }
-    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, uniffi::Enum)]
