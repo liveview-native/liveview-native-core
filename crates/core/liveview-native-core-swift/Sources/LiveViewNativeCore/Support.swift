@@ -1905,6 +1905,7 @@ public struct SocketStatusEvent {
 }
 
 public struct ViewReloadEvent {
+    public let issuer: Issuer
     public let document: Document
     public let channel: LiveChannel
     public let socket: Socket
@@ -1953,10 +1954,12 @@ public final class SimpleEventHandler: NetworkEventHandler {
     }
 
     public func handleViewReloaded(
-        _ newDocument: Document, _ newChannel: LiveChannel, _ currentSocket: Socket,
+        _ issuer: Issuer, _ newDocument: Document, _ newChannel: LiveChannel,
+        _ currentSocket: Socket,
         _ socketIsNew: Bool
     ) {
         let event = ViewReloadEvent(
+            issuer: issuer,
             document: newDocument,
             channel: newChannel,
             socket: currentSocket,

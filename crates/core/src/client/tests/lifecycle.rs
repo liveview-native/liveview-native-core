@@ -7,8 +7,8 @@ use serde_json::json;
 use super::{json_payload, HOST};
 use crate::{
     client::{
-        HandlerResponse, LiveChannelStatus, LiveViewClientConfiguration, NavEvent, NavEventHandler,
-        NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
+        HandlerResponse, Issuer, LiveChannelStatus, LiveViewClientConfiguration, NavEvent,
+        NavEventHandler, NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
     },
     dom::{self},
     live_socket::LiveChannel,
@@ -21,7 +21,7 @@ pub enum MockMessage {
     NetworkEvent(Event, Payload),
     ChannelStatus(LiveChannelStatus),
     SocketStatus(SocketStatus),
-    ViewReload { socket_is_new: bool },
+    ViewReload { issuer: Issuer, socket_is_new: bool },
 }
 
 #[macro_export]
@@ -131,13 +131,16 @@ impl NetworkEventHandler for MockNetworkEventHandler {
 
     fn handle_view_reloaded(
         &self,
+        issuer: Issuer,
         _new_document: Arc<dom::ffi::Document>,
         _new_channel: Arc<LiveChannel>,
         _current_socket: Arc<Socket>,
         socket_is_new: bool,
     ) {
-        self.message_store
-            .add_message(MockMessage::ViewReload { socket_is_new });
+        self.message_store.add_message(MockMessage::ViewReload {
+            issuer,
+            socket_is_new,
+        });
     }
 }
 
@@ -145,11 +148,13 @@ impl NetworkEventHandler for MockNetworkEventHandler {
 async fn test_navigation_handler() {
     let store = Arc::new(MockMessageStore::new());
     let nav_handler = Arc::new(MockNavEventHandler::new(store.clone()));
+    let net_handler = Arc::new(MockNetworkEventHandler::new(store.clone()));
 
     let url = format!("http://{HOST}/nav/first_page");
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
     config.navigation_handler = Some(nav_handler);
+    config.network_event_handler = Some(net_handler);
 
     let client = LiveViewClient::initial_connect(config, url.clone(), Default::default())
         .await
@@ -169,6 +174,8 @@ async fn test_navigation_handler() {
         to: NavHistoryEntry::new(next_url, 2, None),
         info: None,
     }));
+    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+    assert_any!(store, |m| { matches!(m, MockMessage::ViewReload { .. }) });
 }
 
 #[tokio::test]
@@ -212,6 +219,8 @@ async fn test_redirect_internals() {
         }
         false
     });
+
+    assert_any!(store, |m| { matches!(m, MockMessage::ViewReload { .. }) });
 
     store.clear();
 
