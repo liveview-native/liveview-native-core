@@ -90,4 +90,4 @@ uniffi = { workspace = true, features = ["bindgen-tests", "tokio"] }
 
 # For image generation for tests
 image = "0.25.1"
-tempfile = "3.16.0"
+tempfile = "3.17.0"
