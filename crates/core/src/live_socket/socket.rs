@@ -514,6 +514,7 @@ impl LiveSocket {
         let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
 
         let client = reqwest::Client::builder()
+            .use_native_tls()
             .cookie_provider(jar.clone())
             .redirect(Policy::none())
             .build()?;

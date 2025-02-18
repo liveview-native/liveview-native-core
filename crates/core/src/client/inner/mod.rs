@@ -268,6 +268,7 @@ impl LiveViewClientState {
 
         let http_client = Client::builder()
             .cookie_provider(cookie_store.clone())
+            .use_native_tls()
             .redirect(Policy::none())
             .build()?;
 

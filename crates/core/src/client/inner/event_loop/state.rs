@@ -38,7 +38,10 @@ pub struct EventLoopState {
     live_reload: Option<ChannelState>,
     /// The current socket status stream
     socket_statuses: Arc<SocketStatuses>,
+    /// Shared pointer to the user provided callbacks to be called on network events
     network_handler: Option<Arc<dyn NetworkEventHandler>>,
+    /// Shared pointer to the client state outside of the
+    /// event loop
     client_state: Arc<LiveViewClientState>,
 }
 
@@ -207,6 +210,19 @@ impl EventLoopState {
                 current_socket,
                 socket_is_new,
             );
+        }
+    }
+
+    pub async fn shutdown(&self) {
+        let _ = self.live_view_channel.channel.channel().leave().await;
+
+        let sock = self.client_state.socket.try_lock().map(|s| s.clone()).ok();
+        if let Some(sock) = sock {
+            let _ = sock.shutdown().await;
+        }
+
+        if let Some(live_reload) = &self.live_reload {
+            let _ = live_reload.channel.socket.shutdown().await;
         }
     }
 
