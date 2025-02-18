@@ -26,7 +26,7 @@ val uniffiPath = "${layout.buildDirectory}/generated/source/uniffi/java"
 val os_name = System.getProperty("os.name").lowercase()
 val is_linux = os_name.contains("linux")
 val is_mac = os_name.contains("mac")
-val lvn_version = "0.4.0-alpha-11"
+val lvn_version = "0.4.0-rc-5"
 
 android {
     namespace = "org.phoenixframework.liveview_native_core_jetpack"

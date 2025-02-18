@@ -268,7 +268,9 @@ impl LiveViewClientState {
 
         let http_client = Client::builder()
             .cookie_provider(cookie_store.clone())
-            .use_native_tls()
+            .use_rustls_tls()
+            // Use platform certs maintained by OS
+            .tls_built_in_native_certs(true)
             .redirect(Policy::none())
             .build()?;
 
