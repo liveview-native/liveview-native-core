@@ -124,6 +124,13 @@ impl LiveChannel {
         self.document.set_event_handler(handler);
     }
 
+    pub async fn shutdown_parent_socket(&self) -> Result<(), LiveSocketError> {
+        self.socket
+            .shutdown()
+            .await
+            .map_err(|_| LiveSocketError::DisconnectionError)
+    }
+
     pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {
         // find the upload with target equal to phx_target_name
         // retrieve the security token

@@ -1790,7 +1790,7 @@ dependencies = [
 [[package]]
 name = "phoenix_channels_client"
 version = "0.9.1"
-source = "git+https://github.com/liveview-native/phoenix-channels-client.git?branch=main#96eb16b000c71f67b3fb4b1b832cc16fa43b9f56"
+source = "git+https://github.com/liveview-native/phoenix-channels-client.git?branch=main#3c43e8081daff99cc21c8955673a58c4cb45ca26"
 dependencies = [
  "arc-swap",
  "atomic-take",
@@ -2969,9 +2969,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.13.1"
+version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ced87ca4be083373936a67f8de945faa23b6b42384bd5b64434850802c6dccd0"
+checksum = "8c1f41ffb7cf259f1ecc2876861a17e7142e63ead296f671f81f6ae85903e0d6"
 dependencies = [
  "getrandom 0.3.1",
 ]

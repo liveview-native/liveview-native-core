@@ -84,9 +84,10 @@ impl EventLoop {
         let (msg_tx, mut msg_rx) = mpsc::unbounded_channel();
         let mut state = EventLoopState::new(client_state);
 
-        state.refresh_view(Issuer::External(NavigationCall::Initialization), true);
-
         let main_background_task = tokio::spawn(async move {
+            state
+                .refresh_view(Issuer::External(NavigationCall::Initialization), true)
+                .await;
             // the main event loop
             loop {
                 let mut view_refresh_issuer = None;
@@ -142,7 +143,7 @@ impl EventLoop {
                 }
 
                 if let Some(issuer) = view_refresh_issuer {
-                    state.refresh_view(issuer, socket_reconnected);
+                    state.refresh_view(issuer, socket_reconnected).await;
                 }
             }
         });

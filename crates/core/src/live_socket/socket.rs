@@ -605,7 +605,7 @@ impl LiveSocket {
             channel,
             join_params: Default::default(),
             join_payload,
-            socket: self.socket(),
+            socket,
             document: document.into(),
             timeout: self.timeout(),
         })

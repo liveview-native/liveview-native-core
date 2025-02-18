@@ -9,7 +9,6 @@ extension LiveViewNativeCore.Payload: @unchecked Sendable {}
 extension LiveViewNativeCore.EventPayload: @unchecked Sendable {}
 
 extension LiveViewNativeCore.LiveChannel: @unchecked Sendable {}
-extension LiveViewNativeCore.LiveSocket: @unchecked Sendable {}
 
 extension LiveViewNativeCore.Events: @unchecked Sendable {}
 extension LiveViewNativeCore.ChannelStatuses: @unchecked Sendable {}
