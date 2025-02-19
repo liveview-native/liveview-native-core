@@ -1,5 +1,4 @@
 defmodule TestServerWeb.ThermostatLive do
-  use Phoenix.LiveView
   use TestServerWeb, :live_view
   use TestServerNative, :live_view
 

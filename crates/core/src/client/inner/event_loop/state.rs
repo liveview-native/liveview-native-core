@@ -38,7 +38,10 @@ pub struct EventLoopState {
     live_reload: Option<ChannelState>,
     /// The current socket status stream
     socket_statuses: Arc<SocketStatuses>,
+    /// Shared pointer to the user provided callbacks to be called on network events
     network_handler: Option<Arc<dyn NetworkEventHandler>>,
+    /// Shared pointer to the client state outside of the
+    /// event loop
     client_state: Arc<LiveViewClientState>,
 }
 
@@ -109,7 +112,7 @@ impl EventLoopState {
 
     /// Called when the owning `LiveViewClient` has been updated
     /// and has a new valid live channel - livereaload channel, and/or live socket.
-    pub fn refresh_view(&mut self, issuer: Issuer, socket_reconnect: bool) {
+    pub async fn refresh_view(&mut self, issuer: Issuer, socket_reconnect: bool) {
         let new_live_channel = self.client_state.liveview_channel.lock().unwrap().clone();
         self.socket_statuses = new_live_channel.socket.statuses();
         self.live_view_channel = ChannelState::from(new_live_channel.clone());
@@ -120,6 +123,7 @@ impl EventLoopState {
         }
 
         let new_livereload_channel = self.client_state.livereload_channel.lock().unwrap().clone();
+
         self.live_reload = new_livereload_channel.map(ChannelState::from);
 
         self.user_reload_callback(
@@ -206,6 +210,19 @@ impl EventLoopState {
                 current_socket,
                 socket_is_new,
             );
+        }
+    }
+
+    pub async fn shutdown(&self) {
+        let _ = self.live_view_channel.channel.channel().leave().await;
+
+        let sock = self.client_state.socket.try_lock().map(|s| s.clone()).ok();
+        if let Some(sock) = sock {
+            let _ = sock.shutdown().await;
+        }
+
+        if let Some(live_reload) = &self.live_reload {
+            let _ = live_reload.channel.socket.shutdown().await;
         }
     }
 

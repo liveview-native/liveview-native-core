@@ -147,7 +147,7 @@ impl LiveSocket {
                     Socket::spawn(websocket_url, Some(session_data.cookies.clone())).await?;
 
                 self.socket()
-                    .disconnect()
+                    .shutdown()
                     .await
                     .map_err(|_| LiveSocketError::DisconnectionError)?;
 

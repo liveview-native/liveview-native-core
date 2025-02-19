@@ -24,7 +24,7 @@ defmodule TestServerWeb.Router do
     pipe_through([:browser, :redirect])
 
     live_session :redirect,
-      on_mount: [{TestServerWeb.Redirect, :redirect}] do
+      on_mount: [{TestServerWeb.RedirectLive, :redirect}] do
       live("/redirect/finale", UserRegistrationLive, :new)
     end
   end
