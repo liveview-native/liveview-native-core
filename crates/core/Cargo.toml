@@ -27,6 +27,7 @@ liveview-channels = [
     "cookie_store",
     "reqwest_cookie_store",
     "tokio",
+    "openssl",
 ]
 liveview-channels-tls = [
     "liveview-channels",
@@ -69,7 +70,7 @@ tokio-util = "0.7.3"
 reqwest = { version = "0.12.12", default-features = false, optional = true, features = [
     "cookies",
 ] }
-openssl = { version = "=0.10.71", features = ["vendored"] }
+openssl = { version = "=0.10.71", features = ["vendored"], optional = true }
 cookie_store = { version = "0.21.1", default-features = false, optional = true }
 reqwest_cookie_store = { version = "0.8.0", default-features = false, optional = true }
 env_logger = "0.11.1"
