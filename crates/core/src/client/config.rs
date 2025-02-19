@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use phoenix_channels_client::JSON;
 
-use crate::{callbacks::*, live_socket::Method};
+use crate::callbacks::*;
 
 #[derive(uniffi::Enum, Debug, Clone, Default, Copy)]
 pub enum LogLevel {
@@ -133,5 +133,105 @@ impl std::fmt::Debug for LiveViewClientConfiguration {
             .field("websocket_timeout", &self.websocket_timeout)
             .field("format", &self.format)
             .finish()
+    }
+}
+
+/// An action taken with respect to the history stack
+/// when [NavCtx::navigate] is executed. defaults to
+/// Push behavior.
+#[derive(uniffi::Enum, Default, Clone)]
+pub enum NavAction {
+    /// Push the navigation event onto the history stack.
+    #[default]
+    Push,
+    /// Replace the current top of the history stack with this navigation event.
+    Replace,
+}
+
+/// Options for calls to [NavCtx::navigate] and the external [LiveViewClient::navigate] function
+/// Slightly different from [NavActionOptions]
+#[derive(Default, uniffi::Record)]
+pub struct NavOptions {
+    /// Additional params to be passed upon joining the liveview channel.
+    #[uniffi(default = None)]
+    pub join_params: Option<HashMap<String, JSON>>,
+    /// see [NavAction], defaults to [NavAction::Push].
+    #[uniffi(default = None)]
+    pub action: Option<NavAction>,
+    /// Ephemeral extra information to be pushed to the even handler.
+    #[uniffi(default = None)]
+    pub extra_event_info: Option<Vec<u8>>,
+    /// Persistent state, intended to be deserialized for user specific purposes when
+    /// revisiting a given view.
+    #[uniffi(default = None)]
+    pub state: Option<Vec<u8>>,
+}
+
+#[derive(Default, uniffi::Record)]
+pub struct NavActionOptions {
+    /// Additional params to be passed upon joining the liveview channel.
+    #[uniffi(default = None)]
+    pub join_params: Option<HashMap<String, JSON>>,
+    /// Ephemeral extra information to be pushed to the even handler.
+    #[uniffi(default = None)]
+    pub extra_event_info: Option<Vec<u8>>,
+}
+
+/// Connection Options for the initial dead render fetch
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record, Default)]
+pub struct DeadRenderFetchOpts {
+    #[uniffi(default = None)]
+    pub headers: Option<HashMap<String, String>>,
+    #[uniffi(default = None)]
+    pub body: Option<Vec<u8>>,
+    #[uniffi(default = None)]
+    pub method: Option<Method>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Enum)]
+#[repr(u8)]
+pub enum Method {
+    Get = 0,
+    Options,
+    Post,
+    Put,
+    Delete,
+    Head,
+    Trace,
+    Connect,
+    Patch,
+}
+
+use reqwest::Method as ReqMethod;
+impl From<Method> for ReqMethod {
+    fn from(val: Method) -> ReqMethod {
+        match val {
+            Method::Options => ReqMethod::OPTIONS,
+            Method::Get => ReqMethod::GET,
+            Method::Post => ReqMethod::POST,
+            Method::Put => ReqMethod::PUT,
+            Method::Delete => ReqMethod::DELETE,
+            Method::Head => ReqMethod::HEAD,
+            Method::Trace => ReqMethod::TRACE,
+            Method::Connect => ReqMethod::CONNECT,
+            Method::Patch => ReqMethod::PATCH,
+        }
+    }
+}
+
+pub struct UploadConfig {
+    pub chunk_size: u64,
+    pub max_file_size: u64,
+    pub max_entries: u64,
+}
+
+/// Defaults from https://hexdocs.pm/phoenix_live_view/Phoenix.LiveView.html#allow_upload/3
+impl Default for UploadConfig {
+    fn default() -> Self {
+        Self {
+            chunk_size: 64_000,
+            max_file_size: 8000000,
+            max_entries: 1,
+        }
     }
 }

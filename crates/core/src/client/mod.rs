@@ -12,6 +12,7 @@ use std::{
 use config::*;
 use futures::future::try_join_all;
 use inner::LiveViewClientInner;
+pub use inner::{LiveChannel, LiveFile};
 use phoenix_channels_client::{Payload, SocketStatus, JSON};
 use reqwest::header::CONTENT_TYPE;
 
@@ -19,10 +20,6 @@ use crate::{
     callbacks::*,
     dom::ffi::{self},
     error::LiveSocketError,
-    live_socket::{
-        navigation::{NavActionOptions, NavOptions},
-        ConnectOpts, LiveChannel, LiveFile, Method,
-    },
 };
 
 const CSRF_HEADER: &str = "x-csrf-token";
@@ -165,11 +162,10 @@ impl LiveViewClient {
         url: String,
         client_opts: ClientConnectOpts,
     ) -> Result<(), LiveSocketError> {
-        let opts = ConnectOpts {
+        let opts = DeadRenderFetchOpts {
             headers: client_opts.headers,
             body: client_opts.request_body,
             method: client_opts.method,
-            ..Default::default()
         };
 
         self.inner
@@ -216,11 +212,10 @@ impl LiveViewClient {
         );
         header_map.insert(CSRF_HEADER.to_string(), self.csrf_token()?);
 
-        let opts = ConnectOpts {
+        let opts = DeadRenderFetchOpts {
             headers,
             body: Some(form_data.into_bytes()),
             method: Some(Method::Post),
-            timeout_ms: 30_000, // Actually unused, should remove at one point
         };
 
         self.inner.reconnect(url, opts, join_params).await?;

@@ -13,9 +13,6 @@ mod protocol;
 
 mod error;
 
-#[cfg(feature = "liveview-channels")]
-pub mod live_socket;
-
 mod interner;
 pub use self::interner::{symbols, InternedString, Symbol};
 

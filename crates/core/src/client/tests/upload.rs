@@ -3,9 +3,8 @@ use tempfile::tempdir;
 
 use super::HOST;
 use crate::{
-    client::{LiveViewClientConfiguration, Platform},
+    client::{LiveFile, LiveViewClientConfiguration, Platform},
     error::{LiveSocketError, UploadError},
-    live_socket::LiveFile,
     LiveViewClient,
 };
 

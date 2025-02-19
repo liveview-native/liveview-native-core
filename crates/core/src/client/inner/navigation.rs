@@ -4,7 +4,7 @@ use reqwest::Url;
 
 use crate::{
     callbacks::*,
-    live_socket::navigation::{NavAction, NavOptions},
+    client::{NavAction, NavOptions},
 };
 
 #[derive(Clone, Default)]
@@ -33,6 +33,30 @@ pub struct NavCtx {
     id_source: HistoryId,
     /// user provided callback
     navigation_event_handler: HandlerInternal,
+}
+
+impl NavEvent {
+    fn new(
+        event: NavEventType,
+        to: NavHistoryEntry,
+        from: Option<NavHistoryEntry>,
+        info: Option<Vec<u8>>,
+    ) -> Self {
+        let new_url = Url::parse(&to.url).ok();
+        let old_url = from.as_ref().and_then(|dest| Url::parse(&dest.url).ok());
+
+        let same_document = old_url
+            .zip(new_url)
+            .is_some_and(|(old, new)| old.path() == new.path());
+
+        NavEvent {
+            event,
+            same_document,
+            from,
+            to,
+            info,
+        }
+    }
 }
 
 impl NavCtx {
@@ -292,6 +316,7 @@ mod test {
     use std::sync::Mutex;
 
     use super::*;
+    use crate::client::NavOptions;
 
     // Mock event handler used to validate the internal
     // navigation objects state.
@@ -329,18 +354,16 @@ mod test {
         let url = Url::parse(url_str).expect("URL failed to parse");
         ctx.navigate(url, NavOptions::default(), true);
 
+        let ev = handler.last_event().expect("Missing Event");
         assert_eq!(
-            NavEvent {
-                event: NavEventType::Push,
-                to: NavHistoryEntry {
-                    state: None,
-                    id: 1,
-                    url: url_str.to_string(),
-                },
-                ..NavEvent::empty()
+            NavHistoryEntry {
+                state: None,
+                id: 1,
+                url: url_str.to_string(),
             },
-            handler.last_event().expect("Missing Event")
+            ev.to
         );
+        assert_eq!(NavEventType::Push, ev.event);
     }
 
     #[test]
@@ -373,7 +396,9 @@ mod test {
                     url: first_url_str.to_string(),
                 }
                 .into(),
-                ..NavEvent::empty()
+                event: NavEventType::Push,
+                same_document: false,
+                info: None,
             },
             handler.last_event().expect("Missing Event")
         );
@@ -394,7 +419,9 @@ mod test {
                     url: url_str.to_string(),
                 }
                 .into(),
-                ..NavEvent::empty()
+                event: NavEventType::Push,
+                same_document: false,
+                info: None,
             },
             handler.last_event().expect("Missing Event")
         );

@@ -1,5 +1,6 @@
-mod channel_init;
+mod channel;
 mod cookie_store;
+mod dead_render;
 mod event_loop;
 mod logging;
 mod navigation;
@@ -10,8 +11,10 @@ use std::{
     time::Duration,
 };
 
-use channel_init::*;
+use channel::{join_livereload_channel, join_liveview_channel};
+pub use channel::{LiveChannel, LiveFile};
 use cookie_store::PersistentCookieStore;
+use dead_render::SessionData;
 use event_loop::EventLoop;
 pub(crate) use event_loop::LiveViewClientChannel;
 use log::{debug, warn};
@@ -20,15 +23,14 @@ use navigation::NavCtx;
 use phoenix_channels_client::{Payload, Socket, SocketStatus, JSON};
 use reqwest::{redirect::Policy, Client, Url};
 
-use super::{ClientConnectOpts, LiveViewClientConfiguration, LogLevel};
+use super::{
+    ClientConnectOpts, DeadRenderFetchOpts, LiveViewClientConfiguration, LogLevel,
+    NavActionOptions, NavOptions,
+};
 use crate::{
     callbacks::*,
     dom::{ffi::Document as FFIDocument, Document},
     error::LiveSocketError,
-    live_socket::{
-        navigation::{NavActionOptions, NavOptions},
-        ConnectOpts, LiveChannel, LiveFile, SessionData,
-    },
 };
 
 pub(crate) struct LiveViewClientState {
@@ -86,7 +88,7 @@ impl LiveViewClientInner {
     pub(crate) async fn reconnect(
         &self,
         url: String,
-        opts: ConnectOpts,
+        opts: DeadRenderFetchOpts,
         join_params: Option<HashMap<String, JSON>>,
     ) -> Result<(), LiveSocketError> {
         self.state.reconnect(url, opts, join_params).await?;
@@ -275,13 +277,21 @@ impl LiveViewClientState {
         let url = Url::parse(&url)?;
         let format = config.format.to_string();
 
-        let opts = ConnectOpts {
+        let opts = DeadRenderFetchOpts {
             headers: client_opts.headers,
-            ..ConnectOpts::default()
+            ..DeadRenderFetchOpts::default()
         };
 
         debug!("Retrieving session data from: {url:?}");
-        let session_data = SessionData::request(&url, &format, opts, http_client.clone()).await?;
+        let timeout = config.dead_render_timeout;
+        let session_data = SessionData::request(
+            &url,
+            &format,
+            Duration::from_millis(timeout),
+            opts,
+            http_client.clone(),
+        )
+        .await?;
 
         let cookies = cookie_store.get_cookie_list(&url);
 
@@ -342,15 +352,17 @@ impl LiveViewClientState {
     pub async fn reconnect(
         &self,
         url: String,
-        opts: ConnectOpts,
+        opts: DeadRenderFetchOpts,
         join_params: Option<HashMap<String, JSON>>,
     ) -> Result<(), LiveSocketError> {
         debug!("Reestablishing connection with settings: url: {url:?}, opts: {opts:?}");
 
+        let timeout = self.config.dead_render_timeout;
         let url = Url::parse(&url)?;
         let new_session = SessionData::request(
             &url,
             &self.config.format.to_string(),
+            Duration::from_millis(timeout),
             opts,
             self.http_client.clone(),
         )
@@ -453,10 +465,12 @@ impl LiveViewClientState {
 
                 let url = Url::parse(&current.url)?;
                 let format = self.config.format.to_string();
+                let timeout = self.config.dead_render_timeout;
 
                 let new_session_data = SessionData::request(
                     &url,
                     &format,
+                    Duration::from_millis(timeout),
                     Default::default(),
                     self.http_client.clone(),
                 )
@@ -464,8 +478,9 @@ impl LiveViewClientState {
 
                 let websocket_url = new_session_data.get_live_socket_url()?;
 
-                let new_socket =
-                    Socket::spawn(websocket_url, Some(new_session_data.cookies.clone())).await?;
+                let cookies = self.cookie_store.get_cookie_list(&new_session_data.url);
+
+                let new_socket = Socket::spawn(websocket_url, cookies).await?;
 
                 let sock = self.socket.try_lock()?.clone();
                 sock.shutdown()
