@@ -137,9 +137,6 @@ impl LiveSocket {
                 let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
 
                 let client = reqwest::Client::builder()
-                    .use_rustls_tls()
-                    // Use platform certs maintained by OS
-                    .tls_built_in_native_certs(true)
                     .cookie_provider(jar.clone())
                     .redirect(Policy::none())
                     .build()?;
