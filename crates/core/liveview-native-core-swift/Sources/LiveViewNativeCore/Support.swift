@@ -2040,8 +2040,8 @@ extension Document {
         _ event: EventType,
         _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void
     ) {
-        //let simple = SimplePatchHandler(callback)
-        //sself.setEventHandler(simple)
+        let simple = SimplePatchHandler(callback)
+        self.setEventHandler(simple)
     }
 
     public func toString() -> String {
