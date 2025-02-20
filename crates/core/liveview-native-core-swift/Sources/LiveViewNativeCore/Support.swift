@@ -2036,14 +2036,6 @@ extension Document {
         return try self.mergeFragmentJson(payload)
     }
 
-    public func on(
-        _ event: EventType,
-        _ callback: @escaping (NodeRef, NodeData, NodeRef?) -> Void
-    ) {
-        //let simple = SimplePatchHandler(callback)
-        //sself.setEventHandler(simple)
-    }
-
     public func toString() -> String {
         return self.render()
     }
