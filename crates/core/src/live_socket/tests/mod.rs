@@ -34,7 +34,7 @@ async fn join_live_view() {
     let join_doc = live_channel
         .join_document()
         .expect("Failed to render join payload");
-    let rendered = format!("{}", join_doc.to_string());
+    let rendered = format!("{}", join_doc);
     let expected = r#"<Group id="flash-group" />
 <VStack>
     <Text>

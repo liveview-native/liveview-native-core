@@ -130,7 +130,7 @@ impl<'a> Cursor<'a> {
     }
 }
 
-impl<'a> Iterator for Cursor<'a> {
+impl Iterator for Cursor<'_> {
     type Item = ();
 
     fn next(&mut self) -> Option<()> {
@@ -144,7 +144,7 @@ impl<'a> From<&'a Document> for Cursor<'a> {
     }
 }
 
-impl<'a> Deref for Cursor<'a> {
+impl Deref for Cursor<'_> {
     type Target = NodeData;
 
     fn deref(&self) -> &Self::Target {
@@ -320,7 +320,7 @@ where
     }
 }
 
-impl<'a> Iterator for Morph<'a> {
+impl Iterator for Morph<'_> {
     type Item = Patch;
 
     fn next(&mut self) -> Option<Patch> {

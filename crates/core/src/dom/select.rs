@@ -30,7 +30,7 @@ pub enum Selector<'a> {
     /// Selects elements which have an attribute with the given name whose value contains the given string, e.g. `[attr*=value]`
     AttributeValueSubstring(AttributeName, &'a str),
 }
-impl<'a> Selector<'a> {
+impl Selector<'_> {
     /// Returns true if this selection can match at most one node, which is only true when an identified
     /// node is selected or is selected using a combinator that implies exlusion. For example, selecting
     /// an identified node as a descendant/child of an arbitrary selector is guaranteed to be unique,
@@ -183,7 +183,7 @@ impl<'doc, 'select> SelectionIter<'doc, 'select> {
         }
     }
 }
-impl<'doc, 'select> Iterator for SelectionIter<'doc, 'select> {
+impl Iterator for SelectionIter<'_, '_> {
     type Item = NodeRef;
 
     fn next(&mut self) -> Option<Self::Item> {

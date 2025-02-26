@@ -504,7 +504,7 @@ impl LiveSocket {
                     .filter(|attr| {
                         attr.name.name == *"name" && attr.value == Some("csrf-token".to_string())
                     })
-                    .last()
+                    .next_back()
                     .is_some()
             })
             // We now need the "content" value
@@ -513,7 +513,7 @@ impl LiveSocket {
                     .iter()
                     .filter(|attr| attr.name.name == *"content")
                     .map(|attr| attr.value.clone())
-                    .last()
+                    .next_back()
                     .flatten()
             })
             .last()
@@ -583,7 +583,7 @@ impl LiveSocket {
                     .iter()
                     .filter(|attr| attr.name.name == "url")
                     .map(|attr| attr.value.clone())
-                    .last()
+                    .next_back()
                     .flatten()
             })
             .collect();
@@ -635,7 +635,7 @@ impl LiveSocket {
                     .iter()
                     .filter(|attr| attr.name.name == "src")
                     .map(|attr| attr.value.clone())
-                    .last()
+                    .next_back()
                     .flatten()
             })
             .filter(|iframe_src| iframe_src == "/phoenix/live_reload/frame")
