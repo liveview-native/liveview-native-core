@@ -91,3 +91,8 @@ uniffi = { workspace = true, features = ["bindgen-tests", "tokio"] }
 # For image generation for tests
 image = "0.25.1"
 tempfile = "3.16.0"
+
+# For console example
+ratatui = "0.28.0"
+crossterm = "0.28.1"
+color-eyre = "0.6.3"

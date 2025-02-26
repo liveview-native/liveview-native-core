@@ -628,3 +628,31 @@ impl LiveViewClientState {
         self.nav_ctx.try_lock().ok().and_then(|ctx| ctx.current())
     }
 }
+
+impl std::fmt::Debug for LiveViewClientInner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let status = match self.status().unwrap() {
+            SocketStatus::Connected => "connected",
+            SocketStatus::NeverConnected => "never connected",
+            SocketStatus::Disconnected => "disconnected",
+            SocketStatus::WaitingToReconnect { .. } => "waiting to reconnect",
+            SocketStatus::ShuttingDown => "shutting down",
+            SocketStatus::ShutDown => "shut down",
+        };
+
+        write!(
+            f,
+            "LiveViewClient {{
+  status: '{}',
+  join_url: '{}',
+  csrf_token: '{}',
+  document: '{}',
+  ...
+}}",
+            status,
+            self.join_url().unwrap(),
+            self.csrf_token().unwrap(),
+            self.document().unwrap(),
+        )
+    }
+}
