@@ -39,7 +39,7 @@ getrandom = { version = "0.2", features = ["js"] }
 
 [dev-dependencies]
 url = "2.5"
-uuid = { version = "1.14.0", features = ["v4"] }
+uuid = { version = "1.15.0", features = ["v4"] }
 wasm-bindgen-test = "0.3.42"
 wasm-bindgen-futures = { version = "0.4.31", features = [
     "futures-core-03-stream",
