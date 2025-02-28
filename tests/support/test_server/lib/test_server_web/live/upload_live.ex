@@ -40,20 +40,20 @@ defmodule TestServerWeb.SimpleLiveUpload do
   @impl true
   def handle_event("save", _, socket) do
     uploaded_files =
-      consume_uploaded_entries(socket, :avatar, fn %{path: path}, entry ->
+      consume_uploaded_entries(socket, :avatar, fn %{path: path}, _ ->
         dest = Path.join([:code.priv_dir(:test_server), "static", "uploads", Path.basename(path)])
         dest = "#{dest}.png"
 
         IO.puts("HANDLING SAVE EVENT: #{path} - #{dest}")
         File.cp!(path, dest)
-        {:ok, ~p"/uploads/#{Path.basename(dest)}"}
+        {:ok, "/uploads/#{Path.basename(dest)}"}
       end)
 
     # This is not idiomatic but I want to cut down on boiler plate
     # we need to add a way to inject upload params to the client
-    upload_files =
+    _ =
       uploaded_files ++
-        consume_uploaded_entries(socket, :sample_text, fn %{path: path}, entry ->
+        consume_uploaded_entries(socket, :sample_text, fn %{path: path}, _ ->
           dest =
             Path.join([:code.priv_dir(:test_server), "static", "uploads", Path.basename(path)])
 
@@ -61,15 +61,11 @@ defmodule TestServerWeb.SimpleLiveUpload do
 
           IO.puts("HANDLING SAVE EVENT: #{path} - #{dest}")
           File.cp!(path, dest)
-          {:ok, ~p"/uploads/#{Path.basename(dest)}"}
+          {:ok, "/uploads/#{Path.basename(dest)}"}
         end)
 
     {:noreply, update(socket, :uploaded_files, &(&1 ++ uploaded_files))}
   end
-
-  defp error_to_string(:too_large), do: "Too large"
-  defp error_to_string(:too_many_files), do: "You have selected too many files"
-  defp error_to_string(:not_accepted), do: "You have selected an unacceptable file type"
 end
 
 defmodule TestServerWeb.SimpleLiveUpload.SwiftUI do

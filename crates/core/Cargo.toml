@@ -27,6 +27,7 @@ liveview-channels = [
     "cookie_store",
     "reqwest_cookie_store",
     "tokio",
+    "openssl",
 ]
 liveview-channels-tls = [
     "liveview-channels",
@@ -45,30 +46,31 @@ browser = [
 #
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.14"
+openssl = { version = "=0.10.71", features = ["vendored"], optional = true }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 oslog = "0.2.0"
 
 [dependencies]
 serde_urlencoded = "0.7.1"
-cranelift-entity = { version = "0.116" }
-fixedbitset = { version = "0.5" }
+cranelift-entity = { version = "0.117" }
+fixedbitset = { version = "0.5.7" }
 fxhash = { version = "0.2" }
 html5gum = { git = "https://github.com/liveviewnative/html5gum", branch = "lvn" }
-petgraph = { version = "0.7", default-features = false, features = [
+petgraph = { version = "0.7.1", default-features = false, features = [
     "graphmap",
 ] }
 futures = "0.3.31"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 smallstr = { version = "0.3", features = ["union"] }
-smallvec = { version = "1.10", features = ["union", "const_generics"] }
+smallvec = { version = "1.14", features = ["union", "const_generics"] }
 thiserror = "2.0"
 log = "0.4"
-reqwest = { version = "0.12.3", default-features = false, optional = true, features = [
+tokio-util = "0.7.3"
+reqwest = { version = "0.12.12", default-features = false, optional = true, features = [
     "cookies",
 ] }
-
 cookie_store = { version = "0.21.1", default-features = false, optional = true }
 reqwest_cookie_store = { version = "0.8.0", default-features = false, optional = true }
 env_logger = "0.11.1"
@@ -90,4 +92,4 @@ uniffi = { workspace = true, features = ["bindgen-tests", "tokio"] }
 
 # For image generation for tests
 image = "0.25.1"
-tempfile = "3.16.0"
+tempfile = "3.17.0"

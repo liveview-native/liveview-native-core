@@ -2,6 +2,9 @@ defmodule TestServerWeb.RedirectLive do
   use TestServerWeb, :live_view
   use TestServerNative, :live_view
 
+  def on_mount(_, _, _, _) do
+  end
+
   def mount(_params, _session, socket) do
     socket =
       socket

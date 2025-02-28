@@ -32,16 +32,28 @@ defmodule TestServerWeb.CookieLive do
     """
   end
 
-  defmodule TestServerWeb.CookieLive.SwiftUI do
+  defmodule SwiftUI do
     use TestServerNative, [:render_component, format: :swiftui]
 
-    def render(assigns, _interface) do
+    def render(assigns) do
       ~LVN"""
       <VStack>
         <Text>
           Check Networking Header Info
         </Text>
       </VStack>
+      """
+    end
+  end
+
+  defmodule Jetpack do
+    use TestServerNative, [:render_component, format: :swiftui]
+
+    def render(assigns) do
+      ~LVN"""
+        <Box size="fill" background="system-blue">
+            <Text align="Center">Check Networking Header Info</Text>
+        </Box>
       """
     end
   end

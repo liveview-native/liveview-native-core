@@ -271,8 +271,7 @@ impl LiveViewClientState {
         let http_client = Client::builder()
             .cookie_provider(cookie_store.clone())
             .redirect(Policy::none())
-            .build()
-            .expect("Failed to build HTTP client");
+            .build()?;
 
         let url = Url::parse(&url)?;
         let format = config.format.to_string();
@@ -376,7 +375,7 @@ impl LiveViewClientState {
         let socket = Socket::spawn(websocket_url, cookies.clone()).await?;
 
         let old_socket = self.socket.try_lock()?.clone();
-        let _ = old_socket.disconnect().await;
+        let _ = old_socket.shutdown().await;
 
         *self.socket.try_lock()? = socket;
 
@@ -404,6 +403,20 @@ impl LiveViewClientState {
             let new_livereload =
                 join_livereload_channel(&self.config, &self.socket, &self.session_data, cookies)
                     .await?;
+            let old = self.livereload_channel.try_lock()?.take();
+
+            if let Some(channel) = old {
+                match channel.socket.status() {
+                    SocketStatus::Connected | SocketStatus::WaitingToReconnect { .. } => {
+                        // there is no recovering from a failed attempt here
+                        // also this might panic and we can't check preconditions
+                        let _ = channel.socket.shutdown().await;
+                    }
+                    // terminal states
+                    _ => {}
+                }
+            }
+
             *self.livereload_channel.try_lock()? = Some(new_livereload);
         }
 

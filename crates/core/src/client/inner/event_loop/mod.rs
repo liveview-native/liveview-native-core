@@ -7,6 +7,7 @@ use log::error;
 use phoenix_channels_client::{CallError, Event, Payload};
 use state::{EventLoopState, ReplyAction};
 use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
 
 use super::{
     HistoryId, Issuer, LiveViewClientState, NavigationCall, NavigationSummary, NetworkEventHandler,
@@ -76,17 +77,21 @@ pub enum ClientMessage {
 
 pub(crate) struct EventLoop {
     msg_tx: mpsc::UnboundedSender<ClientMessage>,
-    main_background_task: tokio::task::JoinHandle<()>,
+    _main_background_task: tokio::task::JoinHandle<()>,
+    cancellation_token: CancellationToken,
 }
 
 impl EventLoop {
     pub fn new(client_state: Arc<LiveViewClientState>) -> Self {
         let (msg_tx, mut msg_rx) = mpsc::unbounded_channel();
         let mut state = EventLoopState::new(client_state);
-
-        state.refresh_view(Issuer::External(NavigationCall::Initialization), true);
+        let cancellation_token = CancellationToken::new();
+        let token_clone = cancellation_token.clone();
 
         let main_background_task = tokio::spawn(async move {
+            state
+                .refresh_view(Issuer::External(NavigationCall::Initialization), true)
+                .await;
             // the main event loop
             loop {
                 let mut view_refresh_issuer = None;
@@ -95,15 +100,26 @@ impl EventLoop {
                 {
                     let client_msg = msg_rx.recv().fuse();
                     let (server_event, chan_status, socket_status) = state.event_futures();
+                    let token_clone = token_clone.cancelled().fuse();
                     let (server_event, chan_status, socket_status) = (
                         server_event.fuse(),
                         chan_status.fuse(),
                         socket_status.fuse(),
                     );
 
-                    pin_mut!(client_msg, server_event, chan_status, socket_status);
+                    pin_mut!(
+                        client_msg,
+                        server_event,
+                        chan_status,
+                        socket_status,
+                        token_clone
+                    );
 
                     select! {
+                        _ = token_clone => {
+                           state.shutdown().await;
+                           return;
+                        }
                         // local control flow and outbound messages
                        message = client_msg => {
                            let Some(msg) = message else {
@@ -142,14 +158,15 @@ impl EventLoop {
                 }
 
                 if let Some(issuer) = view_refresh_issuer {
-                    state.refresh_view(issuer, socket_reconnected);
+                    state.refresh_view(issuer, socket_reconnected).await;
                 }
             }
         });
 
         Self {
             msg_tx,
-            main_background_task,
+            _main_background_task: main_background_task,
+            cancellation_token,
         }
     }
 
@@ -233,6 +250,6 @@ impl EventLoop {
 
 impl Drop for EventLoop {
     fn drop(&mut self) {
-        self.main_background_task.abort();
+        self.cancellation_token.cancel();
     }
 }

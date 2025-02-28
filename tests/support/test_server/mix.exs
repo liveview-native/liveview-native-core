@@ -39,7 +39,7 @@ defmodule TestServer.MixProject do
       {:floki, ">= 0.36.2" },
       {:phoenix_live_dashboard, "~> 0.8.3"},
       {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
-      {:tailwind, "~> 0.2.2", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.3.0", runtime: Mix.env() == :dev},
       {:swoosh, "~> 1.16"},
       {:finch, "~> 0.17"},
       {:telemetry_metrics, "~> 1.0"},

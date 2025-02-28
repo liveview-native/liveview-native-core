@@ -3,7 +3,7 @@ mod streaming;
 mod upload;
 
 use crate::{
-    client::{LiveViewClientConfiguration, Platform},
+    client::{LiveViewClientConfiguration, LogLevel, Platform},
     dom::Document,
     LiveViewClient,
 };
@@ -36,6 +36,7 @@ const HOST: &str = "127.0.0.1:4001";
 async fn test_basic_connection() {
     let url = format!("http://{HOST}/hello");
     let mut config = LiveViewClientConfiguration::default();
+    config.log_level = LogLevel::Debug;
     config.format = Platform::Swiftui;
     let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
