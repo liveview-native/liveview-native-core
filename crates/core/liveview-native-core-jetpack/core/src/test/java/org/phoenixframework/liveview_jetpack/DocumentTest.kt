@@ -5,47 +5,57 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.phoenixframework.liveviewnative.core.ClientConnectOpts
 import org.phoenixframework.liveviewnative.core.ChangeType
-import org.phoenixframework.liveviewnative.core.ConnectOpts
 import org.phoenixframework.liveviewnative.core.Document
 import org.phoenixframework.liveviewnative.core.DocumentChangeHandler
 import org.phoenixframework.liveviewnative.core.LiveFile
-import org.phoenixframework.liveviewnative.core.LiveSocket
+import org.phoenixframework.liveviewnative.core.LiveViewClient
+import org.phoenixframework.liveviewnative.core.LiveViewClientBuilder
 import org.phoenixframework.liveviewnative.core.NavOptions
 import org.phoenixframework.liveviewnative.core.NodeData
 import org.phoenixframework.liveviewnative.core.NodeRef
+import org.phoenixframework.liveviewnative.core.Platform
 
 class SocketTest {
     @Test
     fun simple_connect() = runTest {
-        var live_socket = LiveSocket.connect("http://127.0.0.1:4001/upload", "jetpack", null)
-        var live_channel = live_socket.joinLiveviewChannel(null, null)
+        var opts = ClientConnectOpts()
+        var builder = LiveViewClientBuilder()
+
+        builder.setFormat(Platform.Jetpack)
+
+        var client = builder.connect("http://127.0.0.1:4001/upload", opts)
+
         // This is a PNG located at crates/core/tests/support/tinycross.png
         var base64TileImg =
                 "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4gEdFQog0ycfAgAAAIJJREFUOMulU0EOwCAIK2T/f/LYwWAAgZGtJzS1BbVEuEVAAACCQOsKlkOrEicwgeVz5tC5R1yrDdnKuo6j6J5ydgd+npOUHfaGEJkQq+6cQNVqP1oQiCJxvAjGT3Dn3l1sKpAdfhPhqXP5xDYLXz7SkYUuUNnrcBWULkRlFqZxtvwH8zGCEN6LErUAAAAASUVORK5CYII="
 
         val contents = Base64.getDecoder().decode(base64TileImg)
-        val phx_upload_id = live_channel.getPhxUploadId("avatar")
+        val phx_upload_id = client.getPhxUploadId("avatar")
         var live_file = LiveFile(contents, "image/png", "avatar", "foobar.png", phx_upload_id)
-        live_channel.uploadFile(live_file)
+        client.uploadFiles(listOf(live_file))
     }
 }
 
 class SocketTestOpts {
     @Test
     fun connect_with_opts() = runTest {
-        var opts = ConnectOpts()
-        var live_socket = LiveSocket.connect("http://127.0.0.1:4001/upload", "jetpack", opts)
-        var live_channel = live_socket.joinLiveviewChannel(null, null)
+        var opts = ClientConnectOpts()
+        var builder = LiveViewClientBuilder()
+
+        builder.setFormat(Platform.Jetpack)
+
+        var client = builder.connect("http://127.0.0.1:4001/upload", opts)
 
         // This is a PNG located at crates/core/tests/support/tinycross.png
         var base64TileImg =
                 "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4gEdFQog0ycfAgAAAIJJREFUOMulU0EOwCAIK2T/f/LYwWAAgZGtJzS1BbVEuEVAAACCQOsKlkOrEicwgeVz5tC5R1yrDdnKuo6j6J5ydgd+npOUHfaGEJkQq+6cQNVqP1oQiCJxvAjGT3Dn3l1sKpAdfhPhqXP5xDYLXz7SkYUuUNnrcBWULkRlFqZxtvwH8zGCEN6LErUAAAAASUVORK5CYII="
 
         val contents = Base64.getDecoder().decode(base64TileImg)
-        val phx_upload_id = live_channel.getPhxUploadId("avatar")
+        val phx_upload_id = client.getPhxUploadId("avatar")
         var live_file = LiveFile(contents, "image/png", "avatar", "foobar.png", phx_upload_id)
-        live_channel.uploadFile(live_file)
+        client.uploadFiles(listOf(live_file))
     }
 }
 
@@ -252,9 +262,14 @@ class DocumentTest {
         val host = "127.0.0.1:4001"
         val url = "http://$host/nav/first_page"
 
-        val liveSocket = LiveSocket.connect(url, "jetpack", null)
-        val liveChannel = liveSocket.joinLiveviewChannel(null, null)
-        val doc = liveChannel.document()
+        var opts = ClientConnectOpts()
+        var builder = LiveViewClientBuilder()
+
+        builder.setFormat(Platform.Jetpack)
+
+        var client = builder.connect(url, opts)
+
+        val doc = client.document()
 
         val expectedFirstDoc =
                 """
@@ -272,9 +287,9 @@ class DocumentTest {
         assertEquals(exp.render(), doc.render())
 
         val secondUrl = "http://$host/nav/second_page"
-        val secondChannel = liveSocket.navigate(secondUrl, null, NavOptions())
+        client.navigate(secondUrl, NavOptions())
 
-        val secondDoc = secondChannel.document()
+        val secondDoc = client.document()
 
         val expectedSecondDoc =
                 """
