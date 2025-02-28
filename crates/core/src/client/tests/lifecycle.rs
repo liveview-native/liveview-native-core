@@ -7,11 +7,10 @@ use serde_json::json;
 use super::{json_payload, HOST};
 use crate::{
     client::{
-        HandlerResponse, Issuer, LiveChannelStatus, LiveViewClientConfiguration, NavEvent,
-        NavEventHandler, NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
+        HandlerResponse, Issuer, LiveChannel, LiveChannelStatus, LiveViewClientConfiguration,
+        NavEvent, NavEventHandler, NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
     },
     dom::{self},
-    live_socket::LiveChannel,
     LiveViewClient,
 };
 
