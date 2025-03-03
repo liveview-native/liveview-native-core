@@ -11,19 +11,19 @@ let timeout = TimeInterval(30.0)
 let connect_url = "http://127.0.0.1:4001/hello"
 final class LiveViewNativeCoreSocketTests: XCTestCase {
     func testConnect() async throws {
-        let live_socket = try await LiveSocket(connect_url, "swiftui", .none)
+        let live_socket = try await LiveSocket(connect_url, "swiftui", .none, .none)
         let _ = try await live_socket.joinLiveviewChannel(.none, .none)
     }
 
     func testConnectWithOpts() async throws {
         let headers = [String: String]()
         let options = ConnectOpts(headers: headers)
-        let live_socket = try await LiveSocket(connect_url, "swiftui", options)
+        let live_socket = try await LiveSocket(connect_url, "swiftui", options, .none)
         let _ = try await live_socket.joinLiveviewChannel(.none, .none)
     }
 
     func testStatus() async throws {
-        let live_socket = try await LiveSocket(connect_url, "swiftui", .none)
+        let live_socket = try await LiveSocket(connect_url, "swiftui", .none, .none)
         let _ = try await live_socket.joinLiveviewChannel(.none, .none)
         let socket = live_socket.socket()
 
@@ -111,7 +111,7 @@ let base64TileImg =
 let upload_url = "http://127.0.0.1:4001/upload"
 final class LiveViewNativeCoreUploadTests: XCTestCase {
     func testUpload() async throws {
-        let live_socket = try await LiveSocket(upload_url, "swiftui", .none)
+        let live_socket = try await LiveSocket(upload_url, "swiftui", .none, .none)
         let live_channel = try await live_socket.joinLiveviewChannel(.none, .none)
 
         let image: Data! = Data(base64Encoded: base64TileImg)
@@ -127,7 +127,7 @@ func testBasicNavFlow() async throws {
     let url = "http://127.0.0.1:4001/nav/first_page"
     let secondUrl = "http://127.0.0.1:4001/nav/second_page"
 
-    let liveSocket = try await LiveSocket(url, "swiftui", .none)
+    let liveSocket = try await LiveSocket(url, "swiftui", .none, .none)
     let liveChannel = try await liveSocket.joinLiveviewChannel(.none, .none)
 
     let doc = liveChannel.document()

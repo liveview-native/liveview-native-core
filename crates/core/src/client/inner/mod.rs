@@ -17,12 +17,13 @@ pub(crate) use event_loop::LiveViewClientChannel;
 use log::{debug, warn};
 use logging::*;
 use navigation::NavCtx;
-use phoenix_channels_client::{Payload, Socket, SocketStatus, JSON};
+use phoenix_channels_client::{Payload, ReconnectStrategy, Socket, SocketStatus, JSON};
 use reqwest::{redirect::Policy, Client, Url};
 
 use super::{ClientConnectOpts, LiveViewClientConfiguration, LogLevel};
 use crate::{
     callbacks::*,
+    client::StrategyAdapter,
     dom::{ffi::Document as FFIDocument, Document},
     error::LiveSocketError,
     live_socket::{
@@ -289,7 +290,14 @@ impl LiveViewClientState {
         let session_data = Mutex::new(session_data);
 
         log::info!("Initiating Websocket connection: {websocket_url:?} , cookies: {cookies:?}");
-        let socket = Socket::spawn(websocket_url, cookies.clone()).await?;
+
+        let adapter = config
+            .socket_reconnect_strategy
+            .clone()
+            .map(|s| StrategyAdapter::from(s))
+            .map(|s| Box::new(s) as Box<dyn ReconnectStrategy>);
+
+        let socket = Socket::spawn(websocket_url, cookies.clone(), adapter).await?;
         let socket = Mutex::new(socket);
 
         let ws_timeout = Duration::from_millis(config.websocket_timeout);
@@ -360,7 +368,15 @@ impl LiveViewClientState {
         let cookies = self.cookie_store.get_cookie_list(&url);
 
         debug!("Initiating new websocket connection: {websocket_url:?}");
-        let socket = Socket::spawn(websocket_url, cookies.clone()).await?;
+
+        let adapter = self
+            .config
+            .socket_reconnect_strategy
+            .clone()
+            .map(|s| StrategyAdapter::from(s))
+            .map(|s| Box::new(s) as Box<dyn ReconnectStrategy>);
+
+        let socket = Socket::spawn(websocket_url, cookies.clone(), adapter).await?;
 
         let old_socket = self.socket.try_lock()?.clone();
         let _ = old_socket.shutdown().await;
@@ -477,8 +493,19 @@ impl LiveViewClientState {
 
                 let websocket_url = new_session_data.get_live_socket_url()?;
 
-                let new_socket =
-                    Socket::spawn(websocket_url, Some(new_session_data.cookies.clone())).await?;
+                let adapter = self
+                    .config
+                    .socket_reconnect_strategy
+                    .clone()
+                    .map(|s| StrategyAdapter::from(s))
+                    .map(|s| Box::new(s) as Box<dyn ReconnectStrategy>);
+
+                let new_socket = Socket::spawn(
+                    websocket_url,
+                    Some(new_session_data.cookies.clone()),
+                    adapter,
+                )
+                .await?;
 
                 let sock = self.socket.try_lock()?.clone();
                 sock.shutdown()

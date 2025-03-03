@@ -1,6 +1,6 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use phoenix_channels_client::JSON;
+use phoenix_channels_client::{ReconnectStrategy, JSON};
 
 use crate::{callbacks::*, live_socket::Method};
 
@@ -81,6 +81,8 @@ pub struct LiveViewClientConfiguration {
     pub persistence_provider: Option<Arc<dyn SecurePersistentStore>>,
     /// Instruments the patches provided by `diff` events.
     pub patch_handler: Option<Arc<dyn DocumentChangeHandler>>,
+    /// Strategy used when reconnecting the client to a server after multiple failed attempts
+    pub socket_reconnect_strategy: Option<Arc<dyn SocketReconnectStrategy>>,
     /// An event handler for application navigation events, this is meant for client developer use
     /// If you are looking to expose navigation event handling to the user, see the api endpoints with the
     /// `app` prefix.
@@ -95,6 +97,21 @@ pub struct LiveViewClientConfiguration {
     pub format: Platform,
 }
 
+#[derive(Clone)]
+pub struct StrategyAdapter(pub Arc<dyn SocketReconnectStrategy>);
+
+impl ReconnectStrategy for StrategyAdapter {
+    fn sleep_duration(&self, attempt: u64) -> Duration {
+        self.0.sleep_duration(attempt)
+    }
+}
+
+impl From<Arc<dyn SocketReconnectStrategy>> for StrategyAdapter {
+    fn from(value: Arc<dyn SocketReconnectStrategy>) -> Self {
+        Self(value)
+    }
+}
+
 impl Default for LiveViewClientConfiguration {
     fn default() -> Self {
         const DEAD_RENDER_TIMEOUT_MS: u64 = 30_000;
@@ -105,6 +122,7 @@ impl Default for LiveViewClientConfiguration {
             persistence_provider: None,
             patch_handler: None,
             navigation_handler: None,
+            socket_reconnect_strategy: None,
             log_level: LogLevel::Info,
             dead_render_timeout: DEAD_RENDER_TIMEOUT_MS,
             websocket_timeout: WEBSOCKET_TIMEOUT_MS,
@@ -127,6 +145,10 @@ impl std::fmt::Debug for LiveViewClientConfiguration {
             .field(
                 "navigation_handler",
                 &self.navigation_handler.is_some().then_some("..."),
+            )
+            .field(
+                "socket_reconnect_strategy",
+                &self.socket_reconnect_strategy.is_some().then_some("..."),
             )
             .field("log_level", &self.log_level)
             .field("dead_render_timeout", &self.dead_render_timeout)
