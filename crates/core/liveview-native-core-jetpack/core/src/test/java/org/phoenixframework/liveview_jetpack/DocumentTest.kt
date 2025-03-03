@@ -18,7 +18,7 @@ import org.phoenixframework.liveviewnative.core.NodeRef
 class SocketTest {
     @Test
     fun simple_connect() = runTest {
-        var live_socket = LiveSocket.connect("http://127.0.0.1:4001/upload", "jetpack", null)
+        var live_socket = LiveSocket.connect("http://127.0.0.1:4001/upload", "jetpack", null, null)
         var live_channel = live_socket.joinLiveviewChannel(null, null)
         // This is a PNG located at crates/core/tests/support/tinycross.png
         var base64TileImg =
@@ -35,7 +35,7 @@ class SocketTestOpts {
     @Test
     fun connect_with_opts() = runTest {
         var opts = ConnectOpts()
-        var live_socket = LiveSocket.connect("http://127.0.0.1:4001/upload", "jetpack", opts)
+        var live_socket = LiveSocket.connect("http://127.0.0.1:4001/upload", "jetpack", opts, null)
         var live_channel = live_socket.joinLiveviewChannel(null, null)
 
         // This is a PNG located at crates/core/tests/support/tinycross.png
@@ -252,7 +252,7 @@ class DocumentTest {
         val host = "127.0.0.1:4001"
         val url = "http://$host/nav/first_page"
 
-        val liveSocket = LiveSocket.connect(url, "jetpack", null)
+        val liveSocket = LiveSocket.connect(url, "jetpack", null, null)
         val liveChannel = liveSocket.joinLiveviewChannel(null, null)
         val doc = liveChannel.document()
 

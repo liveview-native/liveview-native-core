@@ -6,7 +6,9 @@ use std::{
 };
 
 use log::{debug, trace};
-use phoenix_channels_client::{url::Url, Payload, Socket, SocketStatus, Topic, JSON};
+use phoenix_channels_client::{
+    url::Url, Payload, ReconnectStrategy, Socket, SocketStatus, Topic, JSON,
+};
 use reqwest::{
     cookie::{CookieStore, Jar},
     header::{HeaderMap, LOCATION, SET_COOKIE},
@@ -18,6 +20,8 @@ use serde::Serialize;
 use super::navigation::{NavCtx, NavOptions};
 pub use super::LiveChannel;
 use crate::{
+    callbacks::{self, SocketReconnectStrategy},
+    client::StrategyAdapter,
     diff::fragment::{Root, RootDiff},
     dom::{ffi::Document as FFiDocument, AttributeName, Document, ElementName, Selector},
     error::{ConnectionError, LiveSocketError},
@@ -369,7 +373,7 @@ pub async fn create_livereload_channel(
     url.set_path("phoenix/live_reload/socket/websocket");
     url.query_pairs_mut().append_pair(LVN_VSN_KEY, LVN_VSN);
 
-    let socket = Socket::spawn(url.clone(), Some(cookies)).await?;
+    let socket = Socket::spawn(url.clone(), Some(cookies), None).await?;
     socket.connect(timeout).await?;
 
     debug!("Joining live reload channel on url {url}");
@@ -395,6 +399,7 @@ pub struct LiveSocket {
     pub socket: Mutex<Arc<Socket>>,
     pub session_data: Mutex<SessionData>,
     pub(super) navigation_ctx: Mutex<NavCtx>,
+    pub strategy: Option<StrategyAdapter>,
 }
 
 // non uniffi bindings.
@@ -566,8 +571,9 @@ impl LiveSocket {
         url: String,
         format: String,
         options: Option<ConnectOpts>,
+        socket_reconnect_strategy: Option<Box<dyn callbacks::SocketReconnectStrategy>>,
     ) -> Result<Self, LiveSocketError> {
-        Self::new(url, format, options).await
+        Self::new(url, format, options, socket_reconnect_strategy).await
     }
 
     #[uniffi::constructor]
@@ -575,6 +581,7 @@ impl LiveSocket {
         url: String,
         format: String,
         options: Option<ConnectOpts>,
+        socket_reconnect_strategy: Option<Box<dyn SocketReconnectStrategy>>,
     ) -> Result<Self, LiveSocketError> {
         let url = Url::parse(&url)?;
         let options = options.unwrap_or_default();
@@ -584,6 +591,12 @@ impl LiveSocket {
 
         #[cfg(test)]
         let jar = TEST_COOKIE_JAR.with(|inner| inner.clone());
+
+        let strategy = socket_reconnect_strategy.map(|s| StrategyAdapter(s.into()));
+
+        let adapter = strategy
+            .clone()
+            .map(|s| Box::new(s) as Box<dyn ReconnectStrategy>);
 
         let client = reqwest::Client::builder()
             .cookie_provider(jar.clone())
@@ -595,7 +608,7 @@ impl LiveSocket {
         let session_data = SessionData::request(&url, &format, options, client).await?;
         let websocket_url = session_data.get_live_socket_url()?;
 
-        let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone()))
+        let socket = Socket::spawn(websocket_url, Some(session_data.cookies.clone()), adapter)
             .await?
             .into();
 
@@ -611,6 +624,7 @@ impl LiveSocket {
             socket,
             session_data: session_data.into(),
             navigation_ctx,
+            strategy,
         })
     }
 
