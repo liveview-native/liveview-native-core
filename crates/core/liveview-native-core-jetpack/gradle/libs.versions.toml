@@ -1,12 +1,13 @@
 [versions]
 android-gradle-plugin = "8.8.0"
 jna = "5.16.0"
-kotlinx-coroutines = "1.10.0"
+kotlin-stdlib = "1.9.21"
+kotlinx-coroutines = "1.7.3"
 androidx-test-ext = "1.2.1"
 espresso-core = "3.6.1"
 junit = "4.13.2"
 desugar_jdk_libs = "2.1.0"
-jetbrains-kotlin-android = "2.1.0"
+jetbrains-kotlin-android = "1.9.21"
 rust-android-gradle = "0.9.3"
 dokka = "2.0.0"
 

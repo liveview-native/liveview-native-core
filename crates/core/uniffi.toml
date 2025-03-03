@@ -3,6 +3,7 @@ cdylib_name = "liveview_native_core"
 package_name = "org.phoenixframework.liveviewnative.core"
 android_cleaner = false
 android = true
+kotlin_target_version = "1.9.0"
 
 [bindings.swift]
 omit_argument_labels = true
