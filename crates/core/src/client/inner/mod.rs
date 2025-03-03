@@ -301,7 +301,9 @@ impl LiveViewClientState {
         let socket = Mutex::new(socket);
 
         let ws_timeout = Duration::from_millis(config.websocket_timeout);
+
         debug!("Joining liveview Channel");
+
         let liveview_channel = join_liveview_channel(
             &socket,
             &session_data,

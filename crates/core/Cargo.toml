@@ -77,7 +77,7 @@ env_logger = "0.11.1"
 uniffi = { workspace = true }
 
 tokio = { version = "1.43", features = ["full"], optional = true }
-phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client.git", branch = "finite_reconnect_settings", optional = true, default-features = false }
+phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client.git", branch = "main", optional = true, default-features = false }
 # This is for wasm support on phoenix-channels-client
 #phoenix_channels_client = { git = "https://github.com/liveview-native/phoenix-channels-client.git", branch = "simlay/webassembly-support", optional = true, default-features = false }
 
