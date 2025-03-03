@@ -3,7 +3,7 @@
 //! Types and utilities for interacting with the navigation API for the FFI api consumers.
 use std::collections::HashMap;
 
-use phoenix_channels_client::{Payload, Socket, JSON};
+use phoenix_channels_client::{Payload, ReconnectStrategy, Socket, JSON};
 #[cfg(not(test))]
 use reqwest::cookie::Jar;
 use reqwest::{redirect::Policy, Url};
@@ -141,10 +141,16 @@ impl LiveSocket {
                     .redirect(Policy::none())
                     .build()?;
 
+                let adapter = self
+                    .strategy
+                    .clone()
+                    .map(|s| Box::new(s) as Box<dyn ReconnectStrategy>);
+
                 let session_data = SessionData::request(&url, &format, options, client).await?;
                 let websocket_url = session_data.get_live_socket_url()?;
                 let socket =
-                    Socket::spawn(websocket_url, Some(session_data.cookies.clone())).await?;
+                    Socket::spawn(websocket_url, Some(session_data.cookies.clone()), adapter)
+                        .await?;
 
                 self.socket()
                     .shutdown()

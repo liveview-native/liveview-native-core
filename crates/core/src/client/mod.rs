@@ -15,6 +15,8 @@ use inner::LiveViewClientInner;
 use phoenix_channels_client::{Payload, SocketStatus, JSON};
 use reqwest::header::CONTENT_TYPE;
 
+pub use config::StrategyAdapter;
+
 use crate::{
     callbacks::*,
     dom::ffi::{self},

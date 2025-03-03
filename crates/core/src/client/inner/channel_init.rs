@@ -5,10 +5,11 @@ use std::{
 };
 
 use log::{debug, trace};
-use phoenix_channels_client::{Payload, Socket, Topic, JSON};
+use phoenix_channels_client::{Payload, ReconnectStrategy, Socket, Topic, JSON};
 
 use super::LiveViewClientConfiguration;
 use crate::{
+    client::StrategyAdapter,
     diff::fragment::{Root, RootDiff},
     dom::Document,
     error::LiveSocketError,
@@ -93,7 +94,13 @@ pub async fn join_livereload_channel(
     url.set_path("phoenix/live_reload/socket/websocket");
     url.query_pairs_mut().append_pair(LVN_VSN_KEY, LVN_VSN);
 
-    let new_socket = Socket::spawn(url.clone(), cookies).await?;
+    let adapter = config
+        .socket_reconnect_strategy
+        .clone()
+        .map(StrategyAdapter::from)
+        .map(|s| Box::new(s) as Box<dyn ReconnectStrategy>);
+
+    let new_socket = Socket::spawn(url.clone(), cookies, adapter).await?;
     new_socket.connect(ws_timeout).await?;
 
     debug!("Joining live reload channel on url {url}");

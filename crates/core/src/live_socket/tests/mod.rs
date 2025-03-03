@@ -77,7 +77,7 @@ async fn channels_drop_on_shutdown() {
 
     let url = format!("http://{HOST}/hello");
 
-    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default(), None)
         .await
         .expect("Failed to get liveview socket");
 
@@ -112,7 +112,7 @@ async fn join_redirect() {
 
     let url = format!("http://{HOST}/redirect_from");
 
-    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default(), None)
         .await
         .expect("Failed to get liveview socket");
 
@@ -148,7 +148,7 @@ async fn join_live_view() {
         .try_init();
 
     let url = format!("http://{HOST}/hello");
-    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default(), None)
         .await
         .expect("Failed to get liveview socket");
 
@@ -188,7 +188,7 @@ async fn channel_redirect() {
         .try_init();
 
     let url = format!("http://{HOST}/hello");
-    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default(), None)
         .await
         .expect("Failed to get liveview socket");
 

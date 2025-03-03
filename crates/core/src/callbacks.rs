@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 #[cfg(feature = "liveview-channels")]
 use phoenix_channels_client::{Socket, SocketStatus};
@@ -6,6 +6,11 @@ use phoenix_channels_client::{Socket, SocketStatus};
 use crate::dom::{NodeData, NodeRef};
 #[cfg(feature = "liveview-channels")]
 use crate::{dom::ffi::Document, live_socket::LiveChannel};
+
+#[uniffi::export(callback_interface)]
+pub trait SocketReconnectStrategy: Send + Sync {
+    fn sleep_duration(&self, attempt: u64) -> Duration;
+}
 
 /// Provides secure persistent storage for session data like cookies.
 /// Implementations should handle platform-specific storage (e.g. NSUserDefaults on iOS)

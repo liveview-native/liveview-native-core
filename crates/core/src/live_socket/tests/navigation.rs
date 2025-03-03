@@ -251,7 +251,7 @@ async fn basic_nav_flow() {
     let second = "second_page";
     let url = format!("http://{HOST}/nav/{first}");
 
-    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default(), None)
         .await
         .expect("Failed to get liveview socket");
 

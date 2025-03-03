@@ -18,7 +18,7 @@ async fn streaming_connect() -> Result<(), String> {
 
     let url = format!("http://{HOST}/stream");
 
-    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default(), None)
         .await
         .map_err(|e| format!("Failed to get liveview socket {e}"))?;
 

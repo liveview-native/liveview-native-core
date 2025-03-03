@@ -223,11 +223,13 @@ impl EventLoop {
     ) -> Result<HistoryId, LiveSocketError> {
         let (tx, result) = oneshot::channel();
 
+        // Send navigation error payload to the event loop
         let _ = self.msg_tx.send(ClientMessage::HandleSocketReply {
             payload: payload.clone(),
             tx,
         });
 
+        // Await a response, if the event loop can rectify a redirect call.
         let action = result.await.map_err(|_| LiveSocketError::Call {
             error: String::from("Response cancelled while handling navigation error"),
         })??;

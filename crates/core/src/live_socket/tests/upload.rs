@@ -35,7 +35,7 @@ async fn single_chunk_file() {
     let url = format!("http://{HOST}/upload");
     let image_bytes = get_image(100, 100, "png".to_string());
 
-    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default(), None)
         .await
         .expect("Failed to get liveview socket");
 
@@ -72,7 +72,7 @@ async fn multi_chunk_text() {
     let url = format!("http://{HOST}/upload");
     let text_bytes = Vec::from_iter(std::iter::repeat_n(b'a', 48_000));
 
-    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default(), None)
         .await
         .expect("Failed to get liveview socket");
 
@@ -109,7 +109,7 @@ async fn multi_chunk_file() {
     let url = format!("http://{HOST}/upload");
     let image_bytes = get_image(2000, 2000, "png".to_string());
 
-    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default(), None)
         .await
         .expect("Failed to get liveview socket");
 
@@ -149,7 +149,7 @@ async fn error_file_too_large() {
     // For this file we want to use tiff because it's much biggger than a png.
     let image_bytes = get_image(2000, 2000, "tiff".to_string());
 
-    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default(), None)
         .await
         .expect("Failed to get liveview socket");
 
@@ -197,7 +197,7 @@ async fn error_incorrect_file_type() {
     // For this file we want to use tiff because it's much biggger than a png.
     let image_bytes = get_image(100, 100, "png".to_string());
 
-    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default())
+    let live_socket = LiveSocket::new(url.to_string(), "swiftui".into(), Default::default(), None)
         .await
         .expect("Failed to get liveview socket");
 
