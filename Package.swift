@@ -8,7 +8,7 @@ import class Foundation.ProcessInfo
 let liveview_native_core_framework: Target
 
 // To release, toggle this to `false`
-let useLocalFramework = true
+let useLocalFramework = false
 if useLocalFramework {
     liveview_native_core_framework = .binaryTarget(
         name: "liveview_native_core",
@@ -16,7 +16,7 @@ if useLocalFramework {
     )
 } else {
     let releaseTag = "0.4.1-rc-2"
-    let releaseChecksum = "f3972f4d40732c884c98426b28550376abaff20a3490b73367ad170f1f0bcca9"
+    let releaseChecksum = "f4f83fff6412d19023493b7ece9f545dcf0a38da0adc48949e6a23606feba406"
     liveview_native_core_framework = .binaryTarget(
         name: "liveview_native_core",
         url:
