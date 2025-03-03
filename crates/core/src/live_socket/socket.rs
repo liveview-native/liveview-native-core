@@ -20,7 +20,7 @@ pub use super::LiveChannel;
 use crate::{
     diff::fragment::{Root, RootDiff},
     dom::{ffi::Document as FFiDocument, AttributeName, Document, ElementName, Selector},
-    error::LiveSocketError,
+    error::{ConnectionError, LiveSocketError},
 };
 
 #[macro_export]
@@ -351,6 +351,45 @@ impl SessionData {
     }
 }
 
+pub async fn create_livereload_channel(
+    mut url: Url,
+    cookies: Vec<String>,
+    timeout: Duration,
+) -> Result<LiveChannel, LiveSocketError> {
+    let websocket_scheme = match url.scheme() {
+        "https" => "wss",
+        "http" => "ws",
+        scheme => {
+            return Err(LiveSocketError::SchemeNotSupported {
+                scheme: scheme.to_string(),
+            })
+        }
+    };
+    let _ = url.set_scheme(websocket_scheme);
+    url.set_path("phoenix/live_reload/socket/websocket");
+    url.query_pairs_mut().append_pair(LVN_VSN_KEY, LVN_VSN);
+
+    let socket = Socket::spawn(url.clone(), Some(cookies)).await?;
+    socket.connect(timeout).await?;
+
+    debug!("Joining live reload channel on url {url}");
+    let channel = socket
+        .channel(Topic::from_string("phoenix:live_reload".to_string()), None)
+        .await?;
+    debug!("Created channel for live reload socket");
+    let join_payload = channel.join(timeout).await?;
+    let document = Document::empty();
+
+    Ok(LiveChannel {
+        channel,
+        join_params: Default::default(),
+        join_payload,
+        socket,
+        document: document.into(),
+        timeout,
+    })
+}
+
 #[derive(uniffi::Object)]
 pub struct LiveSocket {
     pub socket: Mutex<Arc<Socket>>,
@@ -438,8 +477,6 @@ impl LiveSocket {
             }
         }
 
-        let status = resp.status();
-
         #[cfg(not(test))]
         let jar = COOKIE_JAR.get_or_init(|| Jar::default().into());
 
@@ -459,10 +496,45 @@ impl LiveSocket {
             .unwrap_or_default();
 
         let url = resp.url().clone();
+        let status = resp.status();
         let resp_text = resp.text().await?;
 
         if !status.is_success() {
-            return Err(LiveSocketError::ConnectionError(resp_text));
+            let livereload_channel = if let Ok(dead_render) = Document::parse(&resp_text) {
+                let live_reload_iframe: Option<String> = dead_render
+                    .select(Selector::Tag(ElementName {
+                        namespace: None,
+                        name: "iframe".into(),
+                    }))
+                    .map(|node_ref| dead_render.get(node_ref))
+                    .filter_map(|node| {
+                        node.attributes()
+                            .iter()
+                            .filter(|attr| attr.name.name == "src")
+                            .map(|attr| attr.value.clone())
+                            .next_back()
+                            .flatten()
+                    })
+                    .filter(|iframe_src| iframe_src == "/phoenix/live_reload/frame")
+                    .last();
+
+                if live_reload_iframe.is_some() {
+                    create_livereload_channel(url, cookies, timeout)
+                        .await
+                        .ok()
+                        .map(Arc::new)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            return Err(LiveSocketError::ConnectionError(ConnectionError {
+                error_text: resp_text,
+                error_code: status.into(),
+                livereload_channel,
+            }));
         }
 
         let dead_render = Document::parse(&resp_text)?;
@@ -573,42 +645,11 @@ impl LiveSocket {
     }
 
     pub async fn join_livereload_channel(&self) -> Result<LiveChannel, LiveSocketError> {
-        let mut url = lock!(self.session_data).url.clone();
-
-        let websocket_scheme = match url.scheme() {
-            "https" => "wss",
-            "http" => "ws",
-            scheme => {
-                return Err(LiveSocketError::SchemeNotSupported {
-                    scheme: scheme.to_string(),
-                })
-            }
-        };
-        let _ = url.set_scheme(websocket_scheme);
-        url.set_path("phoenix/live_reload/socket/websocket");
-        url.query_pairs_mut().append_pair(LVN_VSN_KEY, LVN_VSN);
-
+        let url = lock!(self.session_data).url.clone();
         let cookies = lock!(self.session_data).cookies.clone();
+        let timeout = self.timeout();
 
-        let socket = Socket::spawn(url.clone(), Some(cookies)).await?;
-        socket.connect(self.timeout()).await?;
-
-        debug!("Joining live reload channel on url {url}");
-        let channel = socket
-            .channel(Topic::from_string("phoenix:live_reload".to_string()), None)
-            .await?;
-        debug!("Created channel for live reload socket");
-        let join_payload = channel.join(self.timeout()).await?;
-        let document = Document::empty();
-
-        Ok(LiveChannel {
-            channel,
-            join_params: Default::default(),
-            join_payload,
-            socket,
-            document: document.into(),
-            timeout: self.timeout(),
-        })
+        create_livereload_channel(url, cookies, timeout).await
     }
 
     pub async fn join_liveview_channel(
