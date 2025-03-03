@@ -294,7 +294,7 @@ impl LiveViewClientState {
         let adapter = config
             .socket_reconnect_strategy
             .clone()
-            .map(|s| StrategyAdapter::from(s))
+            .map(StrategyAdapter::from)
             .map(|s| Box::new(s) as Box<dyn ReconnectStrategy>);
 
         let socket = Socket::spawn(websocket_url, cookies.clone(), adapter).await?;
@@ -373,7 +373,7 @@ impl LiveViewClientState {
             .config
             .socket_reconnect_strategy
             .clone()
-            .map(|s| StrategyAdapter::from(s))
+            .map(StrategyAdapter::from)
             .map(|s| Box::new(s) as Box<dyn ReconnectStrategy>);
 
         let socket = Socket::spawn(websocket_url, cookies.clone(), adapter).await?;
@@ -497,7 +497,7 @@ impl LiveViewClientState {
                     .config
                     .socket_reconnect_strategy
                     .clone()
-                    .map(|s| StrategyAdapter::from(s))
+                    .map(StrategyAdapter::from)
                     .map(|s| Box::new(s) as Box<dyn ReconnectStrategy>);
 
                 let new_socket = Socket::spawn(

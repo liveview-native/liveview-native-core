@@ -97,7 +97,7 @@ pub async fn join_livereload_channel(
     let adapter = config
         .socket_reconnect_strategy
         .clone()
-        .map(|s| StrategyAdapter::from(s))
+        .map(StrategyAdapter::from)
         .map(|s| Box::new(s) as Box<dyn ReconnectStrategy>);
 
     let new_socket = Socket::spawn(url.clone(), cookies, adapter).await?;
