@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use phoenix_channels_client::{
     CallError, ChannelError, ChannelJoinError, ConnectError, EventsError, JSONDeserializationError,
     LeaveError, Payload, PhoenixError, SocketChannelError, SocketError, SpawnError, StatusesError,
@@ -7,6 +9,7 @@ use phoenix_channels_client::{
 use crate::{
     diff::fragment::{MergeError, RenderError},
     dom::ParseError,
+    live_socket::LiveChannel,
 };
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
@@ -56,8 +59,8 @@ pub enum LiveSocketError {
     #[error("Phoenix ID Missing from DOM!")]
     PhoenixIDMissing,
 
-    #[error("Connection Error {0}")]
-    ConnectionError(String),
+    #[error("Connection Error {0:?}")]
+    ConnectionError(ConnectionError),
 
     #[error("Phoenix Session Missing from DOM!")]
     PhoenixSessionMissing,
@@ -121,6 +124,29 @@ pub enum UploadError {
 
     #[error("There was another issue with uploading {error}")]
     Other { error: String },
+}
+
+#[derive(uniffi::Record)]
+pub struct ConnectionError {
+    pub error_text: String,
+    pub error_code: u16,
+    pub livereload_channel: Option<Arc<LiveChannel>>,
+}
+
+impl std::fmt::Debug for ConnectionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let channel_state = if self.livereload_channel.is_some() {
+            "Present"
+        } else {
+            "Not Present"
+        };
+
+        f.debug_struct("ErrorDeadRender")
+            .field("document", &self.error_text)
+            .field("error_code", &self.error_code)
+            .field("livereload_channel", &channel_state)
+            .finish()
+    }
 }
 
 // These are all manually implemented and turned into a string because uniffi doesn't support
