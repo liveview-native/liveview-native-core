@@ -4,7 +4,7 @@ use html5gum::{Emitter, Error, Readable, Reader, State, Tokenizer};
 use smallstr::SmallString;
 use smallvec::SmallVec;
 
-use crate::{dom::*, symbols, InternedString};
+use crate::dom::*;
 
 /// Parses a `Document` from the given input
 pub fn parse<'a, R>(input: R) -> Result<Document, ParseError>
@@ -102,7 +102,7 @@ enum Token {
     /// Comments are ignored
     Comment,
     /// Doctype is used to determine what kind of document is being created
-    Doctype(InternedString),
+    Doctype(SmallString<[u8; 16]>),
     Error(Error),
 }
 impl PartialEq for Token {
@@ -136,7 +136,7 @@ struct DocumentEmitter {
     #[allow(clippy::type_complexity)]
     current_attribute: Option<(SmallVec<[u8; 16]>, SmallVec<[u8; 16]>)>,
     current_doctype: SmallVec<[u8; 16]>,
-    last_start_tag: InternedString,
+    last_start_tag: String,
     emitted_tokens: VecDeque<Token>,
 }
 impl DocumentEmitter {
@@ -147,7 +147,7 @@ impl DocumentEmitter {
             current_tag: Default::default(),
             current_attribute: None,
             current_doctype: Default::default(),
-            last_start_tag: symbols::Empty.into(),
+            last_start_tag: String::new(),
             emitted_tokens: VecDeque::new(),
         }
     }
@@ -196,7 +196,7 @@ impl Emitter for DocumentEmitter {
     fn set_last_start_tag(&mut self, last_start_tag: Option<&[u8]>) {
         match last_start_tag {
             None => {
-                self.last_start_tag = symbols::Empty.into();
+                self.last_start_tag = String::new();
             }
             Some(bytes) => {
                 self.last_start_tag = String::from_utf8_lossy(bytes).into();
@@ -228,14 +228,14 @@ impl Emitter for DocumentEmitter {
     fn init_start_tag(&mut self) {
         self.current_token = Some(Token::Start(StartToken {
             ids: vec![],
-            element: Element::new(symbols::Empty.into()),
+            element: Element::new(String::new().into()),
             self_closing: false,
         }));
     }
 
     #[inline]
     fn init_end_tag(&mut self) {
-        self.current_token = Some(Token::End(symbols::Empty.into()));
+        self.current_token = Some(Token::End(String::new().into()));
     }
 
     #[inline(always)]
@@ -329,7 +329,7 @@ impl Emitter for DocumentEmitter {
     }
 
     fn init_doctype(&mut self) {
-        self.current_token = Some(Token::Doctype(symbols::Empty.into()));
+        self.current_token = Some(Token::Doctype(String::new().into()));
     }
 
     #[inline]
