@@ -105,6 +105,10 @@ impl LiveViewClientInner {
         Ok(())
     }
 
+    pub(crate) fn shutdown(&self) {
+        self.event_loop.shutdown();
+    }
+
     pub async fn upload_file(&self, file: Arc<LiveFile>) -> Result<(), LiveSocketError> {
         let chan = self.channel()?;
         chan.upload_file(&file).await?;
@@ -412,15 +416,7 @@ impl LiveViewClientState {
             let old = self.livereload_channel.try_lock()?.take();
 
             if let Some(channel) = old {
-                match channel.socket.status() {
-                    SocketStatus::Connected | SocketStatus::WaitingToReconnect { .. } => {
-                        // there is no recovering from a failed attempt here
-                        // also this might panic and we can't check preconditions
-                        let _ = channel.socket.shutdown().await;
-                    }
-                    // terminal states
-                    _ => {}
-                }
+                let _ = channel.socket.shutdown().await;
             }
 
             *self.livereload_channel.try_lock()? = Some(new_livereload);

@@ -186,6 +186,10 @@ impl LiveViewClient {
         Ok(())
     }
 
+    pub fn shutdown(&self) {
+        self.inner.shutdown();
+    }
+
     /// Uploads the live files in `files`
     ///
     /// Note: currently the replies in the file upload work flow are

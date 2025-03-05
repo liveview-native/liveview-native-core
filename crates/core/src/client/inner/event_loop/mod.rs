@@ -182,6 +182,10 @@ impl EventLoop {
         });
     }
 
+    pub fn shutdown(&self) {
+        self.cancellation_token.cancel()
+    }
+
     pub async fn handle_navigation_summary(
         &self,
         summary: Result<NavigationSummary, LiveSocketError>,

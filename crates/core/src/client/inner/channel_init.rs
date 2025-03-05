@@ -116,9 +116,7 @@ pub async fn join_livereload_channel(
         channel,
         join_params: Default::default(),
         join_payload,
-        // Q: I copy pasted this from the old implementation,
-        // why use the old socket ?
-        socket: socket.try_lock()?.clone(),
+        socket: new_socket,
         document: document.into(),
         timeout: ws_timeout,
     }
