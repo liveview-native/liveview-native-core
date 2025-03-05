@@ -325,7 +325,7 @@ impl LiveViewClientState {
 
         let livereload_channel = if session_data.try_lock()?.has_live_reload {
             debug!("Joining liveReload Channel");
-            join_livereload_channel(&config, &socket, &session_data, cookies)
+            join_livereload_channel(&config, &session_data, cookies)
                 .await?
                 .into()
         } else {
@@ -411,8 +411,7 @@ impl LiveViewClientState {
         if has_reload {
             debug!("Rejoining livereload channel");
             let new_livereload =
-                join_livereload_channel(&self.config, &self.socket, &self.session_data, cookies)
-                    .await?;
+                join_livereload_channel(&self.config, &self.session_data, cookies).await?;
             let old = self.livereload_channel.try_lock()?.take();
 
             if let Some(channel) = old {

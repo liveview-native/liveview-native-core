@@ -73,7 +73,6 @@ pub async fn join_liveview_channel(
 
 pub async fn join_livereload_channel(
     config: &LiveViewClientConfiguration,
-    socket: &Mutex<Arc<Socket>>,
     session_data: &Mutex<SessionData>,
     cookies: Option<Vec<String>>,
 ) -> Result<Arc<LiveChannel>, LiveSocketError> {
