@@ -28,7 +28,7 @@ pub struct NavCtx {
     /// Previously visited views
     history: Vec<NavHistoryEntry>,
     /// Views that are "forward" in history
-    future: Vec<NavHistoryEntry>,
+    forward_entries: Vec<NavHistoryEntry>,
     /// monotonically increasing ID for `NavHistoryEntry`
     id_source: HistoryId,
     /// user provided callback
@@ -66,7 +66,7 @@ impl NavCtx {
 
         // successful navigation invalidates previously coalesced state from
         // calls to `back`
-        self.future.clear();
+        self.forward_entries.clear();
         Some(next_id)
     }
 
@@ -98,13 +98,13 @@ impl NavCtx {
 
     // Returns true if the navigator can go forward one entry.
     pub fn can_go_forward(&self) -> bool {
-        !self.future.is_empty()
+        !self.forward_entries.is_empty()
     }
 
     // Returns true if the `id` is tracked in the navigation context.
     pub fn can_traverse_to(&self, id: HistoryId) -> bool {
         let hist = self.history.iter().find(|ent| ent.id == id);
-        let fut = self.future.iter().find(|ent| ent.id == id);
+        let fut = self.forward_entries.iter().find(|ent| ent.id == id);
         hist.or(fut).is_some()
     }
 
@@ -114,7 +114,7 @@ impl NavCtx {
     pub fn entries(&self) -> Vec<NavHistoryEntry> {
         self.history
             .iter()
-            .chain(self.future.iter().rev())
+            .chain(self.forward_entries.iter().rev())
             .cloned()
             .collect()
     }
@@ -158,7 +158,7 @@ impl NavCtx {
             HandlerResponse::Default => {
                 let previous = self.history.pop()?;
                 let out = Some(next.id);
-                self.future.push(previous);
+                self.forward_entries.push(previous);
                 out
             }
             HandlerResponse::PreventDefault => None,
@@ -175,14 +175,14 @@ impl NavCtx {
             return None;
         }
 
-        let next = self.future.last().cloned()?;
+        let next = self.forward_entries.last().cloned()?;
         let previous = self.current();
 
         let event = NavEvent::new(NavEventType::Push, next, previous, info);
 
         match self.handle_event(event, emit_event) {
             HandlerResponse::Default => {
-                let next = self.future.pop()?;
+                let next = self.forward_entries.pop()?;
                 let out = Some(next.id);
                 self.push_entry(next);
                 out
@@ -216,13 +216,13 @@ impl NavCtx {
 
             // All entries except the target
             let ext = self.history.drain(entry + 1..);
-            self.future.extend(ext.rev());
+            self.forward_entries.extend(ext.rev());
             return Some(id);
         }
 
-        let in_fut = self.future.iter().position(|ent| ent.id == id);
+        let in_fut = self.forward_entries.iter().position(|ent| ent.id == id);
         if let Some(entry) = in_fut {
-            let new_dest = self.future[entry].clone();
+            let new_dest = self.forward_entries[entry].clone();
 
             let event = NavEvent::new(NavEventType::Traverse, new_dest, old_dest.into(), info);
 
@@ -232,7 +232,7 @@ impl NavCtx {
             };
 
             // All entries including the target, which will be at the front.
-            let ext = self.future.drain(entry..);
+            let ext = self.forward_entries.drain(entry..);
             self.history.extend(ext.rev());
             return Some(id);
         }

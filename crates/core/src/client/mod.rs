@@ -72,6 +72,14 @@ impl LiveViewClientBuilder {
         config.patch_handler = Some(handler.into());
     }
 
+    /// The [SocketReconnectStrategy] here will be called when the socket is disconnected
+    /// and fails to immediately reconnect to the server during an even like a connection
+    /// disruption or transport failure.
+    pub fn set_socket_reconnect_strategy(&self, strategy: Box<dyn SocketReconnectStrategy>) {
+        let mut config = self.config.lock().unwrap();
+        config.socket_reconnect_strategy = Some(strategy.into());
+    }
+
     /// This is an endpoint intended for client developers to instrument navigation and
     /// store view state. By default it permits all navigation.
     pub fn set_navigation_handler(&self, handler: Box<dyn NavEventHandler>) {

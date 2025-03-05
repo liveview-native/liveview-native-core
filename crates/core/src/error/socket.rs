@@ -38,6 +38,8 @@ pub enum LiveSocketError {
     InvalidMethod { error: String },
     #[error("Phoenix socket rejected join attempt with - {error}")]
     JoinRejection { error: Payload },
+    #[error("Phoenix socket rejected join attempt with - {error} \n No attempt to reconnect could be made.")]
+    FinalJoinFailure { error: Payload },
     #[error("Phoenix Socket Error - {error}")]
     Phoenix { error: String },
     #[error("Reqwest Error - {error}")]
