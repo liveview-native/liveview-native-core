@@ -294,7 +294,7 @@ impl Emitter for DocumentEmitter {
             Token::Doctype(_)
         ));
         let doctype = smallvec_to_smallstr(mem::take(&mut self.current_doctype));
-        self.emit_token(Token::Doctype(doctype.into()));
+        self.emit_token(Token::Doctype(doctype));
     }
 
     #[inline(always)]

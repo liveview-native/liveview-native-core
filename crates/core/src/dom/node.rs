@@ -235,10 +235,9 @@ impl From<String> for ElementName {
 impl From<ElementName> for String {
     fn from(val: ElementName) -> Self {
         if val.namespace.is_none() {
-            val.name.into()
+            val.name
         } else {
-            let string = val.to_string();
-            string.into()
+            val.to_string()
         }
     }
 }
