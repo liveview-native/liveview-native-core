@@ -46,7 +46,7 @@ defmodule TestServer.MixProject do
       {:telemetry_poller, "~> 1.1"},
       {:gettext, "~> 0.24"},
       {:jason, "~> 1.4"},
-      {:dns_cluster, "~> 0.1.3"},
+      {:dns_cluster, "~> 0.2.0"},
       {:plug_cowboy, "~> 2.7"},
       {:live_view_native, github: "liveview-native/live_view_native", branch: "main", override: true},
       {:live_view_native_stylesheet, github: "liveview-native/live_view_native_stylesheet", branch: "main"},
