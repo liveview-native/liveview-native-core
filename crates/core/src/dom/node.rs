@@ -5,7 +5,6 @@ use petgraph::graph::{IndexType, NodeIndex};
 use smallstr::SmallString;
 
 use super::{ffi::Document as FFiDocument, Attribute, AttributeName};
-use crate::{InternedString, Symbol};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, uniffi::Object)]
 pub struct NodeRef(pub(crate) u32);
@@ -227,30 +226,23 @@ impl From<&str> for ElementName {
         }
     }
 }
-impl From<InternedString> for ElementName {
+impl From<String> for ElementName {
     #[inline]
-    fn from(s: InternedString) -> Self {
+    fn from(s: String) -> Self {
         Self::from(s.as_str())
     }
 }
-impl From<Symbol> for ElementName {
-    #[inline]
-    fn from(s: Symbol) -> Self {
-        Self::from(InternedString::from(s))
-    }
-}
-impl From<ElementName> for InternedString {
+impl From<ElementName> for String {
     fn from(val: ElementName) -> Self {
         if val.namespace.is_none() {
-            val.name.into()
+            val.name
         } else {
-            let string = val.to_string();
-            string.into()
+            val.to_string()
         }
     }
 }
-impl PartialEq<InternedString> for ElementName {
-    fn eq(&self, other: &InternedString) -> bool {
+impl PartialEq<String> for ElementName {
+    fn eq(&self, other: &String) -> bool {
         let name = Self::from(other.as_str());
         self.eq(&name)
     }
