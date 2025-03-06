@@ -73,7 +73,6 @@ pub async fn join_liveview_channel(
 
 pub async fn join_livereload_channel(
     config: &LiveViewClientConfiguration,
-    socket: &Mutex<Arc<Socket>>,
     session_data: &Mutex<SessionData>,
     cookies: Option<Vec<String>>,
 ) -> Result<Arc<LiveChannel>, LiveSocketError> {
@@ -116,9 +115,7 @@ pub async fn join_livereload_channel(
         channel,
         join_params: Default::default(),
         join_payload,
-        // Q: I copy pasted this from the old implementation,
-        // why use the old socket ?
-        socket: socket.try_lock()?.clone(),
+        socket: new_socket,
         document: document.into(),
         timeout: ws_timeout,
     }

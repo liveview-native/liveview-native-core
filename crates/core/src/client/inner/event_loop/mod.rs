@@ -92,6 +92,7 @@ impl EventLoop {
             state
                 .refresh_view(Issuer::External(NavigationCall::Initialization), true)
                 .await;
+
             // the main event loop
             loop {
                 let mut view_refresh_issuer = None;
@@ -182,6 +183,10 @@ impl EventLoop {
         });
     }
 
+    pub fn shutdown(&self) {
+        self.cancellation_token.cancel()
+    }
+
     pub async fn handle_navigation_summary(
         &self,
         summary: Result<NavigationSummary, LiveSocketError>,
@@ -192,6 +197,7 @@ impl EventLoop {
                 self.refresh_view(res.websocket_reconnected, issuer);
                 Ok(res.history_id)
             }
+            // Join was rejected with cause information
             Err(LiveSocketError::JoinRejection { error }) => {
                 let mut result = self.handle_navigation_error(&error).await;
                 let mut retry_count = 0;
@@ -236,7 +242,9 @@ impl EventLoop {
 
         match action {
             ReplyAction::Redirected { summary, .. } => Ok(summary.history_id),
-            _ => Err(LiveSocketError::JoinRejection {
+            // If the navigation error payload didn't include actionable
+            // redirect data or other ways to recover bubble the error up again.
+            _ => Err(LiveSocketError::FinalJoinFailure {
                 error: payload.clone(),
             }),
         }

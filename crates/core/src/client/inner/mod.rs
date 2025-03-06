@@ -105,6 +105,10 @@ impl LiveViewClientInner {
         Ok(())
     }
 
+    pub(crate) fn shutdown(&self) {
+        self.event_loop.shutdown();
+    }
+
     pub async fn upload_file(&self, file: Arc<LiveFile>) -> Result<(), LiveSocketError> {
         let chan = self.channel()?;
         chan.upload_file(&file).await?;
@@ -321,7 +325,7 @@ impl LiveViewClientState {
 
         let livereload_channel = if session_data.try_lock()?.has_live_reload {
             debug!("Joining liveReload Channel");
-            join_livereload_channel(&config, &socket, &session_data, cookies)
+            join_livereload_channel(&config, &session_data, cookies)
                 .await?
                 .into()
         } else {
@@ -407,20 +411,11 @@ impl LiveViewClientState {
         if has_reload {
             debug!("Rejoining livereload channel");
             let new_livereload =
-                join_livereload_channel(&self.config, &self.socket, &self.session_data, cookies)
-                    .await?;
+                join_livereload_channel(&self.config, &self.session_data, cookies).await?;
             let old = self.livereload_channel.try_lock()?.take();
 
             if let Some(channel) = old {
-                match channel.socket.status() {
-                    SocketStatus::Connected | SocketStatus::WaitingToReconnect { .. } => {
-                        // there is no recovering from a failed attempt here
-                        // also this might panic and we can't check preconditions
-                        let _ = channel.socket.shutdown().await;
-                    }
-                    // terminal states
-                    _ => {}
-                }
+                let _ = channel.socket.shutdown().await;
             }
 
             *self.livereload_channel.try_lock()? = Some(new_livereload);

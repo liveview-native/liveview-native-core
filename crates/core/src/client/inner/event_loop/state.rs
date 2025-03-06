@@ -219,10 +219,12 @@ impl EventLoopState {
         let sock = self.client_state.socket.try_lock().map(|s| s.clone()).ok();
         if let Some(sock) = sock {
             let _ = sock.shutdown().await;
+            log::info!("Shutdown main socket.")
         }
 
         if let Some(live_reload) = &self.live_reload {
             let _ = live_reload.channel.socket.shutdown().await;
+            log::info!("Shutdown livereload socket.")
         }
     }
 
