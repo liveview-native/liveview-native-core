@@ -2,8 +2,6 @@ use std::fmt::{self, Write};
 
 use smallstr::SmallString;
 
-use crate::InternedString;
-
 /// Represents the fully-qualified name of an attribute
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, uniffi::Record)]
 pub struct AttributeName {
@@ -45,8 +43,8 @@ impl From<&str> for AttributeName {
         }
     }
 }
-impl From<InternedString> for AttributeName {
-    fn from(s: InternedString) -> Self {
+impl From<String> for AttributeName {
+    fn from(s: String) -> Self {
         AttributeName::new(s)
     }
 }

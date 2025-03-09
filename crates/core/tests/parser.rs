@@ -1,7 +1,4 @@
-use liveview_native_core::{
-    dom::{AttributeName, Document, NodeData},
-    InternedString,
-};
+use liveview_native_core::dom::{AttributeName, Document, NodeData};
 
 #[test]
 fn parser_simple() {
@@ -64,6 +61,6 @@ fn parser_preserve_upcase() {
     let NodeData::NodeElement { element } = element else {
         panic!("expected element");
     };
-    let expected_name: InternedString = "Component".into();
+    let expected_name: String = "Component".into();
     assert_eq!(element.name, expected_name);
 }
