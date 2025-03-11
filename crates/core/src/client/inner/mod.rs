@@ -98,7 +98,7 @@ impl LiveViewClientInner {
 
     // not for internal use
     pub(crate) async fn disconnect(&self) -> Result<(), LiveSocketError> {
-        let socket = self.state.socket.try_lock()?.clone();
+        let socket = self.state.socket.lock()?.clone();
         let _ = socket.disconnect().await;
         self.event_loop
             .refresh_view(true, Issuer::External(NavigationCall::Disconnect));
@@ -110,7 +110,7 @@ impl LiveViewClientInner {
     }
 
     pub async fn upload_file(&self, file: Arc<LiveFile>) -> Result<(), LiveSocketError> {
-        let chan = self.channel()?;
+        let chan = self.state.liveview_channel.lock()?.clone();
         chan.upload_file(&file).await?;
         Ok(())
     }
@@ -118,56 +118,52 @@ impl LiveViewClientInner {
     pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {
         self.state
             .liveview_channel
-            .try_lock()?
+            .lock()?
             .get_phx_upload_id(phx_target_name)
-    }
-
-    pub fn channel(&self) -> Result<Arc<LiveChannel>, LiveSocketError> {
-        Ok(self.state.liveview_channel.try_lock()?.clone())
     }
 
     // TODO: a live reload channel is distinct from a live channel in a couple important
     // ways, it should be it's own struct.
     pub fn live_reload_channel(&self) -> Result<Option<Arc<LiveChannel>>, LiveSocketError> {
-        Ok(self.state.livereload_channel.try_lock()?.clone())
+        Ok(self.state.livereload_channel.lock()?.clone())
     }
 
     pub fn join_url(&self) -> Result<String, LiveSocketError> {
-        Ok(self.state.session_data.try_lock()?.url.to_string())
+        Ok(self.state.session_data.lock()?.url.to_string())
     }
 
     pub fn csrf_token(&self) -> Result<String, LiveSocketError> {
-        Ok(self.state.session_data.try_lock()?.csrf_token.clone())
+        Ok(self.state.session_data.lock()?.csrf_token.clone())
     }
 
     /// Returns the current document state.
     pub fn document(&self) -> Result<FFIDocument, LiveSocketError> {
-        Ok(self.state.liveview_channel.try_lock()?.document())
+        Ok(self.state.liveview_channel.lock()?.document())
     }
 
     /// Returns the state of the document upon the initial websocket connection.
     pub fn join_document(&self) -> Result<Document, LiveSocketError> {
-        self.state.liveview_channel.try_lock()?.join_document()
+        self.state.liveview_channel.lock()?.join_document()
     }
 
     /// returns the join payload
     pub fn join_payload(&self) -> Result<Payload, LiveSocketError> {
-        Ok(self.state.liveview_channel.try_lock()?.join_payload.clone())
+        Ok(self.state.liveview_channel.lock()?.join_payload.clone())
     }
 
     /// To establish the websocket connection, the client depends on an initial HTTP
     /// request pull an html document and extract several pieces of meta data from it.
     /// This function returns that initial document.
     pub fn dead_render(&self) -> Result<Document, LiveSocketError> {
-        Ok(self.state.session_data.try_lock()?.dead_render.clone())
+        Ok(self.state.session_data.lock()?.dead_render.clone())
     }
 
     pub fn style_urls(&self) -> Result<Vec<String>, LiveSocketError> {
-        Ok(self.state.session_data.try_lock()?.style_urls.clone())
+        Ok(self.state.session_data.lock()?.style_urls.clone())
     }
 
-    pub fn status(&self) -> Result<SocketStatus, LiveSocketError> {
-        Ok(self.state.socket.try_lock()?.status())
+    pub fn socket_status(&self) -> Result<SocketStatus, LiveSocketError> {
+        Ok(self.state.socket.lock()?.status())
     }
 
     // not for internal use
@@ -323,7 +319,7 @@ impl LiveViewClientState {
                 .arc_set_event_handler(handler.clone())
         }
 
-        let livereload_channel = if session_data.try_lock()?.has_live_reload {
+        let livereload_channel = if session_data.lock()?.has_live_reload {
             debug!("Joining liveReload Channel");
             join_livereload_channel(&config, &session_data, cookies)
                 .await?
@@ -384,12 +380,12 @@ impl LiveViewClientState {
 
         let socket = Socket::spawn(websocket_url, cookies.clone(), adapter).await?;
 
-        let old_socket = self.socket.try_lock()?.clone();
+        let old_socket = self.socket.lock()?.clone();
         let _ = old_socket.shutdown().await;
 
-        *self.socket.try_lock()? = socket;
+        *self.socket.lock()? = socket;
 
-        *self.session_data.try_lock()? = new_session;
+        *self.session_data.lock()? = new_session;
         let ws_timeout = Duration::from_millis(self.config.websocket_timeout);
         debug!("Rejoining liveview channel");
         let new_channel = join_liveview_channel(
@@ -405,20 +401,20 @@ impl LiveViewClientState {
             new_channel.document.arc_set_event_handler(handler.clone());
         }
 
-        *self.liveview_channel.try_lock()? = new_channel;
-        let has_reload = self.session_data.try_lock()?.has_live_reload;
+        *self.liveview_channel.lock()? = new_channel;
+        let has_reload = self.session_data.lock()?.has_live_reload;
 
         if has_reload {
             debug!("Rejoining livereload channel");
             let new_livereload =
                 join_livereload_channel(&self.config, &self.session_data, cookies).await?;
-            let old = self.livereload_channel.try_lock()?.take();
+            let old = self.livereload_channel.lock()?.take();
 
             if let Some(channel) = old {
                 let _ = channel.socket.shutdown().await;
             }
 
-            *self.livereload_channel.try_lock()? = Some(new_livereload);
+            *self.livereload_channel.lock()? = Some(new_livereload);
         }
 
         Ok(())
@@ -438,13 +434,13 @@ impl LiveViewClientState {
     ) -> Result<bool, LiveSocketError> {
         let current = self
             .nav_ctx
-            .try_lock()?
+            .lock()?
             .current()
             .ok_or(LiveSocketError::NavigationImpossible)?;
 
         let ws_timeout = Duration::from_millis(self.config.websocket_timeout);
 
-        let chan = self.liveview_channel.try_lock()?.channel();
+        let chan = self.liveview_channel.lock()?.channel();
         chan.leave().await?;
 
         match join_liveview_channel(
@@ -504,15 +500,15 @@ impl LiveViewClientState {
                 )
                 .await?;
 
-                let sock = self.socket.try_lock()?.clone();
+                let sock = self.socket.lock()?.clone();
                 sock.shutdown()
                     .await
                     .map_err(|e| LiveSocketError::Phoenix {
                         error: format!("{e:?}"),
                     })?;
 
-                *self.socket.try_lock()? = new_socket;
-                *self.session_data.try_lock()? = new_session_data;
+                *self.socket.lock()? = new_socket;
+                *self.session_data.lock()? = new_session_data;
 
                 let channel = join_liveview_channel(
                     &self.socket,
@@ -529,14 +525,14 @@ impl LiveViewClientState {
                         .arc_set_event_handler(event_handler.clone())
                 }
 
-                let chan = &self.liveview_channel.try_lock()?.channel.clone();
+                let chan = &self.liveview_channel.lock()?.channel.clone();
                 chan.leave().await?;
 
-                *self.liveview_channel.try_lock()? = channel;
+                *self.liveview_channel.lock()? = channel;
                 Ok(true)
             }
             Ok(channel) => {
-                let chan = &self.liveview_channel.try_lock()?.channel.clone();
+                let chan = &self.liveview_channel.lock()?.channel.clone();
                 chan.leave().await?;
 
                 if let Some(event_handler) = &self.config.patch_handler {
@@ -545,7 +541,7 @@ impl LiveViewClientState {
                         .arc_set_event_handler(event_handler.clone())
                 }
 
-                *self.liveview_channel.try_lock()? = channel;
+                *self.liveview_channel.lock()? = channel;
                 Ok(false)
             }
             Err(e) => Err(e),
@@ -563,7 +559,7 @@ impl LiveViewClientState {
         // try the navigation action, if it's impossible the returned
         // history id will be None.
         let new_id = {
-            let mut nav_ctx = self.nav_ctx.try_lock()?;
+            let mut nav_ctx = self.nav_ctx.lock()?;
             nav_action(&mut nav_ctx)
         };
 
@@ -614,7 +610,7 @@ impl LiveViewClientState {
     }
 
     fn patch(&self, url_path: String) -> Result<NavigationSummary, LiveSocketError> {
-        let id = self.nav_ctx.try_lock()?.patch(url_path, true);
+        let id = self.nav_ctx.lock()?.patch(url_path, true);
 
         Ok(NavigationSummary {
             history_id: id.unwrap_or(0),

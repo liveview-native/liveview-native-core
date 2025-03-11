@@ -27,13 +27,13 @@ pub async fn join_liveview_channel(
     redirect: Option<String>,
     ws_timeout: std::time::Duration,
 ) -> Result<Arc<LiveChannel>, LiveSocketError> {
-    let sock = socket.try_lock()?.clone();
+    let sock = socket.lock()?.clone();
     sock.connect(ws_timeout).await?;
 
     let sent_join_payload = session_data
-        .try_lock()?
+        .lock()?
         .create_join_payload(additional_params, redirect);
-    let topic = Topic::from_string(format!("lv:{}", session_data.try_lock()?.phx_id));
+    let topic = Topic::from_string(format!("lv:{}", session_data.lock()?.phx_id));
     let channel = sock.channel(topic, Some(sent_join_payload)).await?;
 
     let join_payload = channel.join(ws_timeout).await?;
@@ -64,7 +64,7 @@ pub async fn join_liveview_channel(
         channel,
         join_payload,
         join_params: additional_params.clone().unwrap_or_default(),
-        socket: socket.try_lock()?.clone(),
+        socket: socket.lock()?.clone(),
         document: document.into(),
         timeout: ws_timeout,
     }
@@ -78,7 +78,7 @@ pub async fn join_livereload_channel(
 ) -> Result<Arc<LiveChannel>, LiveSocketError> {
     let ws_timeout = Duration::from_millis(config.websocket_timeout);
 
-    let mut url = session_data.try_lock()?.url.clone();
+    let mut url = session_data.lock()?.url.clone();
 
     let websocket_scheme = match url.scheme() {
         "https" => "wss",

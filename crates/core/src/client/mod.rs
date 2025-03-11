@@ -138,8 +138,9 @@ impl LiveViewClientBuilder {
         config.format.clone()
     }
 
-    /// Attempt to establish a new, connected [LiveViewClient] with the param set above
-    pub async fn connect(
+    /// Attempt to establish a new, connected [LiveViewClient] with the given configuration.
+    /// Returns a [LiveViewClient] in a potentially failed state.
+    pub async fn build(
         &self,
         url: String,
         opts: ClientConnectOpts,
@@ -196,10 +197,8 @@ impl LiveViewClient {
     /// not responded to or respect in the main event loop, this means there will be
     /// no progress updates as the file is uploaded.
     pub async fn upload_files(&self, files: Vec<Arc<LiveFile>>) -> Result<(), LiveSocketError> {
-        let chan = self.inner.channel()?;
-        let futs = files.iter().map(|file| chan.upload_file(file));
+        let futs = files.into_iter().map(|file| self.inner.upload_file(file));
         try_join_all(futs).await?;
-
         Ok(())
     }
 
@@ -245,6 +244,14 @@ impl LiveViewClient {
         let inner = self.inner.create_channel();
         LiveViewClientChannel { inner }
     }
+}
+
+#[derive(uniffi::Enum, Clone, Debug, PartialEq)]
+pub enum Status {
+    Connected,
+    Reconnecting,
+    Disconnected,
+    FatalError { error: String },
 }
 
 // Navigation-related functionality ported from LiveSocket
@@ -324,15 +331,6 @@ impl LiveViewClient {
         self.inner.get_phx_upload_id(phx_target_name)
     }
 
-    // TODO: the live reload channel should not be a user concern. It can appear in
-    // an error page, as well as a successful dead render, the client config should have a callback handler
-    // which any given live reload channel can use
-    /// Returns the live reload channel if it exists, you should not need to listen for
-    /// `asset_change` events on this for any reason - this API is intended to be deprecated.
-    pub fn live_reload_channel(&self) -> Result<Option<Arc<LiveChannel>>, LiveSocketError> {
-        self.inner.live_reload_channel()
-    }
-
     /// Returns the url which provided the current views dead render.
     pub fn join_url(&self) -> Result<String, LiveSocketError> {
         self.inner.join_url()
@@ -374,8 +372,8 @@ impl LiveViewClient {
     }
 
     /// Returns the current socket status
-    pub fn status(&self) -> Result<SocketStatus, LiveSocketError> {
-        self.inner.status()
+    pub fn socket_status(&self) -> Result<SocketStatus, LiveSocketError> {
+        self.inner.socket_status()
     }
 }
 

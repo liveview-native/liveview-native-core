@@ -126,8 +126,8 @@ impl LiveSocket {
                     });
                 }
 
-                let format = self.session_data.try_lock()?.format.clone();
-                let options = self.session_data.try_lock()?.connect_opts.clone();
+                let format = self.session_data.lock()?.format.clone();
+                let options = self.session_data.lock()?.connect_opts.clone();
 
                 //TODO: punt the to an argument. move this on to the LiveViewClient
                 #[cfg(not(test))]
@@ -157,8 +157,8 @@ impl LiveSocket {
                     .await
                     .map_err(|_| LiveSocketError::DisconnectionError)?;
 
-                *self.socket.try_lock()? = socket;
-                *self.session_data.try_lock()? = session_data;
+                *self.socket.lock()? = socket;
+                *self.session_data.lock()? = session_data;
                 self.join_liveview_channel(join_params, None).await
             }
             // Just reconnect or bail

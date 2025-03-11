@@ -152,15 +152,6 @@ impl std::fmt::Debug for ConnectionError {
 // These are all manually implemented and turned into a string because uniffi doesn't support
 // exported error types in the generations.
 
-impl<T> From<std::sync::TryLockError<T>> for LiveSocketError {
-    fn from(value: std::sync::TryLockError<T>) -> Self {
-        match value {
-            std::sync::TryLockError::Poisoned(_) => Self::LockPoisoned,
-            std::sync::TryLockError::WouldBlock => Self::WouldLock,
-        }
-    }
-}
-
 impl<T> From<std::sync::PoisonError<T>> for LiveSocketError {
     fn from(_: std::sync::PoisonError<T>) -> Self {
         Self::LockPoisoned

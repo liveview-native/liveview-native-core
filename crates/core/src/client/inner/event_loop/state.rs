@@ -315,7 +315,7 @@ impl EventLoopState {
     async fn handle_redirect(&self, redirect: &JSON) -> Result<NavigationSummary, LiveSocketError> {
         let json = redirect.clone().into();
         let redirect: LiveRedirect = serde_json::from_value(json)?;
-        let url = self.client_state.session_data.try_lock()?.url.clone();
+        let url = self.client_state.session_data.lock()?.url.clone();
         let url = url.join(&redirect.to)?;
 
         let action = match redirect.kind {
@@ -391,12 +391,7 @@ impl EventLoopState {
                         return Ok(());
                     };
 
-                    let opts = self
-                        .client_state
-                        .session_data
-                        .try_lock()?
-                        .connect_opts
-                        .clone();
+                    let opts = self.client_state.session_data.lock()?.connect_opts.clone();
 
                     let join_params = self.live_view_channel.channel.join_params.clone();
 
