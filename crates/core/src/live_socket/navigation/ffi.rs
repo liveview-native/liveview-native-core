@@ -25,7 +25,7 @@ pub enum NavAction {
 }
 
 /// Options for calls to [NavCtx::navigate]
-#[derive(Default, uniffi::Record)]
+#[derive(Default, Clone, uniffi::Record)]
 pub struct NavOptions {
     /// Additional params to be passed upon joining the liveview channel.
     #[uniffi(default = None)]
@@ -40,6 +40,16 @@ pub struct NavOptions {
     /// revisiting a given view.
     #[uniffi(default = None)]
     pub state: Option<Vec<u8>>,
+}
+
+impl From<NavActionOptions> for NavOptions {
+    fn from(value: NavActionOptions) -> Self {
+        Self {
+            join_params: value.join_params,
+            extra_event_info: value.extra_event_info,
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Default, uniffi::Record)]

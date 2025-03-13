@@ -46,7 +46,7 @@ pub enum RenderError {
     ParseError(#[from] crate::dom::ParseError),
 }
 
-#[derive(Debug, thiserror::Error, uniffi::Error)]
+#[derive(Debug, Clone, thiserror::Error, uniffi::Error)]
 #[uniffi(flat_error)]
 pub enum StreamConversionError {
     #[error("There was no stream ID for this ")]

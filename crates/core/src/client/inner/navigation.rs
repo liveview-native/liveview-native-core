@@ -21,6 +21,24 @@ impl std::fmt::Debug for HandlerInternal {
     }
 }
 
+#[derive(Debug, Clone, thiserror::Error, uniffi::Error)]
+pub enum NavigationError {
+    #[error("Navigation was prevented by a user handler")]
+    PreventedByHandler,
+    #[error("Invalid URL: {reason}")]
+    InvalidUrl { reason: String },
+    #[error("No current entry in navigation history")]
+    NoCurrentEntry,
+    #[error("Cannot navigate back: history is empty or has only one entry")]
+    CannotGoBack,
+    #[error("Cannot navigate forward: no forward entries available")]
+    CannotGoForward,
+    #[error("Cannot traverse to ID {id}: not found in history")]
+    CannotTraverseToId { id: HistoryId },
+    #[error("Navigation failed: {reason}")]
+    Other { reason: String },
+}
+
 /// The internal navigation context.
 /// handles the history state of the visited views.
 #[derive(Debug, Clone, Default)]
@@ -38,7 +56,12 @@ pub struct NavCtx {
 impl NavCtx {
     /// Navigate to `url` with behavior and metadata specified in `opts`.
     /// Returns the current history ID if changed
-    pub fn navigate(&mut self, url: Url, opts: NavOptions, emit_event: bool) -> Option<HistoryId> {
+    pub fn navigate(
+        &mut self,
+        url: Url,
+        opts: NavOptions,
+        emit_event: bool,
+    ) -> Result<HistoryId, NavigationError> {
         let action = opts.action.clone();
         let next_dest = self.speculative_next_dest(&url, opts.state.clone());
         let next_id = next_dest.id;
@@ -56,7 +79,7 @@ impl NavCtx {
 
         match self.handle_event(event, emit_event) {
             HandlerResponse::Default => {}
-            HandlerResponse::PreventDefault => return None,
+            HandlerResponse::PreventDefault => return Err(NavigationError::PreventedByHandler),
         };
 
         match action {
@@ -67,14 +90,24 @@ impl NavCtx {
         // successful navigation invalidates previously coalesced state from
         // calls to `back`
         self.future.clear();
-        Some(next_id)
+        Ok(next_id)
     }
 
-    pub fn patch(&mut self, url_path: String, emit_event: bool) -> Option<HistoryId> {
-        let old_dest = self.current()?;
+    pub fn patch(
+        &mut self,
+        url_path: String,
+        emit_event: bool,
+    ) -> Result<HistoryId, NavigationError> {
+        let old_dest = self.current().ok_or(NavigationError::NoCurrentEntry)?;
         let old_id = old_dest.id;
-        let old_url = Url::parse(&old_dest.url).ok()?;
-        let new_url = old_url.join(&url_path).ok()?;
+        let old_url = Url::parse(&old_dest.url).map_err(|e| NavigationError::InvalidUrl {
+            reason: format!("{e:?}"),
+        })?;
+        let new_url = old_url
+            .join(&url_path)
+            .map_err(|_| NavigationError::InvalidUrl {
+                reason: "Join Failed".into(),
+            })?;
 
         let new_dest =
             NavHistoryEntry::new(new_url.to_string(), old_dest.id, old_dest.state.clone());
@@ -82,13 +115,11 @@ impl NavCtx {
         let event = NavEvent::new(NavEventType::Patch, new_dest.clone(), old_dest.into(), None);
 
         match self.handle_event(event, emit_event) {
-            HandlerResponse::Default => {
-                self.replace_entry(new_dest);
-            }
-            HandlerResponse::PreventDefault => return None,
+            HandlerResponse::Default => {}
+            HandlerResponse::PreventDefault => return Err(NavigationError::PreventedByHandler),
         };
 
-        Some(old_id)
+        Ok(old_id)
     }
 
     // Returns true if the navigator can go back one entry.
@@ -120,31 +151,39 @@ impl NavCtx {
     }
 
     /// Calls the handler for reload events
-    pub fn reload(&mut self, info: Option<Vec<u8>>, emit_event: bool) -> Option<HistoryId> {
-        let current = self.current()?;
+    pub fn reload(
+        &mut self,
+        info: Option<Vec<u8>>,
+        emit_event: bool,
+    ) -> Result<HistoryId, NavigationError> {
+        let current = self.current().ok_or(NavigationError::NoCurrentEntry)?;
         let id = current.id;
 
         let event = NavEvent::new(NavEventType::Reload, current.clone(), current.into(), info);
 
         match self.handle_event(event, emit_event) {
             HandlerResponse::Default => {}
-            HandlerResponse::PreventDefault => return None,
+            HandlerResponse::PreventDefault => return Err(NavigationError::PreventedByHandler),
         };
 
-        Some(id)
+        Ok(id)
     }
 
     /// Navigates back one step in the stack, returning the id of the new
     /// current entry if successful.
     /// This function fails if there is no current
     /// page or if there are no items in history and returns [None].
-    pub fn back(&mut self, info: Option<Vec<u8>>, emit_event: bool) -> Option<HistoryId> {
+    pub fn back(
+        &mut self,
+        info: Option<Vec<u8>>,
+        emit_event: bool,
+    ) -> Result<HistoryId, NavigationError> {
         if !self.can_go_back() {
             log::warn!("Attempted `back` navigation without at minimum two entries.");
-            return None;
+            return Err(NavigationError::CannotGoBack);
         }
 
-        let previous = self.current()?;
+        let previous = self.current().ok_or(NavigationError::NoCurrentEntry)?;
 
         let next = self.history[self.history.len() - 2].clone();
 
@@ -156,38 +195,42 @@ impl NavCtx {
 
         match self.handle_event(event, emit_event) {
             HandlerResponse::Default => {
-                let previous = self.history.pop()?;
-                let out = Some(next.id);
+                let previous = self.history.pop().expect("precondition");
+                let out = Ok(next.id);
                 self.future.push(previous);
                 out
             }
-            HandlerResponse::PreventDefault => None,
+            HandlerResponse::PreventDefault => Err(NavigationError::PreventedByHandler),
         }
     }
 
     /// Navigate one step forward, fails if there is not at least one
     /// item in the history and future stacks.
-    pub fn forward(&mut self, info: Option<Vec<u8>>, emit_event: bool) -> Option<HistoryId> {
+    pub fn forward(
+        &mut self,
+        info: Option<Vec<u8>>,
+        emit_event: bool,
+    ) -> Result<HistoryId, NavigationError> {
         if !self.can_go_forward() {
             log::warn!(
                 "Attempted `future` navigation with an no current location or no next entry."
             );
-            return None;
+            return Err(NavigationError::CannotGoForward);
         }
 
-        let next = self.future.last().cloned()?;
+        let next = self.future.last().cloned().expect("precondition");
         let previous = self.current();
 
         let event = NavEvent::new(NavEventType::Push, next, previous, info);
 
         match self.handle_event(event, emit_event) {
             HandlerResponse::Default => {
-                let next = self.future.pop()?;
-                let out = Some(next.id);
+                let next = self.future.pop().expect("precondition");
+                let out = Ok(next.id);
                 self.push_entry(next);
                 out
             }
-            HandlerResponse::PreventDefault => None,
+            HandlerResponse::PreventDefault => Err(NavigationError::PreventedByHandler),
         }
     }
 
@@ -196,13 +239,13 @@ impl NavCtx {
         id: HistoryId,
         info: Option<Vec<u8>>,
         emit_event: bool,
-    ) -> Option<HistoryId> {
+    ) -> Result<HistoryId, NavigationError> {
         if !self.can_traverse_to(id) {
             log::warn!("Attempted to traverse to an untracked ID!");
-            return None;
+            return Err(NavigationError::CannotTraverseToId { id });
         }
 
-        let old_dest = self.current()?;
+        let old_dest = self.current().ok_or(NavigationError::NoCurrentEntry)?;
         let in_hist = self.history.iter().position(|ent| ent.id == id);
         if let Some(entry) = in_hist {
             let new_dest = self.history[entry].clone();
@@ -211,13 +254,13 @@ impl NavCtx {
 
             match self.handle_event(event, emit_event) {
                 HandlerResponse::Default => {}
-                HandlerResponse::PreventDefault => return None,
+                HandlerResponse::PreventDefault => return Err(NavigationError::PreventedByHandler),
             };
 
             // All entries except the target
             let ext = self.history.drain(entry + 1..);
             self.future.extend(ext.rev());
-            return Some(id);
+            return Ok(id);
         }
 
         let in_fut = self.future.iter().position(|ent| ent.id == id);
@@ -228,16 +271,16 @@ impl NavCtx {
 
             match self.handle_event(event, emit_event) {
                 HandlerResponse::Default => {}
-                HandlerResponse::PreventDefault => return None,
+                HandlerResponse::PreventDefault => return Err(NavigationError::PreventedByHandler),
             };
 
             // All entries including the target, which will be at the front.
             let ext = self.future.drain(entry..);
             self.history.extend(ext.rev());
-            return Some(id);
+            return Ok(id);
         }
 
-        None
+        Err(NavigationError::CannotTraverseToId { id })
     }
 
     /// Returns the current history entry and state

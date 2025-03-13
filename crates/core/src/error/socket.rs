@@ -7,6 +7,7 @@ use phoenix_channels_client::{
 };
 
 use crate::{
+    client::NavigationError,
     diff::fragment::{MergeError, RenderError},
     dom::ParseError,
     live_socket::LiveChannel,
@@ -14,6 +15,11 @@ use crate::{
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum LiveSocketError {
+    #[error("Call to navigation function failed: {error}.")]
+    NavigationError {
+        #[from]
+        error: NavigationError,
+    },
     #[error("call to `call` failed: {error}.")]
     Call { error: String },
     #[error("call to `cast` failed: {error}.")]

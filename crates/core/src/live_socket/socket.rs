@@ -159,7 +159,7 @@ enum UrlOrRedirect {
 impl SessionData {
     pub async fn request(
         url: &Url,
-        format: &String,
+        format: &str,
         connect_opts: ConnectOpts,
         client: Client,
     ) -> Result<Self, LiveSocketError> {

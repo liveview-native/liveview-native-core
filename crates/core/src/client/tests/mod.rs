@@ -38,7 +38,7 @@ async fn test_basic_connection() {
     let mut config = LiveViewClientConfiguration::default();
     config.log_level = LogLevel::Debug;
     config.format = Platform::Swiftui;
-    let client = LiveViewClient::initial_connect(config, url, Default::default())
+    let client = LiveViewClient::new(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -102,7 +102,7 @@ async fn test_style_urls() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::initial_connect(config, url, Default::default())
+    let client = LiveViewClient::new(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -119,7 +119,7 @@ async fn test_basic_navigation() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::initial_connect(config, url, Default::default())
+    let client = LiveViewClient::new(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -167,7 +167,7 @@ async fn test_back_and_forward_navigation() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::initial_connect(config, url, Default::default())
+    let client = LiveViewClient::new(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -268,11 +268,10 @@ async fn thermostat_click() {
         ..Default::default()
     };
 
-    let client = LiveViewClient::initial_connect(config, url, Default::default())
+    let client = LiveViewClient::new(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
-    let channel = client.create_channel();
     let initial_doc = client.document().expect("Failed to get initial page");
 
     let expected = r#"
@@ -289,7 +288,7 @@ async fn thermostat_click() {
     assert_doc_eq!(expected, initial_doc.to_string());
 
     let payload = json_payload!({"type": "click", "event": "inc_temperature", "value": {}});
-    channel
+    client
         .call("event".into(), payload)
         .await
         .expect("error on click");

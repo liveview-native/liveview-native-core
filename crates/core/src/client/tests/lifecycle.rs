@@ -7,7 +7,7 @@ use serde_json::json;
 use super::{json_payload, HOST};
 use crate::{
     client::{
-        HandlerResponse, Issuer, LiveChannelStatus, LiveViewClientConfiguration, NavEvent,
+        ClientStatus, HandlerResponse, LiveChannelStatus, LiveViewClientConfiguration, NavEvent,
         NavEventHandler, NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
     },
     dom::{self},
@@ -21,7 +21,7 @@ pub enum MockMessage {
     NetworkEvent(Event, Payload),
     ChannelStatus(LiveChannelStatus),
     SocketStatus(SocketStatus),
-    ViewReload { issuer: Issuer, socket_is_new: bool },
+    ViewReload,
 }
 
 #[macro_export]
@@ -114,33 +114,13 @@ impl MockNetworkEventHandler {
 
 #[cfg(feature = "liveview-channels")]
 impl NetworkEventHandler for MockNetworkEventHandler {
-    fn handle_event(&self, event: EventPayload) {
+    fn on_event(&self, event: EventPayload) {
         self.message_store
             .add_message(MockMessage::NetworkEvent(event.event, event.payload));
     }
 
-    fn handle_channel_status_change(&self, event: LiveChannelStatus) {
-        self.message_store
-            .add_message(MockMessage::ChannelStatus(event));
-    }
-
-    fn handle_socket_status_change(&self, event: SocketStatus) {
-        self.message_store
-            .add_message(MockMessage::SocketStatus(event));
-    }
-
-    fn handle_view_reloaded(
-        &self,
-        issuer: Issuer,
-        _new_document: Arc<dom::ffi::Document>,
-        _new_channel: Arc<LiveChannel>,
-        _current_socket: Arc<Socket>,
-        socket_is_new: bool,
-    ) {
-        self.message_store.add_message(MockMessage::ViewReload {
-            issuer,
-            socket_is_new,
-        });
+    fn on_status_change(&self, status: ClientStatus) {
+        self.message_store.add_message(MockMessage::ViewReload);
     }
 }
 
@@ -156,7 +136,7 @@ async fn test_navigation_handler() {
     config.navigation_handler = Some(nav_handler);
     config.network_event_handler = Some(net_handler);
 
-    let client = LiveViewClient::initial_connect(config, url.clone(), Default::default())
+    let client = LiveViewClient::new(config, url.clone(), Default::default())
         .await
         .expect("Failed to create client");
 
@@ -190,7 +170,7 @@ async fn test_redirect_internals() {
     config.navigation_handler = Some(nav_handler);
     config.network_event_handler = Some(net_handler);
 
-    let client = LiveViewClient::initial_connect(config, url.clone(), Default::default())
+    let client = LiveViewClient::new(config, url.clone(), Default::default())
         .await
         .expect("Failed to create client");
 
@@ -232,9 +212,8 @@ async fn test_redirect_internals() {
         .expect("nav failed");
 
     // call a patch handler, patches can only happen after mount
-    let channel = client.create_channel();
     let payload = json_payload!({"type": "click", "event": "patchme", "value": {}});
-    channel
+    client
         .call("event".into(), payload)
         .await
         .expect("error on click");

@@ -3,9 +3,12 @@ use std::{sync::Arc, time::Duration};
 #[cfg(feature = "liveview-channels")]
 use phoenix_channels_client::{Socket, SocketStatus};
 
-use crate::dom::{NodeData, NodeRef};
 #[cfg(feature = "liveview-channels")]
 use crate::{dom::ffi::Document, live_socket::LiveChannel};
+use crate::{
+    dom::{NodeData, NodeRef},
+    error::LiveSocketError,
+};
 
 #[uniffi::export(callback_interface)]
 pub trait SocketReconnectStrategy: Send + Sync {
@@ -143,42 +146,6 @@ pub enum ControlFlow {
     ContinueListening,
 }
 
-#[derive(Clone, Debug, PartialEq, uniffi::Enum)]
-pub enum NavigationCall {
-    /// calls to [LiveViewClient::initial_connect]
-    Initialization,
-    /// calls to [LiveViewClient::navigate]
-    Navigate,
-    /// calls to [LiveViewClient::forward]
-    Forward,
-    /// calls to [LiveViewClient::back]
-    Back,
-    /// calls to [LiveViewClient::traverse_to]
-    Traverse,
-    /// calls to [LiveViewClient::reload]
-    Reload,
-    /// calls to [LiveViewClient::disconnect]
-    Disconnect,
-    /// calls to [LiveViewClient::reconnect] and [LiveViewClient::post_form]
-    Reconnect,
-}
-
-/// The issuer of the event that triggered a given live reload
-#[derive(Clone, Debug, PartialEq, uniffi::Enum)]
-pub enum Issuer {
-    /// An external function call from the [LiveViewClient] external API
-    External(NavigationCall),
-    /// A "live_reload" message on any channel.
-    LiveReload,
-    /// A "redirect" message on any channel.
-    Redirect,
-    /// A "live_redirect" message on any channel.
-    LiveRedirect,
-    /// An "asset_change" message on a live reload channel.
-    AssetChange,
-    Other(String),
-}
-
 /// Implements the change handling logic for inbound virtual dom
 /// changes. Your logic for handling document patches should go here.
 #[uniffi::export(callback_interface)]
@@ -194,6 +161,21 @@ pub trait DocumentChangeHandler: Send + Sync {
     );
 }
 
+#[derive(uniffi::Enum)]
+pub enum ClientStatus {
+    Disconnected,
+    Reconnecting,
+    Connected {
+        new_document: Arc<Document>,
+        new_channel: Arc<LiveChannel>,
+        current_socket: Arc<Socket>,
+        socket_is_new: bool,
+    },
+    Error {
+        error: LiveSocketError,
+    },
+}
+
 /// Implement this if you need to instrument all replies and status
 /// changes on the current live channel.
 #[cfg(feature = "liveview-channels")]
@@ -203,13 +185,7 @@ pub trait NetworkEventHandler: Send + Sync {
     /// message is receiver the event payload is passed to this
     /// callback. by default the client handles diff events and will
     /// handle assets_change, live_patch, live_reload, etc, in the future
-    fn handle_event(&self, event: phoenix_channels_client::EventPayload);
-
-    /// Called when the current LiveChannel status changes.
-    fn handle_channel_status_change(&self, event: LiveChannelStatus);
-
-    /// Called when the LiveSocket status changes.
-    fn handle_socket_status_change(&self, event: SocketStatus);
+    fn on_event(&self, event: phoenix_channels_client::EventPayload);
 
     /// Called when the view is reloaded, provides the new document.
     /// This means that the previous livechannel has been dropped and
@@ -220,12 +196,5 @@ pub trait NetworkEventHandler: Send + Sync {
     /// `socket_is_new` will be false
     ///
     /// If the socket was reconnected for any reason `socket_is_new` will be true.
-    fn handle_view_reloaded(
-        &self,
-        issuer: Issuer,
-        new_document: Arc<Document>,
-        new_channel: Arc<LiveChannel>,
-        current_socket: Arc<Socket>,
-        socket_is_new: bool,
-    );
+    fn on_status_change(&self, status: ClientStatus);
 }

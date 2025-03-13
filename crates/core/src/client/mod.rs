@@ -16,6 +16,7 @@ use phoenix_channels_client::{Payload, SocketStatus, JSON};
 use reqwest::header::CONTENT_TYPE;
 
 pub use config::StrategyAdapter;
+pub use inner::NavigationError;
 
 use crate::{
     callbacks::*,
@@ -138,15 +139,14 @@ impl LiveViewClientBuilder {
         config.format.clone()
     }
 
-    /// Attempt to establish a new, connected [LiveViewClient] with the given configuration.
-    /// Returns a [LiveViewClient] in a potentially failed state.
-    pub async fn build(
+    /// Attempt to establish a new, connected [LiveViewClient] with the param set above
+    pub async fn connect(
         &self,
         url: String,
         opts: ClientConnectOpts,
     ) -> Result<LiveViewClient, LiveSocketError> {
         let config = self.config.lock().unwrap().clone();
-        let inner = LiveViewClientInner::initial_connect(config, url, opts).await?;
+        let inner = LiveViewClientInner::new(config, url, opts).await?;
 
         Ok(LiveViewClient { inner })
     }
@@ -235,14 +235,6 @@ impl LiveViewClient {
     /// Set the log level for the current process.
     pub fn set_log_level(&self, level: LogLevel) {
         self.inner.set_log_level(level)
-    }
-
-    /// Returns a handle to the current background event loop.
-    /// This can be used to send messages as you would
-    /// with a live_channel.
-    pub fn channel(&self) -> LiveViewClientChannel {
-        let inner = self.inner.create_channel();
-        LiveViewClientChannel { inner }
     }
 }
 
@@ -371,23 +363,11 @@ impl LiveViewClient {
         self.inner.style_urls()
     }
 
-    /// Returns the current socket status
-    pub fn socket_status(&self) -> Result<SocketStatus, LiveSocketError> {
-        self.inner.socket_status()
+    /// Returns the current
+    pub fn status(&self) -> Result<Status, LiveSocketError> {
+        todo!()
     }
-}
 
-#[derive(uniffi::Object)]
-/// A thin message sending interface that will
-/// send messages through the current websocket.
-pub struct LiveViewClientChannel {
-    inner: inner::LiveViewClientChannel,
-}
-
-#[uniffi::export(async_runtime = "tokio")]
-impl LiveViewClientChannel {
-    /// Sends an event to the server waiting for a reply.
-    /// If you do not care about the result of a call then use [LivViewClientChannel::cast]
     pub async fn call(
         &self,
         event_name: String,
