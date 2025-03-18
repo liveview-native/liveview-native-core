@@ -420,16 +420,18 @@ impl LiveViewClientManager {
             }
             msg = client_msg_future => {
                 let Some(msg) = msg else {
-                    error!("All client message handlers dropped.");
-                    todo!("DRY Bailing code here")
+                    if let Ok(Ok(client)) = job_fut.await {
+                        client.shutdown().await;
+                    }
+
+                    return Ok(LiveViewClientState::Disconnected);
                 };
 
                 match msg {
                     ClientMessage::Reconnect { url, opts, join_params } => {
                         debug!("Reconnection requested during connecting phase: {}", url);
                         if let Ok(Ok(client)) = job_fut.await {
-                            let _ = client.socket.disconnect().await;
-                            let _ = client.socket.shutdown().await;
+                            client.shutdown().await;
                         }
                         let client_state = self.create_reconnection_task(url, opts, join_params).await;
                         Ok(client_state)

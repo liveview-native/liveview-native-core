@@ -37,7 +37,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use super::{ClientConnectOpts, LiveViewClientConfiguration, LogLevel};
+use super::{ClientConnectOpts, LiveViewClientConfiguration, LogLevel, Status};
 use crate::{
     callbacks::{self, *},
     client::StrategyAdapter,
@@ -161,6 +161,18 @@ impl LiveViewClientInner {
     pub async fn upload_file(&self, file: Arc<LiveFile>) -> Result<(), LiveSocketError> {
         todo!();
         Ok(())
+    }
+
+    pub fn status(&self) -> Status {
+        match &*self.status.read() {
+            ClientStatus::Disconnected => Status::Disconnected,
+            ClientStatus::Connecting => Status::Connecting,
+            ClientStatus::Reconnecting => Status::Reconnecting,
+            ClientStatus::Connected(_) => Status::Connected,
+            ClientStatus::FatalError { error } => Status::FatalError {
+                error: error.clone(),
+            },
+        }
     }
 
     pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {
@@ -530,6 +542,7 @@ impl ConnectedClient {
         let socket = Socket::spawn(websocket_url, cookies.clone(), adapter).await?;
 
         let ws_timeout = Duration::from_millis(config.websocket_timeout);
+
         socket.connect(ws_timeout).await?;
 
         let cleanup_and_return = async |err: LiveSocketError, socket: &Socket| {

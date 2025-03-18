@@ -238,12 +238,13 @@ impl LiveViewClient {
     }
 }
 
-#[derive(uniffi::Enum, Clone, Debug, PartialEq)]
+#[derive(uniffi::Enum, Clone, Debug)]
 pub enum Status {
     Connected,
+    Connecting,
     Reconnecting,
     Disconnected,
-    FatalError { error: String },
+    FatalError { error: LiveSocketError },
 }
 
 // Navigation-related functionality ported from LiveSocket
@@ -358,9 +359,9 @@ impl LiveViewClient {
         self.inner.style_urls()
     }
 
-    /// Returns the current
-    pub fn status(&self) -> Result<Status, LiveSocketError> {
-        todo!()
+    /// Returns the current client status
+    pub fn status(&self) -> Status {
+        self.inner.status()
     }
 
     pub async fn call(
