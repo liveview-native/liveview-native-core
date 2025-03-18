@@ -22,8 +22,8 @@ use log::{debug, warn};
 use logging::*;
 use navigation::NavCtx;
 use phoenix_channels_client::{
-    Event, EventPayload, Events, EventsError, Payload, ReconnectStrategy, Socket,
-    SocketStatus, SocketStatuses, WebSocketError, JSON,
+    Event, EventPayload, Events, EventsError, Payload, ReconnectStrategy, Socket, SocketStatus,
+    SocketStatuses, WebSocketError, JSON,
 };
 use readonly_mutex::ReadOnlyMutex;
 use reqwest::{redirect::Policy, Client as HttpClient, Url};
@@ -31,7 +31,7 @@ use tokio::{
     select,
     sync::{
         mpsc::{self, UnboundedReceiver, UnboundedSender},
-        oneshot,
+        oneshot, watch,
     },
     task::JoinHandle,
 };
@@ -39,7 +39,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::{ClientConnectOpts, LiveViewClientConfiguration, LogLevel, Status};
 use crate::{
-    callbacks::{*},
+    callbacks::*,
     client::StrategyAdapter,
     dom::{
         ffi::{self, Document as FFIDocument},
@@ -54,7 +54,7 @@ use crate::{
 
 pub struct LiveViewClientInner {
     /// Shared state between the background event loop and the client handle
-    status: ReadOnlyMutex<ClientStatus>,
+    status: watch::Receiver<ClientStatus>,
     /// A book keeping context for navigation events.
     nav_ctx: Mutex<NavCtx>,
     /// A channel to send user action messages to the background listener
@@ -130,7 +130,7 @@ impl LiveViewClientInner {
         Ok(out)
     }
 
-    pub(crate) async fn reconnect(
+    pub(crate) fn reconnect(
         &self,
         url: String,
         opts: ConnectOpts,
@@ -162,20 +162,16 @@ impl LiveViewClientInner {
         Ok(())
     }
 
-    pub fn status(&self) -> Status {
-        match &*self.status.read() {
-            ClientStatus::Disconnected => Status::Disconnected,
-            ClientStatus::Connecting => Status::Connecting,
-            ClientStatus::Reconnecting => Status::Reconnecting,
-            ClientStatus::Connected(_) => Status::Connected,
-            ClientStatus::FatalError { error } => Status::FatalError {
-                error: error.clone(),
-            },
-        }
+    pub fn status(&self) -> ClientStatus {
+        (*self.status.borrow()).clone()
+    }
+
+    pub fn watch_status(&self) -> watch::Receiver<ClientStatus> {
+        self.status.clone()
     }
 
     pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {
-        let state = self.status.read();
+        let state = self.status.borrow();
         let con = state.as_connected()?;
 
         let node_ref = con
@@ -214,27 +210,27 @@ impl LiveViewClientInner {
     }
 
     pub fn join_url(&self) -> Result<String, LiveSocketError> {
-        let state = self.status.read();
+        let state = self.status.borrow();
         let con = state.as_connected()?;
         Ok(con.session_data.url.to_string())
     }
 
     pub fn csrf_token(&self) -> Result<String, LiveSocketError> {
-        let state = self.status.read();
+        let state = self.status.borrow();
         let con = state.as_connected()?;
         Ok(con.session_data.csrf_token.clone())
     }
 
     /// Returns the current document state.
     pub fn document(&self) -> Result<FFIDocument, LiveSocketError> {
-        let state = self.status.read();
+        let state = self.status.borrow();
         let con = state.as_connected()?;
         Ok(con.document.clone())
     }
 
     /// Returns the state of the document upon the initial websocket connection.
     pub fn join_document(&self) -> Result<Document, LiveSocketError> {
-        let state = self.status.read();
+        let state = self.status.borrow();
         let con = state.as_connected()?;
         match &con.join_document {
             Ok(doc) => Ok(doc.clone()),
@@ -244,7 +240,7 @@ impl LiveViewClientInner {
 
     /// returns the join payload
     pub fn join_payload(&self) -> Result<Payload, LiveSocketError> {
-        let state = self.status.read();
+        let state = self.status.borrow();
         let con = state.as_connected()?;
         Ok(con.join_payload.clone())
     }
@@ -253,20 +249,20 @@ impl LiveViewClientInner {
     /// request pull an html document and extract several pieces of meta data from it.
     /// This function returns that initial document.
     pub fn dead_render(&self) -> Result<Document, LiveSocketError> {
-        let state = self.status.read();
+        let state = self.status.borrow();
         let con = state.as_connected()?;
         Ok(con.session_data.dead_render.clone())
     }
 
     pub fn style_urls(&self) -> Result<Vec<String>, LiveSocketError> {
-        let state = self.status.read();
+        let state = self.status.borrow();
         let con = state.as_connected()?;
         Ok(con.session_data.style_urls.clone())
     }
 
     // not for internal use
     pub fn navigate(&self, url: String, opts: NavOptions) -> Result<HistoryId, LiveSocketError> {
-        let status = self.status.read();
+        let status = self.status.borrow();
         let con = status.as_connected()?;
         let parsed_url = Url::parse(&url)?;
         let mut ctx = self.nav_ctx.lock()?;
@@ -286,7 +282,7 @@ impl LiveViewClientInner {
     }
 
     pub fn reload(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
-        let status = self.status.read();
+        let status = self.status.borrow();
         let con = status.as_connected()?;
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.reload(info.extra_event_info.clone(), true)?;
@@ -302,7 +298,7 @@ impl LiveViewClientInner {
 
     // not for internal use
     pub fn back(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
-        let status = self.status.read();
+        let status = self.status.borrow();
         let con = status.as_connected()?;
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.back(info.extra_event_info.clone(), true)?;
@@ -318,7 +314,7 @@ impl LiveViewClientInner {
 
     // not for internal use
     pub fn forward(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
-        let status = self.status.read();
+        let status = self.status.borrow();
         let con = status.as_connected()?;
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.forward(info.extra_event_info.clone(), true)?;
@@ -338,7 +334,7 @@ impl LiveViewClientInner {
         id: HistoryId,
         info: NavActionOptions,
     ) -> Result<HistoryId, LiveSocketError> {
-        let status = self.status.read();
+        let status = self.status.borrow();
         let con = status.as_connected()?;
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.traverse_to(id, info.extra_event_info.clone(), true)?;
@@ -380,11 +376,11 @@ impl LiveViewClientInner {
         event_name: String,
         payload: Payload,
     ) -> Result<Payload, LiveSocketError> {
-        let _ = self.status.read().as_connected()?;
+        let _ = self.status.borrow().as_connected()?;
         let (response_tx, response_rx) = oneshot::channel();
 
         {
-            let status = self.status.read();
+            let status = self.status.borrow();
             let con = status.as_connected()?;
             con.msg_tx.send(ConnectedClientMessage::Call {
                 response_tx,
@@ -401,7 +397,7 @@ impl LiveViewClientInner {
     }
 
     pub async fn cast(&self, event_name: String, payload: Payload) -> Result<(), LiveSocketError> {
-        let status = self.status.read();
+        let status = self.status.borrow();
         let con = status.as_connected()?;
         con.msg_tx.send(ConnectedClientMessage::Cast {
             event: Event::from_string(event_name),
@@ -443,6 +439,7 @@ pub enum ConnectingClient {
     },
 }
 
+#[derive(Clone)]
 pub(crate) struct FatalError {
     error: LiveSocketError,
     livereload_channel: Option<Arc<LiveChannel>>,
@@ -629,10 +626,137 @@ impl ConnectedClient {
     }
 
     async fn shutdown(&self) {
+        let _ = self.liveview_channel.channel.leave().await;
         let _ = self.socket.disconnect().await;
         let _ = self.socket.shutdown().await;
         if let Some(livereload) = &self.livereload_channel {
             let _ = livereload.shutdown_parent_socket().await;
+        }
+    }
+
+    const RETRY_REASONS: &'static [&'static str] = &["stale", "unauthorized"];
+
+    /// try to do the internal nav, attempting to fix
+    /// recoverable errors which occur when connecting across
+    /// auth state, live_sessions and respecting redirects.
+    /// If the websocket needed to be refreshed this returns true
+    /// otherwise it returns false.
+    async fn try_nav(
+        &mut self,
+        http_client: &HttpClient,
+        config: &LiveViewClientConfiguration,
+        additional_params: &Option<HashMap<String, JSON>>,
+        current_url: String,
+    ) -> Result<bool, LiveSocketError> {
+        let ws_timeout = Duration::from_millis(config.websocket_timeout);
+
+        self.liveview_channel.channel.leave().await?;
+
+        match join_liveview_channel(
+            &self.socket,
+            &self.session_data,
+            additional_params,
+            Some(current_url.clone()),
+            ws_timeout,
+        )
+        .await
+        {
+            Err(LiveSocketError::JoinRejection {
+                error:
+                    Payload::JSONPayload {
+                        json: JSON::Object { object },
+                    },
+            }) => {
+                if object
+                    .get("reason")
+                    .and_then(|r| match r {
+                        JSON::Str { string } => Some(string),
+                        _ => None,
+                    })
+                    .is_none_or(|reason| !Self::RETRY_REASONS.contains(&reason.as_str()))
+                {
+                    return Err(LiveSocketError::JoinRejection {
+                        error: Payload::JSONPayload {
+                            json: JSON::Object { object },
+                        },
+                    });
+                }
+
+                let url = Url::parse(&current_url)?;
+                let format = config.format.to_string();
+
+                let new_session_data =
+                    SessionData::request(&url, &format, Default::default(), http_client.clone())
+                        .await?;
+
+                let websocket_url = new_session_data.get_live_socket_url()?;
+
+                let adapter = config
+                    .socket_reconnect_strategy
+                    .clone()
+                    .map(StrategyAdapter::from)
+                    .map(|s| Box::new(s) as Box<dyn ReconnectStrategy>);
+
+                let cookies = new_session_data.cookies.clone();
+
+                let new_socket = Socket::spawn(websocket_url, Some(cookies), adapter).await?;
+                new_socket.connect(ws_timeout).await?;
+
+                self.socket
+                    .shutdown()
+                    .await
+                    .map_err(|e| LiveSocketError::Phoenix {
+                        error: format!("{e:?}"),
+                    })?;
+
+                self.socket = new_socket;
+                self.session_data = new_session_data;
+
+                let new_channel = join_liveview_channel(
+                    &self.socket,
+                    &self.session_data,
+                    additional_params,
+                    None,
+                    ws_timeout,
+                )
+                .await?;
+
+                if let Some(event_handler) = &config.patch_handler {
+                    new_channel
+                        .document
+                        .arc_set_event_handler(event_handler.clone())
+                }
+
+                self.document = new_channel.document();
+                self.liveview_channel = new_channel.clone();
+
+                self.event_pump = EventPump {
+                    main_events: self.liveview_channel.channel.events(),
+                    reload_events: self.livereload_channel.as_ref().map(|c| c.channel.events()),
+                    socket_statuses: self.socket.statuses(),
+                };
+
+                Ok(true)
+            }
+            Ok(new_channel) => {
+                if let Some(event_handler) = &config.patch_handler {
+                    new_channel
+                        .document
+                        .arc_set_event_handler(event_handler.clone())
+                }
+
+                self.document = new_channel.document();
+                self.liveview_channel = new_channel;
+
+                self.event_pump = EventPump {
+                    main_events: self.liveview_channel.channel.events(),
+                    reload_events: self.livereload_channel.as_ref().map(|c| c.channel.events()),
+                    socket_statuses: self.socket.statuses(),
+                };
+
+                Ok(false)
+            }
+            Err(e) => Err(e),
         }
     }
 
@@ -692,7 +816,8 @@ impl ConnectedClient {
     // }
 }
 
-struct ConnectedStatus {
+#[derive(Debug, Clone)]
+pub struct ConnectedStatus {
     pub session_data: SessionData,
     pub document: ffi::Document,
     pub join_document: Result<Document, LiveSocketError>,
@@ -700,7 +825,8 @@ struct ConnectedStatus {
     pub msg_tx: UnboundedSender<ConnectedClientMessage>,
 }
 
-enum ClientStatus {
+#[derive(Debug, Clone)]
+pub enum ClientStatus {
     Disconnected,
     Connecting,
     Reconnecting,
@@ -722,6 +848,16 @@ impl ClientStatus {
             ClientStatus::FatalError { error } => Err(error.clone()),
         }
     }
+
+    pub fn name(&self) -> &str {
+        match self {
+            ClientStatus::Disconnected => "disconnected",
+            ClientStatus::Connecting => "connecting",
+            ClientStatus::Reconnecting => "reconnecting",
+            ClientStatus::Connected(_) => "connected",
+            ClientStatus::FatalError { .. } => "error",
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -732,8 +868,6 @@ struct NavigationSummary {
 
 impl LiveViewClientState {
     fn status(&self) -> ClientStatus {
-        
-
         match self {
             LiveViewClientState::Disconnected => ClientStatus::Disconnected,
             LiveViewClientState::Connecting { .. } => ClientStatus::Connecting,

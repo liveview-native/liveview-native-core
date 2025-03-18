@@ -125,6 +125,8 @@ pub struct SessionData {
     pub phx_id: String,
     pub phx_static: String,
     pub phx_session: String,
+    /// Url used to connect the websocket - channels may use a redirect not
+    /// to connect to this.
     pub url: Url,
     /// One of `swift`, `kotlin` or `html` indicating the developer platform.
     pub format: String,

@@ -175,9 +175,7 @@ impl LiveViewClient {
             ..Default::default()
         };
 
-        self.inner
-            .reconnect(url, opts, client_opts.join_params)
-            .await?;
+        self.inner.reconnect(url, opts, client_opts.join_params)?;
 
         Ok(())
     }
@@ -228,7 +226,7 @@ impl LiveViewClient {
             timeout_ms: 30_000, // Actually unused, should remove at one point
         };
 
-        self.inner.reconnect(url, opts, join_params).await?;
+        self.inner.reconnect(url, opts, join_params)?;
         Ok(())
     }
 
@@ -361,7 +359,15 @@ impl LiveViewClient {
 
     /// Returns the current client status
     pub fn status(&self) -> Status {
-        self.inner.status()
+        match self.inner.status() {
+            inner::ClientStatus::Disconnected => Status::Disconnected,
+            inner::ClientStatus::Connecting => Status::Connecting,
+            inner::ClientStatus::Reconnecting => Status::Reconnecting,
+            inner::ClientStatus::Connected(_) => Status::Connected,
+            inner::ClientStatus::FatalError { error } => Status::FatalError {
+                error: error.clone(),
+            },
+        }
     }
 
     pub async fn call(

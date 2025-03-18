@@ -2,8 +2,10 @@ mod lifecycle;
 mod streaming;
 mod upload;
 
+use std::time::Duration;
+
 use crate::{
-    client::{LiveViewClientConfiguration, LogLevel, Platform},
+    client::{LiveViewClientConfiguration, LogLevel, Platform, Status},
     dom::Document,
     LiveViewClient,
 };
@@ -15,7 +17,42 @@ macro_rules! json_payload {
     }};
 }
 
+#[macro_export]
+macro_rules! expect_status_matches {
+    ($watcher:expr, $pattern:pat, $timeout_secs:expr) => {{
+        let fut = $watcher.wait_for(|s| matches!(s, $pattern));
+        timeout(Duration::from_secs($timeout_secs), fut)
+            .await
+            .expect(&format!(
+                "timed out after {}s waiting for status to match pattern",
+                $timeout_secs
+            ))
+            .expect("status watcher was dropped or encountered an error")
+    }};
+    ($watcher:expr, $pattern:pat) => {
+        expect_status_matches!($watcher, $pattern, 2)
+    };
+}
+
+#[macro_export]
+macro_rules! expect_status_with {
+    ($watcher:expr, $predicate:expr, $timeout_secs:expr) => {{
+        let fut = $watcher.wait_for($predicate);
+        timeout(Duration::from_secs($timeout_secs), fut)
+            .await
+            .expect(&format!(
+                "timed out after {}s waiting for status predicate to match",
+                $timeout_secs
+            ))
+            .expect("status watcher was dropped or encountered an error")
+    }};
+    ($watcher:expr, $predicate:expr) => {
+        expect_status_with!($watcher, $predicate, 2)
+    };
+}
+
 pub(crate) use json_payload;
+use tokio::time::timeout;
 
 macro_rules! assert_doc_eq {
     ($gold:expr, $test:expr) => {{
@@ -42,6 +79,9 @@ async fn test_basic_connection() {
         .await
         .expect("Failed to create client");
 
+    let mut watcher = client.watch_status();
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
+
     let initial_doc = client.document().expect("Failed to get initial page");
 
     let expected = r#"
@@ -55,10 +95,12 @@ async fn test_basic_connection() {
     assert_doc_eq!(expected, initial_doc.to_string());
 
     let url = format!("http://{HOST}/hello");
+
     client
         .reconnect(url, Default::default(), None)
-        .await
         .expect("reconnect failed");
+
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
 
     let initial_doc = client.document().expect("Failed to get initial page");
 
@@ -68,8 +110,10 @@ async fn test_basic_connection() {
 
     client
         .reconnect(url.clone(), Default::default(), None)
-        .await
         .expect("reconnect failed");
+
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connecting);
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
 
     let doc = client.document().expect("Failed to get document");
     let expected = r#"
@@ -88,10 +132,13 @@ async fn test_basic_connection() {
 
     client.disconnect().await.expect("disconnect failed");
 
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Disconnected);
+
     client
         .reconnect(url, Default::default(), None)
-        .await
         .expect("reconnect failed");
+
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
 
     assert_doc_eq!(expected, doc.to_string());
 }
@@ -105,6 +152,10 @@ async fn test_style_urls() {
     let client = LiveViewClient::new(config, url, Default::default())
         .await
         .expect("Failed to create client");
+
+    let mut watcher = client.watch_status();
+
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
 
     let style_urls = client.style_urls().expect("Failed to get style URLs");
     let expected_style_urls = vec!["/assets/app.swiftui.styles".to_string()];
@@ -122,6 +173,10 @@ async fn test_basic_navigation() {
     let client = LiveViewClient::new(config, url, Default::default())
         .await
         .expect("Failed to create client");
+
+    let mut watcher = client.watch_status();
+
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
 
     let doc = client.document().expect("Failed to get document");
     let expected = r#"
@@ -141,10 +196,9 @@ async fn test_basic_navigation() {
     // Navigate to second page
     let next_url = format!("http://{HOST}/nav/second_page");
     client
-        .navigate(next_url, Default::default())
+        .navigate(next_url.clone(), Default::default())
         .expect("Failed to navigate");
 
-    let doc = client.document().expect("Failed to get document");
     let expected = r#"
 <Group id="flash-group" />
 <VStack>
@@ -157,7 +211,15 @@ async fn test_basic_navigation() {
         </Text>
     </NavigationLink>
 </VStack>"#;
-    assert_doc_eq!(expected, doc.to_string());
+    let expected = Document::parse(expected).unwrap();
+
+    expect_status_with!(watcher, |status| {
+        if let crate::client::inner::ClientStatus::Connected(con) = status {
+            expected.to_string() == con.document.render()
+        } else {
+            false
+        }
+    });
 }
 
 #[tokio::test]
@@ -169,6 +231,10 @@ async fn test_back_and_forward_navigation() {
     let client = LiveViewClient::new(config, url, Default::default())
         .await
         .expect("Failed to create client");
+
+    let mut watcher = client.watch_status();
+
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
 
     // Verify initial page
     let doc = client.document().expect("Failed to get document");
@@ -184,6 +250,7 @@ async fn test_back_and_forward_navigation() {
         </Text>
     </NavigationLink>
 </VStack>"#;
+
     assert_doc_eq!(expected, doc.to_string());
 
     let second_url = format!("http://{HOST}/nav/second_page");
@@ -191,7 +258,6 @@ async fn test_back_and_forward_navigation() {
         .navigate(second_url, Default::default())
         .expect("Failed to navigate");
 
-    let doc = client.document().expect("Failed to get document");
     let expected = r#"
 <Group id="flash-group" />
 <VStack>
@@ -204,7 +270,16 @@ async fn test_back_and_forward_navigation() {
         </Text>
     </NavigationLink>
 </VStack>"#;
-    assert_doc_eq!(expected, doc.to_string());
+
+    let expected = Document::parse(expected).unwrap();
+
+    expect_status_with!(watcher, |status| {
+        if let crate::client::inner::ClientStatus::Connected(con) = status {
+            expected.to_string() == con.document.render()
+        } else {
+            false
+        }
+    });
 
     let third_url = format!("http://{HOST}/nav/third_page");
     client
@@ -218,7 +293,6 @@ async fn test_back_and_forward_navigation() {
         .expect("Failed to navigate back");
 
     // Verify we're back on second page
-    let doc = client.document().expect("Failed to get document");
     let expected = r#"
 <Group id="flash-group" />
 <VStack>
@@ -231,14 +305,22 @@ async fn test_back_and_forward_navigation() {
         </Text>
     </NavigationLink>
 </VStack>"#;
-    assert_doc_eq!(expected, doc.to_string());
+
+    let expected = Document::parse(expected).unwrap();
+
+    expect_status_with!(watcher, |status| {
+        if let crate::client::inner::ClientStatus::Connected(con) = status {
+            expected.to_string() == con.document.render()
+        } else {
+            false
+        }
+    });
 
     assert!(client.can_go_forward(), "Forward navigation impossible");
     client
         .forward(Default::default())
         .expect("Failed to navigate forward");
 
-    let doc = client.document().expect("Failed to get document");
     let expected = r#"
 <Group id="flash-group" />
 <VStack>
@@ -251,7 +333,16 @@ async fn test_back_and_forward_navigation() {
         </Text>
     </NavigationLink>
 </VStack>"#;
-    assert_doc_eq!(expected, doc.to_string());
+
+    let expected = Document::parse(expected).unwrap();
+
+    expect_status_with!(watcher, |status| {
+        if let crate::client::inner::ClientStatus::Connected(con) = status {
+            expected.to_string() == con.document.render()
+        } else {
+            false
+        }
+    });
 }
 
 #[tokio::test]
@@ -266,6 +357,9 @@ async fn thermostat_click() {
     let client = LiveViewClient::new(config, url, Default::default())
         .await
         .expect("Failed to create client");
+
+    let mut watcher = client.watch_status();
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
 
     let initial_doc = client.document().expect("Failed to get initial page");
 

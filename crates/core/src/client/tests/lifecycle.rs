@@ -11,10 +11,10 @@ use tokio::time::{sleep, timeout};
 use super::{json_payload, HOST};
 use crate::{
     client::{
-        ClientStatus, HandlerResponse, LiveViewClientConfiguration, NavEvent,
-        NavEventHandler, NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
+        ClientStatus, HandlerResponse, LiveViewClientConfiguration, NavEvent, NavEventHandler,
+        NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
     },
-    LiveViewClient,
+    expect_status_matches, LiveViewClient,
 };
 
 #[derive(Debug, Clone)]
@@ -235,6 +235,9 @@ async fn test_redirect_internals() {
 
     let url = format!("http://{HOST}/push_navigate?redirect_type=live_redirect");
     let redirect_url = format!("http://{HOST}/redirect_to");
+
+    let mut watcher = client.watch_status();
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
 
     client
         .navigate(url.clone(), Default::default())

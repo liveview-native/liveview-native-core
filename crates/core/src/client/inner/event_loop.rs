@@ -1,25 +1,23 @@
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 use futures::{pin_mut, select, FutureExt};
 use log::{debug, error};
-use phoenix_channels_client::{
-    CallError, ConnectError, Event, Payload, SocketStatus, JSON,
-};
+use phoenix_channels_client::{CallError, ConnectError, Event, Payload, SocketStatus, JSON};
 use reqwest::Client;
 //use state::{EventLoopState, ReplyAction};
 use tokio::sync::{
-        mpsc::{self, unbounded_channel},
-        oneshot,
-    };
+    mpsc::{self, unbounded_channel},
+    oneshot, watch,
+};
 use tokio_util::sync::CancellationToken;
 
 use super::{
     cookie_store::PersistentCookieStore, readonly_mutex::ReadOnlyMutex, ClientStatus,
-    ConnectedClient, DocumentChangeHandler, FatalError,
-    LiveViewClientState, NetworkEventHandler,
+    ConnectedClient, DocumentChangeHandler, FatalError, LiveViewClientState, NetworkEventHandler,
 };
 use crate::{
     client::{ClientStatus as FFIClientStatus, LiveViewClientConfiguration},
@@ -32,7 +30,7 @@ const MAX_REDIRECTS: u32 = 10;
 pub(crate) struct EventLoop {
     pub msg_tx: mpsc::UnboundedSender<ClientMessage>,
     pub cancellation_token: CancellationToken,
-    pub status: ReadOnlyMutex<ClientStatus>,
+    pub status: watch::Receiver<ClientStatus>,
 }
 
 impl EventLoop {
@@ -66,10 +64,9 @@ impl EventLoop {
         let (msg_tx, mut msg_rx) = mpsc::unbounded_channel();
         let cancellation_token = CancellationToken::new();
         let token_clone = cancellation_token.clone();
-        let status = Arc::new(Mutex::new(client_state.status()));
-        let status_clone = status.clone();
+        let (status_tx, status_rx) = tokio::sync::watch::channel(client_state.status());
 
-        let manager = LiveViewClientManager::new(status_clone, config, http_client, cookie_store);
+        let manager = LiveViewClientManager::new(status_tx, config, http_client, cookie_store);
 
         tokio::spawn(async move {
             let mut current_state = Some(client_state);
@@ -124,7 +121,7 @@ impl EventLoop {
         Self {
             msg_tx,
             cancellation_token,
-            status: ReadOnlyMutex::new(status),
+            status: status_rx,
         }
     }
 }
@@ -161,7 +158,7 @@ pub enum ClientMessage {
 }
 
 pub struct LiveViewClientManager {
-    status: Arc<Mutex<ClientStatus>>,
+    status: watch::Sender<ClientStatus>,
     network_handler: Option<Arc<dyn NetworkEventHandler>>,
     document_handler: Option<Arc<dyn DocumentChangeHandler>>,
     config: Arc<LiveViewClientConfiguration>,
@@ -171,7 +168,7 @@ pub struct LiveViewClientManager {
 
 impl LiveViewClientManager {
     pub fn new(
-        status: Arc<Mutex<ClientStatus>>,
+        status: watch::Sender<ClientStatus>,
         config: Arc<LiveViewClientConfiguration>,
         http_client: Client,
         cookie_store: Arc<PersistentCookieStore>,
@@ -186,7 +183,7 @@ impl LiveViewClientManager {
         }
     }
 
-    async fn create_reconnection_task(
+    async fn create_connection_task(
         &self,
         url: String,
         opts: ConnectOpts,
@@ -214,41 +211,121 @@ impl LiveViewClientManager {
         &self,
         msg_rx: &mut mpsc::UnboundedReceiver<ClientMessage>,
         token: &CancellationToken,
-        mut state: LiveViewClientState,
+        state: LiveViewClientState,
     ) -> Result<LiveViewClientState, LiveSocketError> {
-        {
-            let LiveViewClientState::Connected {
-                ref mut con_msg_rx,
-                ref client,
-                ..
-            } = state
-            else {
-                return Ok(state);
+        let LiveViewClientState::Connected {
+            mut con_msg_rx,
+            con_msg_tx,
+            mut client,
+        } = state
+        else {
+            return Ok(state);
+        };
+
+        let token_fut = token.cancelled().fuse();
+
+        pin_mut!(token_fut);
+
+        select! {
+           _ = token_fut => {
+              client.shutdown().await;
+              Ok(LiveViewClientState::Disconnected)
+           }
+           msg = msg_rx.recv().fuse() => {
+            let Some(msg) = msg else {
+                error!("All client message handlers dropped during error state.");
+                client.shutdown().await;
+                token.cancel();
+                return Ok(LiveViewClientState::Disconnected);
             };
 
-            let token = token.cancelled().fuse();
-            let client_msg = msg_rx.recv().fuse();
-            let con_client_msg = con_msg_rx.recv().fuse();
-            let (server_event, socket_status) = client.event_futures();
-            let (server_event, socket_status) = (server_event.fuse(), socket_status.fuse());
-
-            pin_mut!(
-                client_msg,
-                server_event,
-                socket_status,
-                token,
-                con_client_msg
-            );
-
-            select! {
-               _ = token => {
-                  client.shutdown().await;
-                  return Ok(LiveViewClientState::Disconnected);
-               }
+            match msg {
+                ClientMessage::Reconnect { url, opts, join_params } => {
+                    client.shutdown().await;
+                    let client_state = self.create_connection_task(url, opts, join_params).await;
+                    Ok(client_state)
+                },
+                ClientMessage::Disconnect { response_tx } => {
+                    // TODO: propogate error...
+                    client.shutdown().await;
+                    let _ = response_tx.send(Ok(()));
+                    Ok(LiveViewClientState::Disconnected)
+                },
             }
-        }
 
-        Ok(state)
+           }
+           msg = con_msg_rx.recv().fuse() => {
+            let Some(msg) = msg else {
+                // should never occur
+                error!("All connected client handlers dropped during error state.");
+                client.shutdown().await;
+                token.cancel();
+                return Ok(LiveViewClientState::Disconnected);
+            };
+
+            match msg {
+                ConnectedClientMessage::Call { event, payload, response_tx } => {
+                    let dur = Duration::from_millis(self.config.websocket_timeout);
+                    let out = client.liveview_channel.channel.call(event, payload, dur).await;
+                    let _ = response_tx.send(out);
+                },
+                ConnectedClientMessage::Cast { event, payload } => {
+                     let _ = client.liveview_channel.channel.cast(event, payload).await;
+                },
+                ConnectedClientMessage::Navigate { url, opts } => {
+                    let nav_res = client.try_nav(&self.http_client, &self.config, &opts.join_params, url).await;
+
+                    if let Err(e) = nav_res {
+                        client.shutdown().await;
+                        return Err(e);
+                    };
+
+                    if let Some(handler) = self.document_handler.as_ref() {
+                        client.document.arc_set_event_handler(handler.clone());
+                    }
+
+                    if let Some(handler) = self.network_handler.as_ref() {
+                        handler.on_status_change(FFIClientStatus::Connected {
+                            new_document: client.liveview_channel.document().into(),
+                        });
+                    }
+
+                    let out = LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client };
+                    let _ = self.status.send(out.status());
+                    return Ok(out);
+                },
+            }
+
+            Ok(LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client })
+           }
+           event = client.event_futures().0.fuse() => {
+               Ok(LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client })
+           }
+           status = client.event_futures().1.fuse() => {
+
+               let status = status.map_err(|web_socket_error|
+                   phoenix_channels_client::SocketError::Connect {
+                       connect_error: ConnectError::WebSocket { web_socket_error }
+                   }
+               )?;
+
+               match status {
+                   SocketStatus::Connected => {
+                       Ok(LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client })
+                   }
+                   SocketStatus::Disconnected |
+                   SocketStatus::NeverConnected |
+                   SocketStatus::WaitingToReconnect { .. } => {
+                       Ok(LiveViewClientState::Reconnecting { recconecting_client: client })
+                   },
+                   SocketStatus::ShuttingDown |
+                   SocketStatus::ShutDown => {
+                       token.cancel();
+                       Ok(LiveViewClientState::Disconnected )
+                   },
+               }
+           }
+        }
     }
 
     async fn disconnected_loop(
@@ -276,7 +353,7 @@ impl LiveViewClientManager {
                match msg {
                    ClientMessage::Reconnect { url, opts, join_params } => {
                        debug!("Reconnection requested to URL: {}", url);
-                       let client_state = self.create_reconnection_task(url, opts, join_params).await;
+                       let client_state = self.create_connection_task(url, opts, join_params).await;
                        Ok(client_state)
                    },
                    ClientMessage::Disconnect { response_tx } => {
@@ -294,28 +371,64 @@ impl LiveViewClientManager {
         token: &CancellationToken,
         state: LiveViewClientState,
     ) -> Result<LiveViewClientState, LiveSocketError> {
-        {
-            let LiveViewClientState::FatalError(FatalError {
-                ref channel_events, ..
-            }) = state
-            else {
-                return Ok(state);
-            };
+        let LiveViewClientState::FatalError(error) = state else {
+            return Ok(state);
+        };
 
-            let token = token.cancelled().fuse();
-            let client_msg = msg_rx.recv().fuse();
-            let live_reload_proxy = async {
-                match channel_events {
-                    Some(e) => e.event().await,
-                    None => std::future::pending().await,
+        let token_future = token.cancelled().fuse();
+        let client_msg = msg_rx.recv().fuse();
+
+        // Set up the live reload event future if channel_events is present
+        let live_reload_proxy = async {
+            match error.channel_events.clone() {
+                Some(e) => e.event().await,
+                None => std::future::pending().await,
+            }
+        }
+        .fuse();
+
+        pin_mut!(client_msg, live_reload_proxy, token_future);
+
+        select! {
+            _ = token_future => {
+                // If cancellation is requested, clean up any resources if needed
+                if let Some(lr_channel) = error.livereload_channel {
+                    let _ = lr_channel.channel.leave().await;
+                }
+                Ok(LiveViewClientState::Disconnected)
+            }
+
+            msg = client_msg => {
+                let Some(msg) = msg else {
+                    error!("All client message handlers dropped during error state.");
+                    token.cancel();
+                    return Ok(LiveViewClientState::Disconnected);
+                };
+
+                match msg {
+                    ClientMessage::Reconnect { url, opts, join_params } => {
+                        if let Some(lr_channel) = error.livereload_channel {
+                            let _ = lr_channel.channel.leave().await;
+                        }
+
+                        let client_state = self.create_connection_task(url, opts, join_params).await;
+                        Ok(client_state)
+                    },
+                    ClientMessage::Disconnect { response_tx } => {
+                        if let Some(lr_channel) = error.livereload_channel {
+                            let _ = lr_channel.channel.leave().await;
+                        }
+
+                        let _ = response_tx.send(Ok(()));
+                        Ok(LiveViewClientState::Disconnected)
+                    },
                 }
             }
-            .fuse();
-
-            pin_mut!(client_msg, live_reload_proxy, token);
+            event = live_reload_proxy => {
+                todo!();
+                Ok(LiveViewClientState::FatalError(error.clone()))
+            }
         }
-
-        Ok(state)
     }
 
     async fn reconnecting_loop(
@@ -354,7 +467,7 @@ impl LiveViewClientManager {
                 match msg {
                     ClientMessage::Reconnect { url, opts, join_params } => {
                         let _ = client.shutdown().await;
-                        let client_state = self.create_reconnection_task(url, opts, join_params).await;
+                        let client_state = self.create_connection_task(url, opts, join_params).await;
                         Ok(client_state)
                     }
                     ClientMessage::Disconnect { response_tx } => {
@@ -430,7 +543,7 @@ impl LiveViewClientManager {
                         if let Ok(Ok(client)) = job_fut.await {
                             client.shutdown().await;
                         }
-                        let client_state = self.create_reconnection_task(url, opts, join_params).await;
+                        let client_state = self.create_connection_task(url, opts, join_params).await;
                         Ok(client_state)
                     }
                     ClientMessage::Disconnect { response_tx } => {
@@ -474,7 +587,9 @@ impl LiveViewClientManager {
                     return state;
                 };
 
-                *self.status.lock().expect("Poisoined Status") = state.status();
+                let status = state.status();
+                debug!("Updating status to {}", status.name());
+                let _ = self.status.send(status);
 
                 match state {
                     LiveViewClientState::Disconnected => {
