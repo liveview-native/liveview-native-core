@@ -16,8 +16,8 @@ use tokio::sync::{
 use tokio_util::sync::CancellationToken;
 
 use super::{
-    cookie_store::PersistentCookieStore, readonly_mutex::ReadOnlyMutex, ClientStatus,
-    ConnectedClient, DocumentChangeHandler, FatalError, LiveViewClientState, NetworkEventHandler,
+    cookie_store::PersistentCookieStore, ClientStatus, ConnectedClient, DocumentChangeHandler,
+    FatalError, LiveViewClientState, NetworkEventHandler,
 };
 use crate::{
     client::{ClientStatus as FFIClientStatus, LiveViewClientConfiguration},

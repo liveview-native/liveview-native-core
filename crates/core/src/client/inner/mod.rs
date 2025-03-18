@@ -3,7 +3,6 @@ mod cookie_store;
 mod event_loop;
 mod logging;
 mod navigation;
-mod readonly_mutex;
 
 pub use navigation::NavigationError;
 
@@ -25,7 +24,6 @@ use phoenix_channels_client::{
     Event, EventPayload, Events, EventsError, Payload, ReconnectStrategy, Socket, SocketStatus,
     SocketStatuses, WebSocketError, JSON,
 };
-use readonly_mutex::ReadOnlyMutex;
 use reqwest::{redirect::Policy, Client as HttpClient, Url};
 use tokio::{
     select,
