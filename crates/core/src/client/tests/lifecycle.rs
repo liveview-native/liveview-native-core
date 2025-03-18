@@ -3,7 +3,7 @@ use std::{
     time::Duration,
 };
 
-use phoenix_channels_client::{Event, EventPayload, Payload, Socket, SocketStatus, JSON};
+use phoenix_channels_client::{Event, EventPayload, Payload, JSON};
 use pretty_assertions::assert_eq;
 use serde_json::json;
 use tokio::time::{sleep, timeout};
@@ -11,7 +11,7 @@ use tokio::time::{sleep, timeout};
 use super::{json_payload, HOST};
 use crate::{
     client::{
-        ClientStatus, HandlerResponse, LiveChannelStatus, LiveViewClientConfiguration, NavEvent,
+        ClientStatus, HandlerResponse, LiveViewClientConfiguration, NavEvent,
         NavEventHandler, NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
     },
     LiveViewClient,

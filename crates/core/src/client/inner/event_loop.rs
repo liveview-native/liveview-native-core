@@ -6,23 +6,20 @@ use std::{
 use futures::{pin_mut, select, FutureExt};
 use log::{debug, error};
 use phoenix_channels_client::{
-    CallError, ConnectError, Event, Events, Payload, SocketStatus, JSON,
+    CallError, ConnectError, Event, Payload, SocketStatus, JSON,
 };
 use reqwest::Client;
 //use state::{EventLoopState, ReplyAction};
-use tokio::{
-    sync::{
+use tokio::sync::{
         mpsc::{self, unbounded_channel},
         oneshot,
-    },
-    task::JoinHandle,
-};
+    };
 use tokio_util::sync::CancellationToken;
 
 use super::{
     cookie_store::PersistentCookieStore, readonly_mutex::ReadOnlyMutex, ClientStatus,
-    ConnectedClient, ConnectingClient, DocumentChangeHandler, FatalError, HistoryId,
-    LiveViewClientState, NavigationSummary, NetworkEventHandler,
+    ConnectedClient, DocumentChangeHandler, FatalError,
+    LiveViewClientState, NetworkEventHandler,
 };
 use crate::{
     client::{ClientStatus as FFIClientStatus, LiveViewClientConfiguration},

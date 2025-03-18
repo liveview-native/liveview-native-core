@@ -6,7 +6,7 @@ pub struct ReadGuard<'a, T> {
     guard: MutexGuard<'a, T>,
 }
 
-impl<'a, T> Deref for ReadGuard<'a, T> {
+impl<T> Deref for ReadGuard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {

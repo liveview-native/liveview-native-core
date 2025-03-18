@@ -22,15 +22,15 @@ use log::{debug, warn};
 use logging::*;
 use navigation::NavCtx;
 use phoenix_channels_client::{
-    ChannelStatus, Event, EventPayload, Events, EventsError, Payload, ReconnectStrategy, Socket,
-    SocketStatus, SocketStatuses, StatusesError, WebSocketError, JSON,
+    Event, EventPayload, Events, EventsError, Payload, ReconnectStrategy, Socket,
+    SocketStatus, SocketStatuses, WebSocketError, JSON,
 };
 use readonly_mutex::ReadOnlyMutex;
 use reqwest::{redirect::Policy, Client as HttpClient, Url};
 use tokio::{
     select,
     sync::{
-        mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
+        mpsc::{self, UnboundedReceiver, UnboundedSender},
         oneshot,
     },
     task::JoinHandle,
@@ -39,7 +39,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::{ClientConnectOpts, LiveViewClientConfiguration, LogLevel, Status};
 use crate::{
-    callbacks::{self, *},
+    callbacks::{*},
     client::StrategyAdapter,
     dom::{
         ffi::{self, Document as FFIDocument},
@@ -47,10 +47,9 @@ use crate::{
     },
     error::{ConnectionError, LiveSocketError},
     live_socket::{
-        navigation::{NavAction, NavActionOptions, NavOptions},
+        navigation::{NavActionOptions, NavOptions},
         ConnectOpts, LiveChannel, LiveFile, SessionData,
     },
-    protocol::{LiveRedirect, RedirectKind},
 };
 
 pub struct LiveViewClientInner {
@@ -570,7 +569,7 @@ impl ConnectedClient {
         }
 
         let livereload_channel = if session_data.has_live_reload {
-            match join_livereload_channel(&config, &session_data, cookies).await {
+            match join_livereload_channel(config, &session_data, cookies).await {
                 Ok(channel) => Some(channel),
                 Err(e) => return cleanup_and_return(e, &socket).await,
             }
@@ -733,7 +732,9 @@ struct NavigationSummary {
 
 impl LiveViewClientState {
     fn status(&self) -> ClientStatus {
-        let out = match self {
+        
+
+        match self {
             LiveViewClientState::Disconnected => ClientStatus::Disconnected,
             LiveViewClientState::Connecting { .. } => ClientStatus::Connecting,
             LiveViewClientState::Reconnecting { .. } => ClientStatus::Reconnecting,
@@ -749,9 +750,7 @@ impl LiveViewClientState {
             LiveViewClientState::FatalError(e) => ClientStatus::FatalError {
                 error: e.error.clone(),
             },
-        };
-
-        out
+        }
     }
 
     pub async fn shutdown(self) {

@@ -12,7 +12,7 @@ use std::{
 use config::*;
 use futures::future::try_join_all;
 use inner::LiveViewClientInner;
-use phoenix_channels_client::{Payload, SocketStatus, JSON};
+use phoenix_channels_client::{Payload, JSON};
 use reqwest::header::CONTENT_TYPE;
 
 pub use config::StrategyAdapter;
@@ -24,7 +24,7 @@ use crate::{
     error::LiveSocketError,
     live_socket::{
         navigation::{NavActionOptions, NavOptions},
-        ConnectOpts, LiveChannel, LiveFile, Method,
+        ConnectOpts, LiveFile, Method,
     },
 };
 

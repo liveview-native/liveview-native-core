@@ -1,10 +1,8 @@
 use std::{sync::Arc, time::Duration};
 
-#[cfg(feature = "liveview-channels")]
-use phoenix_channels_client::{Socket, SocketStatus};
 
 #[cfg(feature = "liveview-channels")]
-use crate::{dom::ffi::Document, live_socket::LiveChannel};
+use crate::dom::ffi::Document;
 use crate::{
     dom::{NodeData, NodeRef},
     error::LiveSocketError,
