@@ -247,43 +247,38 @@ pub enum Status {
 }
 
 // Navigation-related functionality ported from LiveSocket
-#[uniffi::export(async_runtime = "tokio")]
 impl LiveViewClient {
     /// Navigate to `url` with behavior and metadata specified in `opts`.
-    pub async fn navigate(
-        &self,
-        url: String,
-        opts: NavOptions,
-    ) -> Result<HistoryId, LiveSocketError> {
-        self.inner.navigate(url, opts).await
+    pub fn navigate(&self, url: String, opts: NavOptions) -> Result<HistoryId, LiveSocketError> {
+        self.inner.navigate(url, opts)
     }
 
     /// Dispose of the current channel and remount the view. Replaces the current view
     /// event data with the bytes in `info`
-    pub async fn reload(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
-        self.inner.reload(opts).await
+    pub fn reload(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        self.inner.reload(opts)
     }
 
     /// Navigates back one step in the history stack.
     /// This function fails if there are no items in history.
-    pub async fn back(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
-        self.inner.back(opts).await
+    pub fn back(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        self.inner.back(opts)
     }
 
     /// Navigates back one step in the history stack.
     /// This function fails if there are no items ahead of this one in history.
-    pub async fn forward(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
-        self.inner.forward(opts).await
+    pub fn forward(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        self.inner.forward(opts)
     }
 
     /// Navigates to the entry with `id`. Retaining the state of the current history stack.
     /// This function fails if the entry has been removed.
-    pub async fn traverse_to(
+    pub fn traverse_to(
         &self,
         id: HistoryId,
         opts: NavActionOptions,
     ) -> Result<HistoryId, LiveSocketError> {
-        self.inner.traverse_to(id, opts).await
+        self.inner.traverse_to(id, opts)
     }
 
     /// returns true if the navigation stack can support going backwards.
@@ -378,6 +373,6 @@ impl LiveViewClient {
 
     /// Sends an event to the server without waiting for a reply.
     pub async fn cast(&self, event_name: String, payload: Payload) {
-        self.inner.cast(event_name, payload).await
+        let _ = self.inner.cast(event_name, payload).await;
     }
 }

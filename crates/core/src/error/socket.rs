@@ -13,13 +13,17 @@ use crate::{
     live_socket::LiveChannel,
 };
 
-#[derive(Debug, thiserror::Error, uniffi::Error)]
+#[derive(Debug, Clone, thiserror::Error, uniffi::Error)]
 pub enum LiveSocketError {
     #[error("Call to navigation function failed: {error}.")]
     NavigationError {
         #[from]
         error: NavigationError,
     },
+    #[error("Client was disconnected when making call.")]
+    ClientNotConnected,
+    #[error("Connection task panicked!.")]
+    JoinPanic,
     #[error("call to `call` failed: {error}.")]
     Call { error: String },
     #[error("call to `cast` failed: {error}.")]
@@ -120,7 +124,7 @@ pub enum LiveSocketError {
     Events { error: String },
 }
 
-#[derive(Debug, thiserror::Error, uniffi::Error)]
+#[derive(Debug, Clone, thiserror::Error, uniffi::Error)]
 pub enum UploadError {
     #[error("File exceeds maximum filesize.")]
     FileTooLarge,
@@ -132,7 +136,7 @@ pub enum UploadError {
     Other { error: String },
 }
 
-#[derive(uniffi::Record)]
+#[derive(uniffi::Record, Clone)]
 pub struct ConnectionError {
     pub error_text: String,
     pub error_code: u16,

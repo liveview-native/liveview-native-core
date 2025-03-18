@@ -161,19 +161,13 @@ pub trait DocumentChangeHandler: Send + Sync {
     );
 }
 
-#[derive(uniffi::Enum)]
+#[derive(Clone, Debug, uniffi::Enum)]
 pub enum ClientStatus {
     Disconnected,
+    Connecting,
     Reconnecting,
-    Connected {
-        new_document: Arc<Document>,
-        new_channel: Arc<LiveChannel>,
-        current_socket: Arc<Socket>,
-        socket_is_new: bool,
-    },
-    Error {
-        error: LiveSocketError,
-    },
+    Connected { new_document: Arc<Document> },
+    Error { error: LiveSocketError },
 }
 
 /// Implement this if you need to instrument all replies and status

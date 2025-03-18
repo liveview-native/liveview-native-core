@@ -14,7 +14,7 @@ use crate::{
     dom::parser::ParseError,
 };
 
-#[derive(Clone, uniffi::Object)]
+#[derive(Clone, Debug, uniffi::Object)]
 pub struct Document {
     inner: Arc<Mutex<super::Document>>,
 }

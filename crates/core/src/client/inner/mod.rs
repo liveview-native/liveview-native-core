@@ -10,14 +10,13 @@ pub use navigation::NavigationError;
 use std::{
     collections::HashMap,
     future::Future,
-    pin::Pin,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
 use channel_init::*;
 use cookie_store::PersistentCookieStore;
-use event_loop::{ClientMessage, EventLoop};
+use event_loop::{ClientMessage, ConnectedClientMessage, EventLoop};
 use futures::FutureExt;
 use log::{debug, warn};
 use logging::*;
@@ -30,7 +29,11 @@ use readonly_mutex::ReadOnlyMutex;
 use reqwest::{redirect::Policy, Client as HttpClient, Url};
 use tokio::{
     select,
-    sync::{broadcast, mpsc, oneshot},
+    sync::{
+        mpsc::{self, unbounded_channel, UnboundedReceiver, UnboundedSender},
+        oneshot,
+    },
+    task::JoinHandle,
 };
 use tokio_util::sync::CancellationToken;
 
@@ -50,269 +53,11 @@ use crate::{
     protocol::{LiveRedirect, RedirectKind},
 };
 
-pub(crate) enum LiveViewClientState {
-    Disconnected,
-    Connecting,
-    Reconnecting {
-        old_client: Option<ConnectedClient>,
-    },
-    /// TODO: call shutdown on all transitions
-    Connected(ConnectedClient),
-    /// TODO: call shutdown on all transitions
-    FatalError(FatalError),
-}
-
-pub(crate) struct FatalError {
-    error: Arc<LiveSocketError>,
-    livereload_channel: Option<Arc<LiveChannel>>,
-    channel_events: Option<Arc<Events>>,
-}
-
-// TODO: remove arcs if possible, helps
-// readers reason about lifetimes
-pub(crate) struct ConnectedClient {
-    document: ffi::Document,
-    /// The main websocket for this page
-    socket: Arc<Socket>,
-    /// The main channel which passes user interaction events
-    /// and receives changes to the "dom"
-    liveview_channel: Arc<LiveChannel>,
-    /// In debug mode LiveView has a debug channel which sends
-    /// asset update events, this is derived from an iframe on the page
-    /// which also may be present on errored out connections.
-    livereload_channel: Option<Arc<LiveChannel>>,
-    /// Data acquired from the dead render, should only change between
-    /// reconnects.
-    session_data: SessionData,
-    /// Utility to hold all the event channels
-    event_pump: EventPump,
-}
-
-struct EventPump {
-    main_events: Arc<Events>,
-    reload_events: Option<Arc<Events>>,
-    socket_statuses: Arc<SocketStatuses>,
-}
-
-pub enum ReplyAction {
-    Redirected { summary: NavigationSummary },
-    DiffMerged,
-    None,
-}
-
-impl ConnectedClient {
-    pub async fn try_new(
-        config: &LiveViewClientConfiguration,
-        url: &Url,
-        http_client: &HttpClient,
-        client_opts: ClientConnectOpts,
-        cookie_store: &PersistentCookieStore,
-    ) -> Result<Self, LiveSocketError> {
-        let opts = ConnectOpts {
-            headers: client_opts.headers,
-            timeout_ms: config.dead_render_timeout,
-            ..ConnectOpts::default()
-        };
-        let format = config.format.to_string();
-        let session_data = SessionData::request(url, &format, opts, http_client.clone()).await?;
-
-        let cookies = cookie_store.get_cookie_list(url);
-        let websocket_url = session_data.get_live_socket_url()?;
-
-        log::info!("Initiating Websocket connection: {websocket_url:?} , cookies: {cookies:?}");
-
-        let adapter = config
-            .socket_reconnect_strategy
-            .clone()
-            .map(StrategyAdapter::from)
-            .map(|s| Box::new(s) as Box<dyn ReconnectStrategy>);
-
-        let socket = Socket::spawn(websocket_url, cookies.clone(), adapter).await?;
-
-        let cleanup_and_return = async |err: LiveSocketError, socket: &Socket| {
-            socket.shutdown().await;
-            Err(err)
-        };
-
-        let ws_timeout = Duration::from_millis(config.websocket_timeout);
-
-        debug!("Joining liveview Channel");
-
-        let liveview_channel = match join_liveview_channel(
-            &socket,
-            &session_data,
-            &client_opts.join_params,
-            None,
-            ws_timeout,
-        )
-        .await
-        {
-            Ok(channel) => channel,
-            Err(e) => return cleanup_and_return(e, &socket).await,
-        };
-
-        if let Some(handler) = config.patch_handler.clone() {
-            liveview_channel.document.arc_set_event_handler(handler);
-        }
-
-        let livereload_channel = if session_data.has_live_reload {
-            match join_livereload_channel(&config, &session_data, cookies).await {
-                Ok(channel) => Some(channel),
-                Err(e) => return cleanup_and_return(e, &socket).await,
-            }
-        } else {
-            None
-        };
-
-        Ok(Self {
-            document: liveview_channel.document(),
-            event_pump: EventPump {
-                main_events: liveview_channel.channel.events(),
-                reload_events: livereload_channel.as_ref().map(|c| c.channel.events()),
-                socket_statuses: socket.statuses(),
-            },
-            socket,
-            liveview_channel,
-            livereload_channel,
-            session_data,
-        })
-    }
-
-    pub fn event_futures(
-        &self,
-    ) -> (
-        impl Future<Output = Result<EventPayload, EventsError>> + '_,
-        impl Future<Output = Result<SocketStatus, WebSocketError>> + '_,
-    ) {
-        let server_event = self.event_pump.main_events.event().fuse();
-        let maybe_reload_event = self.event_pump.reload_events.as_ref().map(|e| e.event());
-        let socket_status = self.event_pump.socket_statuses.status();
-
-        let socket_status = async {
-            match socket_status.await {
-                Ok(res) => res,
-                Err(_) => std::future::pending().await,
-            }
-        }
-        .fuse();
-
-        let live_reload_proxy = async {
-            match maybe_reload_event {
-                Some(e) => e.await,
-                None => std::future::pending().await,
-            }
-        }
-        .fuse();
-
-        let server_event = async {
-            select! {
-                r1 = live_reload_proxy => r1,
-                r2 = server_event => r2,
-            }
-        }
-        .fuse();
-
-        (server_event, socket_status)
-    }
-
-    // async fn handle_reply(&self, reply: &Payload) -> Result<ReplyAction, LiveSocketError> {
-    //     let Payload::JSONPayload {
-    //         json: JSON::Object { object },
-    //     } = reply
-    //     else {
-    //         return Ok(ReplyAction::None);
-    //     };
-
-    //     if let Some(object) = object.get("live_redirect") {
-    //         let summary = self.handle_redirect(object).await?;
-    //         return Ok(ReplyAction::Redirected {
-    //             summary,
-    //             issuer: Issuer::LiveRedirect,
-    //         });
-    //     }
-
-    //     if let Some(object) = object.get("redirect") {
-    //         let summary = self.handle_redirect(object).await?;
-    //         return Ok(ReplyAction::Redirected {
-    //             summary,
-    //             issuer: Issuer::Redirect,
-    //         });
-    //     }
-
-    //     if let Some(diff) = object.get("diff") {
-    //         self.document
-    //             .merge_deserialized_fragment_json(diff.clone())?;
-
-    //         return Ok(ReplyAction::DiffMerged);
-    //     };
-
-    //     Ok(ReplyAction::None)
-    // }
-
-    // async fn handle_redirect(&self, redirect: &JSON) -> Result<NavigationSummary, LiveSocketError> {
-    //     let json = redirect.clone().into();
-    //     let redirect: LiveRedirect = serde_json::from_value(json)?;
-    //     let url = self.session_data.url.clone();
-    //     let url = url.join(&redirect.to)?;
-
-    //     let action = match redirect.kind {
-    //         Some(RedirectKind::Push) | None => NavAction::Push,
-    //         Some(RedirectKind::Replace) => NavAction::Replace,
-    //     };
-
-    //     let opts = NavOptions {
-    //         action: Some(action),
-    //         // TODO: this might contain user provided join params which should be omitted
-    //         join_params: self.liveview_channel.join_params.clone().into(),
-    //         ..NavOptions::default()
-    //     };
-
-    //     self.client_state.navigate(url.to_string(), opts).await
-    // }
-}
-
-struct ConnectedStatus {
-    pub session_data: SessionData,
-    pub document: ffi::Document,
-    pub join_document: Result<Document, LiveSocketError>,
-    pub join_payload: Payload,
-}
-
-enum ClientStatus {
-    Disconnected,
-    Connecting,
-    Reconnecting {
-        reconnecting_client: Option<ConnectedStatus>,
-    },
-    /// TODO: call shutdown on all transitions
-    Connected(ConnectedStatus),
-    /// TODO: call shutdown on all transitions
-    FatalError {
-        error: Arc<LiveSocketError>,
-    },
-}
-
-impl ClientStatus {
-    pub fn as_connected(&self) -> Result<&ConnectedStatus, LiveSocketError> {
-        match self {
-            ClientStatus::Connected(out) => Ok(out),
-            ClientStatus::Reconnecting { .. } => todo!(),
-            ClientStatus::Disconnected => todo!(),
-            ClientStatus::Connecting => todo!(),
-            ClientStatus::FatalError { error } => todo!(),
-        }
-    }
-}
-
 pub struct LiveViewClientInner {
     /// Shared state between the background event loop and the client handle
     status: ReadOnlyMutex<ClientStatus>,
-    /// user provided settings and defaults
-    config: LiveViewClientConfiguration,
     /// A book keeping context for navigation events.
     nav_ctx: Mutex<NavCtx>,
-    /// HTTP client used to request dead renders.
-    http_client: HttpClient,
     /// A channel to send user action messages to the background listener
     msg_tx: mpsc::UnboundedSender<ClientMessage>,
     /// A token which causes the backed to attempt a graceful shutdown - freeing network resources if
@@ -326,14 +71,9 @@ impl Drop for LiveViewClientInner {
     }
 }
 
-#[derive(Debug, Clone)]
-struct NavigationSummary {
-    history_id: HistoryId,
-    websocket_reconnected: bool,
-}
-
 // First implement the accessor methods on LiveViewClientInner
 impl LiveViewClientInner {
+    /// Create a new LiveViewClient, this will only fail if you cannot create an HTTP client.
     pub async fn new(
         config: LiveViewClientConfiguration,
         url: String,
@@ -361,28 +101,34 @@ impl LiveViewClientInner {
             .redirect(Policy::none())
             .build()?;
 
-        let url = Url::parse(&url)?;
-
         let mut nav_ctx = NavCtx::default();
-        nav_ctx.navigate(url.clone(), NavOptions::default(), false);
 
-        let state =
-            LiveViewClientState::new(&config, url, client_opts, &http_client, &cookie_store).await;
+        // this failure will be reproduced inside the event loop
+        // if the URL fails to parse
+        if let Ok(url) = Url::parse(&url) {
+            // the first navigate to a valid url should be infallible unless
+            // prevented by a user, in which case we will just disconnect internally
+            let _ = nav_ctx.navigate(url, NavOptions::default(), false);
+        }
+
+        if let Some(nav_handler) = config.navigation_handler.clone() {
+            nav_ctx.set_event_handler(nav_handler);
+        }
 
         let EventLoop {
             msg_tx,
             cancellation_token,
-            status: state,
-        } = EventLoop::new(state, &config);
+            status,
+        } = EventLoop::new(config, &url, cookie_store, http_client, client_opts).await;
 
-        Ok(Self {
-            status: state,
+        let out = Self {
+            status,
             msg_tx,
             cancellation_token,
-            config,
             nav_ctx: nav_ctx.into(),
-            http_client,
-        })
+        };
+
+        Ok(out)
     }
 
     pub(crate) async fn reconnect(
@@ -508,33 +254,34 @@ impl LiveViewClientInner {
     }
 
     // not for internal use
-    pub async fn navigate(
-        &self,
-        url: String,
-        opts: NavOptions,
-    ) -> Result<HistoryId, LiveSocketError> {
+    pub fn navigate(&self, url: String, opts: NavOptions) -> Result<HistoryId, LiveSocketError> {
+        let status = self.status.read();
+        let con = status.as_connected()?;
         let parsed_url = Url::parse(&url)?;
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.navigate(parsed_url, opts.clone(), true)?;
 
-        self.msg_tx.send(ClientMessage::Navigate { url, opts });
+        con.msg_tx
+            .send(ConnectedClientMessage::Navigate { url, opts });
 
         Ok(id)
     }
 
     /// This does nothing but update the navigation contex
-    pub async fn patch(&self, url: String) -> Result<HistoryId, LiveSocketError> {
+    pub fn patch(&self, url: String) -> Result<HistoryId, LiveSocketError> {
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.patch(url.clone(), true)?;
         Ok(id)
     }
 
-    pub async fn reload(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+    pub fn reload(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        let status = self.status.read();
+        let con = status.as_connected()?;
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.reload(info.extra_event_info.clone(), true)?;
         let current = ctx.current().ok_or(NavigationError::NoCurrentEntry)?;
 
-        self.msg_tx.send(ClientMessage::Navigate {
+        con.msg_tx.send(ConnectedClientMessage::Navigate {
             url: current.url,
             opts: info.into(),
         });
@@ -543,12 +290,14 @@ impl LiveViewClientInner {
     }
 
     // not for internal use
-    pub async fn back(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+    pub fn back(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        let status = self.status.read();
+        let con = status.as_connected()?;
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.back(info.extra_event_info.clone(), true)?;
         let current = ctx.current().ok_or(NavigationError::NoCurrentEntry)?;
 
-        self.msg_tx.send(ClientMessage::Navigate {
+        con.msg_tx.send(ConnectedClientMessage::Navigate {
             url: current.url,
             opts: info.into(),
         });
@@ -557,12 +306,14 @@ impl LiveViewClientInner {
     }
 
     // not for internal use
-    pub async fn forward(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+    pub fn forward(&self, info: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        let status = self.status.read();
+        let con = status.as_connected()?;
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.forward(info.extra_event_info.clone(), true)?;
         let current = ctx.current().ok_or(NavigationError::NoCurrentEntry)?;
 
-        self.msg_tx.send(ClientMessage::Navigate {
+        con.msg_tx.send(ConnectedClientMessage::Navigate {
             url: current.url,
             opts: info.into(),
         });
@@ -571,16 +322,18 @@ impl LiveViewClientInner {
     }
 
     // not for internal use
-    pub async fn traverse_to(
+    pub fn traverse_to(
         &self,
         id: HistoryId,
         info: NavActionOptions,
     ) -> Result<HistoryId, LiveSocketError> {
+        let status = self.status.read();
+        let con = status.as_connected()?;
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.traverse_to(id, info.extra_event_info.clone(), true)?;
         let current = ctx.current().ok_or(NavigationError::NoCurrentEntry)?;
 
-        self.msg_tx.send(ClientMessage::Navigate {
+        con.msg_tx.send(ConnectedClientMessage::Navigate {
             url: current.url,
             opts: info.into(),
         });
@@ -616,13 +369,18 @@ impl LiveViewClientInner {
         event_name: String,
         payload: Payload,
     ) -> Result<Payload, LiveSocketError> {
+        let _ = self.status.read().as_connected()?;
         let (response_tx, response_rx) = oneshot::channel();
 
-        let _ = self.msg_tx.send(ClientMessage::Call {
-            response_tx,
-            event: Event::from_string(event_name),
-            payload,
-        });
+        {
+            let status = self.status.read();
+            let con = status.as_connected()?;
+            con.msg_tx.send(ConnectedClientMessage::Call {
+                response_tx,
+                event: Event::from_string(event_name),
+                payload,
+            });
+        }
 
         let resp = response_rx.await.map_err(|e| LiveSocketError::Call {
             error: format!("{e}"),
@@ -631,11 +389,15 @@ impl LiveViewClientInner {
         Ok(resp)
     }
 
-    pub async fn cast(&self, event_name: String, payload: Payload) {
-        let _ = self.msg_tx.send(ClientMessage::Cast {
+    pub async fn cast(&self, event_name: String, payload: Payload) -> Result<(), LiveSocketError> {
+        let status = self.status.read();
+        let con = status.as_connected()?;
+        con.msg_tx.send(ConnectedClientMessage::Cast {
             event: Event::from_string(event_name),
             payload,
         });
+
+        Ok(())
     }
 
     pub fn set_log_level(&self, level: LogLevel) {
@@ -643,52 +405,333 @@ impl LiveViewClientInner {
     }
 }
 
-impl LiveViewClientState {
-    /// The first connection and initialization, fetches the dead render and opens the default channel.
-    pub async fn new(
-        config: &LiveViewClientConfiguration,
-        url: Url,
-        client_opts: ClientConnectOpts,
-        http_client: &HttpClient,
-        cookie_store: &PersistentCookieStore,
-    ) -> Self {
-        match ConnectedClient::try_new(config, &url, http_client, client_opts, cookie_store).await {
-            Ok(connected) => Self::Connected(connected),
-            Err(LiveSocketError::ConnectionError(e)) => Self::FatalError(FatalError {
+pub(crate) enum LiveViewClientState {
+    Disconnected,
+    Connecting {
+        job: JoinHandle<Result<ConnectedClient, LiveSocketError>>,
+    },
+    /// TODO: call shutdown on all transitions
+    Reconnecting {
+        recconecting_client: ConnectedClient,
+    },
+    /// TODO: call shutdown on all transitions
+    Connected {
+        con_msg_tx: UnboundedSender<ConnectedClientMessage>,
+        con_msg_rx: UnboundedReceiver<ConnectedClientMessage>,
+        client: ConnectedClient,
+    },
+    FatalError(FatalError),
+}
+
+pub enum ConnectingClient {
+    Job {
+        job: JoinHandle<Result<ConnectedClient, LiveSocketError>>,
+    },
+    Interrupted {
+        client: ConnectedClient,
+    },
+}
+
+pub(crate) struct FatalError {
+    error: LiveSocketError,
+    livereload_channel: Option<Arc<LiveChannel>>,
+    channel_events: Option<Arc<Events>>,
+}
+
+impl From<LiveSocketError> for FatalError {
+    fn from(value: LiveSocketError) -> Self {
+        match value {
+            LiveSocketError::ConnectionError(ConnectionError {
+                error_text,
+                error_code,
+                livereload_channel,
+            }) => Self {
                 error: LiveSocketError::ConnectionError(ConnectionError {
-                    error_code: e.error_code,
-                    error_text: e.error_text,
+                    error_text,
+                    error_code,
                     livereload_channel: None,
-                })
-                .into(),
-                channel_events: e.livereload_channel.as_ref().map(|c| c.channel.events()),
-                livereload_channel: e.livereload_channel,
-            }),
-            Err(error) => Self::FatalError(FatalError {
-                error: error.into(),
+                }),
+                channel_events: livereload_channel.clone().map(|e| e.channel.events()),
+                livereload_channel,
+            },
+            e => Self {
+                error: e,
                 livereload_channel: None,
                 channel_events: None,
-            }),
+            },
+        }
+    }
+}
+
+// TODO: remove arcs if possible, helps
+// readers reason about lifetimes
+pub(crate) struct ConnectedClient {
+    document: ffi::Document,
+    /// The main websocket for this page
+    socket: Arc<Socket>,
+    /// The main channel which passes user interaction events
+    /// and receives changes to the "dom"
+    liveview_channel: Arc<LiveChannel>,
+    /// In debug mode LiveView has a debug channel which sends
+    /// asset update events, this is derived from an iframe on the page
+    /// which also may be present on errored out connections.
+    livereload_channel: Option<Arc<LiveChannel>>,
+    /// Data acquired from the dead render, should only change between
+    /// reconnects.
+    session_data: SessionData,
+    /// Utility to hold all the event channels
+    event_pump: EventPump,
+}
+
+struct EventPump {
+    main_events: Arc<Events>,
+    reload_events: Option<Arc<Events>>,
+    socket_statuses: Arc<SocketStatuses>,
+}
+
+pub enum ReplyAction {
+    Redirected { summary: NavigationSummary },
+    DiffMerged,
+    None,
+}
+
+impl ConnectedClient {
+    pub async fn try_new(
+        config: &LiveViewClientConfiguration,
+        url: &str,
+        http_client: &HttpClient,
+        client_opts: ClientConnectOpts,
+        cookie_store: &PersistentCookieStore,
+    ) -> Result<Self, LiveSocketError> {
+        log::info!("Starting new client connection: {url:?}");
+
+        let url = Url::parse(url)?;
+
+        let opts = ConnectOpts {
+            headers: client_opts.headers,
+            timeout_ms: config.dead_render_timeout,
+            ..ConnectOpts::default()
+        };
+        let format = config.format.to_string();
+
+        let session_data = SessionData::request(&url, &format, opts, http_client.clone()).await?;
+
+        let cookies = cookie_store.get_cookie_list(&url);
+        let websocket_url = session_data.get_live_socket_url()?;
+
+        log::info!("Initiating Websocket connection: {websocket_url:?} , cookies: {cookies:?}");
+
+        let adapter = config
+            .socket_reconnect_strategy
+            .clone()
+            .map(StrategyAdapter::from)
+            .map(|s| Box::new(s) as Box<dyn ReconnectStrategy>);
+
+        let socket = Socket::spawn(websocket_url, cookies.clone(), adapter).await?;
+
+        let ws_timeout = Duration::from_millis(config.websocket_timeout);
+        socket.connect(ws_timeout).await?;
+
+        let cleanup_and_return = async |err: LiveSocketError, socket: &Socket| {
+            let _ = socket.shutdown().await;
+            Err(err)
+        };
+
+        debug!("Joining liveview Channel");
+
+        let liveview_channel = match join_liveview_channel(
+            &socket,
+            &session_data,
+            &client_opts.join_params,
+            None,
+            ws_timeout,
+        )
+        .await
+        {
+            Ok(channel) => channel,
+            Err(e) => return cleanup_and_return(e, &socket).await,
+        };
+
+        if let Some(handler) = config.patch_handler.clone() {
+            liveview_channel.document.arc_set_event_handler(handler);
+        }
+
+        let livereload_channel = if session_data.has_live_reload {
+            match join_livereload_channel(&config, &session_data, cookies).await {
+                Ok(channel) => Some(channel),
+                Err(e) => return cleanup_and_return(e, &socket).await,
+            }
+        } else {
+            None
+        };
+
+        Ok(Self {
+            document: liveview_channel.document(),
+            event_pump: EventPump {
+                main_events: liveview_channel.channel.events(),
+                reload_events: livereload_channel.as_ref().map(|c| c.channel.events()),
+                socket_statuses: socket.statuses(),
+            },
+            socket,
+            liveview_channel,
+            livereload_channel,
+            session_data,
+        })
+    }
+
+    pub fn event_futures(
+        &self,
+    ) -> (
+        impl Future<Output = Result<EventPayload, EventsError>> + '_,
+        impl Future<Output = Result<SocketStatus, WebSocketError>> + '_,
+    ) {
+        let server_event = self.event_pump.main_events.event().fuse();
+        let maybe_reload_event = self.event_pump.reload_events.as_ref().map(|e| e.event());
+        let socket_status = self.event_pump.socket_statuses.status();
+
+        let socket_status = async {
+            match socket_status.await {
+                Ok(res) => res,
+                Err(_) => std::future::pending().await,
+            }
+        }
+        .fuse();
+
+        let live_reload_proxy = async {
+            match maybe_reload_event {
+                Some(e) => e.await,
+                None => std::future::pending().await,
+            }
+        }
+        .fuse();
+
+        let server_event = async {
+            select! {
+                r1 = live_reload_proxy => r1,
+                r2 = server_event => r2,
+            }
+        }
+        .fuse();
+
+        (server_event, socket_status)
+    }
+
+    async fn shutdown(&self) {
+        let _ = self.socket.disconnect().await;
+        let _ = self.socket.shutdown().await;
+        if let Some(livereload) = &self.livereload_channel {
+            let _ = livereload.shutdown_parent_socket().await;
         }
     }
 
+    // async fn handle_reply(&self, reply: &Payload) -> Result<ReplyAction, LiveSocketError> {
+    //     let Payload::JSONPayload {
+    //         json: JSON::Object { object },
+    //     } = reply
+    //     else {
+    //         return Ok(ReplyAction::None);
+    //     };
+
+    //     if let Some(object) = object.get("live_redirect") {
+    //         let summary = self.handle_redirect(object).await?;
+    //         return Ok(ReplyAction::Redirected {
+    //             summary,
+    //             issuer: Issuer::LiveRedirect,
+    //         });
+    //     }
+
+    //     if let Some(object) = object.get("redirect") {
+    //         let summary = self.handle_redirect(object).await?;
+    //         return Ok(ReplyAction::Redirected {
+    //             summary,
+    //             issuer: Issuer::Redirect,
+    //         });
+    //     }
+
+    //     if let Some(diff) = object.get("diff") {
+    //         self.document
+    //             .merge_deserialized_fragment_json(diff.clone())?;
+
+    //         return Ok(ReplyAction::DiffMerged);
+    //     };
+
+    //     Ok(ReplyAction::None)
+    // }
+
+    // async fn handle_redirect(&self, redirect: &JSON) -> Result<NavigationSummary, LiveSocketError> {
+    //     let json = redirect.clone().into();
+    //     let redirect: LiveRedirect = serde_json::from_value(json)?;
+    //     let url = self.session_data.url.clone();
+    //     let url = url.join(&redirect.to)?;
+
+    //     let action = match redirect.kind {
+    //         Some(RedirectKind::Push) | None => NavAction::Push,
+    //         Some(RedirectKind::Replace) => NavAction::Replace,
+    //     };
+
+    //     let opts = NavOptions {
+    //         action: Some(action),
+    //         // TODO: this might contain user provided join params which should be omitted
+    //         join_params: self.liveview_channel.join_params.clone().into(),
+    //         ..NavOptions::default()
+    //     };
+
+    //     self.client_state.navigate(url.to_string(), opts).await
+    // }
+}
+
+struct ConnectedStatus {
+    pub session_data: SessionData,
+    pub document: ffi::Document,
+    pub join_document: Result<Document, LiveSocketError>,
+    pub join_payload: Payload,
+    pub msg_tx: UnboundedSender<ConnectedClientMessage>,
+}
+
+enum ClientStatus {
+    Disconnected,
+    Connecting,
+    Reconnecting,
+    /// TODO: call shutdown on all transitions
+    Connected(ConnectedStatus),
+    /// TODO: call shutdown on all transitions
+    FatalError {
+        error: LiveSocketError,
+    },
+}
+
+impl ClientStatus {
+    pub fn as_connected(&self) -> Result<&ConnectedStatus, LiveSocketError> {
+        match self {
+            ClientStatus::Connected(out) => Ok(out),
+            ClientStatus::Reconnecting { .. }
+            | ClientStatus::Disconnected
+            | ClientStatus::Connecting => Err(LiveSocketError::ClientNotConnected),
+            ClientStatus::FatalError { error } => Err(error.clone()),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct NavigationSummary {
+    history_id: HistoryId,
+    websocket_reconnected: bool,
+}
+
+impl LiveViewClientState {
     fn status(&self) -> ClientStatus {
         let out = match self {
             LiveViewClientState::Disconnected => ClientStatus::Disconnected,
-            LiveViewClientState::Connecting => ClientStatus::Connecting,
-            LiveViewClientState::Reconnecting { old_client, .. } => ClientStatus::Reconnecting {
-                reconnecting_client: old_client.as_ref().map(|c| ConnectedStatus {
-                    session_data: c.session_data.clone(),
-                    document: c.document.clone(),
-                    join_document: c.liveview_channel.join_document(),
-                    join_payload: c.liveview_channel.join_payload(),
-                }),
-            },
-            LiveViewClientState::Connected(c) => ClientStatus::Connected(ConnectedStatus {
-                session_data: c.session_data.clone(),
-                document: c.document.clone(),
-                join_document: c.liveview_channel.join_document(),
-                join_payload: c.liveview_channel.join_payload(),
+            LiveViewClientState::Connecting { .. } => ClientStatus::Connecting,
+            LiveViewClientState::Reconnecting { .. } => ClientStatus::Reconnecting,
+            LiveViewClientState::Connected {
+                client, con_msg_tx, ..
+            } => ClientStatus::Connected(ConnectedStatus {
+                session_data: client.session_data.clone(),
+                document: client.document.clone(),
+                join_document: client.liveview_channel.join_document(),
+                join_payload: client.liveview_channel.join_payload(),
+                msg_tx: con_msg_tx.clone(),
             }),
             LiveViewClientState::FatalError(e) => ClientStatus::FatalError {
                 error: e.error.clone(),
@@ -698,15 +741,21 @@ impl LiveViewClientState {
         out
     }
 
-    pub async fn shutdown(&self) {
+    pub async fn shutdown(self) {
         match self {
             LiveViewClientState::Reconnecting {
-                old_client: Some(con),
-                ..
+                recconecting_client: con,
             }
-            | LiveViewClientState::Connected(con) => {
-                con.socket.disconnect().await;
-                con.socket.shutdown().await;
+            | LiveViewClientState::Connected { client: con, .. } => {
+                con.shutdown().await;
+            }
+            LiveViewClientState::Connecting { job } => {
+                tokio::spawn(async move {
+                    let Ok(Ok(con)) = job.await else {
+                        return;
+                    };
+                    con.shutdown().await;
+                });
             }
             LiveViewClientState::FatalError(error) => {
                 if let Some(e) = error.livereload_channel.as_ref() {

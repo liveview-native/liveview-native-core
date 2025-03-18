@@ -370,7 +370,8 @@ mod test {
         // simple push nav
         let url_str = "https://www.website.com/live";
         let url = Url::parse(url_str).expect("URL failed to parse");
-        ctx.navigate(url, NavOptions::default(), true);
+        ctx.navigate(url, NavOptions::default(), true)
+            .expect("Nav Failed");
 
         assert_eq!(
             NavEvent {
@@ -395,7 +396,8 @@ mod test {
         // initial page
         let first_url_str = "https://www.website.com/first";
         let url = Url::parse(first_url_str).expect("URL failed to parse");
-        ctx.navigate(url, NavOptions::default(), true);
+        ctx.navigate(url, NavOptions::default(), true)
+            .expect("Nav Failed");
 
         // second page
         let url_str = "https://www.website.com/second";

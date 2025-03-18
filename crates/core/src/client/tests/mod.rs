@@ -142,7 +142,6 @@ async fn test_basic_navigation() {
     let next_url = format!("http://{HOST}/nav/second_page");
     client
         .navigate(next_url, Default::default())
-        .await
         .expect("Failed to navigate");
 
     let doc = client.document().expect("Failed to get document");
@@ -190,7 +189,6 @@ async fn test_back_and_forward_navigation() {
     let second_url = format!("http://{HOST}/nav/second_page");
     client
         .navigate(second_url, Default::default())
-        .await
         .expect("Failed to navigate");
 
     let doc = client.document().expect("Failed to get document");
@@ -211,14 +209,12 @@ async fn test_back_and_forward_navigation() {
     let third_url = format!("http://{HOST}/nav/third_page");
     client
         .navigate(third_url, Default::default())
-        .await
         .expect("Failed to navigate");
 
     assert!(client.can_go_back(), "Back navigation impossible");
 
     client
         .back(Default::default())
-        .await
         .expect("Failed to navigate back");
 
     // Verify we're back on second page
@@ -240,7 +236,6 @@ async fn test_back_and_forward_navigation() {
     assert!(client.can_go_forward(), "Forward navigation impossible");
     client
         .forward(Default::default())
-        .await
         .expect("Failed to navigate forward");
 
     let doc = client.document().expect("Failed to get document");
