@@ -119,6 +119,8 @@ impl NavCtx {
             HandlerResponse::PreventDefault => return Err(NavigationError::PreventedByHandler),
         };
 
+        self.push_entry(new_dest);
+
         Ok(old_id)
     }
 

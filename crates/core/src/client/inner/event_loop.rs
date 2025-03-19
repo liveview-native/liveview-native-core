@@ -315,6 +315,7 @@ impl LiveViewClientManager {
                     let out = client.liveview_channel.channel.call(event, payload, dur).await;
 
                     if let Ok(Payload::JSONPayload { json }) = &out {
+                        dbg!(&json);
                         let _ = self.handle_server_response(&client, json, &con_msg_tx);
                     }
 
@@ -556,6 +557,10 @@ impl LiveViewClientManager {
                     let base_url = client.session_data.url.clone();
                     let url = base_url.join(&redirect.to)?;
 
+                    let mut nav = self.nav_ctx.lock().expect("lock poison");
+                    // TODO error handling
+                    let _ = nav.patch(redirect.to, true);
+
                     client.session_data.url = url;
                 }
                 "live_redirect" => {
@@ -619,6 +624,10 @@ impl LiveViewClientManager {
                 }
             },
         };
+
+        if let Some(handler) = self.network_handler.as_ref() {
+            handler.on_event(event.clone());
+        }
 
         Ok(())
     }
