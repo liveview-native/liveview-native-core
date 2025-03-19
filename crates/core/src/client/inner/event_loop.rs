@@ -729,7 +729,36 @@ impl LiveViewClientManager {
                 }
             }
             event = live_reload_proxy => {
-                // TODO: handle livereload with no client
+                let Ok(event) = event else {
+                    return Ok(LiveViewClientState::FatalError(error.clone()));
+                };
+                match &event.event {
+                    Event::Phoenix { phoenix } => {
+                        error!("Phoenix Event for {phoenix:?} is unimplemented");
+                    }
+                    Event::User { user } if user == "assets_change" =>  {
+
+                        let Some(entry) = self.nav_ctx.lock().expect("lock poison").current() else {
+                            return Ok(LiveViewClientState::FatalError(error.clone()));
+                        };
+
+                        let url = entry.url;
+
+                        let connect_opts = ConnectOpts {
+                            timeout_ms: self.config.dead_render_timeout,
+                            ..ConnectOpts::default()
+                        };
+
+                        let _ = self.self_sender.send(ClientMessage::Reconnect {
+                            url,
+                            opts: connect_opts,
+                            // TODO: Add join params and nav type to the nav_ctx
+                            join_params: None,
+                            remote: true,
+                        });
+                    },
+                    _ => {}
+                }
                 Ok(LiveViewClientState::FatalError(error.clone()))
             }
         }

@@ -243,8 +243,12 @@ async fn test_redirect_internals() {
         .navigate(url.clone(), Default::default())
         .expect("nav failed");
 
+    timeout(Duration::from_secs(3), watcher.changed())
+        .await
+        .expect("Timeout")
+        .expect("Failed");
+
     expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
-    tokio::time::sleep(Duration::from_secs(3)).await;
 
     assert_eq!(client.current_history_entry().unwrap().url, redirect_url);
 
@@ -268,21 +272,26 @@ async fn test_redirect_internals() {
 
     let url = format!("http://{HOST}/push_navigate?redirect_type=patch");
     let redirect_url = format!("http://{HOST}/push_navigate?patched=value");
+
     client
         .navigate(url.clone(), Default::default())
         .expect("nav failed");
 
+    timeout(Duration::from_secs(3), watcher.changed())
+        .await
+        .expect("no update")
+        .expect("timeout");
+
     expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
-    tokio::time::sleep(Duration::from_secs(3)).await;
 
     // call a patch handler, patches can only happen after mount
     let payload = json_payload!({"type": "click", "event": "patchme", "value": {}});
+
     client
         .call("event".into(), payload)
         .await
         .expect("error on click");
 
-    tokio::time::sleep(Duration::from_secs(3)).await;
     // assert that the url got patched
     // and that the event landed
     assert_any!(store, |m| {

@@ -16,10 +16,7 @@ use crate::{
 #[derive(Debug, Clone, thiserror::Error, uniffi::Error)]
 pub enum LiveSocketError {
     #[error("Call to navigation function failed: {error}.")]
-    NavigationError {
-        #[from]
-        error: NavigationError,
-    },
+    NavigationError { error: String },
     #[error("Client was disconnected when making call.")]
     ClientNotConnected,
     #[error("Connection task panicked!.")]
@@ -156,6 +153,14 @@ impl std::fmt::Debug for ConnectionError {
             .field("error_code", &self.error_code)
             .field("livereload_channel", &channel_state)
             .finish()
+    }
+}
+
+impl From<NavigationError> for LiveSocketError {
+    fn from(value: NavigationError) -> Self {
+        LiveSocketError::NavigationError {
+            error: format!("{value:?}"),
+        }
     }
 }
 

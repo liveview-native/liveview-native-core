@@ -21,7 +21,7 @@ impl std::fmt::Debug for HandlerInternal {
     }
 }
 
-#[derive(Debug, Clone, thiserror::Error, uniffi::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum NavigationError {
     #[error("Navigation was prevented by a user handler")]
     PreventedByHandler,

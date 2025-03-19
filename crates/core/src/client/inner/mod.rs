@@ -156,7 +156,7 @@ impl LiveViewClientInner {
 
     pub(crate) async fn disconnect(&self) -> Result<(), LiveSocketError> {
         let (response_tx, response_rx) = oneshot::channel();
-        self.msg_tx.send(ClientMessage::Disconnect { response_tx });
+        let _ = self.msg_tx.send(ClientMessage::Disconnect { response_tx });
         response_rx
             .await
             .map_err(|_| LiveSocketError::DisconnectionError)?
@@ -172,7 +172,8 @@ impl LiveViewClientInner {
         {
             let state = self.status.borrow();
             let con = state.as_connected()?;
-            con.msg_tx
+            let _ = con
+                .msg_tx
                 .send(ConnectedClientMessage::UploadFile { file, response_tx });
         }
 
@@ -281,7 +282,6 @@ impl LiveViewClientInner {
         Ok(con.session_data.style_urls.clone())
     }
 
-    // not for internal use
     pub fn navigate(&self, url: String, opts: NavOptions) -> Result<HistoryId, LiveSocketError> {
         let status = self.status.borrow();
         let con = status.as_connected()?;
@@ -289,7 +289,8 @@ impl LiveViewClientInner {
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.navigate(parsed_url, opts.clone(), true)?;
 
-        con.msg_tx.send(ConnectedClientMessage::Navigate {
+        // todo: error hadnlign
+        let _ = con.msg_tx.send(ConnectedClientMessage::Navigate {
             url,
             opts,
             remote: false,
@@ -312,7 +313,8 @@ impl LiveViewClientInner {
         let id = ctx.reload(info.extra_event_info.clone(), true)?;
         let current = ctx.current().ok_or(NavigationError::NoCurrentEntry)?;
 
-        con.msg_tx.send(ConnectedClientMessage::Navigate {
+        // todo error handling
+        let _ = con.msg_tx.send(ConnectedClientMessage::Navigate {
             url: current.url,
             opts: info.into(),
             remote: false,
@@ -329,7 +331,8 @@ impl LiveViewClientInner {
         let id = ctx.back(info.extra_event_info.clone(), true)?;
         let current = ctx.current().ok_or(NavigationError::NoCurrentEntry)?;
 
-        con.msg_tx.send(ConnectedClientMessage::Navigate {
+        // todo error handling
+        let _ = con.msg_tx.send(ConnectedClientMessage::Navigate {
             url: current.url,
             opts: info.into(),
             remote: false,
@@ -346,7 +349,8 @@ impl LiveViewClientInner {
         let id = ctx.forward(info.extra_event_info.clone(), true)?;
         let current = ctx.current().ok_or(NavigationError::NoCurrentEntry)?;
 
-        con.msg_tx.send(ConnectedClientMessage::Navigate {
+        // todo error handling
+        let _ = con.msg_tx.send(ConnectedClientMessage::Navigate {
             url: current.url,
             opts: info.into(),
             remote: false,
@@ -367,7 +371,7 @@ impl LiveViewClientInner {
         let id = ctx.traverse_to(id, info.extra_event_info.clone(), true)?;
         let current = ctx.current().ok_or(NavigationError::NoCurrentEntry)?;
 
-        con.msg_tx.send(ConnectedClientMessage::Navigate {
+        let _ = con.msg_tx.send(ConnectedClientMessage::Navigate {
             url: current.url,
             opts: info.into(),
             remote: false,
@@ -410,7 +414,7 @@ impl LiveViewClientInner {
         {
             let status = self.status.borrow();
             let con = status.as_connected()?;
-            con.msg_tx.send(ConnectedClientMessage::Call {
+            let _ = con.msg_tx.send(ConnectedClientMessage::Call {
                 response_tx,
                 event: Event::from_string(event_name),
                 payload,
@@ -427,7 +431,7 @@ impl LiveViewClientInner {
     pub async fn cast(&self, event_name: String, payload: Payload) -> Result<(), LiveSocketError> {
         let status = self.status.borrow();
         let con = status.as_connected()?;
-        con.msg_tx.send(ConnectedClientMessage::Cast {
+        let _ = con.msg_tx.send(ConnectedClientMessage::Cast {
             event: Event::from_string(event_name),
             payload,
         });
@@ -456,15 +460,6 @@ pub(crate) enum LiveViewClientState {
         client: ConnectedClient,
     },
     FatalError(FatalError),
-}
-
-pub enum ConnectingClient {
-    Job {
-        job: JoinHandle<Result<ConnectedClient, LiveSocketError>>,
-    },
-    Interrupted {
-        client: ConnectedClient,
-    },
 }
 
 #[derive(Clone)]
