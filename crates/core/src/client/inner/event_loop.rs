@@ -6,26 +6,29 @@ use std::{
 
 use futures::{pin_mut, select, FutureExt};
 use log::{debug, error};
-use phoenix_channels_client::{CallError, ConnectError, Event, Payload, SocketStatus, JSON};
-use reqwest::Client;
-//use state::{EventLoopState, ReplyAction};
+use phoenix_channels_client::{
+    CallError, ConnectError, Event, EventPayload, Payload, PhoenixEvent, SocketStatus, JSON,
+};
+use reqwest::{Client, Url};
 use tokio::sync::{
-    mpsc::{self, unbounded_channel},
+    mpsc::{self, unbounded_channel, UnboundedSender},
     oneshot, watch,
 };
 use tokio_util::sync::CancellationToken;
 
 use super::{
-    cookie_store::PersistentCookieStore, ClientStatus, ConnectedClient, DocumentChangeHandler,
-    FatalError, LiveViewClientState, NetworkEventHandler,
+    cookie_store::PersistentCookieStore, navigation::NavCtx, ClientStatus, ConnectedClient,
+    DocumentChangeHandler, FatalError, LiveViewClientState, NetworkEventHandler,
 };
 use crate::{
     client::{ClientStatus as FFIClientStatus, LiveViewClientConfiguration},
     error::{ConnectionError, LiveSocketError},
-    live_socket::{navigation::NavOptions, ConnectOpts},
+    live_socket::{
+        navigation::{NavAction, NavOptions},
+        ConnectOpts, LiveFile,
+    },
+    protocol::{LiveRedirect, RedirectKind},
 };
-
-const MAX_REDIRECTS: u32 = 10;
 
 pub(crate) struct EventLoop {
     pub msg_tx: mpsc::UnboundedSender<ClientMessage>,
@@ -40,6 +43,7 @@ impl EventLoop {
         cookie_store: Arc<PersistentCookieStore>,
         http_client: Client,
         client_opts: crate::client::ClientConnectOpts,
+        nav_ctx: Arc<Mutex<NavCtx>>,
     ) -> Self {
         let config = Arc::new(config);
         let url = url.to_owned();
@@ -62,11 +66,19 @@ impl EventLoop {
         };
 
         let (msg_tx, mut msg_rx) = mpsc::unbounded_channel();
+        let msg_tx_clone = msg_tx.clone();
         let cancellation_token = CancellationToken::new();
         let token_clone = cancellation_token.clone();
         let (status_tx, status_rx) = tokio::sync::watch::channel(client_state.status());
 
-        let manager = LiveViewClientManager::new(status_tx, config, http_client, cookie_store);
+        let manager = LiveViewClientManager::new(
+            status_tx,
+            config,
+            http_client,
+            cookie_store,
+            nav_ctx,
+            msg_tx_clone,
+        );
 
         tokio::spawn(async move {
             let mut current_state = Some(client_state);
@@ -133,6 +145,10 @@ pub enum ConnectedClientMessage {
         payload: Payload,
         response_tx: oneshot::Sender<Result<Payload, CallError>>,
     },
+    UploadFile {
+        file: Arc<LiveFile>,
+        response_tx: oneshot::Sender<Result<(), LiveSocketError>>,
+    },
     Cast {
         event: Event,
         payload: Payload,
@@ -140,6 +156,9 @@ pub enum ConnectedClientMessage {
     Navigate {
         url: String,
         opts: NavOptions,
+        /// true if the request to navigate originated from outside the server, as opposed
+        /// to from the client
+        remote: bool,
     },
 }
 
@@ -151,6 +170,8 @@ pub enum ClientMessage {
         url: String,
         opts: ConnectOpts,
         join_params: Option<HashMap<String, JSON>>,
+        /// True if the reconnect was triggered by the server, such as a `redirect` directive
+        remote: bool,
     },
     Disconnect {
         response_tx: oneshot::Sender<Result<(), LiveSocketError>>,
@@ -162,8 +183,11 @@ pub struct LiveViewClientManager {
     network_handler: Option<Arc<dyn NetworkEventHandler>>,
     document_handler: Option<Arc<dyn DocumentChangeHandler>>,
     config: Arc<LiveViewClientConfiguration>,
+    /// Navigation book keeping context shared with the client handle.
+    nav_ctx: Arc<Mutex<NavCtx>>,
     cookie_store: Arc<PersistentCookieStore>,
     http_client: Client,
+    receiver: UnboundedSender<ClientMessage>,
 }
 
 impl LiveViewClientManager {
@@ -172,6 +196,8 @@ impl LiveViewClientManager {
         config: Arc<LiveViewClientConfiguration>,
         http_client: Client,
         cookie_store: Arc<PersistentCookieStore>,
+        nav_ctx: Arc<Mutex<NavCtx>>,
+        receiver: UnboundedSender<ClientMessage>,
     ) -> Self {
         Self {
             status,
@@ -180,6 +206,8 @@ impl LiveViewClientManager {
             config,
             http_client,
             cookie_store,
+            nav_ctx,
+            receiver,
         }
     }
 
@@ -240,10 +268,27 @@ impl LiveViewClientManager {
             };
 
             match msg {
-                ClientMessage::Reconnect { url, opts, join_params } => {
-                    client.shutdown().await;
-                    let client_state = self.create_connection_task(url, opts, join_params).await;
-                    Ok(client_state)
+                ClientMessage::Reconnect { url, opts, join_params, remote } => {
+                    let bail = if remote {
+                        let url = Url::parse(&url)?;
+
+                        let opts = NavOptions {
+                            join_params: join_params.clone(),
+                            ..Default::default()
+                        };
+
+                        self.nav_ctx.lock().expect("lock poison").navigate(url, opts, true).is_err()
+                    } else {
+                        false
+                    };
+
+                    if !bail {
+                        client.shutdown().await;
+                        let client_state = self.create_connection_task(url, opts, join_params).await;
+                        return Ok(client_state);
+                    } else {
+                        Ok(LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client })
+                    }
                 },
                 ClientMessage::Disconnect { response_tx } => {
                     // TODO: propogate error...
@@ -267,38 +312,66 @@ impl LiveViewClientManager {
                 ConnectedClientMessage::Call { event, payload, response_tx } => {
                     let dur = Duration::from_millis(self.config.websocket_timeout);
                     let out = client.liveview_channel.channel.call(event, payload, dur).await;
+
+                    if let Ok(Payload::JSONPayload { json }) = &out {
+                        let _ = self.handle_server_response(&client, json, &con_msg_tx);
+                    }
+
                     let _ = response_tx.send(out);
                 },
                 ConnectedClientMessage::Cast { event, payload } => {
                      let _ = client.liveview_channel.channel.cast(event, payload).await;
                 },
-                ConnectedClientMessage::Navigate { url, opts } => {
-                    let nav_res = client.try_nav(&self.http_client, &self.config, &opts.join_params, url).await;
-
-                    if let Err(e) = nav_res {
-                        client.shutdown().await;
-                        return Err(e);
+                ConnectedClientMessage::Navigate { url, opts, remote } => {
+                    let bail = if remote {
+                        let url = Url::parse(&url)?;
+                        self.nav_ctx.lock().expect("lock poison").navigate(url, opts.clone(), true).is_err()
+                    } else {
+                        false
                     };
 
-                    if let Some(handler) = self.document_handler.as_ref() {
-                        client.document.arc_set_event_handler(handler.clone());
+                    if !bail {
+                        let nav_res = self.handle_navigation(&mut client, url, opts).await;
+
+
+                        if let Err(e) = nav_res {
+                            match e {
+                               LiveSocketError::JoinRejection { error }  => {
+                                   if let Payload::JSONPayload { json } = error {
+                                       // TODO: make sure that a redirect happened
+                                       let _ = self.handle_server_response(&mut client, &json, &con_msg_tx);
+                                   }
+                               }
+                               _ => {
+                                   client.shutdown().await;
+                                   return Err(e);
+                               }
+                            }
+                        } else {
+                            let (con_msg_tx, con_msg_rx) = unbounded_channel();
+                            let out = LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client };
+                            let _ = self.status.send(out.status());
+                            return Ok(out);
+                        };
                     }
 
-                    if let Some(handler) = self.network_handler.as_ref() {
-                        handler.on_status_change(FFIClientStatus::Connected {
-                            new_document: client.liveview_channel.document().into(),
-                        });
-                    }
-
-                    let out = LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client };
-                    let _ = self.status.send(out.status());
-                    return Ok(out);
                 },
+                ConnectedClientMessage::UploadFile {file, response_tx } => {
+                    let e =  client.liveview_channel.upload_file(&file).await;
+                    let _ = response_tx.send(e);
+                }
             }
-
             Ok(LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client })
            }
            event = client.event_futures().0.fuse() => {
+               if let Ok(event) = event {
+                   let message_res = self.handle_server_event(&mut client, &event, &con_msg_tx);
+
+                   if let Err(e) = message_res {
+                       client.shutdown().await;
+                       return Err(e);
+                   };
+               }
                Ok(LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client })
            }
            status = client.event_futures().1.fuse() => {
@@ -328,6 +401,227 @@ impl LiveViewClientManager {
         }
     }
 
+    fn handle_server_response(
+        &self,
+        client: &ConnectedClient,
+        response: &JSON,
+        con_msg_tx: &UnboundedSender<ConnectedClientMessage>,
+    ) -> Result<(), LiveSocketError> {
+        if let Some(handler) = self.network_handler.as_ref() {
+            let event = EventPayload {
+                event: Event::Phoenix {
+                    phoenix: PhoenixEvent::Reply,
+                },
+                payload: Payload::JSONPayload {
+                    json: response.clone(),
+                },
+            };
+            handler.on_event(event)
+        }
+
+        let JSON::Object { object } = response else {
+            return Ok(());
+        };
+
+        if let Some(redirect_json) = object.get("live_redirect") {
+            let json = redirect_json.clone().into();
+            let redirect: LiveRedirect = serde_json::from_value(json)?;
+            let base_url = client.session_data.url.clone();
+            let target_url = base_url.join(&redirect.to)?;
+
+            let action = match redirect.kind {
+                Some(RedirectKind::Push) | None => NavAction::Push,
+                Some(RedirectKind::Replace) => NavAction::Replace,
+            };
+
+            let opts = NavOptions {
+                action: Some(action),
+                join_params: client.liveview_channel.join_params.clone().into(),
+                ..NavOptions::default()
+            };
+
+            debug!("`live_redirect` received in reply - server push navigation to {target_url:?}");
+            let _ = con_msg_tx.send(ConnectedClientMessage::Navigate {
+                url: target_url.to_string(),
+                opts,
+                remote: true,
+            });
+        }
+
+        if let Some(redirect_json) = object.get("redirect") {
+            let json = redirect_json.clone().into();
+            let redirect: LiveRedirect = serde_json::from_value(json)?;
+
+            let base_url = client.session_data.url.clone();
+            let target_url = base_url.join(&redirect.to)?;
+
+            let connect_opts = ConnectOpts {
+                timeout_ms: self.config.dead_render_timeout,
+                ..ConnectOpts::default()
+            };
+
+            let join_params = client.liveview_channel.join_params.clone().into();
+
+            debug!("`redirect` received in reply - reconencting to {target_url:?}");
+            let _ = self.receiver.send(ClientMessage::Reconnect {
+                url: target_url.to_string(),
+                opts: connect_opts,
+                join_params: Some(join_params),
+                remote: true,
+            });
+        }
+
+        // Handle diffs
+        if let Some(diff) = object.get("diff") {
+            client
+                .document
+                .merge_deserialized_fragment_json(diff.clone())?;
+        }
+
+        Ok(())
+    }
+
+    async fn handle_navigation(
+        &self,
+        client: &mut ConnectedClient,
+        url: String,
+        opts: NavOptions,
+    ) -> Result<(), LiveSocketError> {
+        // Try to perform the navigation
+        client
+            .try_nav(&self.http_client, &self.config, &opts.join_params, url)
+            .await?;
+
+        // Set up handlers after successful navigation
+        if let Some(handler) = self.document_handler.as_ref() {
+            client.document.arc_set_event_handler(handler.clone());
+        }
+
+        if let Some(handler) = self.network_handler.as_ref() {
+            handler.on_status_change(FFIClientStatus::Connected {
+                new_document: client.liveview_channel.document().into(),
+            });
+        }
+
+        Ok(())
+    }
+
+    fn handle_server_event(
+        &self,
+        client: &mut ConnectedClient,
+        event: &EventPayload,
+        con_msg_tx: &UnboundedSender<ConnectedClientMessage>,
+    ) -> Result<(), LiveSocketError> {
+        match &event.event {
+            Event::Phoenix { phoenix } => {
+                error!("Phoenix Event for {phoenix:?} is unimplemented");
+            }
+            Event::User { user } => match user.as_str() {
+                "diff" => {
+                    let Payload::JSONPayload { json } = &event.payload else {
+                        error!("Diff was not json!");
+                        return Ok(());
+                    };
+
+                    client
+                        .document
+                        .merge_deserialized_fragment_json(json.clone())?;
+                }
+                "assets_change" => {
+                    let url = client.session_data.url.to_string();
+                    let connect_opts = ConnectOpts {
+                        timeout_ms: self.config.dead_render_timeout,
+                        ..ConnectOpts::default()
+                    };
+
+                    let join_params = client.liveview_channel.join_params.clone().into();
+
+                    let _ = self.receiver.send(ClientMessage::Reconnect {
+                        url,
+                        opts: connect_opts,
+                        join_params: Some(join_params),
+                        remote: true,
+                    });
+                }
+                "live_patch" => {
+                    let Payload::JSONPayload { json, .. } = &event.payload else {
+                        error!("Live patch was not json!");
+                        return Ok(());
+                    };
+
+                    let json_value = json.clone().into();
+                    let redirect: LiveRedirect = serde_json::from_value(json_value)?;
+
+                    let base_url = client.session_data.url.clone();
+                    let url = base_url.join(&redirect.to)?;
+
+                    client.session_data.url = url;
+                }
+                "live_redirect" => {
+                    let Payload::JSONPayload { json, .. } = &event.payload else {
+                        error!("Live redirect was not json!");
+                        return Ok(());
+                    };
+
+                    let json_value = json.clone().into();
+                    let redirect: LiveRedirect = serde_json::from_value(json_value)?;
+
+                    let base_url = client.session_data.url.clone();
+                    let target_url = base_url.join(&redirect.to)?;
+
+                    let action = match redirect.kind {
+                        Some(RedirectKind::Push) | None => NavAction::Push,
+                        Some(RedirectKind::Replace) => NavAction::Replace,
+                    };
+
+                    let opts = NavOptions {
+                        action: Some(action),
+                        join_params: client.liveview_channel.join_params.clone().into(),
+                        ..NavOptions::default()
+                    };
+
+                    let _ = con_msg_tx.send(ConnectedClientMessage::Navigate {
+                        url: target_url.to_string(),
+                        opts,
+                        remote: true,
+                    });
+                }
+                "redirect" => {
+                    let Payload::JSONPayload { json, .. } = &event.payload else {
+                        error!("Redirect was not json!");
+                        return Ok(());
+                    };
+
+                    let json_value = json.clone().into();
+                    let redirect: LiveRedirect = serde_json::from_value(json_value)?;
+
+                    // Get the target URL
+                    let base_url = client.session_data.url.clone();
+                    let target_url = base_url.join(&redirect.to)?;
+
+                    let connect_opts = ConnectOpts {
+                        timeout_ms: self.config.dead_render_timeout,
+                        ..ConnectOpts::default()
+                    };
+
+                    let join_params = client.liveview_channel.join_params.clone().into();
+
+                    let _ = self.receiver.send(ClientMessage::Reconnect {
+                        url: target_url.to_string(),
+                        opts: connect_opts,
+                        join_params: Some(join_params),
+                        remote: true,
+                    });
+                }
+                _ => {
+                    debug!("Unhandled user event: {}", user);
+                }
+            },
+        };
+
+        Ok(())
+    }
+
     async fn disconnected_loop(
         &self,
         msg_rx: &mut mpsc::UnboundedReceiver<ClientMessage>,
@@ -351,7 +645,7 @@ impl LiveViewClientManager {
                   return Err(LiveSocketError::DisconnectionError)
               };
                match msg {
-                   ClientMessage::Reconnect { url, opts, join_params } => {
+                   ClientMessage::Reconnect { url, opts, join_params, .. } => {
                        debug!("Reconnection requested to URL: {}", url);
                        let client_state = self.create_connection_task(url, opts, join_params).await;
                        Ok(client_state)
@@ -406,7 +700,7 @@ impl LiveViewClientManager {
                 };
 
                 match msg {
-                    ClientMessage::Reconnect { url, opts, join_params } => {
+                    ClientMessage::Reconnect { url, opts, join_params, .. } => {
                         if let Some(lr_channel) = error.livereload_channel {
                             let _ = lr_channel.channel.leave().await;
                         }
@@ -465,7 +759,7 @@ impl LiveViewClientManager {
                 };
 
                 match msg {
-                    ClientMessage::Reconnect { url, opts, join_params } => {
+                    ClientMessage::Reconnect { url, opts, join_params, .. } => {
                         let _ = client.shutdown().await;
                         let client_state = self.create_connection_task(url, opts, join_params).await;
                         Ok(client_state)
@@ -538,7 +832,7 @@ impl LiveViewClientManager {
                 };
 
                 match msg {
-                    ClientMessage::Reconnect { url, opts, join_params } => {
+                    ClientMessage::Reconnect { url, opts, join_params, .. } => {
                         debug!("Reconnection requested during connecting phase: {}", url);
                         if let Ok(Ok(client)) = job_fut.await {
                             client.shutdown().await;

@@ -20,6 +20,8 @@ macro_rules! json_payload {
 #[macro_export]
 macro_rules! expect_status_matches {
     ($watcher:expr, $pattern:pat, $timeout_secs:expr) => {{
+        use std::time::Duration;
+        use tokio::time::timeout;
         let fut = $watcher.wait_for(|s| matches!(s, $pattern));
         timeout(Duration::from_secs($timeout_secs), fut)
             .await

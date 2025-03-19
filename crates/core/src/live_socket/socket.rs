@@ -116,7 +116,7 @@ impl Default for ConnectOpts {
 /// Static information ascertained from the dead render when connecting.
 #[derive(Clone, Debug)]
 pub struct SessionData {
-    /// reply headers
+    /// reply headers from the initial dead render connect
     pub join_headers: HashMap<String, Vec<String>>,
     pub connect_opts: ConnectOpts,
     /// Cross site request forgery, security token, sent with dead render.

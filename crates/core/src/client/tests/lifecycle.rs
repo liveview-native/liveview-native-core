@@ -243,6 +243,9 @@ async fn test_redirect_internals() {
         .navigate(url.clone(), Default::default())
         .expect("nav failed");
 
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
     assert_eq!(client.current_history_entry().unwrap().url, redirect_url);
 
     // assert that it contains at least one live redirect
@@ -269,6 +272,9 @@ async fn test_redirect_internals() {
         .navigate(url.clone(), Default::default())
         .expect("nav failed");
 
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
     // call a patch handler, patches can only happen after mount
     let payload = json_payload!({"type": "click", "event": "patchme", "value": {}});
     client
@@ -276,6 +282,7 @@ async fn test_redirect_internals() {
         .await
         .expect("error on click");
 
+    tokio::time::sleep(Duration::from_secs(3)).await;
     // assert that the url got patched
     // and that the event landed
     assert_any!(store, |m| {

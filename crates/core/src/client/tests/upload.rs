@@ -5,6 +5,7 @@ use super::HOST;
 use crate::{
     client::{LiveViewClientConfiguration, Platform},
     error::{LiveSocketError, UploadError},
+    expect_status_matches,
     live_socket::LiveFile,
     LiveViewClient,
 };
@@ -43,6 +44,9 @@ async fn test_single_chunk_file_upload() {
         .await
         .expect("Failed to create client");
 
+    let mut watcher = client.watch_status();
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
+
     let phx_upload_id = client
         .get_phx_upload_id("avatar")
         .expect("No ID for avatar");
@@ -78,6 +82,9 @@ async fn test_multi_chunk_text_upload() {
         .await
         .expect("Failed to create client");
 
+    let mut watcher = client.watch_status();
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
+
     let phx_upload_id = client
         .get_phx_upload_id("sample_text")
         .expect("No ID for sample_text");
@@ -107,6 +114,9 @@ async fn test_multi_chunk_file_upload() {
     let client = LiveViewClient::new(config, url, Default::default())
         .await
         .expect("Failed to create client");
+
+    let mut watcher = client.watch_status();
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
 
     let phx_upload_id = client
         .get_phx_upload_id("avatar")
@@ -143,6 +153,9 @@ async fn test_file_too_large_error() {
     let client = LiveViewClient::new(config, url, Default::default())
         .await
         .expect("Failed to create client");
+
+    let mut watcher = client.watch_status();
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
 
     let phx_upload_id = client
         .get_phx_upload_id("avatar")
@@ -182,6 +195,9 @@ async fn test_incorrect_file_type_error() {
     let client = LiveViewClient::new(config, url, Default::default())
         .await
         .expect("Failed to create client");
+
+    let mut watcher = client.watch_status();
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
 
     let phx_upload_id = client
         .get_phx_upload_id("avatar")

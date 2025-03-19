@@ -45,16 +45,17 @@ use crate::{
     },
     error::{ConnectionError, LiveSocketError},
     live_socket::{
-        navigation::{NavActionOptions, NavOptions},
+        navigation::{NavAction, NavActionOptions, NavOptions},
         ConnectOpts, LiveChannel, LiveFile, SessionData,
     },
+    protocol::{LiveRedirect, RedirectKind},
 };
 
 pub struct LiveViewClientInner {
     /// Shared state between the background event loop and the client handle
     status: watch::Receiver<ClientStatus>,
     /// A book keeping context for navigation events.
-    nav_ctx: Mutex<NavCtx>,
+    nav_ctx: Arc<Mutex<NavCtx>>,
     /// A channel to send user action messages to the background listener
     msg_tx: mpsc::UnboundedSender<ClientMessage>,
     /// A token which causes the backed to attempt a graceful shutdown - freeing network resources if
@@ -112,17 +113,27 @@ impl LiveViewClientInner {
             nav_ctx.set_event_handler(nav_handler);
         }
 
+        let nav_ctx = Arc::new(Mutex::new(nav_ctx));
+
         let EventLoop {
             msg_tx,
             cancellation_token,
             status,
-        } = EventLoop::new(config, &url, cookie_store, http_client, client_opts).await;
+        } = EventLoop::new(
+            config,
+            &url,
+            cookie_store,
+            http_client,
+            client_opts,
+            nav_ctx.clone(),
+        )
+        .await;
 
         let out = Self {
             status,
             msg_tx,
             cancellation_token,
-            nav_ctx: nav_ctx.into(),
+            nav_ctx,
         };
 
         Ok(out)
@@ -139,6 +150,7 @@ impl LiveViewClientInner {
                 url,
                 opts,
                 join_params,
+                remote: false,
             })
             .map_err(|_| LiveSocketError::DisconnectionError)
     }
@@ -156,8 +168,20 @@ impl LiveViewClientInner {
     }
 
     pub async fn upload_file(&self, file: Arc<LiveFile>) -> Result<(), LiveSocketError> {
-        todo!();
-        Ok(())
+        let (response_tx, response_rx) = oneshot::channel();
+
+        {
+            let state = self.status.borrow();
+            let con = state.as_connected()?;
+            con.msg_tx
+                .send(ConnectedClientMessage::UploadFile { file, response_tx });
+        }
+
+        response_rx.await.map_err(|e| LiveSocketError::Upload {
+            error: crate::error::UploadError::Other {
+                error: format!("{e:?}"),
+            },
+        })?
     }
 
     pub fn status(&self) -> ClientStatus {
@@ -266,8 +290,11 @@ impl LiveViewClientInner {
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.navigate(parsed_url, opts.clone(), true)?;
 
-        con.msg_tx
-            .send(ConnectedClientMessage::Navigate { url, opts });
+        con.msg_tx.send(ConnectedClientMessage::Navigate {
+            url,
+            opts,
+            remote: false,
+        });
 
         Ok(id)
     }
@@ -289,6 +316,7 @@ impl LiveViewClientInner {
         con.msg_tx.send(ConnectedClientMessage::Navigate {
             url: current.url,
             opts: info.into(),
+            remote: false,
         });
 
         Ok(id)
@@ -305,6 +333,7 @@ impl LiveViewClientInner {
         con.msg_tx.send(ConnectedClientMessage::Navigate {
             url: current.url,
             opts: info.into(),
+            remote: false,
         });
 
         Ok(id)
@@ -321,6 +350,7 @@ impl LiveViewClientInner {
         con.msg_tx.send(ConnectedClientMessage::Navigate {
             url: current.url,
             opts: info.into(),
+            remote: false,
         });
 
         Ok(id)
@@ -341,6 +371,7 @@ impl LiveViewClientInner {
         con.msg_tx.send(ConnectedClientMessage::Navigate {
             url: current.url,
             opts: info.into(),
+            remote: false,
         });
 
         Ok(id)
@@ -644,7 +675,7 @@ impl ConnectedClient {
         http_client: &HttpClient,
         config: &LiveViewClientConfiguration,
         additional_params: &Option<HashMap<String, JSON>>,
-        current_url: String,
+        redirect: String,
     ) -> Result<bool, LiveSocketError> {
         let ws_timeout = Duration::from_millis(config.websocket_timeout);
 
@@ -654,7 +685,7 @@ impl ConnectedClient {
             &self.socket,
             &self.session_data,
             additional_params,
-            Some(current_url.clone()),
+            Some(redirect.clone()),
             ws_timeout,
         )
         .await
@@ -680,7 +711,7 @@ impl ConnectedClient {
                     });
                 }
 
-                let url = Url::parse(&current_url)?;
+                let url = Url::parse(&redirect)?;
                 let format = config.format.to_string();
 
                 let new_session_data =
@@ -757,61 +788,6 @@ impl ConnectedClient {
             Err(e) => Err(e),
         }
     }
-
-    // async fn handle_reply(&self, reply: &Payload) -> Result<ReplyAction, LiveSocketError> {
-    //     let Payload::JSONPayload {
-    //         json: JSON::Object { object },
-    //     } = reply
-    //     else {
-    //         return Ok(ReplyAction::None);
-    //     };
-
-    //     if let Some(object) = object.get("live_redirect") {
-    //         let summary = self.handle_redirect(object).await?;
-    //         return Ok(ReplyAction::Redirected {
-    //             summary,
-    //             issuer: Issuer::LiveRedirect,
-    //         });
-    //     }
-
-    //     if let Some(object) = object.get("redirect") {
-    //         let summary = self.handle_redirect(object).await?;
-    //         return Ok(ReplyAction::Redirected {
-    //             summary,
-    //             issuer: Issuer::Redirect,
-    //         });
-    //     }
-
-    //     if let Some(diff) = object.get("diff") {
-    //         self.document
-    //             .merge_deserialized_fragment_json(diff.clone())?;
-
-    //         return Ok(ReplyAction::DiffMerged);
-    //     };
-
-    //     Ok(ReplyAction::None)
-    // }
-
-    // async fn handle_redirect(&self, redirect: &JSON) -> Result<NavigationSummary, LiveSocketError> {
-    //     let json = redirect.clone().into();
-    //     let redirect: LiveRedirect = serde_json::from_value(json)?;
-    //     let url = self.session_data.url.clone();
-    //     let url = url.join(&redirect.to)?;
-
-    //     let action = match redirect.kind {
-    //         Some(RedirectKind::Push) | None => NavAction::Push,
-    //         Some(RedirectKind::Replace) => NavAction::Replace,
-    //     };
-
-    //     let opts = NavOptions {
-    //         action: Some(action),
-    //         // TODO: this might contain user provided join params which should be omitted
-    //         join_params: self.liveview_channel.join_params.clone().into(),
-    //         ..NavOptions::default()
-    //     };
-
-    //     self.client_state.navigate(url.to_string(), opts).await
-    // }
 }
 
 #[derive(Debug, Clone)]
