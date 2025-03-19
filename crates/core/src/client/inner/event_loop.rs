@@ -285,7 +285,7 @@ impl LiveViewClientManager {
                     if !bail {
                         client.shutdown().await;
                         let client_state = self.create_connection_task(url, opts, join_params).await;
-                        return Ok(client_state);
+                        Ok(client_state)
                     } else {
                         Ok(LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client })
                     }
@@ -460,7 +460,7 @@ impl LiveViewClientManager {
                 ..ConnectOpts::default()
             };
 
-            let join_params = client.liveview_channel.join_params.clone().into();
+            let join_params = client.liveview_channel.join_params.clone();
 
             debug!("`redirect` received in reply - reconencting to {target_url:?}");
             let _ = self.receiver.send(ClientMessage::Reconnect {
@@ -534,7 +534,7 @@ impl LiveViewClientManager {
                         ..ConnectOpts::default()
                     };
 
-                    let join_params = client.liveview_channel.join_params.clone().into();
+                    let join_params = client.liveview_channel.join_params.clone();
 
                     let _ = self.receiver.send(ClientMessage::Reconnect {
                         url,
@@ -604,7 +604,7 @@ impl LiveViewClientManager {
                         ..ConnectOpts::default()
                     };
 
-                    let join_params = client.liveview_channel.join_params.clone().into();
+                    let join_params = client.liveview_channel.join_params.clone();
 
                     let _ = self.receiver.send(ClientMessage::Reconnect {
                         url: target_url.to_string(),

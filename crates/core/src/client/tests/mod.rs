@@ -5,7 +5,7 @@ mod upload;
 use std::time::Duration;
 
 use crate::{
-    client::{LiveViewClientConfiguration, LogLevel, Platform, Status},
+    client::{LiveViewClientConfiguration, LogLevel, Platform},
     dom::Document,
     LiveViewClient,
 };

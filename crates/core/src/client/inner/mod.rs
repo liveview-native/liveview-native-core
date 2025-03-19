@@ -35,7 +35,7 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use super::{ClientConnectOpts, LiveViewClientConfiguration, LogLevel, Status};
+use super::{ClientConnectOpts, LiveViewClientConfiguration, LogLevel};
 use crate::{
     callbacks::*,
     client::StrategyAdapter,
@@ -45,10 +45,9 @@ use crate::{
     },
     error::{ConnectionError, LiveSocketError},
     live_socket::{
-        navigation::{NavAction, NavActionOptions, NavOptions},
+        navigation::{NavActionOptions, NavOptions},
         ConnectOpts, LiveChannel, LiveFile, SessionData,
     },
-    protocol::{LiveRedirect, RedirectKind},
 };
 
 pub struct LiveViewClientInner {
