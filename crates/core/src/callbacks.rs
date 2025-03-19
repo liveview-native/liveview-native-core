@@ -1,6 +1,5 @@
 use std::{sync::Arc, time::Duration};
 
-
 #[cfg(feature = "liveview-channels")]
 use crate::dom::ffi::Document;
 use crate::{

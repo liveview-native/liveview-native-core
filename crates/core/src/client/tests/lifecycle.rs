@@ -3,7 +3,7 @@ use std::{
     time::Duration,
 };
 
-use phoenix_channels_client::{Event, EventPayload, Payload, JSON};
+use phoenix_channels_client::{EventPayload, Payload, JSON};
 use pretty_assertions::assert_eq;
 use serde_json::json;
 use tokio::time::{sleep, timeout};
@@ -20,7 +20,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum MockMessage {
     Navigation(NavEvent),
-    NetworkEvent(Event, Payload),
+    NetworkEvent(Payload),
     ViewReload(ClientStatus),
 }
 
@@ -135,7 +135,7 @@ impl MockNetworkEventHandler {
 impl NetworkEventHandler for MockNetworkEventHandler {
     fn on_event(&self, event: EventPayload) {
         self.message_store
-            .add_message(MockMessage::NetworkEvent(event.event, event.payload));
+            .add_message(MockMessage::NetworkEvent(event.payload));
     }
 
     fn on_status_change(&self, status: ClientStatus) {
@@ -250,7 +250,7 @@ async fn test_redirect_internals() {
 
     // assert that it contains at least one live redirect
     assert_any!(store, |m| {
-        if let MockMessage::NetworkEvent(_, Payload::JSONPayload { json }) = m {
+        if let MockMessage::NetworkEvent(Payload::JSONPayload { json }) = m {
             let real = json!({
                "live_redirect" : {
                 "to" : "/redirect_to",
@@ -286,7 +286,7 @@ async fn test_redirect_internals() {
     // assert that the url got patched
     // and that the event landed
     assert_any!(store, |m| {
-        if let MockMessage::NetworkEvent(_, Payload::JSONPayload { json }) = m {
+        if let MockMessage::NetworkEvent(Payload::JSONPayload { json }) = m {
             let real = json!({
                 "kind" : "push",
                 "to" : "/push_navigate?patched=value"

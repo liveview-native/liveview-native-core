@@ -187,7 +187,8 @@ pub struct LiveViewClientManager {
     nav_ctx: Arc<Mutex<NavCtx>>,
     cookie_store: Arc<PersistentCookieStore>,
     http_client: Client,
-    receiver: UnboundedSender<ClientMessage>,
+    /// A message sender for client messages from the event loop into the event loop.
+    self_sender: UnboundedSender<ClientMessage>,
 }
 
 impl LiveViewClientManager {
@@ -207,7 +208,7 @@ impl LiveViewClientManager {
             http_client,
             cookie_store,
             nav_ctx,
-            receiver,
+            self_sender: receiver,
         }
     }
 
@@ -463,7 +464,7 @@ impl LiveViewClientManager {
             let join_params = client.liveview_channel.join_params.clone();
 
             debug!("`redirect` received in reply - reconencting to {target_url:?}");
-            let _ = self.receiver.send(ClientMessage::Reconnect {
+            let _ = self.self_sender.send(ClientMessage::Reconnect {
                 url: target_url.to_string(),
                 opts: connect_opts,
                 join_params: Some(join_params),
@@ -536,7 +537,7 @@ impl LiveViewClientManager {
 
                     let join_params = client.liveview_channel.join_params.clone();
 
-                    let _ = self.receiver.send(ClientMessage::Reconnect {
+                    let _ = self.self_sender.send(ClientMessage::Reconnect {
                         url,
                         opts: connect_opts,
                         join_params: Some(join_params),
@@ -606,7 +607,7 @@ impl LiveViewClientManager {
 
                     let join_params = client.liveview_channel.join_params.clone();
 
-                    let _ = self.receiver.send(ClientMessage::Reconnect {
+                    let _ = self.self_sender.send(ClientMessage::Reconnect {
                         url: target_url.to_string(),
                         opts: connect_opts,
                         join_params: Some(join_params),
@@ -719,7 +720,7 @@ impl LiveViewClientManager {
                 }
             }
             event = live_reload_proxy => {
-                todo!();
+                // TODO: handle livereload with no client
                 Ok(LiveViewClientState::FatalError(error.clone()))
             }
         }
@@ -943,26 +944,34 @@ impl LiveViewClientManager {
                     }
                 }
             }
-            Err(e) => match e {
-                LiveSocketError::ConnectionError(ConnectionError {
-                    error_text,
-                    error_code,
-                    livereload_channel,
-                }) => LiveViewClientState::FatalError(FatalError {
-                    error: LiveSocketError::ConnectionError(ConnectionError {
+            Err(e) => {
+                let state = match e {
+                    LiveSocketError::ConnectionError(ConnectionError {
                         error_text,
                         error_code,
-                        livereload_channel: None,
+                        livereload_channel,
+                    }) => LiveViewClientState::FatalError(FatalError {
+                        error: LiveSocketError::ConnectionError(ConnectionError {
+                            error_text,
+                            error_code,
+                            livereload_channel: None,
+                        }),
+                        channel_events: livereload_channel.as_ref().map(|e| e.channel.events()),
+                        livereload_channel,
                     }),
-                    channel_events: livereload_channel.as_ref().map(|e| e.channel.events()),
-                    livereload_channel,
-                }),
-                error => LiveViewClientState::FatalError(FatalError {
-                    error,
-                    livereload_channel: None,
-                    channel_events: None,
-                }),
-            },
+                    error => LiveViewClientState::FatalError(FatalError {
+                        error,
+                        livereload_channel: None,
+                        channel_events: None,
+                    }),
+                };
+
+                let status = state.status();
+                debug!("Updating status to {}", status.name());
+                let _ = self.status.send(status);
+
+                state
+            }
         }
     }
 }

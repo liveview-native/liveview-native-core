@@ -525,12 +525,6 @@ struct EventPump {
     socket_statuses: Arc<SocketStatuses>,
 }
 
-pub enum ReplyAction {
-    Redirected { summary: NavigationSummary },
-    DiffMerged,
-    None,
-}
-
 impl ConnectedClient {
     pub async fn try_new(
         config: &LiveViewClientConfiguration,
@@ -833,12 +827,6 @@ impl ClientStatus {
     }
 }
 
-#[derive(Debug, Clone)]
-struct NavigationSummary {
-    history_id: HistoryId,
-    websocket_reconnected: bool,
-}
-
 impl LiveViewClientState {
     fn status(&self) -> ClientStatus {
         match self {
@@ -857,31 +845,6 @@ impl LiveViewClientState {
             LiveViewClientState::FatalError(e) => ClientStatus::FatalError {
                 error: e.error.clone(),
             },
-        }
-    }
-
-    pub async fn shutdown(self) {
-        match self {
-            LiveViewClientState::Reconnecting {
-                recconecting_client: con,
-            }
-            | LiveViewClientState::Connected { client: con, .. } => {
-                con.shutdown().await;
-            }
-            LiveViewClientState::Connecting { job } => {
-                tokio::spawn(async move {
-                    let Ok(Ok(con)) = job.await else {
-                        return;
-                    };
-                    con.shutdown().await;
-                });
-            }
-            LiveViewClientState::FatalError(error) => {
-                if let Some(e) = error.livereload_channel.as_ref() {
-                    e.shutdown_parent_socket().await;
-                }
-            }
-            _ => {}
         }
     }
 }
