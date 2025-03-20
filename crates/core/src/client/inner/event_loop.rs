@@ -17,8 +17,8 @@ use tokio::sync::{
 use tokio_util::sync::CancellationToken;
 
 use super::{
-    cookie_store::PersistentCookieStore, navigation::NavCtx, ClientStatus, ConnectedClient,
-    DocumentChangeHandler, FatalError, LiveViewClientState, NetworkEventHandler,
+    connected_client::ConnectedClient, cookie_store::PersistentCookieStore, navigation::NavCtx,
+    ClientStatus, DocumentChangeHandler, FatalError, LiveViewClientState, NetworkEventHandler,
 };
 use crate::{
     client::{ClientStatus as FFIClientStatus, LiveViewClientConfiguration},
@@ -292,7 +292,7 @@ impl LiveViewClientManager {
                     }
                 },
                 ClientMessage::Disconnect { response_tx } => {
-                    // TODO: propogate error...
+                    // TODO: propagate error...
                     client.shutdown().await;
                     let _ = response_tx.send(Ok(()));
                     Ok(LiveViewClientState::Disconnected)
@@ -315,8 +315,7 @@ impl LiveViewClientManager {
                     let out = client.liveview_channel.channel.call(event, payload, dur).await;
 
                     if let Ok(Payload::JSONPayload { json }) = &out {
-                        dbg!(&json);
-                        let _ = self.handle_server_response(&client, json, &con_msg_tx);
+                        let _ = self.handle_reply(&client, json, &con_msg_tx);
                     }
 
                     let _ = response_tx.send(out);
@@ -341,7 +340,7 @@ impl LiveViewClientManager {
                                LiveSocketError::JoinRejection { error }  => {
                                    if let Payload::JSONPayload { json } = error {
                                        // TODO: make sure that a redirect happened
-                                       let _ = self.handle_server_response(&mut client, &json, &con_msg_tx);
+                                       let _ = self.handle_reply(&mut client, &json, &con_msg_tx);
                                    }
                                }
                                _ => {
@@ -367,7 +366,7 @@ impl LiveViewClientManager {
            }
            event = client.event_futures().0.fuse() => {
                if let Ok(event) = event {
-                   let message_res = self.handle_server_event(&mut client, &event, &con_msg_tx);
+                   let message_res = self.handle_server_event(&mut client, &event, &con_msg_tx).await;
 
                    if let Err(e) = message_res {
                        client.shutdown().await;
@@ -391,7 +390,7 @@ impl LiveViewClientManager {
                    SocketStatus::Disconnected |
                    SocketStatus::NeverConnected |
                    SocketStatus::WaitingToReconnect { .. } => {
-                       Ok(LiveViewClientState::Reconnecting { recconecting_client: client })
+                       Ok(LiveViewClientState::Reconnecting { reconnecting_client: client })
                    },
                    SocketStatus::ShuttingDown |
                    SocketStatus::ShutDown => {
@@ -403,7 +402,7 @@ impl LiveViewClientManager {
         }
     }
 
-    fn handle_server_response(
+    fn handle_reply(
         &self,
         client: &ConnectedClient,
         response: &JSON,
@@ -508,13 +507,18 @@ impl LiveViewClientManager {
         Ok(())
     }
 
-    fn handle_server_event(
+    async fn handle_server_event(
         &self,
         client: &mut ConnectedClient,
         event: &EventPayload,
         con_msg_tx: &UnboundedSender<ConnectedClientMessage>,
     ) -> Result<(), LiveSocketError> {
         match &event.event {
+            Event::Phoenix {
+                phoenix: PhoenixEvent::Error,
+            } => {
+                client.rejoin_liveview_channel(&self.config).await?;
+            }
             Event::Phoenix { phoenix } => {
                 error!("Phoenix Event for {phoenix:?} is unimplemented");
             }
@@ -771,7 +775,7 @@ impl LiveViewClientManager {
         state: LiveViewClientState,
     ) -> Result<LiveViewClientState, LiveSocketError> {
         let LiveViewClientState::Reconnecting {
-            recconecting_client: client,
+            reconnecting_client: client,
         } = state
         else {
             return Ok(state);
@@ -826,7 +830,7 @@ impl LiveViewClientManager {
                     SocketStatus::Disconnected |
                     SocketStatus::NeverConnected |
                     SocketStatus::WaitingToReconnect { .. } => {
-                        Ok(LiveViewClientState::Reconnecting { recconecting_client: client })
+                        Ok(LiveViewClientState::Reconnecting { reconnecting_client: client })
                     },
                     SocketStatus::ShuttingDown |
                     SocketStatus::ShutDown => {
@@ -862,28 +866,22 @@ impl LiveViewClientManager {
                 Ok(LiveViewClientState::Disconnected)
             }
             msg = client_msg_future => {
-                let Some(msg) = msg else {
-                    if let Ok(Ok(client)) = job_fut.await {
-                        client.shutdown().await;
-                    }
+                if let Ok(Ok(client)) = job_fut.await {
+                    client.shutdown().await;
+                }
 
+                let Some(msg) = msg else {
                     return Ok(LiveViewClientState::Disconnected);
                 };
 
                 match msg {
                     ClientMessage::Reconnect { url, opts, join_params, .. } => {
                         debug!("Reconnection requested during connecting phase: {}", url);
-                        if let Ok(Ok(client)) = job_fut.await {
-                            client.shutdown().await;
-                        }
                         let client_state = self.create_connection_task(url, opts, join_params).await;
                         Ok(client_state)
                     }
                     ClientMessage::Disconnect { response_tx } => {
-                        if let Ok(Ok(client)) = job_fut.await {
-                            let _ = client.socket.disconnect().await;
-                            let _ = client.socket.shutdown().await;
-                        }
+                        debug!("Disconnect requested during connecting phase");
                         let _ = response_tx.send(Ok(()));
                         Ok(LiveViewClientState::Disconnected)
                     }
@@ -940,14 +938,14 @@ impl LiveViewClientManager {
                         LiveViewClientState::Connecting { job }
                     }
                     LiveViewClientState::Reconnecting {
-                        recconecting_client,
+                        reconnecting_client,
                     } => {
                         if let Some(handler) = self.network_handler.as_ref() {
                             handler.on_status_change(FFIClientStatus::Reconnecting);
                         }
 
                         LiveViewClientState::Reconnecting {
-                            recconecting_client,
+                            reconnecting_client,
                         }
                     }
                     LiveViewClientState::Connected {
