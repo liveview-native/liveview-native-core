@@ -340,7 +340,7 @@ impl LiveViewClientManager {
                                LiveSocketError::JoinRejection { error }  => {
                                    if let Payload::JSONPayload { json } = error {
                                        // TODO: make sure that a redirect happened
-                                       let _ = self.handle_reply(&mut client, &json, &con_msg_tx);
+                                       let _ = self.handle_reply(&client, &json, &con_msg_tx);
                                    }
                                }
                                _ => {
@@ -463,7 +463,7 @@ impl LiveViewClientManager {
 
             let join_params = client.liveview_channel.join_params.clone();
 
-            debug!("`redirect` received in reply - reconencting to {target_url:?}");
+            debug!("`redirect` received in reply - reconnecting to {target_url:?}");
             let _ = self.self_sender.send(ClientMessage::Reconnect {
                 url: target_url.to_string(),
                 opts: connect_opts,
