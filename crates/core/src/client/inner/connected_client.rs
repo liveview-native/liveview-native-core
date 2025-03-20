@@ -82,11 +82,6 @@ impl ConnectedClient {
 
         socket.connect(ws_timeout).await?;
 
-        let cleanup_and_return = async |err: LiveSocketError, socket: &Socket| {
-            let _ = socket.shutdown().await;
-            Err(err)
-        };
-
         debug!("Joining liveview Channel");
 
         let liveview_channel = match join_liveview_channel(
@@ -99,7 +94,12 @@ impl ConnectedClient {
         .await
         {
             Ok(channel) => channel,
-            Err(e) => return cleanup_and_return(e, &socket).await,
+            Err(e) => {
+                return {
+                    let _ = socket.shutdown().await;
+                    Err(e)
+                }
+            }
         };
 
         if let Some(handler) = config.patch_handler.clone() {
@@ -109,7 +109,12 @@ impl ConnectedClient {
         let livereload_channel = if session_data.has_live_reload {
             match join_livereload_channel(config, &session_data, cookies).await {
                 Ok(channel) => Some(channel),
-                Err(e) => return cleanup_and_return(e, &socket).await,
+                Err(e) => {
+                    return {
+                        let _ = socket.shutdown().await;
+                        Err(e)
+                    }
+                }
             }
         } else {
             None
