@@ -7,7 +7,7 @@ androidx-test-ext = "1.2.1"
 espresso-core = "3.6.1"
 junit = "4.13.2"
 desugar_jdk_libs = "2.1.0"
-jetbrains-kotlin-android = "1.9.21"
+jetbrains-kotlin-android = "2.1.20"
 rust-android-gradle = "0.9.3"
 dokka = "2.0.0"
 
