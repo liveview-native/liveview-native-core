@@ -21,7 +21,7 @@ use super::{
     ClientStatus, DocumentChangeHandler, FatalError, LiveViewClientState, NetworkEventHandler,
 };
 use crate::{
-    client::{ClientStatus as FFIClientStatus, LiveViewClientConfiguration},
+    client::{LiveViewClientConfiguration, LiveViewClientStatus as FFIClientStatus},
     error::{ConnectionError, LiveSocketError},
     live_socket::{
         navigation::{NavAction, NavOptions},
@@ -349,6 +349,7 @@ impl LiveViewClientManager {
                                }
                             }
                         } else {
+                            error!("SHIRRRIIIIIM \n\n {}", client.document.render());
                             let (con_msg_tx, con_msg_rx) = unbounded_channel();
                             let out = LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client };
                             let _ = self.status.send(out.status());
@@ -499,9 +500,7 @@ impl LiveViewClientManager {
         }
 
         if let Some(handler) = self.network_handler.as_ref() {
-            handler.on_status_change(FFIClientStatus::Connected {
-                new_document: client.liveview_channel.document().into(),
-            });
+            handler.on_status_change(client.ffi_status());
         }
 
         Ok(())
@@ -701,7 +700,7 @@ impl LiveViewClientManager {
             _ = token_future => {
                 // If cancellation is requested, clean up any resources if needed
                 if let Some(lr_channel) = error.livereload_channel {
-                    let _ = lr_channel.channel.leave().await;
+                       let _ = lr_channel.shutdown_parent_socket().await;
                 }
                 Ok(LiveViewClientState::Disconnected)
             }
@@ -716,7 +715,7 @@ impl LiveViewClientManager {
                 match msg {
                     ClientMessage::Reconnect { url, opts, join_params, .. } => {
                         if let Some(lr_channel) = error.livereload_channel {
-                            let _ = lr_channel.channel.leave().await;
+                            let _ = lr_channel.shutdown_parent_socket().await;
                         }
 
                         let client_state = self.create_connection_task(url, opts, join_params).await;
@@ -724,7 +723,7 @@ impl LiveViewClientManager {
                     },
                     ClientMessage::Disconnect { response_tx } => {
                         if let Some(lr_channel) = error.livereload_channel {
-                            let _ = lr_channel.channel.leave().await;
+                            let _ = lr_channel.shutdown_parent_socket().await;
                         }
 
                         let _ = response_tx.send(Ok(()));
@@ -958,9 +957,7 @@ impl LiveViewClientManager {
                         }
 
                         if let Some(handler) = self.network_handler.as_ref() {
-                            handler.on_status_change(FFIClientStatus::Connected {
-                                new_document: client.liveview_channel.document().into(),
-                            });
+                            handler.on_status_change(client.ffi_status());
                         }
 
                         LiveViewClientState::Connected {

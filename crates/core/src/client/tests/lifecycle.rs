@@ -11,9 +11,10 @@ use tokio::time::{sleep, timeout};
 use super::{json_payload, HOST};
 use crate::{
     client::{
-        ClientStatus, HandlerResponse, LiveViewClientConfiguration, NavEvent, NavEventHandler,
-        NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
+        HandlerResponse, LiveViewClientConfiguration, LiveViewClientStatus, MainChannelStatus,
+        NavEvent, NavEventHandler, NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
     },
+    dom::ffi::Document,
     expect_status_matches, LiveViewClient,
 };
 
@@ -21,7 +22,7 @@ use crate::{
 pub enum MockMessage {
     Navigation(NavEvent),
     NetworkEvent(Payload),
-    ViewReload(ClientStatus),
+    ViewReload(LiveViewClientStatus),
 }
 
 #[macro_export]
@@ -138,7 +139,7 @@ impl NetworkEventHandler for MockNetworkEventHandler {
             .add_message(MockMessage::NetworkEvent(event.payload));
     }
 
-    fn on_status_change(&self, status: ClientStatus) {
+    fn on_status_change(&self, status: LiveViewClientStatus) {
         self.message_store
             .add_message(MockMessage::ViewReload(status));
     }
@@ -165,7 +166,7 @@ async fn test_navigation_handler() {
 
     store
         .wait_for(
-            |e| matches!(e, MockMessage::ViewReload(ClientStatus::Connecting)),
+            |e| matches!(e, MockMessage::ViewReload(LiveViewClientStatus::Connecting)),
             Duration::from_secs(2),
         )
         .await
@@ -173,7 +174,12 @@ async fn test_navigation_handler() {
 
     store
         .wait_for(
-            |e| matches!(e, MockMessage::ViewReload(ClientStatus::Connected { .. })),
+            |e| {
+                matches!(
+                    e,
+                    MockMessage::ViewReload(LiveViewClientStatus::Connected { .. })
+                )
+            },
             Duration::from_secs(2),
         )
         .await
@@ -208,7 +214,12 @@ async fn test_navigation_handler() {
 
     store
         .wait_for(
-            |e| matches!(e, MockMessage::ViewReload(ClientStatus::Connected { .. })),
+            |e| {
+                matches!(
+                    e,
+                    MockMessage::ViewReload(LiveViewClientStatus::Connected { .. })
+                )
+            },
             Duration::from_secs(2),
         )
         .await
@@ -230,8 +241,6 @@ async fn test_redirect_internals() {
     let client = LiveViewClient::new(config, url.clone(), Default::default())
         .await
         .expect("Failed to create client");
-
-    store.clear();
 
     let url = format!("http://{HOST}/push_navigate?redirect_type=live_redirect");
     let redirect_url = format!("http://{HOST}/redirect_to");

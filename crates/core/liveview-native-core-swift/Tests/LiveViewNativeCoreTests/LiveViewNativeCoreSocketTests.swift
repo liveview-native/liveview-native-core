@@ -8,6 +8,44 @@ import XCTest
 
 let timeout = TimeInterval(30.0)
 
+func withTimeoutOf<T>(seconds: Double, operation: @escaping () async throws -> T) async throws -> T
+{
+    try await withThrowingTaskGroup(of: T.self) { group in
+        // Start the actual operation
+        group.addTask {
+            try await operation()
+        }
+
+        // Start a timer task
+        group.addTask {
+            // Convert to nanoseconds internally
+            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            throw TimeoutError(seconds: seconds)
+        }
+
+        // Return the first completed task or throw if it's an error
+        do {
+            if let result = try await group.next() {
+                group.cancelAll()
+                return result
+            }
+        } catch {
+            group.cancelAll()
+            throw error
+        }
+
+        throw TimeoutError(seconds: seconds)
+    }
+}
+
+struct TimeoutError: Error {
+    let seconds: Double
+
+    var localizedDescription: String {
+        return "Operation timed out after \(seconds) seconds"
+    }
+}
+
 let connect_url = "http://127.0.0.1:4001/hello"
 final class LiveViewNativeCoreSocketTests: XCTestCase {
     func testConnect() async throws {
@@ -42,7 +80,19 @@ final class LiveViewNativeCoreSocketTests: XCTestCase {
     func testBasicConnection() async throws {
         let builder = LiveViewClientBuilder()
         let client = try await builder.connect("http://127.0.0.1:4001/hello", ClientConnectOpts())
-        let document = try client.document()
+        let watcher = client.statusStream()
+
+        let status = try await withTimeoutOf(seconds: 5) {
+            await watcher.nextStatus()
+        }
+
+        guard case .connected(let channelStatus) = status else {
+            fatalError("Expected client to be connected, but got \(status)")
+        }
+
+        guard case .connected(let document) = channelStatus else {
+            fatalError("Expected channel to be connected with document, but got \(channelStatus)")
+        }
 
         let expected = """
             <Group id="flash-group" />
@@ -55,12 +105,28 @@ final class LiveViewNativeCoreSocketTests: XCTestCase {
 
         let exp = try Document.parse(expected)
         XCTAssertEqual(document.render(), exp.render())
+
     }
 
     func testNavigation() async throws {
         let builder = LiveViewClientBuilder()
+        builder.setLogLevel(.debug)
         let client = try await builder.connect(
             "http://127.0.0.1:4001/nav/first_page", ClientConnectOpts())
+
+        let watcher = client.statusStream()
+
+        let initialStatus = try await withTimeoutOf(seconds: 5) {
+            await watcher.nextStatus()
+        }
+
+        guard case .connected(let channelStatus) = initialStatus else {
+            fatalError("Expected client to be connected, but got \(initialStatus)")
+        }
+
+        guard case .connected(let document) = channelStatus else {
+            fatalError("Expected channel to be connected, but got \(channelStatus)")
+        }
 
         let initialDoc = try client.document()
         let expectedInitial = """
@@ -77,13 +143,28 @@ final class LiveViewNativeCoreSocketTests: XCTestCase {
             </VStack>
             """
         let expInitial = try Document.parse(expectedInitial)
+        XCTAssertEqual(document.render(), expInitial.render())
         XCTAssertEqual(initialDoc.render(), expInitial.render())
 
         let secondPageId = try await client.navigate(
             "http://127.0.0.1:4001/nav/second_page", NavOptions())
 
+        let postNavStatus = try await withTimeoutOf(seconds: 5) {
+            await watcher.nextStatus()
+        }
+
+        guard case .connected(let postNavChannelStatus) = postNavStatus else {
+            fatalError(
+                "Expected client to remain connected after navigation, but got \(postNavStatus)")
+        }
+
+        guard case .connected(let documentTwo) = postNavChannelStatus else {
+            fatalError(
+                "Expected channel to remain connected after navigation, but got \(postNavChannelStatus)"
+            )
+        }
+
         // document should change.
-        // TODO: validate doc change is sent in event loop
         let secondDoc = try client.document()
         let expectedSecond = """
             <Group id="flash-group" />
@@ -99,8 +180,8 @@ final class LiveViewNativeCoreSocketTests: XCTestCase {
             </VStack>
             """
         let expSecond = try Document.parse(expectedSecond)
+        XCTAssertEqual(documentTwo.render(), expSecond.render())
         XCTAssertEqual(secondDoc.render(), expSecond.render())
-
     }
 }
 

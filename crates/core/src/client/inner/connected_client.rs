@@ -3,8 +3,8 @@ use std::{collections::HashMap, future::Future, sync::Arc, time::Duration};
 use futures::FutureExt;
 use log::{debug, trace};
 use phoenix_channels_client::{
-    EventPayload, Events, EventsError, Payload, ReconnectStrategy, Socket, SocketStatus,
-    SocketStatuses, Topic, WebSocketError, JSON,
+    ChannelStatus, EventPayload, Events, EventsError, Payload, ReconnectStrategy, Socket,
+    SocketStatus, SocketStatuses, Topic, WebSocketError, JSON,
 };
 use reqwest::{Client, Url};
 use tokio::select;
@@ -19,6 +19,8 @@ use crate::{
     error::LiveSocketError,
     live_socket::{ConnectOpts, LiveChannel, SessionData},
 };
+
+use super::LiveViewClientStatus;
 
 pub(crate) struct ConnectedClient {
     pub(crate) document: ffi::Document,
@@ -245,6 +247,26 @@ impl ConnectedClient {
         }
     }
 
+    pub(crate) fn ffi_status(&self) -> LiveViewClientStatus {
+        match self.liveview_channel.channel.status() {
+            ChannelStatus::Joined => LiveViewClientStatus::Connected {
+                channel_status: crate::callbacks::MainChannelStatus::Connected {
+                    document: self.document.clone().into(),
+                },
+            },
+            ChannelStatus::WaitingForSocketToConnect
+            | ChannelStatus::WaitingToJoin
+            | ChannelStatus::Joining
+            | ChannelStatus::WaitingToRejoin { .. }
+            | ChannelStatus::Leaving
+            | ChannelStatus::Left
+            | ChannelStatus::ShuttingDown
+            | ChannelStatus::ShutDown => LiveViewClientStatus::Connected {
+                channel_status: crate::callbacks::MainChannelStatus::Reconnecting,
+            },
+        }
+    }
+
     pub(crate) const RETRY_REASONS: &'static [&'static str] = &["stale", "unauthorized"];
 
     /// try to do the internal nav, attempting to fix
@@ -272,6 +294,24 @@ impl ConnectedClient {
         )
         .await
         {
+            Ok(new_channel) => {
+                if let Some(event_handler) = &config.patch_handler {
+                    new_channel
+                        .document
+                        .arc_set_event_handler(event_handler.clone())
+                }
+
+                self.document = new_channel.document();
+                self.liveview_channel = new_channel;
+
+                self.event_pump = EventPump {
+                    main_events: self.liveview_channel.channel.events(),
+                    reload_events: self.livereload_channel.as_ref().map(|c| c.channel.events()),
+                    socket_statuses: self.socket.statuses(),
+                };
+
+                Ok(false)
+            }
             Err(LiveSocketError::JoinRejection {
                 error:
                     Payload::JSONPayload {
@@ -348,24 +388,6 @@ impl ConnectedClient {
                 };
 
                 Ok(true)
-            }
-            Ok(new_channel) => {
-                if let Some(event_handler) = &config.patch_handler {
-                    new_channel
-                        .document
-                        .arc_set_event_handler(event_handler.clone())
-                }
-
-                self.document = new_channel.document();
-                self.liveview_channel = new_channel;
-
-                self.event_pump = EventPump {
-                    main_events: self.liveview_channel.channel.events(),
-                    reload_events: self.livereload_channel.as_ref().map(|c| c.channel.events()),
-                    socket_statuses: self.socket.statuses(),
-                };
-
-                Ok(false)
             }
             Err(e) => Err(e),
         }

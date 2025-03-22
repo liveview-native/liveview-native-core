@@ -11,7 +11,7 @@ use std::{
 
 use config::*;
 use futures::future::try_join_all;
-use inner::LiveViewClientInner;
+use inner::{ClientStatus, LiveViewClientInner};
 use phoenix_channels_client::{Payload, JSON};
 use reqwest::header::CONTENT_TYPE;
 
@@ -29,6 +29,36 @@ use crate::{
 };
 
 const CSRF_HEADER: &str = "x-csrf-token";
+
+#[derive(uniffi::Object)]
+pub struct ClientStatuses {
+    channel: Mutex<tokio::sync::watch::Receiver<ClientStatus>>,
+}
+
+impl From<tokio::sync::watch::Receiver<ClientStatus>> for ClientStatuses {
+    fn from(channel: tokio::sync::watch::Receiver<ClientStatus>) -> Self {
+        Self {
+            channel: channel.into(),
+        }
+    }
+}
+
+#[uniffi::export(async_runtime = "tokio")]
+impl ClientStatuses {
+    pub fn current_status(&self) -> LiveViewClientStatus {
+        let status = self.channel.lock().expect("Lock Poison");
+        let status = status.borrow();
+        status.as_ffi()
+    }
+
+    pub async fn next_status(&self) -> LiveViewClientStatus {
+        let mut channel = self.channel.lock().expect("Lock Poison").clone();
+        channel.mark_unchanged();
+        let _ = channel.changed().await;
+        let status = channel.borrow();
+        status.as_ffi()
+    }
+}
 
 /// A configuration interface for building a [LiveViewClient].
 /// Options on this object will used for all http and websocket connections
@@ -189,6 +219,10 @@ impl LiveViewClient {
         self.inner.shutdown();
     }
 
+    pub fn status_stream(&self) -> ClientStatuses {
+        self.inner.status_stream()
+    }
+
     /// Uploads the live files in `files`
     ///
     /// Note: currently the replies in the file upload work flow are
@@ -246,6 +280,7 @@ pub enum Status {
 }
 
 // Navigation-related functionality ported from LiveSocket
+#[cfg_attr(not(target_family = "wasm"), uniffi::export)]
 impl LiveViewClient {
     /// Navigate to `url` with behavior and metadata specified in `opts`.
     pub fn navigate(&self, url: String, opts: NavOptions) -> Result<HistoryId, LiveSocketError> {
@@ -308,11 +343,11 @@ impl LiveViewClient {
     }
 }
 
-#[cfg_attr(not(target_family = "wasm"), uniffi::export)]
+#[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveViewClient {
     /// Returns an ID for a given upload target. Uploads in phoenix live view
     /// need an ID to indicate to the server which upload is being targeted. The meta
-    /// data is contained in the document - this is a convenience function for fetching it.
+    /// data is contained in the document - this is a convenience function for fetching it.;
     pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {
         self.inner.get_phx_upload_id(phx_target_name)
     }

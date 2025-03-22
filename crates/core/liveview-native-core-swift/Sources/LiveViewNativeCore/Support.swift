@@ -1904,14 +1904,6 @@ public struct SocketStatusEvent {
     public let status: SocketStatus
 }
 
-public struct ViewReloadEvent {
-    public let issuer: Issuer
-    public let document: Document
-    public let channel: LiveChannel
-    public let socket: Socket
-    public let isNewSocket: Bool
-}
-
 public final class SimplePatchHandler: DocumentChangeHandler {
     public let patchEventSubject = PassthroughSubject<PatchEvent, Never>()
 
@@ -1934,38 +1926,16 @@ public final class SimplePatchHandler: DocumentChangeHandler {
 public final class SimpleEventHandler: NetworkEventHandler {
 
     public let networkEventSubject = PassthroughSubject<NetworkEvent, Never>()
-    public let channelStatusSubject = PassthroughSubject<ChannelStatusEvent, Never>()
-    public let socketStatusSubject = PassthroughSubject<SocketStatusEvent, Never>()
-    public let viewReloadSubject = PassthroughSubject<ViewReloadEvent, Never>()
+    public let viewReloadSubject = PassthroughSubject<LiveViewClientStatus, Never>()
 
-    public init() {
-    }
+    public init() {}
 
-    public func handleEvent(_ event: EventPayload) {
+    public func onEvent(_ event: EventPayload) {
         networkEventSubject.send(NetworkEvent(event: event))
     }
 
-    public func handleChannelStatusChange(_ status: LiveChannelStatus) {
-        channelStatusSubject.send(ChannelStatusEvent(status: status))
-    }
-
-    public func handleSocketStatusChange(_ status: SocketStatus) {
-        socketStatusSubject.send(SocketStatusEvent(status: status))
-    }
-
-    public func handleViewReloaded(
-        _ issuer: Issuer, _ newDocument: Document, _ newChannel: LiveChannel,
-        _ currentSocket: Socket,
-        _ socketIsNew: Bool
-    ) {
-        let event = ViewReloadEvent(
-            issuer: issuer,
-            document: newDocument,
-            channel: newChannel,
-            socket: currentSocket,
-            isNewSocket: socketIsNew
-        )
-        viewReloadSubject.send(event)
+    public func onStatusChange(_ status: LiveViewClientStatus) {
+        viewReloadSubject.send(status)
     }
 }
 

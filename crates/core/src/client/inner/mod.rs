@@ -16,7 +16,7 @@ use event_loop::{ClientMessage, ConnectedClientMessage, EventLoop};
 use log::{debug, warn};
 use logging::*;
 use navigation::NavCtx;
-use phoenix_channels_client::{Event, Events, Payload, JSON};
+use phoenix_channels_client::{ChannelStatus, Event, Events, Payload, JSON};
 use reqwest::{redirect::Policy, Client as HttpClient, Url};
 use tokio::{
     sync::{
@@ -27,8 +27,9 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use super::{ClientConnectOpts, LiveViewClientConfiguration, LogLevel};
+use super::{ClientConnectOpts, ClientStatuses, LiveViewClientConfiguration, LogLevel};
 use crate::{
+    callbacks::LiveViewClientStatus as FFIClientStatus,
     callbacks::*,
     dom::{
         ffi::{self, Document as FFIDocument},
@@ -155,6 +156,10 @@ impl LiveViewClientInner {
 
     pub(crate) fn shutdown(&self) {
         self.cancellation_token.cancel()
+    }
+
+    pub(crate) fn status_stream(&self) -> ClientStatuses {
+        ClientStatuses::from(self.status.clone())
     }
 
     pub async fn upload_file(&self, file: Arc<LiveFile>) -> Result<(), LiveSocketError> {
@@ -459,6 +464,7 @@ pub struct ConnectedStatus {
     pub document: ffi::Document,
     pub join_document: Result<Document, LiveSocketError>,
     pub join_payload: Payload,
+    pub channel_status: ChannelStatus,
     pub msg_tx: UnboundedSender<ConnectedClientMessage>,
 }
 
@@ -495,6 +501,34 @@ impl ClientStatus {
             ClientStatus::FatalError { .. } => "error",
         }
     }
+
+    pub(crate) fn as_ffi(&self) -> FFIClientStatus {
+        match self {
+            Self::Disconnected => FFIClientStatus::Disconnected,
+            Self::Connecting { .. } => FFIClientStatus::Connecting,
+            Self::Reconnecting { .. } => FFIClientStatus::Reconnecting,
+            ClientStatus::FatalError { error } => FFIClientStatus::Error {
+                error: error.clone(),
+            },
+            Self::Connected(status) => match status.channel_status {
+                ChannelStatus::Joined => FFIClientStatus::Connected {
+                    channel_status: crate::callbacks::MainChannelStatus::Connected {
+                        document: status.document.clone().into(),
+                    },
+                },
+                ChannelStatus::WaitingForSocketToConnect
+                | ChannelStatus::WaitingToJoin
+                | ChannelStatus::Joining
+                | ChannelStatus::WaitingToRejoin { .. }
+                | ChannelStatus::Leaving
+                | ChannelStatus::Left
+                | ChannelStatus::ShuttingDown
+                | ChannelStatus::ShutDown => FFIClientStatus::Connected {
+                    channel_status: crate::callbacks::MainChannelStatus::Reconnecting,
+                },
+            },
+        }
+    }
 }
 
 impl LiveViewClientState {
@@ -511,6 +545,7 @@ impl LiveViewClientState {
                 join_document: client.liveview_channel.join_document(),
                 join_payload: client.liveview_channel.join_payload(),
                 msg_tx: con_msg_tx.clone(),
+                channel_status: client.liveview_channel.channel.status(),
             }),
             LiveViewClientState::FatalError(e) => ClientStatus::FatalError {
                 error: e.error.clone(),

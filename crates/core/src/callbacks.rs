@@ -161,11 +161,18 @@ pub trait DocumentChangeHandler: Send + Sync {
 
 #[cfg(feature = "liveview-channels")]
 #[derive(Clone, Debug, uniffi::Enum)]
-pub enum ClientStatus {
+pub enum MainChannelStatus {
+    Connected { document: Arc<Document> },
+    Reconnecting,
+}
+
+#[cfg(feature = "liveview-channels")]
+#[derive(Clone, Debug, uniffi::Enum)]
+pub enum LiveViewClientStatus {
     Disconnected,
     Connecting,
     Reconnecting,
-    Connected { new_document: Arc<Document> },
+    Connected { channel_status: MainChannelStatus },
     Error { error: LiveSocketError },
 }
 
@@ -189,5 +196,5 @@ pub trait NetworkEventHandler: Send + Sync {
     /// `socket_is_new` will be false
     ///
     /// If the socket was reconnected for any reason `socket_is_new` will be true.
-    fn on_status_change(&self, status: ClientStatus);
+    fn on_status_change(&self, status: LiveViewClientStatus);
 }
