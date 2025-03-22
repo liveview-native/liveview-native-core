@@ -11,10 +11,9 @@ use tokio::time::{sleep, timeout};
 use super::{json_payload, HOST};
 use crate::{
     client::{
-        HandlerResponse, LiveViewClientConfiguration, LiveViewClientStatus, MainChannelStatus,
-        NavEvent, NavEventHandler, NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
+        HandlerResponse, LiveViewClientConfiguration, LiveViewClientStatus, NavEvent,
+        NavEventHandler, NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
     },
-    dom::ffi::Document,
     expect_status_matches, LiveViewClient,
 };
 
