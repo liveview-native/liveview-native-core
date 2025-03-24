@@ -167,6 +167,14 @@ tasks.whenObjectAdded {
     }
 }
 
+tasks.register<Jar>("nativeLibJar") {
+    archiveBaseName.set("liveview-native-core-host")
+    destinationDirectory.set(layout.buildDirectory.dir("libs"))
+
+    from(fileTree("build/rustJniLibs/desktop/darwin-aarch64").include("*.dylib"))
+    from(fileTree("build/rustJniLibs/desktop/linux-x86-64").include("*.so"))
+}
+
 publishing {
     publications {
         register<MavenPublication>("release") {
@@ -175,6 +183,15 @@ publishing {
             version = lvn_version
 
             afterEvaluate { from(components["release"]) }
+        }
+    }
+    publications {
+        register<MavenPublication>("nativeLib") {
+            groupId = "org.phoenixframework"
+            artifactId = "liveview-native-core-host"
+            version = lvn_version
+
+            artifact(tasks.named("nativeLibJar"))
         }
     }
     /*
