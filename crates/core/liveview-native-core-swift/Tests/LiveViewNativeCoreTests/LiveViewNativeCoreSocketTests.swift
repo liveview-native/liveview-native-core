@@ -80,19 +80,6 @@ final class LiveViewNativeCoreSocketTests: XCTestCase {
     func testBasicConnection() async throws {
         let builder = LiveViewClientBuilder()
         let client = try await builder.connect("http://127.0.0.1:4001/hello", ClientConnectOpts())
-        let watcher = client.statusStream()
-
-        let status = try await withTimeoutOf(seconds: 5) {
-            await watcher.nextStatus()
-        }
-
-        guard case .connected(let channelStatus) = status else {
-            fatalError("Expected client to be connected, but got \(status)")
-        }
-
-        guard case .connected(let document) = channelStatus else {
-            fatalError("Expected channel to be connected with document, but got \(channelStatus)")
-        }
 
         let expected = """
             <Group id="flash-group" />
@@ -104,7 +91,7 @@ final class LiveViewNativeCoreSocketTests: XCTestCase {
             """
 
         let exp = try Document.parse(expected)
-        XCTAssertEqual(document.render(), exp.render())
+        XCTAssertEqual(try client.document().render(), exp.render())
 
     }
 
@@ -115,18 +102,6 @@ final class LiveViewNativeCoreSocketTests: XCTestCase {
             "http://127.0.0.1:4001/nav/first_page", ClientConnectOpts())
 
         let watcher = client.statusStream()
-
-        let initialStatus = try await withTimeoutOf(seconds: 5) {
-            await watcher.nextStatus()
-        }
-
-        guard case .connected(let channelStatus) = initialStatus else {
-            fatalError("Expected client to be connected, but got \(initialStatus)")
-        }
-
-        guard case .connected(let document) = channelStatus else {
-            fatalError("Expected channel to be connected, but got \(channelStatus)")
-        }
 
         let initialDoc = try client.document()
         let expectedInitial = """
@@ -143,7 +118,6 @@ final class LiveViewNativeCoreSocketTests: XCTestCase {
             </VStack>
             """
         let expInitial = try Document.parse(expectedInitial)
-        XCTAssertEqual(document.render(), expInitial.render())
         XCTAssertEqual(initialDoc.render(), expInitial.render())
 
         let secondPageId = try await client.navigate(

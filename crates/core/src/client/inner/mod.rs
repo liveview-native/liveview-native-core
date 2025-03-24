@@ -63,7 +63,7 @@ impl Drop for LiveViewClientInner {
 // First implement the accessor methods on LiveViewClientInner
 impl LiveViewClientInner {
     /// Create a new LiveViewClient, this will only fail if you cannot create an HTTP client.
-    pub async fn new(
+    pub async fn initial_connect(
         config: LiveViewClientConfiguration,
         url: String,
         client_opts: ClientConnectOpts,
@@ -493,12 +493,15 @@ impl ClientStatus {
     }
 
     pub fn name(&self) -> &str {
-        match self {
-            ClientStatus::Disconnected => "disconnected",
-            ClientStatus::Connecting => "connecting",
-            ClientStatus::Reconnecting => "reconnecting",
-            ClientStatus::Connected(_) => "connected",
-            ClientStatus::FatalError { .. } => "error",
+        match self.as_ffi() {
+            LiveViewClientStatus::Disconnected => "Disconnected",
+            LiveViewClientStatus::Connecting => "Connecting",
+            LiveViewClientStatus::Reconnecting => "Reconnecting",
+            LiveViewClientStatus::Connected { channel_status } => match channel_status {
+                MainChannelStatus::Connected { .. } => "Connected: LiveChannel Connected",
+                MainChannelStatus::Reconnecting => "Connected: LiveChannel Connecting",
+            },
+            LiveViewClientStatus::Error { .. } => "Error",
         }
     }
 

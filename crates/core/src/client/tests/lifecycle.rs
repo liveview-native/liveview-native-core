@@ -157,7 +157,7 @@ async fn test_navigation_handler() {
     config.navigation_handler = Some(nav_handler);
     config.network_event_handler = Some(net_handler);
 
-    let client = LiveViewClient::new(config, url.clone(), Default::default())
+    let client = LiveViewClient::initial_connect(config, url.clone(), Default::default())
         .await
         .expect("Failed to create client");
 
@@ -237,7 +237,7 @@ async fn test_redirect_internals() {
     config.navigation_handler = Some(nav_handler);
     config.network_event_handler = Some(net_handler);
 
-    let client = LiveViewClient::new(config, url.clone(), Default::default())
+    let client = LiveViewClient::initial_connect(config, url.clone(), Default::default())
         .await
         .expect("Failed to create client");
 
@@ -292,6 +292,8 @@ async fn test_redirect_internals() {
 
     expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
 
+    assert_eq!(client.current_history_entry().unwrap().url, url);
+
     // call a patch handler, patches can only happen after mount
     let payload = json_payload!({"type": "click", "event": "patchme", "value": {}});
 
@@ -314,6 +316,5 @@ async fn test_redirect_internals() {
     });
 
     assert_eq!(client.current_history_entry().unwrap().url, redirect_url);
-
     store.clear()
 }

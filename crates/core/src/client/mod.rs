@@ -110,6 +110,11 @@ impl LiveViewClientBuilder {
         config.navigation_handler = Some(handler.into());
     }
 
+    pub fn set_socket_reconnect_strategy(&self, handler: Box<dyn SocketReconnectStrategy>) {
+        let mut config = self.config.lock().unwrap();
+        config.socket_reconnect_strategy = Some(handler.into());
+    }
+
     /// Set the log filter level.
     ///
     /// By Default the log filter is set to [LogLevel::Info]
@@ -176,7 +181,7 @@ impl LiveViewClientBuilder {
         opts: ClientConnectOpts,
     ) -> Result<LiveViewClient, LiveSocketError> {
         let config = self.config.lock().unwrap().clone();
-        let inner = LiveViewClientInner::new(config, url, opts).await?;
+        let inner = LiveViewClientInner::initial_connect(config, url, opts).await?;
 
         Ok(LiveViewClient { inner })
     }
@@ -268,15 +273,6 @@ impl LiveViewClient {
     pub fn set_log_level(&self, level: LogLevel) {
         self.inner.set_log_level(level)
     }
-}
-
-#[derive(uniffi::Enum, Clone, Debug)]
-pub enum Status {
-    Connected,
-    Connecting,
-    Reconnecting,
-    Disconnected,
-    FatalError { error: LiveSocketError },
 }
 
 // Navigation-related functionality ported from LiveSocket
@@ -393,16 +389,8 @@ impl LiveViewClient {
     }
 
     /// Returns the current client status
-    pub fn status(&self) -> Status {
-        match self.inner.status() {
-            inner::ClientStatus::Disconnected => Status::Disconnected,
-            inner::ClientStatus::Connecting => Status::Connecting,
-            inner::ClientStatus::Reconnecting => Status::Reconnecting,
-            inner::ClientStatus::Connected(_) => Status::Connected,
-            inner::ClientStatus::FatalError { error } => Status::FatalError {
-                error: error.clone(),
-            },
-        }
+    pub fn status(&self) -> LiveViewClientStatus {
+        self.inner.status().as_ffi()
     }
 
     pub async fn call(

@@ -15,7 +15,7 @@ const RETRY_REASONS: &[&str] = &["stale", "unauthorized"];
 /// An action taken with respect to the history stack
 /// when [NavCtx::navigate] is executed. defaults to
 /// Push behavior.
-#[derive(uniffi::Enum, Default, Clone)]
+#[derive(uniffi::Enum, Default, Clone, Debug)]
 pub enum NavAction {
     /// Push the navigation event onto the history stack.
     #[default]
@@ -25,7 +25,7 @@ pub enum NavAction {
 }
 
 /// Options for calls to [NavCtx::navigate]
-#[derive(Default, Clone, uniffi::Record)]
+#[derive(Default, Debug, Clone, uniffi::Record)]
 pub struct NavOptions {
     /// Additional params to be passed upon joining the liveview channel.
     #[uniffi(default = None)]

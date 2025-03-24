@@ -77,7 +77,7 @@ async fn test_basic_connection() {
     let mut config = LiveViewClientConfiguration::default();
     config.log_level = LogLevel::Debug;
     config.format = Platform::Swiftui;
-    let client = LiveViewClient::new(config, url, Default::default())
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -151,13 +151,9 @@ async fn test_style_urls() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::new(config, url, Default::default())
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
-
-    let mut watcher = client.watch_status();
-
-    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
 
     let style_urls = client.style_urls().expect("Failed to get style URLs");
     let expected_style_urls = vec!["/assets/app.swiftui.styles".to_string()];
@@ -172,7 +168,7 @@ async fn test_basic_navigation() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::new(config, url, Default::default())
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -230,7 +226,7 @@ async fn test_back_and_forward_navigation() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::new(config, url, Default::default())
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -356,7 +352,7 @@ async fn thermostat_click() {
         ..Default::default()
     };
 
-    let client = LiveViewClient::new(config, url, Default::default())
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 

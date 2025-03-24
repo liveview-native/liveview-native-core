@@ -7,7 +7,8 @@ use std::{
 use futures::{pin_mut, select, FutureExt};
 use log::{debug, error};
 use phoenix_channels_client::{
-    CallError, ConnectError, Event, EventPayload, Payload, PhoenixEvent, SocketStatus, JSON,
+    CallError, ChannelStatus, ConnectError, Event, EventPayload, Payload, PhoenixEvent,
+    SocketStatus, JSON,
 };
 use reqwest::{Client, Url};
 use tokio::sync::{
@@ -52,17 +53,24 @@ impl EventLoop {
         let config_clone = config.clone();
         let cookie_store_clone = cookie_store.clone();
 
-        let client_state = LiveViewClientState::Connecting {
-            job: tokio::spawn(async move {
-                ConnectedClient::try_new(
-                    &config_clone,
-                    &url,
-                    &client_clone,
-                    client_opts.clone(),
-                    &cookie_store_clone,
-                )
-                .await
-            }),
+        let connection_attempt = ConnectedClient::try_new(
+            &config_clone,
+            &url,
+            &client_clone,
+            client_opts.clone(),
+            &cookie_store_clone,
+        )
+        .await;
+        let client_state = match connection_attempt {
+            Ok(client) => {
+                let (con_msg_tx, con_msg_rx) = mpsc::unbounded_channel();
+                LiveViewClientState::Connected {
+                    con_msg_tx,
+                    con_msg_rx,
+                    client,
+                }
+            }
+            Err(error) => LiveViewClientState::FatalError(FatalError::from(error)),
         };
 
         let (msg_tx, mut msg_rx) = mpsc::unbounded_channel();
@@ -80,17 +88,21 @@ impl EventLoop {
             msg_tx_clone,
         );
 
-        tokio::spawn(async move {
-            let mut current_state = Some(client_state);
+        if let Some(handler) = manager.network_handler.as_ref() {
+            handler.on_status_change(FFIClientStatus::Connecting);
+        }
 
+        tokio::spawn(async move {
             if let Some(handler) = manager.network_handler.as_ref() {
-                handler.on_status_change(FFIClientStatus::Connecting);
+                handler.on_status_change(client_state.status().as_ffi());
             }
 
+            let mut current_state = Some(client_state);
             // Run the event loop
             loop {
                 let client_state = current_state.take().expect("always some");
                 let tag = std::mem::discriminant(&client_state);
+                let mut old_channel_tag = None;
 
                 let next_state = match client_state {
                     LiveViewClientState::Disconnected => {
@@ -108,7 +120,9 @@ impl EventLoop {
                             .connecting_loop(&mut msg_rx, &token_clone, client_state)
                             .await
                     }
-                    LiveViewClientState::Connected { .. } => {
+                    LiveViewClientState::Connected { ref client, .. } => {
+                        old_channel_tag =
+                            Some(std::mem::discriminant(&client.main_channel_status()));
                         manager
                             .connected_loop(&mut msg_rx, &token_clone, client_state)
                             .await
@@ -120,7 +134,15 @@ impl EventLoop {
                     }
                 };
 
-                let next_state = manager.update_state(tag, next_state);
+                let channel_tag_changed =
+                    if let Ok(LiveViewClientState::Connected { ref client, .. }) = &next_state {
+                        Some(std::mem::discriminant(&client.main_channel_status()))
+                            != old_channel_tag
+                    } else {
+                        false
+                    };
+
+                let next_state = manager.update_state(tag, channel_tag_changed, next_state);
                 current_state = Some(next_state);
 
                 // If we're shutting down, break the loop
@@ -139,11 +161,16 @@ impl EventLoop {
 }
 
 /// Messages that can only be received by a connected client
+#[derive(Debug)]
 pub enum ConnectedClientMessage {
     Call {
         event: Event,
         payload: Payload,
         response_tx: oneshot::Sender<Result<Payload, CallError>>,
+    },
+    // internal message sent upon call completion
+    CallComplete {
+        payload: Payload,
     },
     UploadFile {
         file: Arc<LiveFile>,
@@ -163,6 +190,7 @@ pub enum ConnectedClientMessage {
 }
 
 /// Messages to the main background event loop, can be received in any state
+#[derive(Debug)]
 pub enum ClientMessage {
     /// Send a message and wait for the response,
     /// If it is an event it will be processed by the loop
@@ -312,14 +340,28 @@ impl LiveViewClientManager {
             match msg {
                 ConnectedClientMessage::Call { event, payload, response_tx } => {
                     let dur = Duration::from_millis(self.config.websocket_timeout);
-                    let out = client.liveview_channel.channel.call(event, payload, dur).await;
 
-                    if let Ok(Payload::JSONPayload { json }) = &out {
-                        let _ = self.handle_reply(&client, json, &con_msg_tx);
-                    }
+                    let chan_clone =  client.liveview_channel.channel.clone();
+                    let con_tx = con_msg_tx.clone();
 
-                    let _ = response_tx.send(out);
+                    tokio::spawn(async move {
+                        let call_out = chan_clone.call(event.clone(), payload.clone(), dur).await;
+                         match &call_out {
+                             Ok(reply) |
+                             Err(CallError::Reply { reply }) => {
+                                 let _ = con_tx.send(ConnectedClientMessage::CallComplete {  payload: reply.clone() });
+                             }
+                             _ => {},
+                         };
+                        let _ = response_tx.send(call_out);
+                    });
+
                 },
+                ConnectedClientMessage::CallComplete { payload } => {
+                    if let Payload::JSONPayload { json }  = payload {
+                      let _ = self.handle_reply(&client, &json, &con_msg_tx);
+                    }
+                }
                 ConnectedClientMessage::Cast { event, payload } => {
                      let _ = client.liveview_channel.channel.cast(event, payload).await;
                 },
@@ -349,8 +391,6 @@ impl LiveViewClientManager {
                                }
                             }
                         } else {
-                            error!("SHIRRRIIIIIM \n\n {}", client.document.render());
-                            let (con_msg_tx, con_msg_rx) = unbounded_channel();
                             let out = LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client };
                             let _ = self.status.send(out.status());
                             return Ok(out);
@@ -365,7 +405,7 @@ impl LiveViewClientManager {
             }
             Ok(LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client })
            }
-           event = client.event_futures().0.fuse() => {
+           event = client.event_futures().fuse() => {
                if let Ok(event) = event {
                    let message_res = self.handle_server_event(&mut client, &event, &con_msg_tx).await;
 
@@ -376,9 +416,9 @@ impl LiveViewClientManager {
                }
                Ok(LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client })
            }
-           status = client.event_futures().1.fuse() => {
+           status = client.event_pump.socket_statuses.status().fuse() => {
 
-               let status = status.map_err(|web_socket_error|
+               let status = status?.map_err(|web_socket_error|
                    phoenix_channels_client::SocketError::Connect {
                        connect_error: ConnectError::WebSocket { web_socket_error }
                    }
@@ -399,6 +439,21 @@ impl LiveViewClientManager {
                        Ok(LiveViewClientState::Disconnected )
                    },
                }
+           },
+           chan_status = client.event_pump.main_channel_status.status().fuse() => {
+
+             let channel_status = match chan_status {
+                 Ok(ChannelStatus::Joined) => super::MainChannelStatus::Connected {
+                     document: client.liveview_channel.document.clone().into(),
+                 },
+                 _ => super::MainChannelStatus::Reconnecting,
+             };
+
+             if let Some(handler) = self.network_handler.as_ref() {
+                 handler.on_status_change(FFIClientStatus::Connected { channel_status });
+             }
+
+              Ok(LiveViewClientState::Connected { con_msg_tx, con_msg_rx, client })
            }
         }
     }
@@ -424,6 +479,8 @@ impl LiveViewClientManager {
         let JSON::Object { object } = response else {
             return Ok(());
         };
+
+        log::trace!("Reply received: {object:?}");
 
         if let Some(redirect_json) = object.get("live_redirect") {
             let json = redirect_json.clone().into();
@@ -516,7 +573,18 @@ impl LiveViewClientManager {
             Event::Phoenix {
                 phoenix: PhoenixEvent::Error,
             } => {
+                log::error!("Error event received - reestablishing main livechannel");
+                if let Some(handler) = self.network_handler.as_ref() {
+                    handler.on_status_change(FFIClientStatus::Connected {
+                        channel_status: super::MainChannelStatus::Reconnecting,
+                    });
+                }
+
                 client.rejoin_liveview_channel(&self.config).await?;
+
+                if let Some(handler) = self.network_handler.as_ref() {
+                    handler.on_status_change(client.ffi_status());
+                }
             }
             Event::Phoenix { phoenix } => {
                 error!("Phoenix Event for {phoenix:?} is unimplemented");
@@ -909,11 +977,12 @@ impl LiveViewClientManager {
     fn update_state(
         &self,
         tag: std::mem::Discriminant<LiveViewClientState>,
+        channel_tag_changed: bool,
         next_state: Result<LiveViewClientState, LiveSocketError>,
     ) -> LiveViewClientState {
         match next_state {
             Ok(state) => {
-                if tag == std::mem::discriminant(&state) {
+                if tag == std::mem::discriminant(&state) && !channel_tag_changed {
                     return state;
                 };
 

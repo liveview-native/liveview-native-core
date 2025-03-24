@@ -40,7 +40,7 @@ async fn test_single_chunk_file_upload() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::new(config, url, Default::default())
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -78,7 +78,7 @@ async fn test_multi_chunk_text_upload() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::new(config, url, Default::default())
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -111,7 +111,7 @@ async fn test_multi_chunk_file_upload() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::new(config, url, Default::default())
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -150,7 +150,7 @@ async fn test_file_too_large_error() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::new(config, url, Default::default())
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 
@@ -192,7 +192,7 @@ async fn test_incorrect_file_type_error() {
     let mut config = LiveViewClientConfiguration::default();
     config.format = Platform::Swiftui;
 
-    let client = LiveViewClient::new(config, url, Default::default())
+    let client = LiveViewClient::initial_connect(config, url, Default::default())
         .await
         .expect("Failed to create client");
 

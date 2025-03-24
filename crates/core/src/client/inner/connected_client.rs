@@ -1,18 +1,17 @@
 use std::{collections::HashMap, future::Future, sync::Arc, time::Duration};
 
-use futures::FutureExt;
 use log::{debug, trace};
 use phoenix_channels_client::{
-    ChannelStatus, EventPayload, Events, EventsError, Payload, ReconnectStrategy, Socket,
-    SocketStatus, SocketStatuses, Topic, WebSocketError, JSON,
+    ChannelStatus, ChannelStatuses, EventPayload, Events, EventsError, Payload, ReconnectStrategy,
+    Socket, SocketStatuses, Topic, JSON,
 };
 use reqwest::{Client, Url};
 use tokio::select;
 
 use crate::{
     client::{
-        inner::PersistentCookieStore, ClientConnectOpts, LiveViewClientConfiguration,
-        StrategyAdapter,
+        inner::{connected_client, PersistentCookieStore},
+        ClientConnectOpts, LiveViewClientConfiguration, StrategyAdapter,
     },
     diff::fragment::{Root, RootDiff},
     dom::{ffi, Document},
@@ -42,6 +41,7 @@ pub(crate) struct ConnectedClient {
 
 pub(crate) struct EventPump {
     pub(crate) main_events: Arc<Events>,
+    pub(crate) main_channel_status: Arc<ChannelStatuses>,
     pub(crate) reload_events: Option<Arc<Events>>,
     pub(crate) socket_statuses: Arc<SocketStatuses>,
 }
@@ -126,6 +126,7 @@ impl ConnectedClient {
             document: liveview_channel.document(),
             event_pump: EventPump {
                 main_events: liveview_channel.channel.events(),
+                main_channel_status: liveview_channel.channel.statuses(),
                 reload_events: livereload_channel.as_ref().map(|c| c.channel.events()),
                 socket_statuses: socket.statuses(),
             },
@@ -140,50 +141,17 @@ impl ConnectedClient {
         &mut self,
         config: &LiveViewClientConfiguration,
     ) -> Result<(), LiveSocketError> {
+        let additional_params = self.liveview_channel.join_params.clone();
         let ws_timeout = Duration::from_millis(config.websocket_timeout);
 
-        self.liveview_channel.channel.leave().await?;
-
-        let sent_join_payload = self
-            .session_data
-            .create_join_payload(&Some(self.liveview_channel.join_params.clone()), None);
-
-        let topic = Topic::from_string(format!("lv:{}", self.session_data.phx_id));
-        let channel = self.socket.channel(topic, Some(sent_join_payload)).await?;
-
-        let join_payload = channel.join(ws_timeout).await?;
-
-        trace!("Join payload: {join_payload:#?}");
-        let document = match join_payload {
-            Payload::JSONPayload {
-                json: JSON::Object { ref object },
-            } => {
-                if let Some(rendered) = object.get("rendered") {
-                    let rendered = rendered.to_string();
-                    let root: RootDiff = serde_json::from_str(rendered.as_str())?;
-                    trace!("root diff: {root:#?}");
-                    let root: Root = root.try_into()?;
-                    let rendered: String = root.clone().try_into()?;
-                    let mut document = Document::parse(&rendered)?;
-                    document.fragment_template = Some(root);
-                    Some(document)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
-        .ok_or(LiveSocketError::NoDocumentInJoinPayload)?;
-
-        let new_channel: Arc<_> = LiveChannel {
-            channel,
-            join_payload,
-            join_params: self.liveview_channel.join_params.clone(),
-            socket: self.socket.clone(),
-            document: document.into(),
-            timeout: ws_timeout,
-        }
-        .into();
+        let new_channel = connected_client::join_liveview_channel(
+            &self.socket,
+            &self.session_data,
+            &Some(additional_params),
+            None,
+            ws_timeout,
+        )
+        .await?;
 
         if let Some(handler) = &config.patch_handler {
             new_channel.document.arc_set_event_handler(handler.clone());
@@ -191,51 +159,28 @@ impl ConnectedClient {
 
         self.document = new_channel.document();
         self.liveview_channel = new_channel;
-
-        self.event_pump = EventPump {
-            main_events: self.liveview_channel.channel.events(),
-            reload_events: self.livereload_channel.as_ref().map(|c| c.channel.events()),
-            socket_statuses: self.socket.statuses(),
-        };
-
+        self.event_pump = self.event_pump();
         Ok(())
     }
 
-    pub fn event_futures(
-        &self,
-    ) -> (
-        impl Future<Output = Result<EventPayload, EventsError>> + '_,
-        impl Future<Output = Result<SocketStatus, WebSocketError>> + '_,
-    ) {
-        let server_event = self.event_pump.main_events.event().fuse();
+    /// Combined event futures from the LiveReload and main live view channel.
+    pub fn event_futures(&self) -> impl Future<Output = Result<EventPayload, EventsError>> + '_ {
+        let server_event = self.event_pump.main_events.event();
         let maybe_reload_event = self.event_pump.reload_events.as_ref().map(|e| e.event());
-        let socket_status = self.event_pump.socket_statuses.status();
-
-        let socket_status = async {
-            match socket_status.await {
-                Ok(res) => res,
-                Err(_) => std::future::pending().await,
-            }
-        }
-        .fuse();
 
         let live_reload_proxy = async {
             match maybe_reload_event {
                 Some(e) => e.await,
                 None => std::future::pending().await,
             }
-        }
-        .fuse();
+        };
 
-        let server_event = async {
+        async {
             select! {
                 r1 = live_reload_proxy => r1,
                 r2 = server_event => r2,
             }
         }
-        .fuse();
-
-        (server_event, socket_status)
     }
 
     pub(crate) async fn shutdown(&self) {
@@ -248,11 +193,15 @@ impl ConnectedClient {
     }
 
     pub(crate) fn ffi_status(&self) -> LiveViewClientStatus {
+        LiveViewClientStatus::Connected {
+            channel_status: self.main_channel_status(),
+        }
+    }
+
+    pub(crate) fn main_channel_status(&self) -> super::MainChannelStatus {
         match self.liveview_channel.channel.status() {
-            ChannelStatus::Joined => LiveViewClientStatus::Connected {
-                channel_status: crate::callbacks::MainChannelStatus::Connected {
-                    document: self.document.clone().into(),
-                },
+            ChannelStatus::Joined => super::MainChannelStatus::Connected {
+                document: self.document.clone().into(),
             },
             ChannelStatus::WaitingForSocketToConnect
             | ChannelStatus::WaitingToJoin
@@ -261,9 +210,7 @@ impl ConnectedClient {
             | ChannelStatus::Leaving
             | ChannelStatus::Left
             | ChannelStatus::ShuttingDown
-            | ChannelStatus::ShutDown => LiveViewClientStatus::Connected {
-                channel_status: crate::callbacks::MainChannelStatus::Reconnecting,
-            },
+            | ChannelStatus::ShutDown => super::MainChannelStatus::Reconnecting,
         }
     }
 
@@ -303,13 +250,7 @@ impl ConnectedClient {
 
                 self.document = new_channel.document();
                 self.liveview_channel = new_channel;
-
-                self.event_pump = EventPump {
-                    main_events: self.liveview_channel.channel.events(),
-                    reload_events: self.livereload_channel.as_ref().map(|c| c.channel.events()),
-                    socket_statuses: self.socket.statuses(),
-                };
-
+                self.event_pump = self.event_pump();
                 Ok(false)
             }
             Err(LiveSocketError::JoinRejection {
@@ -380,16 +321,20 @@ impl ConnectedClient {
 
                 self.document = new_channel.document();
                 self.liveview_channel = new_channel.clone();
-
-                self.event_pump = EventPump {
-                    main_events: self.liveview_channel.channel.events(),
-                    reload_events: self.livereload_channel.as_ref().map(|c| c.channel.events()),
-                    socket_statuses: self.socket.statuses(),
-                };
+                self.event_pump = self.event_pump();
 
                 Ok(true)
             }
             Err(e) => Err(e),
+        }
+    }
+
+    pub fn event_pump(&self) -> EventPump {
+        EventPump {
+            main_events: self.liveview_channel.channel.events(),
+            main_channel_status: self.liveview_channel.channel.statuses(),
+            reload_events: self.livereload_channel.as_ref().map(|c| c.channel.events()),
+            socket_statuses: self.socket.statuses(),
         }
     }
 }
