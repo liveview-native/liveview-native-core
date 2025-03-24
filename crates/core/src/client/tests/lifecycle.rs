@@ -1,27 +1,27 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
-use phoenix_channels_client::{Event, EventPayload, Payload, Socket, SocketStatus, JSON};
+use phoenix_channels_client::{EventPayload, Payload, JSON};
 use pretty_assertions::assert_eq;
 use serde_json::json;
+use tokio::time::{sleep, timeout};
 
 use super::{json_payload, HOST};
 use crate::{
     client::{
-        HandlerResponse, Issuer, LiveChannelStatus, LiveViewClientConfiguration, NavEvent,
+        HandlerResponse, LiveViewClientConfiguration, LiveViewClientStatus, NavEvent,
         NavEventHandler, NavEventType, NavHistoryEntry, NetworkEventHandler, Platform,
     },
-    dom::{self},
-    live_socket::LiveChannel,
-    LiveViewClient,
+    expect_status_matches, LiveViewClient,
 };
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum MockMessage {
     Navigation(NavEvent),
-    NetworkEvent(Event, Payload),
-    ChannelStatus(LiveChannelStatus),
-    SocketStatus(SocketStatus),
-    ViewReload { issuer: Issuer, socket_is_new: bool },
+    NetworkEvent(Payload),
+    ViewReload(LiveViewClientStatus),
 }
 
 #[macro_export]
@@ -65,14 +65,33 @@ impl MockMessageStore {
         );
     }
 
-    pub fn assert_contains(&self, expected: MockMessage) {
-        let messages = self.messages.lock().unwrap();
-        assert!(
-            messages.contains(&expected),
-            "\nExpected message not found.\nExpected:\n{:#?}\n\nActual messages:\n{:#?}",
-            expected,
-            *messages
-        );
+    pub async fn wait_for<F>(
+        &self,
+        predicate: F,
+        timeout_duration: Duration,
+    ) -> Result<MockMessage, &'static str>
+    where
+        F: Fn(&MockMessage) -> bool + Send + 'static,
+    {
+        let poll_future = async {
+            loop {
+                let result = {
+                    let messages = self.messages.lock().unwrap();
+                    messages.iter().find(|m| predicate(m)).cloned()
+                };
+
+                if let Some(message) = result {
+                    return message;
+                }
+
+                sleep(Duration::from_millis(10)).await;
+            }
+        };
+
+        match timeout(timeout_duration, poll_future).await {
+            Ok(message) => Ok(message),
+            Err(_) => Err("Timeout"),
+        }
     }
 
     pub fn clear(&self) {
@@ -114,33 +133,14 @@ impl MockNetworkEventHandler {
 
 #[cfg(feature = "liveview-channels")]
 impl NetworkEventHandler for MockNetworkEventHandler {
-    fn handle_event(&self, event: EventPayload) {
+    fn on_event(&self, event: EventPayload) {
         self.message_store
-            .add_message(MockMessage::NetworkEvent(event.event, event.payload));
+            .add_message(MockMessage::NetworkEvent(event.payload));
     }
 
-    fn handle_channel_status_change(&self, event: LiveChannelStatus) {
+    fn on_status_change(&self, status: LiveViewClientStatus) {
         self.message_store
-            .add_message(MockMessage::ChannelStatus(event));
-    }
-
-    fn handle_socket_status_change(&self, event: SocketStatus) {
-        self.message_store
-            .add_message(MockMessage::SocketStatus(event));
-    }
-
-    fn handle_view_reloaded(
-        &self,
-        issuer: Issuer,
-        _new_document: Arc<dom::ffi::Document>,
-        _new_channel: Arc<LiveChannel>,
-        _current_socket: Arc<Socket>,
-        socket_is_new: bool,
-    ) {
-        self.message_store.add_message(MockMessage::ViewReload {
-            issuer,
-            socket_is_new,
-        });
+            .add_message(MockMessage::ViewReload(status));
     }
 }
 
@@ -152,6 +152,7 @@ async fn test_navigation_handler() {
 
     let url = format!("http://{HOST}/nav/first_page");
     let mut config = LiveViewClientConfiguration::default();
+    config.dead_render_timeout = 1000;
     config.format = Platform::Swiftui;
     config.navigation_handler = Some(nav_handler);
     config.network_event_handler = Some(net_handler);
@@ -162,20 +163,66 @@ async fn test_navigation_handler() {
 
     let next_url = format!("http://{HOST}/nav/second_page");
 
+    store
+        .wait_for(
+            |e| matches!(e, MockMessage::ViewReload(LiveViewClientStatus::Connecting)),
+            Duration::from_secs(2),
+        )
+        .await
+        .expect("didn't connect");
+
+    store
+        .wait_for(
+            |e| {
+                matches!(
+                    e,
+                    MockMessage::ViewReload(LiveViewClientStatus::Connected { .. })
+                )
+            },
+            Duration::from_secs(2),
+        )
+        .await
+        .expect("didn't connect");
+
+    store.clear();
+
     client
         .navigate(next_url.clone(), Default::default())
-        .await
         .expect("Failed to navigate");
 
-    store.assert_contains(MockMessage::Navigation(NavEvent {
-        event: NavEventType::Push,
-        same_document: false,
-        from: Some(NavHistoryEntry::new(url, 1, None)),
-        to: NavHistoryEntry::new(next_url, 2, None),
-        info: None,
-    }));
-    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
-    assert_any!(store, |m| { matches!(m, MockMessage::ViewReload { .. }) });
+    store
+        .wait_for(
+            move |e| {
+                let expected = NavEvent {
+                    event: NavEventType::Push,
+                    same_document: false,
+                    from: Some(NavHistoryEntry::new(url.clone(), 1, None)),
+                    to: NavHistoryEntry::new(next_url.clone(), 2, None),
+                    info: None,
+                };
+
+                let MockMessage::Navigation(event) = e else {
+                    return false;
+                };
+                *event == expected
+            },
+            Duration::from_secs(2),
+        )
+        .await
+        .expect("didn't connect");
+
+    store
+        .wait_for(
+            |e| {
+                matches!(
+                    e,
+                    MockMessage::ViewReload(LiveViewClientStatus::Connected { .. })
+                )
+            },
+            Duration::from_secs(2),
+        )
+        .await
+        .expect("didn't connect");
 }
 
 #[tokio::test]
@@ -194,21 +241,28 @@ async fn test_redirect_internals() {
         .await
         .expect("Failed to create client");
 
-    store.clear();
-
     let url = format!("http://{HOST}/push_navigate?redirect_type=live_redirect");
     let redirect_url = format!("http://{HOST}/redirect_to");
 
+    let mut watcher = client.watch_status();
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
+
     client
         .navigate(url.clone(), Default::default())
-        .await
         .expect("nav failed");
+
+    timeout(Duration::from_secs(3), watcher.changed())
+        .await
+        .expect("Timeout")
+        .expect("Failed");
+
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
 
     assert_eq!(client.current_history_entry().unwrap().url, redirect_url);
 
     // assert that it contains at least one live redirect
     assert_any!(store, |m| {
-        if let MockMessage::NetworkEvent(_, Payload::JSONPayload { json }) = m {
+        if let MockMessage::NetworkEvent(Payload::JSONPayload { json }) = m {
             let real = json!({
                "live_redirect" : {
                 "to" : "/redirect_to",
@@ -226,15 +280,24 @@ async fn test_redirect_internals() {
 
     let url = format!("http://{HOST}/push_navigate?redirect_type=patch");
     let redirect_url = format!("http://{HOST}/push_navigate?patched=value");
+
     client
         .navigate(url.clone(), Default::default())
-        .await
         .expect("nav failed");
 
+    timeout(Duration::from_secs(3), watcher.changed())
+        .await
+        .expect("no update")
+        .expect("timeout");
+
+    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
+
+    assert_eq!(client.current_history_entry().unwrap().url, url);
+
     // call a patch handler, patches can only happen after mount
-    let channel = client.create_channel();
     let payload = json_payload!({"type": "click", "event": "patchme", "value": {}});
-    channel
+
+    client
         .call("event".into(), payload)
         .await
         .expect("error on click");
@@ -242,7 +305,7 @@ async fn test_redirect_internals() {
     // assert that the url got patched
     // and that the event landed
     assert_any!(store, |m| {
-        if let MockMessage::NetworkEvent(_, Payload::JSONPayload { json }) = m {
+        if let MockMessage::NetworkEvent(Payload::JSONPayload { json }) = m {
             let real = json!({
                 "kind" : "push",
                 "to" : "/push_navigate?patched=value"
@@ -253,6 +316,5 @@ async fn test_redirect_internals() {
     });
 
     assert_eq!(client.current_history_entry().unwrap().url, redirect_url);
-
     store.clear()
 }

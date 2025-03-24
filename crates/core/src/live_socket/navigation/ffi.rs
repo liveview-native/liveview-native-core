@@ -15,7 +15,7 @@ const RETRY_REASONS: &[&str] = &["stale", "unauthorized"];
 /// An action taken with respect to the history stack
 /// when [NavCtx::navigate] is executed. defaults to
 /// Push behavior.
-#[derive(uniffi::Enum, Default, Clone)]
+#[derive(uniffi::Enum, Default, Clone, Debug)]
 pub enum NavAction {
     /// Push the navigation event onto the history stack.
     #[default]
@@ -25,7 +25,7 @@ pub enum NavAction {
 }
 
 /// Options for calls to [NavCtx::navigate]
-#[derive(Default, uniffi::Record)]
+#[derive(Default, Debug, Clone, uniffi::Record)]
 pub struct NavOptions {
     /// Additional params to be passed upon joining the liveview channel.
     #[uniffi(default = None)]
@@ -40,6 +40,16 @@ pub struct NavOptions {
     /// revisiting a given view.
     #[uniffi(default = None)]
     pub state: Option<Vec<u8>>,
+}
+
+impl From<NavActionOptions> for NavOptions {
+    fn from(value: NavActionOptions) -> Self {
+        Self {
+            join_params: value.join_params,
+            extra_event_info: value.extra_event_info,
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Default, uniffi::Record)]
@@ -126,8 +136,8 @@ impl LiveSocket {
                     });
                 }
 
-                let format = self.session_data.try_lock()?.format.clone();
-                let options = self.session_data.try_lock()?.connect_opts.clone();
+                let format = self.session_data.lock()?.format.clone();
+                let options = self.session_data.lock()?.connect_opts.clone();
 
                 //TODO: punt the to an argument. move this on to the LiveViewClient
                 #[cfg(not(test))]
@@ -157,8 +167,8 @@ impl LiveSocket {
                     .await
                     .map_err(|_| LiveSocketError::DisconnectionError)?;
 
-                *self.socket.try_lock()? = socket;
-                *self.session_data.try_lock()? = session_data;
+                *self.socket.lock()? = socket;
+                *self.session_data.lock()? = session_data;
                 self.join_liveview_channel(join_params, None).await
             }
             // Just reconnect or bail

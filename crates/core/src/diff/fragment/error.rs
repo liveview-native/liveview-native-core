@@ -1,4 +1,6 @@
-#[derive(Debug, thiserror::Error, uniffi::Error)]
+use std::sync::Arc;
+
+#[derive(Debug, Clone, thiserror::Error, uniffi::Error)]
 pub enum MergeError {
     #[error("Component not resolved after merging")]
     UnresolvedComponent,
@@ -21,7 +23,7 @@ pub enum MergeError {
     },
 }
 
-#[derive(Debug, thiserror::Error, uniffi::Error)]
+#[derive(Debug, Clone, thiserror::Error, uniffi::Error)]
 #[uniffi(flat_error)]
 pub enum RenderError {
     #[error("No components found when needed")]
@@ -41,12 +43,18 @@ pub enum RenderError {
     #[error("Cousin not found for {0}")]
     CousinNotFound(i32),
     #[error("Serde Error {0}")]
-    SerdeError(#[from] serde_json::Error),
+    SerdeError(Arc<serde_json::Error>),
     #[error("Parse Error {0}")]
     ParseError(#[from] crate::dom::ParseError),
 }
 
-#[derive(Debug, thiserror::Error, uniffi::Error)]
+impl From<serde_json::Error> for RenderError {
+    fn from(value: serde_json::Error) -> Self {
+        Self::SerdeError(Arc::new(value))
+    }
+}
+
+#[derive(Debug, Clone, thiserror::Error, uniffi::Error)]
 #[uniffi(flat_error)]
 pub enum StreamConversionError {
     #[error("There was no stream ID for this ")]

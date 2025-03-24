@@ -30,7 +30,6 @@ impl PersistentCookieStore {
                 reqwest_cookie_store::CookieStore::default()
             }
         } else {
-            warn!("No persistent store configured, no cookies will be loaded from disk.");
             reqwest_cookie_store::CookieStore::default()
         };
 

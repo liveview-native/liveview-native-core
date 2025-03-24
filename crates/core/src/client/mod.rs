@@ -11,11 +11,12 @@ use std::{
 
 use config::*;
 use futures::future::try_join_all;
-use inner::LiveViewClientInner;
-use phoenix_channels_client::{Payload, SocketStatus, JSON};
+use inner::{ClientStatus, LiveViewClientInner};
+use phoenix_channels_client::{Payload, JSON};
 use reqwest::header::CONTENT_TYPE;
 
 pub use config::StrategyAdapter;
+pub use inner::NavigationError;
 
 use crate::{
     callbacks::*,
@@ -23,11 +24,41 @@ use crate::{
     error::LiveSocketError,
     live_socket::{
         navigation::{NavActionOptions, NavOptions},
-        ConnectOpts, LiveChannel, LiveFile, Method,
+        ConnectOpts, LiveFile, Method,
     },
 };
 
 const CSRF_HEADER: &str = "x-csrf-token";
+
+#[derive(uniffi::Object)]
+pub struct ClientStatuses {
+    channel: Mutex<tokio::sync::watch::Receiver<ClientStatus>>,
+}
+
+impl From<tokio::sync::watch::Receiver<ClientStatus>> for ClientStatuses {
+    fn from(channel: tokio::sync::watch::Receiver<ClientStatus>) -> Self {
+        Self {
+            channel: channel.into(),
+        }
+    }
+}
+
+#[uniffi::export(async_runtime = "tokio")]
+impl ClientStatuses {
+    pub fn current_status(&self) -> LiveViewClientStatus {
+        let status = self.channel.lock().expect("Lock Poison");
+        let status = status.borrow();
+        status.as_ffi()
+    }
+
+    pub async fn next_status(&self) -> LiveViewClientStatus {
+        let mut channel = self.channel.lock().expect("Lock Poison").clone();
+        channel.mark_unchanged();
+        let _ = channel.changed().await;
+        let status = channel.borrow();
+        status.as_ffi()
+    }
+}
 
 /// A configuration interface for building a [LiveViewClient].
 /// Options on this object will used for all http and websocket connections
@@ -77,6 +108,11 @@ impl LiveViewClientBuilder {
     pub fn set_navigation_handler(&self, handler: Box<dyn NavEventHandler>) {
         let mut config = self.config.lock().unwrap();
         config.navigation_handler = Some(handler.into());
+    }
+
+    pub fn set_socket_reconnect_strategy(&self, handler: Box<dyn SocketReconnectStrategy>) {
+        let mut config = self.config.lock().unwrap();
+        config.socket_reconnect_strategy = Some(handler.into());
     }
 
     /// Set the log filter level.
@@ -174,9 +210,7 @@ impl LiveViewClient {
             ..Default::default()
         };
 
-        self.inner
-            .reconnect(url, opts, client_opts.join_params)
-            .await?;
+        self.inner.reconnect(url, opts, client_opts.join_params)?;
 
         Ok(())
     }
@@ -186,16 +220,22 @@ impl LiveViewClient {
         Ok(())
     }
 
+    pub fn shutdown(&self) {
+        self.inner.shutdown();
+    }
+
+    pub fn status_stream(&self) -> ClientStatuses {
+        self.inner.status_stream()
+    }
+
     /// Uploads the live files in `files`
     ///
     /// Note: currently the replies in the file upload work flow are
     /// not responded to or respect in the main event loop, this means there will be
     /// no progress updates as the file is uploaded.
     pub async fn upload_files(&self, files: Vec<Arc<LiveFile>>) -> Result<(), LiveSocketError> {
-        let chan = self.inner.channel()?;
-        let futs = files.iter().map(|file| chan.upload_file(file));
+        let futs = files.into_iter().map(|file| self.inner.upload_file(file));
         try_join_all(futs).await?;
-
         Ok(())
     }
 
@@ -225,7 +265,7 @@ impl LiveViewClient {
             timeout_ms: 30_000, // Actually unused, should remove at one point
         };
 
-        self.inner.reconnect(url, opts, join_params).await?;
+        self.inner.reconnect(url, opts, join_params)?;
         Ok(())
     }
 
@@ -233,54 +273,42 @@ impl LiveViewClient {
     pub fn set_log_level(&self, level: LogLevel) {
         self.inner.set_log_level(level)
     }
-
-    /// Returns a handle to the current background event loop.
-    /// This can be used to send messages as you would
-    /// with a live_channel.
-    pub fn channel(&self) -> LiveViewClientChannel {
-        let inner = self.inner.create_channel();
-        LiveViewClientChannel { inner }
-    }
 }
 
 // Navigation-related functionality ported from LiveSocket
-#[uniffi::export(async_runtime = "tokio")]
+#[cfg_attr(not(target_family = "wasm"), uniffi::export)]
 impl LiveViewClient {
     /// Navigate to `url` with behavior and metadata specified in `opts`.
-    pub async fn navigate(
-        &self,
-        url: String,
-        opts: NavOptions,
-    ) -> Result<HistoryId, LiveSocketError> {
-        self.inner.navigate(url, opts).await
+    pub fn navigate(&self, url: String, opts: NavOptions) -> Result<HistoryId, LiveSocketError> {
+        self.inner.navigate(url, opts)
     }
 
     /// Dispose of the current channel and remount the view. Replaces the current view
     /// event data with the bytes in `info`
-    pub async fn reload(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
-        self.inner.reload(opts).await
+    pub fn reload(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        self.inner.reload(opts)
     }
 
     /// Navigates back one step in the history stack.
     /// This function fails if there are no items in history.
-    pub async fn back(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
-        self.inner.back(opts).await
+    pub fn back(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        self.inner.back(opts)
     }
 
     /// Navigates back one step in the history stack.
     /// This function fails if there are no items ahead of this one in history.
-    pub async fn forward(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
-        self.inner.forward(opts).await
+    pub fn forward(&self, opts: NavActionOptions) -> Result<HistoryId, LiveSocketError> {
+        self.inner.forward(opts)
     }
 
     /// Navigates to the entry with `id`. Retaining the state of the current history stack.
     /// This function fails if the entry has been removed.
-    pub async fn traverse_to(
+    pub fn traverse_to(
         &self,
         id: HistoryId,
         opts: NavActionOptions,
     ) -> Result<HistoryId, LiveSocketError> {
-        self.inner.traverse_to(id, opts).await
+        self.inner.traverse_to(id, opts)
     }
 
     /// returns true if the navigation stack can support going backwards.
@@ -311,22 +339,13 @@ impl LiveViewClient {
     }
 }
 
-#[cfg_attr(not(target_family = "wasm"), uniffi::export)]
+#[cfg_attr(not(target_family = "wasm"), uniffi::export(async_runtime = "tokio"))]
 impl LiveViewClient {
     /// Returns an ID for a given upload target. Uploads in phoenix live view
     /// need an ID to indicate to the server which upload is being targeted. The meta
-    /// data is contained in the document - this is a convenience function for fetching it.
+    /// data is contained in the document - this is a convenience function for fetching it.;
     pub fn get_phx_upload_id(&self, phx_target_name: &str) -> Result<String, LiveSocketError> {
         self.inner.get_phx_upload_id(phx_target_name)
-    }
-
-    // TODO: the live reload channel should not be a user concern. It can appear in
-    // an error page, as well as a successful dead render, the client config should have a callback handler
-    // which any given live reload channel can use
-    /// Returns the live reload channel if it exists, you should not need to listen for
-    /// `asset_change` events on this for any reason - this API is intended to be deprecated.
-    pub fn live_reload_channel(&self) -> Result<Option<Arc<LiveChannel>>, LiveSocketError> {
-        self.inner.live_reload_channel()
     }
 
     /// Returns the url which provided the current views dead render.
@@ -369,23 +388,11 @@ impl LiveViewClient {
         self.inner.style_urls()
     }
 
-    /// Returns the current socket status
-    pub fn status(&self) -> Result<SocketStatus, LiveSocketError> {
-        self.inner.status()
+    /// Returns the current client status
+    pub fn status(&self) -> LiveViewClientStatus {
+        self.inner.status().as_ffi()
     }
-}
 
-#[derive(uniffi::Object)]
-/// A thin message sending interface that will
-/// send messages through the current websocket.
-pub struct LiveViewClientChannel {
-    inner: inner::LiveViewClientChannel,
-}
-
-#[uniffi::export(async_runtime = "tokio")]
-impl LiveViewClientChannel {
-    /// Sends an event to the server waiting for a reply.
-    /// If you do not care about the result of a call then use [LivViewClientChannel::cast]
     pub async fn call(
         &self,
         event_name: String,
@@ -396,6 +403,6 @@ impl LiveViewClientChannel {
 
     /// Sends an event to the server without waiting for a reply.
     pub async fn cast(&self, event_name: String, payload: Payload) {
-        self.inner.cast(event_name, payload).await
+        let _ = self.inner.cast(event_name, payload).await;
     }
 }

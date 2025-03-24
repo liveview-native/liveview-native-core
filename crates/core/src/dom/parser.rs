@@ -46,14 +46,22 @@ where
 }
 
 /// Represents the possible types of failure that can occur while parsing a `Document`
-#[derive(Debug, thiserror::Error, uniffi::Error)]
+#[derive(Debug, Clone, thiserror::Error, uniffi::Error)]
 #[uniffi(flat_error)]
 pub enum ParseError {
     #[error("could not read document from input: {0}")]
-    Reader(#[from] std::io::Error),
+    Reader(Arc<std::io::Error>),
     #[error("encountered an error while tokenizing input: {0}")]
     Tokenizer(#[from] TokenizerError),
 }
+
+impl From<std::io::Error> for ParseError {
+    #[inline(always)]
+    fn from(value: std::io::Error) -> Self {
+        Self::Reader(Arc::new(value))
+    }
+}
+
 impl From<Infallible> for ParseError {
     #[inline(always)]
     fn from(_err: Infallible) -> Self {
@@ -68,7 +76,7 @@ impl From<html5gum::Error> for ParseError {
 }
 
 /// Wraps `html5gum::Error` to implement `std::error::Error`
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct TokenizerError(html5gum::Error);
 impl fmt::Display for TokenizerError {

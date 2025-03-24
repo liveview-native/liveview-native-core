@@ -156,7 +156,8 @@ impl Document {
 
     /// Parses a `Document` from a file at the given path
     pub fn parse_file<P: AsRef<Path>>(path: P) -> Result<Self, parser::ParseError> {
-        parser::parse(std::fs::File::open(path)?)
+        let reader = std::fs::File::open(path)?;
+        parser::parse(reader)
     }
 
     /// Returns an ascending `ref` id

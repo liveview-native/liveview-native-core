@@ -7,13 +7,20 @@ use phoenix_channels_client::{
 };
 
 use crate::{
+    client::NavigationError,
     diff::fragment::{MergeError, RenderError},
     dom::ParseError,
     live_socket::LiveChannel,
 };
 
-#[derive(Debug, thiserror::Error, uniffi::Error)]
+#[derive(Debug, Clone, thiserror::Error, uniffi::Error)]
 pub enum LiveSocketError {
+    #[error("Call to navigation function failed: {error}.")]
+    NavigationError { error: String },
+    #[error("Client was disconnected when making call.")]
+    ClientNotConnected,
+    #[error("Connection task panicked!.")]
+    JoinPanic,
     #[error("call to `call` failed: {error}.")]
     Call { error: String },
     #[error("call to `cast` failed: {error}.")]
@@ -114,7 +121,7 @@ pub enum LiveSocketError {
     Events { error: String },
 }
 
-#[derive(Debug, thiserror::Error, uniffi::Error)]
+#[derive(Debug, Clone, thiserror::Error, uniffi::Error)]
 pub enum UploadError {
     #[error("File exceeds maximum filesize.")]
     FileTooLarge,
@@ -126,7 +133,7 @@ pub enum UploadError {
     Other { error: String },
 }
 
-#[derive(uniffi::Record)]
+#[derive(uniffi::Record, Clone)]
 pub struct ConnectionError {
     pub error_text: String,
     pub error_code: u16,
@@ -149,17 +156,16 @@ impl std::fmt::Debug for ConnectionError {
     }
 }
 
-// These are all manually implemented and turned into a string because uniffi doesn't support
-// exported error types in the generations.
-
-impl<T> From<std::sync::TryLockError<T>> for LiveSocketError {
-    fn from(value: std::sync::TryLockError<T>) -> Self {
-        match value {
-            std::sync::TryLockError::Poisoned(_) => Self::LockPoisoned,
-            std::sync::TryLockError::WouldBlock => Self::WouldLock,
+impl From<NavigationError> for LiveSocketError {
+    fn from(value: NavigationError) -> Self {
+        LiveSocketError::NavigationError {
+            error: format!("{value:?}"),
         }
     }
 }
+
+// These are all manually implemented and turned into a string because uniffi doesn't support
+// exported error types in the generations.
 
 impl<T> From<std::sync::PoisonError<T>> for LiveSocketError {
     fn from(_: std::sync::PoisonError<T>) -> Self {

@@ -22,7 +22,7 @@ pub struct LiveChannel {
     pub timeout: Duration,
 }
 
-#[derive(uniffi::Object)]
+#[derive(uniffi::Object, Debug)]
 pub struct LiveFile {
     // TODO: this really ought to be a data stream callback.
     contents: Vec<u8>,

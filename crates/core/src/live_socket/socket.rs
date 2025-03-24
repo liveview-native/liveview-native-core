@@ -116,7 +116,7 @@ impl Default for ConnectOpts {
 /// Static information ascertained from the dead render when connecting.
 #[derive(Clone, Debug)]
 pub struct SessionData {
-    /// reply headers
+    /// reply headers from the initial dead render connect
     pub join_headers: HashMap<String, Vec<String>>,
     pub connect_opts: ConnectOpts,
     /// Cross site request forgery, security token, sent with dead render.
@@ -125,6 +125,8 @@ pub struct SessionData {
     pub phx_id: String,
     pub phx_static: String,
     pub phx_session: String,
+    /// Url used to connect the websocket - channels may use a redirect not
+    /// to connect to this.
     pub url: Url,
     /// One of `swift`, `kotlin` or `html` indicating the developer platform.
     pub format: String,
@@ -159,7 +161,7 @@ enum UrlOrRedirect {
 impl SessionData {
     pub async fn request(
         url: &Url,
-        format: &String,
+        format: &str,
         connect_opts: ConnectOpts,
         client: Client,
     ) -> Result<Self, LiveSocketError> {
