@@ -11,19 +11,16 @@ let timeout = TimeInterval(30.0)
 func withTimeoutOf<T>(seconds: Double, operation: @escaping () async throws -> T) async throws -> T
 {
     try await withThrowingTaskGroup(of: T.self) { group in
-        // Start the actual operation
         group.addTask {
             try await operation()
         }
 
-        // Start a timer task
         group.addTask {
             // Convert to nanoseconds internally
             try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
             throw TimeoutError(seconds: seconds)
         }
 
-        // Return the first completed task or throw if it's an error
         do {
             if let result = try await group.next() {
                 group.cancelAll()

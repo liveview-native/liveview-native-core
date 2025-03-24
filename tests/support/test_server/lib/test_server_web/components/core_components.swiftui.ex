@@ -49,64 +49,80 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
   """
   @doc type: :component
 
-  attr :id, :any, default: nil
-  attr :name, :any
-  attr :label, :string, default: nil
-  attr :value, :any
+  attr(:id, :any, default: nil)
+  attr(:name, :any)
+  attr(:label, :string, default: nil)
+  attr(:value, :any)
 
-  attr :type, :string,
+  attr(:type, :string,
     default: "TextField",
-    values: ~w(TextFieldLink DatePicker MultiDatePicker Picker SecureField Slider Stepper TextEditor TextField Toggle hidden)
+    values:
+      ~w(TextFieldLink DatePicker MultiDatePicker Picker SecureField Slider Stepper TextEditor TextField Toggle hidden)
+  )
 
-  attr :field, Phoenix.HTML.FormField,
+  attr(:field, Phoenix.HTML.FormField,
     doc: "a form field struct retrieved from the form, for example: `@form[:email]`"
+  )
 
-  attr :errors, :list, default: []
-  attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
-  attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
-  attr :options, :list, doc: "the options to pass to `Phoenix.HTML.Form.options_for_select/2`"
-  attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
+  attr(:errors, :list, default: [])
+  attr(:checked, :boolean, doc: "the checked flag for checkbox inputs")
+  attr(:prompt, :string, default: nil, doc: "the prompt for select inputs")
+  attr(:options, :list, doc: "the options to pass to `Phoenix.HTML.Form.options_for_select/2`")
+  attr(:multiple, :boolean, default: false, doc: "the multiple flag for select inputs")
 
-  attr :min, :any, default: nil
-  attr :max, :any, default: nil
+  attr(:min, :any, default: nil)
+  attr(:max, :any, default: nil)
 
-  attr :placeholder, :string, default: nil
+  attr(:placeholder, :string, default: nil)
 
-  attr :readonly, :boolean, default: false
+  attr(:readonly, :boolean, default: false)
 
-  attr :autocomplete, :string,
+  attr(:autocomplete, :string,
     default: "on",
     values: ~w(on off)
+  )
 
-  attr :rest, :global,
-    include: ~w(disabled step)
+  attr(:rest, :global, include: ~w(disabled step))
 
-  slot :inner_block
+  slot(:inner_block)
 
-  def input(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
-    assigns
-    |> assign(field: nil, id: assigns.id || field.id)
-    |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
-    |> assign_new(:name, fn -> if assigns.multiple, do: field.name <> "[]", else: field.name end)
-    |> assign_new(:value, fn -> field.value end)
-    |> assign(
-      :rest,
-      Map.put(assigns.rest, :class, [
-        Map.get(assigns.rest, :class, ""),
-        (if assigns.readonly or Map.get(assigns.rest, :disabled, false), do: "disabled-true", else: ""),
-        (if assigns.autocomplete == "off", do: "text-input-autocapitalization-never autocorrection-disabled", else: "")
-      ] |> Enum.join(" "))
-    )
-    |> input()
+  def input(%{field: %Phoenix.HTML.FormField{} = field} = assigns, interface) do
+    out =
+      assigns
+      |> assign(field: nil, id: assigns.id || field.id)
+      |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
+      |> assign_new(:name, fn -> if assigns.multiple, do: field.name <> "[]", else: field.name end)
+      |> assign_new(:value, fn -> field.value end)
+      |> assign(
+        :rest,
+        Map.put(
+          assigns.rest,
+          :class,
+          [
+            Map.get(assigns.rest, :class, ""),
+            if(assigns.readonly or Map.get(assigns.rest, :disabled, false),
+              do: "disabled-true",
+              else: ""
+            ),
+            if(assigns.autocomplete == "off",
+              do: "text-input-autocapitalization-never autocorrection-disabled",
+              else: ""
+            )
+          ]
+          |> Enum.join(" ")
+        )
+      )
+
+    input(out, interface)
   end
 
-  def input(%{type: "hidden"} = assigns) do
+  def input(%{type: "hidden"} = assigns, _) do
     ~LVN"""
     <LiveHiddenField id={@id} name={@name} value={@value} {@rest} />
     """
   end
 
-  def input(%{type: "TextFieldLink"} = assigns) do
+  def input(%{type: "TextFieldLink"} = assigns, _) do
     ~LVN"""
     <VStack alignment="leading">
       <LabeledContent>
@@ -120,7 +136,7 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
     """
   end
 
-  def input(%{type: "DatePicker"} = assigns) do
+  def input(%{type: "DatePicker"} = assigns, _) do
     ~LVN"""
     <VStack alignment="leading">
       <DatePicker id={@id} name={@name} selection={@value} {@rest}>
@@ -131,7 +147,7 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
     """
   end
 
-  def input(%{type: "MultiDatePicker"} = assigns) do
+  def input(%{type: "MultiDatePicker"} = assigns, _) do
     ~LVN"""
     <VStack alignment="leading">
       <LabeledContent>
@@ -143,7 +159,7 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
     """
   end
 
-  def input(%{type: "Picker"} = assigns) do
+  def input(%{type: "Picker"} = assigns, _) do
     ~LVN"""
     <VStack alignment="leading">
       <Picker id={@id} name={@name} selection={@value} {@rest}>
@@ -160,7 +176,7 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
     """
   end
 
-  def input(%{type: "Slider"} = assigns) do
+  def input(%{type: "Slider"} = assigns, _) do
     ~LVN"""
     <VStack alignment="leading">
       <LabeledContent>
@@ -172,7 +188,7 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
     """
   end
 
-  def input(%{type: "Stepper"} = assigns) do
+  def input(%{type: "Stepper"} = assigns, _) do
     ~LVN"""
     <VStack alignment="leading">
       <LabeledContent>
@@ -184,7 +200,7 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
     """
   end
 
-  def input(%{type: "TextEditor"} = assigns) do
+  def input(%{type: "TextEditor"} = assigns, _) do
     ~LVN"""
     <VStack alignment="leading">
       <LabeledContent>
@@ -196,7 +212,7 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
     """
   end
 
-  def input(%{type: "TextField"} = assigns) do
+  def input(%{type: "TextField"} = assigns, _) do
     ~LVN"""
     <VStack alignment="leading">
       <TextField id={@id} name={@name} text={@value} prompt={@prompt} {@rest}><%= @placeholder || @label %></TextField>
@@ -205,7 +221,7 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
     """
   end
 
-  def input(%{type: "SecureField"} = assigns) do
+  def input(%{type: "SecureField"} = assigns, _) do
     ~LVN"""
     <VStack alignment="leading">
       <SecureField id={@id} name={@name} text={@value} prompt={@prompt} {@rest}><%= @placeholder || @label %></SecureField>
@@ -214,7 +230,7 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
     """
   end
 
-  def input(%{type: "Toggle"} = assigns) do
+  def input(%{type: "Toggle"} = assigns, _) do
     ~LVN"""
     <VStack alignment="leading">
       <LabeledContent>
@@ -230,9 +246,9 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
   Generates a generic error message.
   """
   @doc type: :component
-  slot :inner_block, required: true
+  slot(:inner_block, required: true)
 
-  def error(assigns) do
+  def error(assigns, _) do
     ~LVN"""
     <Group class="font-caption fg-red">
       <%= render_slot(@inner_block) %>
@@ -247,13 +263,13 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
   """
   @doc type: :component
 
-  attr :class, :string, default: nil
+  attr(:class, :string, default: nil)
 
-  slot :inner_block, required: true
-  slot :subtitle
-  slot :actions
+  slot(:inner_block, required: true)
+  slot(:subtitle)
+  slot(:actions)
 
-  def header(assigns) do
+  def header(assigns, _) do
     ~LVN"""
     <VStack class={[
       "navigation-title-:title navigation-subtitle-:subtitle toolbar--toolbar",
@@ -289,12 +305,12 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
       </.modal>
 
   """
-  attr :id, :string, required: true
-  attr :show, :boolean, default: false
-  attr :on_cancel, :string
-  slot :inner_block, required: true
+  attr(:id, :string, required: true)
+  attr(:show, :boolean, default: false)
+  attr(:on_cancel, :string)
+  slot(:inner_block, required: true)
 
-  def modal(assigns) do
+  def modal(assigns, _) do
     ~LVN"""
     <VStack
       id={@id}
@@ -318,15 +334,15 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
       <.flash kind={:info} flash={@flash} />
       <.flash kind={:info} phx-mounted={show("#flash")}>Welcome Back!</.flash>
   """
-  attr :id, :string, doc: "the optional id of flash container"
-  attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
-  attr :title, :string, default: nil
-  attr :kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup"
-  attr :rest, :global, doc: "the arbitrary attributes to add to the flash container"
+  attr(:id, :string, doc: "the optional id of flash container")
+  attr(:flash, :map, default: %{}, doc: "the map of flash messages to display")
+  attr(:title, :string, default: nil)
+  attr(:kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup")
+  attr(:rest, :global, doc: "the arbitrary attributes to add to the flash container")
 
-  slot :inner_block, doc: "the optional inner block that renders the flash message"
+  slot(:inner_block, doc: "the optional inner block that renders the flash message")
 
-  def flash(assigns) do
+  def flash(assigns, _) do
     assigns = assign_new(assigns, :id, fn -> "flash-#{assigns.kind}" end)
 
     ~LVN"""
@@ -354,10 +370,10 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
 
       <.flash_group flash={@flash} />
   """
-  attr :flash, :map, required: true, doc: "the map of flash messages"
-  attr :id, :string, default: "flash-group", doc: "the optional id of flash container"
+  attr(:flash, :map, required: true, doc: "the map of flash messages")
+  attr(:id, :string, default: "flash-group", doc: "the optional id of flash container")
 
-  def flash_group(assigns) do
+  def flash_group(assigns, _) do
     ~LVN"""
     <Group id={@id}>
       <.flash kind={:info} title={"Success!"} flash={@flash} />
@@ -383,17 +399,18 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
   """
   @doc type: :component
 
-  attr :for, :any, required: true, doc: "the datastructure for the form"
-  attr :as, :any, default: nil, doc: "the server side parameter to collect all input under"
+  attr(:for, :any, required: true, doc: "the datastructure for the form")
+  attr(:as, :any, default: nil, doc: "the server side parameter to collect all input under")
 
-  attr :rest, :global,
+  attr(:rest, :global,
     include: ~w(autocomplete name rel action enctype method novalidate target multipart),
     doc: "the arbitrary attributes to apply to the form tag"
+  )
 
-  slot :inner_block, required: true
-  slot :actions, doc: "the slot for form actions, such as a submit button"
+  slot(:inner_block, required: true)
+  slot(:actions, doc: "the slot for form actions, such as a submit button")
 
-  def simple_form(assigns) do
+  def simple_form(assigns, _) do
     ~LVN"""
     <.form :let={f} for={@for} as={@as} {@rest}>
       <Form>
@@ -418,13 +435,13 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
   """
   @doc type: :component
 
-  attr :type, :string, default: nil
-  attr :class, :string, default: nil
-  attr :rest, :global, include: ~w(disabled form name value)
+  attr(:type, :string, default: nil)
+  attr(:class, :string, default: nil)
+  attr(:rest, :global, include: ~w(disabled form name value))
 
-  slot :inner_block, required: true
+  slot(:inner_block, required: true)
 
-  def button(%{ type: "submit" } = assigns) do
+  def button(%{type: "submit"} = assigns, _) do
     ~LVN"""
     <Section>
       <LiveSubmitButton class={[
@@ -439,7 +456,7 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
     """
   end
 
-  def button(assigns) do
+  def button(assigns, _) do
     ~LVN"""
     <Button class={@class} {@rest}>
       <%= render_slot(@inner_block) %>
@@ -459,21 +476,22 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
   """
   @doc type: :component
 
-  attr :id, :string, required: true
-  attr :rows, :list, required: true
-  attr :row_id, :any, default: nil, doc: "the function for generating the row id"
+  attr(:id, :string, required: true)
+  attr(:rows, :list, required: true)
+  attr(:row_id, :any, default: nil, doc: "the function for generating the row id")
 
-  attr :row_item, :any,
+  attr(:row_item, :any,
     default: &Function.identity/1,
     doc: "the function for mapping each row before calling the :col and :action slots"
+  )
 
   slot :col, required: true do
-    attr :label, :string
+    attr(:label, :string)
   end
 
-  slot :action, doc: "the slot for showing user actions in the last table column"
+  slot(:action, doc: "the slot for showing user actions in the last table column")
 
-  def table(assigns) do
+  def table(assigns, _) do
     ~LVN"""
     <Table id={@id}>
       <Group template="columns">
@@ -510,10 +528,10 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
       </.list>
   """
   slot :item, required: true do
-    attr :title, :string, required: true
+    attr(:title, :string, required: true)
   end
 
-  def list(assigns) do
+  def list(assigns, _) do
     ~LVN"""
     <List>
       <LabeledContent :for={item <- @item}>
@@ -534,9 +552,10 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
   """
   @doc type: :component
 
-  attr :name, :string, required: true
-  attr :class, :string, default: nil
-  def icon(assigns) do
+  attr(:name, :string, required: true)
+  attr(:class, :string, default: nil)
+
+  def icon(assigns, _) do
     ~LVN"""
     <Image systemName={@name} class={@class} />
     """
@@ -549,9 +568,11 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
   You can customize the lifecycle states of with the slots.
   """
 
-  attr :url, :string, required: true
-  attr :rest, :global
-  slot :empty, doc: """
+  attr(:url, :string, required: true)
+  attr(:rest, :global)
+
+  slot(:empty,
+    doc: """
     The empty state that will render before has successfully been downloaded.
 
         <.image url={~p"/assets/images/logo.png"}>
@@ -562,7 +583,10 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
 
     [See SwiftUI docs](https://developer.apple.com/documentation/swiftui/asyncimagephase/success(_:))
     """
-  slot :success, doc: """
+  )
+
+  slot :success,
+    doc: """
     The success state that will render when the image has successfully been downloaded.
 
         <.image url={~p"/assets/images/logo.png"}>
@@ -570,25 +594,25 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
         </.image>
 
     [See SwiftUI docs](https://developer.apple.com/documentation/swiftui/asyncimagephase/success(_:))
-    """
-  do
-    attr :class, :string
-  end
-  slot :failure, doc: """
-    The failure state that will render when the image fails to downloaded.
-
-        <.image url={~p"/assets/images/logo.png"}>
-          <:failure class="image-fail"/>
-        </.image>
-
-    [See SwiftUI docs](https://developer.apple.com/documentation/swiftui/asyncimagephase/failure(_:))
-
-  """
-  do
-    attr :class, :string
+    """ do
+    attr(:class, :string)
   end
 
-  def image(assigns) do
+  slot :failure,
+    doc: """
+      The failure state that will render when the image fails to downloaded.
+
+          <.image url={~p"/assets/images/logo.png"}>
+            <:failure class="image-fail"/>
+          </.image>
+
+      [See SwiftUI docs](https://developer.apple.com/documentation/swiftui/asyncimagephase/failure(_:))
+
+    """ do
+    attr(:class, :string)
+  end
+
+  def image(assigns, _) do
     ~LVN"""
     <AsyncImage url={@url} {@rest}>
       <Group template="phase.empty" :if={@empty != []}>
@@ -600,13 +624,13 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
     """
   end
 
-  defp image_success(%{ slot: [%{ inner_block: nil }] } = assigns) do
+  defp image_success(%{slot: [%{inner_block: nil}]} = assigns, _) do
     ~LVN"""
     <AsyncImage image template="phase.success" :for={slot <- @slot} class={slot.class} />
     """
   end
 
-  defp image_success(assigns) do
+  defp image_success(assigns, _) do
     ~LVN"""
     <Group template="phase.success" :if={@slot != []}>
       <%= render_slot(@slot) %>
@@ -614,13 +638,13 @@ defmodule TestServerWeb.CoreComponents.SwiftUI do
     """
   end
 
-  defp image_failure(%{ slot: [%{ inner_block: nil }] } = assigns) do
+  defp image_failure(%{slot: [%{inner_block: nil}]} = assigns, _) do
     ~LVN"""
     <AsyncImage error template="phase.failure" :for={slot <- @slot} class={slot.class} />
     """
   end
 
-  defp image_failure(assigns) do
+  defp image_failure(assigns, _) do
     ~LVN"""
     <Group template="phase.failure" :if={@slot != []}>
       <%= render_slot(@slot) %>
