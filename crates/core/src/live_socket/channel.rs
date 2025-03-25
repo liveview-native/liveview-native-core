@@ -454,7 +454,12 @@ impl LiveChannel {
             .await?;
 
         debug!("RESP: {save_resp:#?}");
-        upload_channel.leave().await?;
+
+        // So, the JS client elects to just leak this channel.
+        // We do that here too because there is some behavior on the backend that relies
+        // on this channel persisting.
+        //upload_channel.leave().await?;
+        //upload_channel.shutdown().await?;
         Ok(())
     }
 }

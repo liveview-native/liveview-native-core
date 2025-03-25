@@ -15,7 +15,7 @@ if useLocalFramework {
         path: "./target/uniffi/swift/liveview_native_core.xcframework"
     )
 } else {
-    let releaseTag = "0.4.1-rc-2"
+    let releaseTag = "0.4.1-rc-3"
     let releaseChecksum = "f3972f4d40732c884c98426b28550376abaff20a3490b73367ad170f1f0bcca9"
     liveview_native_core_framework = .binaryTarget(
         name: "liveview_native_core",
