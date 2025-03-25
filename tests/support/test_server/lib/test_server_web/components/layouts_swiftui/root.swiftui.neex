@@ -1,3 +1,4 @@
+<csrf-token value={Phoenix.Controller.get_csrf_token()}/>
 <Style url={~p"/assets/app.swiftui.styles"} />
 <NavigationStack>
   <%= @inner_content %>
