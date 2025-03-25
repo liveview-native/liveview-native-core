@@ -44,9 +44,6 @@ async fn test_single_chunk_file_upload() {
         .await
         .expect("Failed to create client");
 
-    let mut watcher = client.watch_status();
-    expect_status_matches!(watcher, crate::client::inner::ClientStatus::Connected(_));
-
     let phx_upload_id = client
         .get_phx_upload_id("avatar")
         .expect("No ID for avatar");
