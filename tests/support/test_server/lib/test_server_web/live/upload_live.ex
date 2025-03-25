@@ -88,8 +88,8 @@ defmodule TestServerWeb.SimpleLiveUpload.Jetpack do
     ~LVN"""
     <Box size="fill" background="system-blue">
       <Text align="Center">Upload from Jetpack</Text>
-      <LiveViewNative.Jetpack.Component.live_file_input upload={@uploads.avatar} />
-      <LiveViewNative.Jetpack.Component.live_file_input upload={@uploads.sample_text} />
+      <LiveViewNative.SwiftUI.Component.live_file_input upload={@uploads.avatar} />
+      <LiveViewNative.SwiftUI.Component.live_file_input upload={@uploads.sample_text} />
     </Box>
     """
   end
