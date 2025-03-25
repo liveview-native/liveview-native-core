@@ -45,7 +45,7 @@ browser = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 #
 [target.'cfg(target_os = "android")'.dependencies]
-android_logger = "0.14"
+android_logger = "0.15"
 openssl = { version = "=0.10.71", features = ["vendored"], optional = true }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
