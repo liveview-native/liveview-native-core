@@ -171,6 +171,15 @@ final class LiveViewNativeCoreUploadTests: XCTestCase {
         let phx_id: String! = try live_channel.getPhxUploadId("avatar")
         let live_file = LiveFile(image, "image/png", "avatar", "foobar.png", phx_id)
         try await live_channel.uploadFile(live_file)
+        try await live_channel.channel().call(
+                        event: .user(user: "event"),
+                        payload: .jsonPayload(json: .object(object: [
+                            "type": .str(string: "form"),
+                            "event": .str(string: "save"),
+                            "value": .str(string: ""),
+                        ])),
+                        timeout: 10_000
+                    )
     }
 }
 
