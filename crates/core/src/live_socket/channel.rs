@@ -440,20 +440,20 @@ impl LiveChannel {
 
         debug!("RESP: {progress_resp:#?}");
 
-        let save_event_string = r#"{"type":"form","event":"save","value":""}"#;
+        // let save_event_string = r#"{"type":"form","event":"save","value":""}"#;
 
-        let save_event: Event = Event::User {
-            user: "event".to_string(),
-        };
-        let save_event_payload: Payload =
-            Payload::json_from_serialized(save_event_string.to_string())?;
+        // let save_event: Event = Event::User {
+        //     user: "event".to_string(),
+        // };
+        // let save_event_payload: Payload =
+        //     Payload::json_from_serialized(save_event_string.to_string())?;
 
-        let save_resp = self
-            .channel
-            .call(save_event, save_event_payload, self.timeout)
-            .await?;
+        // let save_resp = self
+        //     .channel
+        //     .call(save_event, save_event_payload, self.timeout)
+        //     .await?;
 
-        debug!("RESP: {save_resp:#?}");
+        // debug!("RESP: {save_resp:#?}");
 
         // So, the JS client elects to just leak this channel.
         // We do that here too because there is some behavior on the backend that relies
