@@ -433,6 +433,7 @@ impl LiveChannel {
         };
 
         let progress_event_payload: Payload = Payload::json_from_serialized(progress_event_string)?;
+
         let progress_resp = self
             .channel
             .call(progress_event, progress_event_payload, self.timeout)
@@ -440,6 +441,8 @@ impl LiveChannel {
 
         debug!("RESP: {progress_resp:#?}");
 
+        // This save event has been deferred to client discretion, it may not be called
+        // `save` on every platform
         // let save_event_string = r#"{"type":"form","event":"save","value":""}"#;
 
         // let save_event: Event = Event::User {

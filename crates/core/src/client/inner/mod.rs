@@ -162,6 +162,7 @@ impl LiveViewClientInner {
         ClientStatuses::from(self.status.clone())
     }
 
+    /// Make sure to call `save` after uploading the file or your equivalent event.
     pub async fn upload_file(&self, file: Arc<LiveFile>) -> Result<(), LiveSocketError> {
         let (response_tx, response_rx) = oneshot::channel();
 
