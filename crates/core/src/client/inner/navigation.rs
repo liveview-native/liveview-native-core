@@ -68,7 +68,7 @@ impl NavCtx {
 
         let event = {
             let new_dest = next_dest.clone();
-            let old_dest = self.current();
+            let old_dest = self.current_entry();
             let event = match opts.action {
                 Some(NavAction::Replace) => NavEventType::Replace,
                 _ => NavEventType::Push,
@@ -98,7 +98,9 @@ impl NavCtx {
         url_path: String,
         emit_event: bool,
     ) -> Result<HistoryId, NavigationError> {
-        let old_dest = self.current().ok_or(NavigationError::NoCurrentEntry)?;
+        let old_dest = self
+            .current_entry()
+            .ok_or(NavigationError::NoCurrentEntry)?;
         let old_id = old_dest.id;
         let old_url = Url::parse(&old_dest.url).map_err(|e| NavigationError::InvalidUrl {
             reason: format!("{e:?}"),
@@ -158,7 +160,9 @@ impl NavCtx {
         info: Option<Vec<u8>>,
         emit_event: bool,
     ) -> Result<HistoryId, NavigationError> {
-        let current = self.current().ok_or(NavigationError::NoCurrentEntry)?;
+        let current = self
+            .current_entry()
+            .ok_or(NavigationError::NoCurrentEntry)?;
         let id = current.id;
 
         let event = NavEvent::new(NavEventType::Reload, current.clone(), current.into(), info);
@@ -185,7 +189,9 @@ impl NavCtx {
             return Err(NavigationError::CannotGoBack);
         }
 
-        let previous = self.current().ok_or(NavigationError::NoCurrentEntry)?;
+        let previous = self
+            .current_entry()
+            .ok_or(NavigationError::NoCurrentEntry)?;
 
         let next = self.history[self.history.len() - 2].clone();
 
@@ -221,7 +227,7 @@ impl NavCtx {
         }
 
         let next = self.future.last().cloned().expect("precondition");
-        let previous = self.current();
+        let previous = self.current_entry();
 
         let event = NavEvent::new(NavEventType::Push, next, previous, info);
 
@@ -247,7 +253,9 @@ impl NavCtx {
             return Err(NavigationError::CannotTraverseToId { id });
         }
 
-        let old_dest = self.current().ok_or(NavigationError::NoCurrentEntry)?;
+        let old_dest = self
+            .current_entry()
+            .ok_or(NavigationError::NoCurrentEntry)?;
         let in_hist = self.history.iter().position(|ent| ent.id == id);
         if let Some(entry) = in_hist {
             let new_dest = self.history[entry].clone();
@@ -285,8 +293,13 @@ impl NavCtx {
         Err(NavigationError::CannotTraverseToId { id })
     }
 
+    pub fn clear_history(&mut self) {
+        self.history.clear();
+        self.future.clear();
+    }
+
     /// Returns the current history entry and state
-    pub fn current(&self) -> Option<NavHistoryEntry> {
+    pub fn current_entry(&self) -> Option<NavHistoryEntry> {
         self.history.last().cloned()
     }
 
@@ -468,7 +481,7 @@ mod test {
         let last_ev = handler.last_event().expect("no event.");
         assert_eq!(last_ev.info, Some(info));
 
-        let current = ctx.current().expect("current");
+        let current = ctx.current_entry().expect("current");
         assert_eq!(current.id, id);
         assert_eq!(current.state, Some(state));
     }
@@ -490,26 +503,29 @@ mod test {
             .navigate(third.clone(), NavOptions::default(), true)
             .expect("nav third");
 
-        assert_eq!(ctx.current().expect("current").url, third.to_string());
+        assert_eq!(ctx.current_entry().expect("current").url, third.to_string());
 
         let prev_id = ctx.back(None, true).expect("back");
         assert_eq!(prev_id, id2);
-        assert_eq!(ctx.current().expect("current").url, second.to_string());
+        assert_eq!(
+            ctx.current_entry().expect("current").url,
+            second.to_string()
+        );
         assert_eq!(ctx.entries().len(), 3);
 
         let next_id = ctx.forward(None, true).expect("forward");
         assert_eq!(next_id, id3);
-        assert_eq!(ctx.current().expect("current").url, third.to_string());
+        assert_eq!(ctx.current_entry().expect("current").url, third.to_string());
         assert_eq!(ctx.entries().len(), 3);
 
         ctx.traverse_to(id1, None, true)
             .expect("Failed to traverse");
-        assert_eq!(ctx.current().expect("current").url, first.to_string());
+        assert_eq!(ctx.current_entry().expect("current").url, first.to_string());
         assert_eq!(ctx.entries().len(), 3);
 
         ctx.traverse_to(id3, None, true)
             .expect("Failed to traverse");
-        assert_eq!(ctx.current().expect("current").url, third.to_string());
+        assert_eq!(ctx.current_entry().expect("current").url, third.to_string());
         assert_eq!(ctx.entries().len(), 3);
     }
 
@@ -528,9 +544,9 @@ mod test {
             .expect("nav second");
 
         ctx.back(None, true).expect("back");
-        assert_eq!(ctx.current().expect("current").id, id1);
+        assert_eq!(ctx.current_entry().expect("current").id, id1);
 
         ctx.forward(None, true).expect("forward");
-        assert_eq!(ctx.current().expect("current").id, id2);
+        assert_eq!(ctx.current_entry().expect("current").id, id2);
     }
 }

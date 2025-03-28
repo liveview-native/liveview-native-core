@@ -1,4 +1,5 @@
 use image::RgbaImage;
+use phoenix_channels_client::Payload;
 use tempfile::tempdir;
 
 use super::HOST;
@@ -60,6 +61,15 @@ async fn test_single_chunk_file_upload() {
         .upload_file(file.into())
         .await
         .expect("Failed to upload file");
+
+    let save_event_string = r#"{"type":"form","event":"save","value":""}"#;
+
+    let save_event_payload = Payload::json_from_serialized(save_event_string.to_string()).unwrap();
+
+    client
+        .call("event".to_string(), save_event_payload)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -98,6 +108,15 @@ async fn test_multi_chunk_text_upload() {
         .upload_file(file.into())
         .await
         .expect("Failed to upload file");
+
+    let save_event_string = r#"{"type":"form","event":"save","value":""}"#;
+
+    let save_event_payload = Payload::json_from_serialized(save_event_string.to_string()).unwrap();
+
+    client
+        .call("event".to_string(), save_event_payload)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -131,6 +150,15 @@ async fn test_multi_chunk_file_upload() {
         .upload_file(file.into())
         .await
         .expect("Failed to upload file");
+
+    let save_event_string = r#"{"type":"form","event":"save","value":""}"#;
+
+    let save_event_payload = Payload::json_from_serialized(save_event_string.to_string()).unwrap();
+
+    client
+        .call("event".to_string(), save_event_payload)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
@@ -209,6 +237,15 @@ async fn test_incorrect_file_type_error() {
     );
 
     let error = client.upload_file(file.into()).await.err().unwrap();
+
+    let save_event_string = r#"{"type":"form","event":"save","value":""}"#;
+
+    let save_event_payload = Payload::json_from_serialized(save_event_string.to_string()).unwrap();
+
+    client
+        .call("event".to_string(), save_event_payload)
+        .await
+        .expect_err("This should have been rejected!");
 
     match error {
         LiveSocketError::Upload {

@@ -6,8 +6,10 @@ mod socket;
 mod tests;
 
 pub use channel::{LiveChannel, LiveFile};
+use serde::Deserialize;
 pub use socket::{ConnectOpts, LiveSocket, Method, SessionData};
 
+#[derive(Deserialize, Debug)]
 pub struct UploadConfig {
     chunk_size: u64,
     max_file_size: u64,

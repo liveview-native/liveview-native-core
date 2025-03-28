@@ -162,6 +162,7 @@ impl LiveViewClientInner {
         ClientStatuses::from(self.status.clone())
     }
 
+    /// Make sure to call `save` after uploading the file or your equivalent event.
     pub async fn upload_file(&self, file: Arc<LiveFile>) -> Result<(), LiveSocketError> {
         let (response_tx, response_rx) = oneshot::channel();
 
@@ -307,7 +308,7 @@ impl LiveViewClientInner {
         let con = status.as_connected()?;
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.reload(info.extra_event_info.clone(), true)?;
-        let current = ctx.current().ok_or(NavigationError::NoCurrentEntry)?;
+        let current = ctx.current_entry().ok_or(NavigationError::NoCurrentEntry)?;
 
         // todo error handling
         let _ = con.msg_tx.send(ConnectedClientMessage::Navigate {
@@ -325,7 +326,7 @@ impl LiveViewClientInner {
         let con = status.as_connected()?;
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.back(info.extra_event_info.clone(), true)?;
-        let current = ctx.current().ok_or(NavigationError::NoCurrentEntry)?;
+        let current = ctx.current_entry().ok_or(NavigationError::NoCurrentEntry)?;
 
         // todo error handling
         let _ = con.msg_tx.send(ConnectedClientMessage::Navigate {
@@ -343,7 +344,7 @@ impl LiveViewClientInner {
         let con = status.as_connected()?;
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.forward(info.extra_event_info.clone(), true)?;
-        let current = ctx.current().ok_or(NavigationError::NoCurrentEntry)?;
+        let current = ctx.current_entry().ok_or(NavigationError::NoCurrentEntry)?;
 
         // todo error handling
         let _ = con.msg_tx.send(ConnectedClientMessage::Navigate {
@@ -365,7 +366,7 @@ impl LiveViewClientInner {
         let con = status.as_connected()?;
         let mut ctx = self.nav_ctx.lock()?;
         let id = ctx.traverse_to(id, info.extra_event_info.clone(), true)?;
-        let current = ctx.current().ok_or(NavigationError::NoCurrentEntry)?;
+        let current = ctx.current_entry().ok_or(NavigationError::NoCurrentEntry)?;
 
         let _ = con.msg_tx.send(ConnectedClientMessage::Navigate {
             url: current.url,
@@ -396,7 +397,7 @@ impl LiveViewClientInner {
     }
 
     pub fn current_history_entry(&self) -> Option<NavHistoryEntry> {
-        self.nav_ctx.lock().expect("Lock Poison").current()
+        self.nav_ctx.lock().expect("Lock Poison").current_entry()
     }
 
     pub async fn call(

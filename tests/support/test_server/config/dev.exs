@@ -46,7 +46,9 @@ config :test_server, TestServerWeb.Endpoint,
 config :test_server, TestServerWeb.Endpoint,
   live_reload: [
     patterns: [
-      ~r"priv/static/.*(js|css|png|jpeg|jpg|gif|svg)$",
+      ~r"priv/static/assets/(js|css|png|jpeg|jpg|gif|svg)$",
+      ~r"priv/static/images/(js|css|png|jpeg|jpg|gif|svg)$",
+      ~r"priv/static/(js|css|png|jpeg|jpg|gif|svg)$",
       ~r"priv/gettext/.*(po)$",
       ~r"lib/test_server_web/(controllers|live|components)/.*(ex|heex)$"
     ]
