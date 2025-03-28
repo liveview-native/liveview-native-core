@@ -2,7 +2,8 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use futures::{future::FutureExt, pin_mut, select};
 use log::{debug, error};
-use phoenix_channels_client::{Channel, Event, Number, Payload, Socket, Topic, JSON};
+use phoenix_channels_client::{Channel, Event, Payload, Socket, Topic, JSON};
+use serde_json::Value;
 
 use super::UploadConfig;
 use crate::{
@@ -220,6 +221,17 @@ impl LiveChannel {
     }
 
     pub async fn upload_file(&self, file: &LiveFile) -> Result<(), LiveSocketError> {
+        let handle_diff = |payload: &Payload| -> Result<(), LiveSocketError> {
+            if let Payload::JSONPayload { json } = payload {
+                let json = Value::from(json.clone());
+                if let Some(diff) = json.get("diff") {
+                    self.document
+                        .merge_deserialized_fragment_json(JSON::from(diff))?;
+                }
+            }
+            Ok(())
+        };
+
         // this is not great but we have to mimic constructing
         // this ad hoc object to send to the server
         // https://github.com/phoenixframework/phoenix_live_view/blob/b59bede3fcec6995f1d5876a520af8badc4bb7fb/priv/static/phoenix_live_view.js#L1315
@@ -230,29 +242,22 @@ impl LiveChannel {
             user: "allow_upload".to_string(),
         };
 
-        // TODO: move this into protocol
-        let event_string = format!(
-            r#"{{
-            "ref":"{}",
-            "entries":[
-                {{
-                    "name":"{}",
-                    "relative_path":"{}",
-                    "size":{},
-                    "type":"{}",
-                    "ref":"{}"
-                }}
-            ]
-            }}"#,
-            file.phx_upload_id,
-            file.name,
-            file.relative_path,
-            file.contents.len(),
-            file.mime_type,
-            ref_id
-        );
+        let event = serde_json::json!({
+           "ref": file.phx_upload_id,
+           "entries" : [
+              {
+                 "name" : file.name,
+                 "relative_path" : file.relative_path,
+                 "size" : file.contents.len(),
+                 "type" :  file.mime_type,
+                 "ref"  : ref_id.to_string(),
+              }
+           ]
+        });
 
-        let event_payload: Payload = Payload::json_from_serialized(event_string)?;
+        let event_payload: Payload = Payload::JSONPayload {
+            json: JSON::from(event),
+        };
 
         // TODO: Create a configurable, introspectable upload interface to control
         // timeouts
@@ -262,6 +267,8 @@ impl LiveChannel {
             .await?;
 
         debug!("allow_upload RESP: {allow_upload_resp:#?}");
+
+        handle_diff(&allow_upload_resp)?;
 
         /*
         The allow upload okay response looks like:
@@ -295,62 +302,46 @@ impl LiveChannel {
                 */
         // TODO: move this into protocol
         let mut upload_config = UploadConfig::default();
-        let upload_token = match allow_upload_resp {
-            Payload::JSONPayload {
-                json: JSON::Object { ref object },
-            } => {
-                if let Some(JSON::Object { ref object }) = object.get("config") {
-                    if let Some(JSON::Numb {
-                        number: Number::PosInt { pos },
-                    }) = object.get("chunk_size")
-                    {
-                        upload_config.chunk_size = *pos;
-                    }
-                    if let Some(JSON::Numb {
-                        number: Number::PosInt { pos },
-                    }) = object.get("max_file_size")
-                    {
-                        upload_config.max_file_size = *pos;
-                    }
-                    if let Some(JSON::Numb {
-                        number: Number::PosInt { pos },
-                    }) = object.get("max_entries")
-                    {
-                        upload_config.max_entries = *pos;
-                    }
-                }
-                if let Some(JSON::Array { array }) = object.get("error") {
-                    // TODO: search for the actual ID from the live file
-                    if let Some(JSON::Array { array }) = array.first() {
-                        if let Some(JSON::Str {
-                            string: error_string,
-                        }) = array.last()
-                        {
-                            error!("Upload error string: {error_string}");
-                            let upload_error = match error_string.as_str() {
-                                "too_large" => UploadError::FileTooLarge,
-                                "not_accepted" => UploadError::FileNotAccepted,
 
-                                other => UploadError::Other {
-                                    error: other.to_string(),
-                                },
-                            };
-                            return Err(upload_error)?;
-                        }
-                    }
-                }
-                if let Some(JSON::Object { object }) = object.get("entries") {
-                    if let Some(JSON::Str { string }) = object.get(&ref_id.to_string()) {
-                        Some(string)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
-            _ => None,
+        let Payload::JSONPayload { json } = allow_upload_resp else {
+            return Err(LiveSocketError::NoUploadToken);
         };
+
+        let val = Value::from(json);
+
+        if let Some(config) = val.get("config").and_then(Value::as_object) {
+            if let Some(chunk_size) = config.get("chunk_size").and_then(Value::as_u64) {
+                upload_config.chunk_size = chunk_size;
+            }
+            if let Some(file_size) = config.get("max_file_size").and_then(Value::as_u64) {
+                upload_config.max_file_size = file_size;
+            }
+            if let Some(entries) = config.get("max_entries").and_then(Value::as_u64) {
+                upload_config.max_entries = entries;
+            }
+        }
+
+        if let Some([(_, error_string)]) = val
+            .get("error")
+            .and_then(|e| serde_json::from_value::<Vec<(String, String)>>(e.clone()).ok())
+            .as_deref()
+        {
+            error!("Upload error string: {error_string}");
+            let upload_error = match error_string.as_str() {
+                "too_large" => UploadError::FileTooLarge,
+                "not_accepted" => UploadError::FileNotAccepted,
+                other => UploadError::Other {
+                    error: other.to_string(),
+                },
+            };
+            return Err(upload_error)?;
+        };
+
+        let upload_token = val
+            .get("entries")
+            .and_then(Value::as_object)
+            .and_then(|ents| ents.get(&ref_id.to_string()))
+            .and_then(Value::as_str);
 
         let upload_token = upload_token.ok_or(LiveSocketError::NoUploadToken)?;
         debug!("Upload token: {upload_token:?}");
@@ -369,7 +360,7 @@ impl LiveChannel {
 
         let upload_join_resp = upload_channel.join(self.timeout).await?;
         // The good response for a joining the upload channel is "{}"
-        debug!("UPLOAD JOIN: {upload_join_resp:#?}");
+        debug!("Upload join: {upload_join_resp:#?}");
 
         let chunk_size = upload_config.chunk_size as usize;
         let file_size = file.contents.len();
@@ -389,11 +380,12 @@ impl LiveChannel {
                 bytes: file.contents[start_chunk..end_chunk].to_vec(),
             };
 
-            let _chunk_resp = upload_channel
+            let chunk_resp = upload_channel
                 .call(chunk_event, chunk_payload, self.timeout)
                 .await?;
 
-            debug!("Chunk upload resp: {_chunk_resp}");
+            handle_diff(&chunk_resp)?;
+            debug!("Chunk upload resp: {chunk_resp}");
 
             let progress = ((end_chunk as f64 / file_size as f64) * 100.0) as i8;
 
@@ -411,14 +403,15 @@ impl LiveChannel {
 
                 let progress_event_payload: Payload =
                     Payload::json_from_serialized(progress_event_string)?;
-                debug!("Progress send: {progress_event_payload:#?}");
+                debug!("Progress send: {progress_event_payload}");
 
                 let progress_resp = self
                     .channel
                     .call(progress_event, progress_event_payload, self.timeout)
                     .await?;
 
-                debug!("Progress response: {progress_resp:#?}");
+                handle_diff(&progress_resp)?;
+                debug!("Progress response: {progress_resp}");
             }
         }
 
@@ -439,6 +432,7 @@ impl LiveChannel {
             .call(progress_event, progress_event_payload, self.timeout)
             .await?;
 
+        handle_diff(&progress_resp)?;
         debug!("RESP: {progress_resp:#?}");
 
         // This save event has been deferred to client discretion, it may not be called
@@ -461,8 +455,8 @@ impl LiveChannel {
         // So, the JS client elects to just leak this channel.
         // We do that here too because there is some behavior on the backend that relies
         // on this channel persisting.
-        //upload_channel.leave().await?;
-        //upload_channel.shutdown().await?;
+        // upload_channel.leave().await?;
+        // let e = upload_channel.shutdown().await;
         Ok(())
     }
 }

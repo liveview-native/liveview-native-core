@@ -28,7 +28,7 @@ use crate::{
         navigation::{NavAction, NavOptions},
         ConnectOpts, LiveFile,
     },
-    protocol::{LiveRedirect, RedirectKind},
+    protocol::{Redirect, RedirectKind},
 };
 
 pub(crate) struct EventLoop {
@@ -484,7 +484,7 @@ impl LiveViewClientManager {
 
         if let Some(redirect_json) = object.get("live_redirect") {
             let json = redirect_json.clone().into();
-            let redirect: LiveRedirect = serde_json::from_value(json)?;
+            let redirect: Redirect = serde_json::from_value(json)?;
             let base_url = client.session_data.url.clone();
             let target_url = base_url.join(&redirect.to)?;
 
@@ -509,7 +509,7 @@ impl LiveViewClientManager {
 
         if let Some(redirect_json) = object.get("redirect") {
             let json = redirect_json.clone().into();
-            let redirect: LiveRedirect = serde_json::from_value(json)?;
+            let redirect: Redirect = serde_json::from_value(json)?;
 
             let base_url = client.session_data.url.clone();
             let target_url = base_url.join(&redirect.to)?;
@@ -609,6 +609,9 @@ impl LiveViewClientManager {
 
                     let join_params = client.liveview_channel.join_params.clone();
 
+                    let mut nav_ctx = self.nav_ctx.lock().expect("lock poison");
+                    nav_ctx.clear_history();
+
                     let _ = self.self_sender.send(ClientMessage::Reconnect {
                         url,
                         opts: connect_opts,
@@ -623,7 +626,7 @@ impl LiveViewClientManager {
                     };
 
                     let json_value = json.clone().into();
-                    let redirect: LiveRedirect = serde_json::from_value(json_value)?;
+                    let redirect: Redirect = serde_json::from_value(json_value)?;
 
                     let base_url = client.session_data.url.clone();
                     let url = base_url.join(&redirect.to)?;
@@ -641,7 +644,7 @@ impl LiveViewClientManager {
                     };
 
                     let json_value = json.clone().into();
-                    let redirect: LiveRedirect = serde_json::from_value(json_value)?;
+                    let redirect: Redirect = serde_json::from_value(json_value)?;
 
                     let base_url = client.session_data.url.clone();
                     let target_url = base_url.join(&redirect.to)?;
@@ -670,7 +673,7 @@ impl LiveViewClientManager {
                     };
 
                     let json_value = json.clone().into();
-                    let redirect: LiveRedirect = serde_json::from_value(json_value)?;
+                    let redirect: Redirect = serde_json::from_value(json_value)?;
 
                     // Get the target URL
                     let base_url = client.session_data.url.clone();
@@ -809,7 +812,7 @@ impl LiveViewClientManager {
                     }
                     Event::User { user } if user == "assets_change" =>  {
 
-                        let Some(entry) = self.nav_ctx.lock().expect("lock poison").current() else {
+                        let Some(entry) = self.nav_ctx.lock().expect("lock poison").current_entry() else {
                             return Ok(LiveViewClientState::FatalError(error.clone()));
                         };
 
