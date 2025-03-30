@@ -168,11 +168,31 @@ tasks.whenObjectAdded {
 }
 
 tasks.register<Jar>("nativeLibJar") {
-    archiveBaseName.set("liveview-native-core-host")
+    val osName = System.getProperty("os.name")
+    val osArch = System.getProperty("os.arch")
+
+    val targetOs = when {
+        osName == "Mac OS X" -> "darwin"
+        osName.startsWith("Win") -> "windows"
+        osName.startsWith("Linux") -> "linux"
+        else -> error("unsupported os: $osName")
+    }
+
+    val targetArch = when (osArch) {
+        "x86_64", "amd64" -> "x86-64"
+        "aarch64" -> "aarch64"
+        else -> error("unsupported architecture: $osArch")
+    }
+
+    val ext = when (targetOs) {
+        "darwin" -> "*.dylib"
+        else -> "*.so"
+    }
+
+    archiveBaseName.set("liveview-native-core-$targetOs-$targetArch")
     destinationDirectory.set(layout.buildDirectory.dir("libs"))
 
-    from(fileTree("build/rustJniLibs/desktop/darwin-aarch64").include("*.dylib"))
-    from(fileTree("build/rustJniLibs/desktop/linux-x86-64").include("*.so"))
+    from(fileTree("build/rustJniLibs/desktop/$targetOs-$targetArch").include(ext))
 }
 
 publishing {
@@ -183,15 +203,6 @@ publishing {
             version = lvn_version
 
             afterEvaluate { from(components["release"]) }
-        }
-    }
-    publications {
-        register<MavenPublication>("nativeLib") {
-            groupId = "org.phoenixframework"
-            artifactId = "liveview-native-core-host"
-            version = lvn_version
-
-            artifact(tasks.named("nativeLibJar"))
         }
     }
     /*
