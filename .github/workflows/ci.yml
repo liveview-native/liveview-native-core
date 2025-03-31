@@ -493,7 +493,7 @@ jobs:
 
       - name: Create AVD and generate snapshot for caching
         if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2.33.0
+        uses: reactivecircus/android-emulator-runner@v2.34.0
         with:
           api-level: ${{ env.ANDROID_API }}
           ndk: ${{ env.ANDROID_NDK_VERSION }}
@@ -505,7 +505,7 @@ jobs:
           script: echo "Generated AVD snapshot for caching."
 
       - name: Run tests in android emulator
-        uses: reactivecircus/android-emulator-runner@v2.33.0
+        uses: reactivecircus/android-emulator-runner@v2.34.0
         env:
           RANLIB: "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ranlib"
         with:
