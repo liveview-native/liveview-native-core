@@ -167,6 +167,34 @@ tasks.whenObjectAdded {
     }
 }
 
+tasks.register<Jar>("nativeLibJar") {
+    val osName = System.getProperty("os.name")
+    val osArch = System.getProperty("os.arch")
+
+    val targetOs = when {
+        osName == "Mac OS X" -> "darwin"
+        osName.startsWith("Win") -> "windows"
+        osName.startsWith("Linux") -> "linux"
+        else -> error("unsupported os: $osName")
+    }
+
+    val targetArch = when (osArch) {
+        "x86_64", "amd64" -> "x86-64"
+        "aarch64" -> "aarch64"
+        else -> error("unsupported architecture: $osArch")
+    }
+
+    val ext = when (targetOs) {
+        "darwin" -> "*.dylib"
+        else -> "*.so"
+    }
+
+    archiveBaseName.set("liveview-native-core-$targetOs-$targetArch")
+    destinationDirectory.set(layout.buildDirectory.dir("libs"))
+
+    from(fileTree("build/rustJniLibs/desktop/$targetOs-$targetArch").include(ext))
+}
+
 publishing {
     publications {
         register<MavenPublication>("release") {
