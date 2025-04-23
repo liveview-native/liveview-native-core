@@ -2,11 +2,9 @@ use std::{sync::Arc, time::Duration};
 
 #[cfg(feature = "liveview-channels")]
 use crate::dom::ffi::Document;
-
+use crate::dom::{NodeData, NodeRef};
 #[cfg(feature = "liveview-channels")]
 use crate::error::LiveSocketError;
-
-use crate::dom::{NodeData, NodeRef};
 
 #[uniffi::export(callback_interface)]
 pub trait SocketReconnectStrategy: Send + Sync {

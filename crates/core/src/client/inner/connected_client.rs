@@ -8,6 +8,7 @@ use phoenix_channels_client::{
 use reqwest::{Client, Url};
 use tokio::select;
 
+use super::LiveViewClientStatus;
 use crate::{
     client::{
         inner::{connected_client, PersistentCookieStore},
@@ -18,8 +19,6 @@ use crate::{
     error::LiveSocketError,
     live_socket::{ConnectOpts, LiveChannel, SessionData},
 };
-
-use super::LiveViewClientStatus;
 
 pub(crate) struct ConnectedClient {
     pub(crate) document: ffi::Document,

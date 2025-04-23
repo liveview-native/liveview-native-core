@@ -103,7 +103,7 @@ jobs:
           toolchain: ${{ env.CARGO_MAKE_TOOLCHAIN }}
           components: clippy
 
-      - name: Cargo fmt
+      - name: Cargo clippy
         run: cargo clippy -- -Dwarnings
 
   kotiln_integration_tests:
