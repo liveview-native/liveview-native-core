@@ -484,7 +484,7 @@ impl ClientStatus {
     pub fn as_connected(&self) -> Result<&ConnectedStatus, LiveSocketError> {
         match self {
             ClientStatus::Connected(out) => Ok(out),
-            ClientStatus::Reconnecting { .. }
+            ClientStatus::Reconnecting
             | ClientStatus::Disconnected
             | ClientStatus::Connecting => Err(LiveSocketError::ClientNotConnected),
             ClientStatus::FatalError { error } => Err(error.clone()),
