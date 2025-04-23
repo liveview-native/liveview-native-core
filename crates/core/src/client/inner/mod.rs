@@ -473,7 +473,7 @@ pub enum ClientStatus {
     Connecting,
     Reconnecting,
     /// TODO: call shutdown on all transitions
-    Connected(ConnectedStatus),
+    Connected(Box<ConnectedStatus>),
     /// TODO: call shutdown on all transitions
     FatalError {
         error: LiveSocketError,
@@ -484,9 +484,9 @@ impl ClientStatus {
     pub fn as_connected(&self) -> Result<&ConnectedStatus, LiveSocketError> {
         match self {
             ClientStatus::Connected(out) => Ok(out),
-            ClientStatus::Reconnecting
-            | ClientStatus::Disconnected
-            | ClientStatus::Connecting => Err(LiveSocketError::ClientNotConnected),
+            ClientStatus::Reconnecting | ClientStatus::Disconnected | ClientStatus::Connecting => {
+                Err(LiveSocketError::ClientNotConnected)
+            }
             ClientStatus::FatalError { error } => Err(error.clone()),
         }
     }
@@ -541,14 +541,14 @@ impl LiveViewClientState {
             LiveViewClientState::Reconnecting { .. } => ClientStatus::Reconnecting,
             LiveViewClientState::Connected {
                 client, con_msg_tx, ..
-            } => ClientStatus::Connected(ConnectedStatus {
+            } => ClientStatus::Connected(Box::new(ConnectedStatus {
                 session_data: client.session_data.clone(),
                 document: client.document.clone(),
                 join_document: client.liveview_channel.join_document(),
                 join_payload: client.liveview_channel.join_payload(),
                 msg_tx: con_msg_tx.clone(),
                 channel_status: client.liveview_channel.channel.status(),
-            }),
+            })),
             LiveViewClientState::FatalError(e) => ClientStatus::FatalError {
                 error: e.error.clone(),
             },
