@@ -4,8 +4,6 @@ mod event_loop;
 mod logging;
 mod navigation;
 
-pub use navigation::NavigationError;
-
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -16,6 +14,7 @@ use event_loop::{ClientMessage, ConnectedClientMessage, EventLoop};
 use log::{debug, warn};
 use logging::*;
 use navigation::NavCtx;
+pub use navigation::NavigationError;
 use phoenix_channels_client::{ChannelStatus, Event, Events, Payload, JSON};
 use reqwest::{redirect::Policy, Client as HttpClient, Url};
 use tokio::{
@@ -29,8 +28,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::{ClientConnectOpts, ClientStatuses, LiveViewClientConfiguration, LogLevel};
 use crate::{
-    callbacks::LiveViewClientStatus as FFIClientStatus,
-    callbacks::*,
+    callbacks::{LiveViewClientStatus as FFIClientStatus, *},
     dom::{
         ffi::{self, Document as FFIDocument},
         AttributeName, AttributeValue, Document, Selector,

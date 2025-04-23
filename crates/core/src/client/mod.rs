@@ -9,14 +9,13 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+pub use config::StrategyAdapter;
 use config::*;
 use futures::future::try_join_all;
+pub use inner::NavigationError;
 use inner::{ClientStatus, LiveViewClientInner};
 use phoenix_channels_client::{Payload, JSON};
 use reqwest::header::CONTENT_TYPE;
-
-pub use config::StrategyAdapter;
-pub use inner::NavigationError;
 
 use crate::{
     callbacks::*,
