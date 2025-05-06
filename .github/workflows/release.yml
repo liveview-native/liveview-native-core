@@ -96,6 +96,66 @@ jobs:
           name: liveview_native_core.xcframework.zip
           path: ./target/uniffi/swift/liveview_native_core.xcframework.zip
 
+  build-macos-jar:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust Nightly
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          targets: aarch64-apple-darwin
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          architecture: 'x64'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build macOS libraries
+        working-directory: ./crates/core/liveview-native-core-jetpack
+        run: ./gradlew nativeLibJar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          retention-days: 5
+          name: macos-libs
+          path: ./crates/core/liveview-native-core-jetpack/core/build/libs/*.jar
+
+  build-linux-jar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust Nightly
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          architecture: 'x64'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Linux libraries
+        working-directory: ./crates/core/liveview-native-core-jetpack
+        run: ./gradlew nativeLibJar
+
+      - uses: actions/upload-artifact@v4
+        with:
+          retention-days: 5
+          name: linux-libs
+          path: ./crates/core/liveview-native-core-jetpack/core/build/libs/*.jar
+
   release-documentation:
     runs-on: macos-15
     continue-on-error: true
@@ -153,6 +213,8 @@ jobs:
     needs:
       - build-xcframework
       - build-wasm
+      - build-macos-jar
+      - build-linux-jar
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust Nightly
@@ -213,6 +275,8 @@ jobs:
             ./target/uniffi/swift/liveview_native_core.xcframework.zip
             ./crates/wasm/liveview-native-core-wasm-web.tgz
             ./crates/wasm/liveview-native-core-wasm-nodejs.tgz
+            ./crates/core/liveview-native-core-jetpack/core/build/libs/liveview-native-core-darwin-aarch64.jar
+            ./crates/core/liveview-native-core-jetpack/core/build/libs/liveview-native-core-linux-x86-64.jar
           draft: false
           prerelease: true
           tag_name: ${{ github.event.release.tag_name }}
