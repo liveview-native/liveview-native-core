@@ -451,11 +451,22 @@ impl LiveSocket {
         let mut resp = client.execute(request?).await?;
         let mut headers = resp.headers().clone();
 
-        for _ in 0..MAX_REDIRECTS {
+        for try_number in 0..MAX_REDIRECTS {
             if !resp.status().is_redirection() {
                 log::debug!("{resp:?}");
                 break;
             }
+
+            if try_number == 0 {
+                let redirect_cookies = resp.headers().get_all(SET_COOKIE);
+
+                for cookie in redirect_cookies {
+                    if headers.try_append(SET_COOKIE, cookie.clone()).is_err() {
+                        log::error!("Could not collect set cookie headers");
+                    }
+                }
+            }
+
             log::debug!("-- REDIRECTING -- ");
             log::debug!("{resp:?}");
 
