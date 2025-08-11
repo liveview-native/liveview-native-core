@@ -28,7 +28,7 @@ jobs:
   fmt:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@master
         with:
@@ -41,7 +41,7 @@ jobs:
   typos:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: taiki-e/install-action@v2
         with:
           tool: typos-cli
@@ -57,7 +57,7 @@ jobs:
   wasm:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.CARGO_MAKE_TOOLCHAIN }}
@@ -96,7 +96,7 @@ jobs:
   clippy:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@master
         with:
@@ -114,7 +114,7 @@ jobs:
       matrix:
         os: [macos-15, ubuntu-24.04]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./tests/support/test_server/
         if: ${{ matrix.os == 'macos-15' }}
 
@@ -170,7 +170,7 @@ jobs:
     runs-on: macos-15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Rust Nightly
         uses: dtolnay/rust-toolchain@master
         with:
@@ -220,7 +220,7 @@ jobs:
         swift-test: ["package", "tvos", "watchos", "macos", "ios", "visionos"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./tests/support/test_server/
 
       - uses: actions/download-artifact@v4
@@ -287,7 +287,7 @@ jobs:
       - swift_integration_tests
       - integration_tests
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v4
         with:
           name: LiveViewNativeCore-Source
@@ -317,7 +317,7 @@ jobs:
     runs-on: macos-15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./tests/support/test_server/
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
@@ -390,7 +390,7 @@ jobs:
             toolchain: "nightly"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Start Simulator
         run: |
           xcrun simctl list devices available
@@ -441,7 +441,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
