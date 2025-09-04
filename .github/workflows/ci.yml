@@ -148,7 +148,7 @@ jobs:
       # https://github.com/actions/runner-images/blob/5a9870800dc54127d22ee36c303b47314d231c69/images/macos/macos-15-arm64-Readme.md
       # Python is required to build OpenSSL but there's no python in the m1
       # macos runners.
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
