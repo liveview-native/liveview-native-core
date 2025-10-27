@@ -223,12 +223,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./tests/support/test_server/
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: liveview_native_core.xcframework
           path: ./target/uniffi/swift/liveview_native_core.xcframework
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: LiveViewNativeCore-Source
           path: ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore
@@ -288,15 +288,15 @@ jobs:
       - integration_tests
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: LiveViewNativeCore-Source
           path: ./crates/core/liveview-native-core-swift/Sources/LiveViewNativeCore
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: swift-lcov.info
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v6
         with:
           name: rust-lcov.info
 
