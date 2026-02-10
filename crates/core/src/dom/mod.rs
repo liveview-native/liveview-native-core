@@ -1243,3 +1243,435 @@ impl petgraph::visit::Visitable for Document {
         map.grow(self.nodes.len())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Test that conditional element properly hides when condition becomes false.
+    /// This tests the full pipeline: fragment merge → render → parse → diff → patch.
+    #[test]
+    fn document_merge_conditional_hides() {
+        // Initial state: conditional element is shown (routes == [])
+        let initial_json = json!({
+            "0": {"d": [], "s": ["<Item>", "</Item>"]},  // Empty comprehension
+            "1": {"s": ["<Empty/>"]},  // Conditional shown
+            "s": ["<Root>", "", "", "</Root>"]
+        });
+
+        let mut doc = Document::parse_fragment_json(initial_json.to_string())
+            .expect("Failed to parse initial fragment");
+
+        // Verify initial state has the Empty element
+        let initial_html = doc.to_string();
+        assert!(
+            initial_html.contains("<Empty"),
+            "Initial: Should have Empty element. Got: {}",
+            initial_html
+        );
+
+        // Diff: add an item to comprehension, hide empty state
+        let diff = json!({
+            "0": {"d": [["ItemA"]]},
+            "1": ""  // Hide conditional (empty string)
+        });
+
+        let _patches = doc
+            .merge_fragment_json(diff)
+            .expect("Failed to merge diff");
+
+        // Verify Empty element is gone and ItemA is present
+        let final_html = doc.to_string();
+        assert!(
+            !final_html.contains("<Empty"),
+            "After hiding: Empty element should be gone. Got: {}",
+            final_html
+        );
+        assert!(
+            final_html.contains("ItemA"),
+            "After hiding: Should have ItemA. Got: {}",
+            final_html
+        );
+    }
+
+    /// Test that conditional element properly shows when condition becomes true.
+    #[test]
+    fn document_merge_conditional_shows() {
+        // Initial state: conditional is hidden (routes is non-empty)
+        let initial_json = json!({
+            "0": {"d": [["ItemA"]], "s": ["<Item>", "</Item>"]},  // Has items
+            "1": "",  // Conditional hidden (empty string)
+            "s": ["<Root>", "", "", "</Root>"]
+        });
+
+        let mut doc = Document::parse_fragment_json(initial_json.to_string())
+            .expect("Failed to parse initial fragment");
+
+        // Verify initial state has ItemA but no Empty
+        let initial_html = doc.to_string();
+        assert!(
+            initial_html.contains("ItemA"),
+            "Initial: Should have ItemA. Got: {}",
+            initial_html
+        );
+        assert!(
+            !initial_html.contains("<Empty"),
+            "Initial: Should not have Empty. Got: {}",
+            initial_html
+        );
+
+        // Diff: remove items, show empty state
+        let diff = json!({
+            "0": {"d": []},
+            "1": {"s": ["<Empty/>"]}  // Show conditional
+        });
+
+        let _patches = doc
+            .merge_fragment_json(diff)
+            .expect("Failed to merge diff");
+
+        // Verify Empty element appears and ItemA is gone
+        let final_html = doc.to_string();
+        assert!(
+            final_html.contains("<Empty"),
+            "After showing: Should have Empty element. Got: {}",
+            final_html
+        );
+        assert!(
+            !final_html.contains("ItemA"),
+            "After showing: ItemA should be gone. Got: {}",
+            final_html
+        );
+        // Ensure exactly one Empty element
+        assert_eq!(
+            final_html.matches("<Empty").count(),
+            1,
+            "Should have exactly one Empty element. Got: {}",
+            final_html
+        );
+    }
+
+    /// Test that toggling conditional multiple times doesn't cause duplication.
+    /// This is the key test for the bug where elements accumulate.
+    #[test]
+    fn document_merge_conditional_toggles() {
+        // Initial state: empty list, conditional shown
+        let initial_json = json!({
+            "0": {"d": [], "s": ["<Item>", "</Item>"]},
+            "1": {"s": ["<Empty/>"]},
+            "s": ["<Root>", "", "", "</Root>"]
+        });
+
+        let mut doc = Document::parse_fragment_json(initial_json.to_string())
+            .expect("Failed to parse initial fragment");
+
+        // Verify initial state
+        let html = doc.to_string();
+        assert!(html.contains("<Empty"), "Initial: Should have Empty. Got: {}", html);
+        assert_eq!(html.matches("<Empty").count(), 1, "Initial: Should have exactly one Empty. Got: {}", html);
+
+        // Toggle 1: hide empty, show item
+        let diff1 = json!({
+            "0": {"d": [["A"]]},
+            "1": ""
+        });
+        doc.merge_fragment_json(diff1).expect("merge diff1");
+        let html1 = doc.to_string();
+        assert!(!html1.contains("<Empty"), "Toggle 1: Empty should be hidden. Got: {}", html1);
+        assert!(html1.contains("A"), "Toggle 1: Should have item A. Got: {}", html1);
+
+        // Toggle 2: show empty, hide items
+        let diff2 = json!({
+            "0": {"d": []},
+            "1": {"s": ["<Empty/>"]}
+        });
+        doc.merge_fragment_json(diff2).expect("merge diff2");
+        let html2 = doc.to_string();
+        assert!(html2.contains("<Empty"), "Toggle 2: Empty should reappear. Got: {}", html2);
+        assert!(!html2.contains(">A<"), "Toggle 2: Item A should be gone. Got: {}", html2);
+        assert_eq!(html2.matches("<Empty").count(), 1, "Toggle 2: Should have exactly ONE Empty (no duplication). Got: {}", html2);
+
+        // Toggle 3: hide empty again, show different item
+        let diff3 = json!({
+            "0": {"d": [["B"]]},
+            "1": ""
+        });
+        doc.merge_fragment_json(diff3).expect("merge diff3");
+        let html3 = doc.to_string();
+        assert!(!html3.contains("<Empty"), "Toggle 3: Empty should be hidden. Got: {}", html3);
+        assert!(html3.contains("B"), "Toggle 3: Should have item B. Got: {}", html3);
+
+        // Toggle 4: one more toggle back
+        let diff4 = json!({
+            "0": {"d": []},
+            "1": {"s": ["<Empty/>"]}
+        });
+        doc.merge_fragment_json(diff4).expect("merge diff4");
+        let html4 = doc.to_string();
+        assert!(html4.contains("<Empty"), "Toggle 4: Empty should reappear. Got: {}", html4);
+        assert_eq!(html4.matches("<Empty").count(), 1, "Toggle 4: Should still have exactly ONE Empty. Got: {}", html4);
+    }
+
+    /// Test with keyed comprehension with conditional sibling.
+    #[test]
+    fn document_merge_keyed_comprehension_with_conditional() {
+        // Initial: no routes, empty state shown
+        let initial_json = json!({
+            "0": {
+                "0": {
+                    "k": {"kc": 0},  // Empty keyed comprehension
+                    "s": 0
+                },
+                "1": {"s": ["<Box>No routes available</Box>"]},
+                "s": 1
+            },
+            "p": {
+                "0": ["<Row><Text>", "</Text></Row>"],
+                "1": ["<Column><LazyColumn>", "</LazyColumn>", "</Column>"]
+            },
+            "s": ["", ""]
+        });
+
+        let mut doc = Document::parse_fragment_json(initial_json.to_string())
+            .expect("Failed to parse initial fragment");
+
+        let html = doc.to_string();
+        assert!(html.contains("No routes available"), "Initial: Should show empty state. Got: {}", html);
+
+        // Diff: add routes, hide empty state
+        let diff1 = json!({
+            "0": {
+                "0": {
+                    "k": {
+                        "0": {"0": "Route ABC"},
+                        "kc": 1
+                    }
+                },
+                "1": ""
+            }
+        });
+
+        doc.merge_fragment_json(diff1).expect("merge diff1");
+        let html1 = doc.to_string();
+        assert!(!html1.contains("No routes available"), "After adding route: Empty state should be gone. Got: {}", html1);
+        assert!(html1.contains("Route ABC"), "After adding route: Should show route. Got: {}", html1);
+
+        // Diff: remove routes, show empty state
+        let diff2 = json!({
+            "0": {
+                "0": {
+                    "k": {"kc": 0}
+                },
+                "1": {"s": ["<Box>No routes available</Box>"]}
+            }
+        });
+
+        doc.merge_fragment_json(diff2).expect("merge diff2");
+        let html2 = doc.to_string();
+        assert!(html2.contains("No routes available"), "After removing routes: Empty state should reappear. Got: {}", html2);
+        assert!(!html2.contains("Route ABC"), "After removing routes: Route should be gone. Got: {}", html2);
+        assert_eq!(html2.matches("No routes available").count(), 1,
+            "Should have exactly one empty state message (no duplication). Got: {}", html2);
+
+        // One more toggle cycle to verify no accumulation
+        let diff3 = json!({
+            "0": {
+                "0": {
+                    "k": {
+                        "0": {"0": "Route XYZ"},
+                        "kc": 1
+                    }
+                },
+                "1": ""
+            }
+        });
+        doc.merge_fragment_json(diff3).expect("merge diff3");
+        let html3 = doc.to_string();
+        assert!(!html3.contains("No routes available"), "Toggle 3: Empty state should be gone. Got: {}", html3);
+        assert!(html3.contains("Route XYZ"), "Toggle 3: Should show new route. Got: {}", html3);
+
+        let diff4 = json!({
+            "0": {
+                "0": {
+                    "k": {"kc": 0}
+                },
+                "1": {"s": ["<Box>No routes available</Box>"]}
+            }
+        });
+        doc.merge_fragment_json(diff4).expect("merge diff4");
+        let html4 = doc.to_string();
+        assert_eq!(html4.matches("No routes available").count(), 1,
+            "After 4 toggles: Should still have exactly one empty state. Got: {}", html4);
+    }
+
+    /// Helper to count only element nodes (not leaf/text nodes)
+    fn count_elements_recursive(doc: &Document, node_ref: NodeRef) -> usize {
+        let node = doc.get(node_ref);
+        let children = doc.children(node_ref);
+
+        match node {
+            NodeData::Root => {
+                children.iter().map(|child| count_elements_recursive(doc, *child)).sum()
+            }
+            NodeData::Leaf { .. } => {
+                // Leaf nodes don't count as elements
+                0
+            }
+            NodeData::NodeElement { .. } => {
+                // Count this element plus all child elements
+                1 + children.iter().map(|child| count_elements_recursive(doc, *child)).sum::<usize>()
+            }
+        }
+    }
+
+    /// Test that verifies children counts match what walkThroughDOM would see.
+    /// This catches bugs where the DOM tree has extra nodes that HTML rendering might not show.
+    #[test]
+    fn document_merge_children_count_matches() {
+        // Initial state: empty list, conditional shown
+        let initial_json = json!({
+            "0": {"d": [], "s": ["<Item>", "</Item>"]},
+            "1": {"s": ["<Empty/>"]},
+            "s": ["<Root>", "", "", "</Root>"]
+        });
+
+        let mut doc = Document::parse_fragment_json(initial_json.to_string())
+            .expect("Failed to parse initial fragment");
+
+        // Initial: Root should have 2 direct children (the empty comprehension result and Empty element)
+        // But comprehension is empty so just Empty element is visible
+        let initial_count = count_elements_recursive(&doc, doc.root());
+
+        // Toggle 1: hide empty, show item
+        let diff1 = json!({
+            "0": {"d": [["A"]]},
+            "1": ""
+        });
+        doc.merge_fragment_json(diff1).expect("merge diff1");
+
+        // Toggle 2: show empty, hide items
+        let diff2 = json!({
+            "0": {"d": []},
+            "1": {"s": ["<Empty/>"]}
+        });
+        doc.merge_fragment_json(diff2).expect("merge diff2");
+
+        let count2 = count_elements_recursive(&doc, doc.root());
+
+        // The element count should be the same as initial
+        assert_eq!(count2, initial_count,
+            "After toggling back: element count should match initial. Got {} vs {}",
+            count2, initial_count);
+
+        // Toggle 3: hide empty again
+        let diff3 = json!({
+            "0": {"d": [["B"]]},
+            "1": ""
+        });
+        doc.merge_fragment_json(diff3).expect("merge diff3");
+
+        // Toggle 4: show empty again - verify no accumulation
+        let diff4 = json!({
+            "0": {"d": []},
+            "1": {"s": ["<Empty/>"]}
+        });
+        doc.merge_fragment_json(diff4).expect("merge diff4");
+
+        let count4 = count_elements_recursive(&doc, doc.root());
+
+        assert_eq!(count4, initial_count,
+            "After 4 toggles: element count should still match initial. Got {} vs {}",
+            count4, initial_count);
+    }
+
+    /// Test case: keyed comprehension with conditional children
+    /// that reference templates which get overwritten by new template partials.
+    ///
+    /// This test uses sequential child indices (0,1,2,3,4) since template slots are positional.
+    /// Children 3 and 4 are conditional (initially hidden as empty strings).
+    #[test]
+    fn document_merge_keyed_item_conditional_children_template_overwrite() {
+        // Simplified version of the scenario:
+        // - Keyed comprehension uses template 0 (Card template with 5 slots: 0,1,2,3,4)
+        // - Inside keyed item, children 3,4 are conditional (empty strings initially)
+        // - When children 3,4 become visible, they reference templates 2,3 (different from Card's template 0)
+        // - Phoenix sends NEW templates at indices 2,3 in the diff
+        // - Template memory should preserve Card template for keyed comprehension
+
+        let initial_json = json!({
+            "0": {
+                "0": {
+                    "k": {
+                        "0": {
+                            "0": "Route 107",
+                            "1": " color=\"#FFFFA726\"",  // Dynamic attribute
+                            "2": "Preparing",
+                            "3": "",  // Hidden conditional (Actual time row)
+                            "4": ""   // Hidden conditional (Progress bar)
+                        },
+                        "kc": 1
+                    },
+                    "s": 0  // Keyed comprehension uses template 0 (Card)
+                },
+                "1": "",
+                "s": 1
+            },
+            "p": {
+                // Card template with 6 statics (5 dynamic slots for children 0,1,2,3,4)
+                "0": ["<Card><Text>", "</Text><Text", ">", "</Text>", "", "</Card>"],
+                "1": ["<Scaffold>", "", "</Scaffold>"]
+            },
+            "s": ["", ""]
+        });
+
+        let mut doc = Document::parse_fragment_json(initial_json.to_string())
+            .expect("parse initial");
+
+        let html = doc.to_string();
+        assert!(html.contains("<Card>"), "Initial should have Card: {}", html);
+        assert!(html.contains("Route 107"), "Initial should have route: {}", html);
+
+        // Diff: route status changes, conditionals become visible
+        // Phoenix sends NEW templates at indices 2,3 for the conditional children
+        // (different from template 0 used by KeyedComprehension)
+        let diff = json!({
+            "0": {
+                "0": {
+                    "k": {
+                        "0": {
+                            "0": "Route 107",
+                            "1": " color=\"#FF42A5F5\"",  // Color changed
+                            "2": "En route",
+                            "3": {"0": "12:02", "1": "17:23", "s": 2},  // Now visible, uses template 2
+                            "4": {"0": "0.5", "s": 3}  // Now visible, uses template 3
+                        },
+                        "kc": 1
+                    }
+                }
+            },
+            "p": {
+                "2": ["<Row><Text>", "</Text><Text>", "</Text></Row>"],  // NEW template 2 for child 3
+                "3": ["<ProgressBar progress=\"", "\"/>"]  // NEW template 3 for child 4
+            }
+        });
+
+        // This should succeed because templates 2,3 don't conflict with template 0
+        let result = doc.merge_fragment_json(diff);
+
+        // After fix: should succeed
+        assert!(result.is_ok(), "Merge should succeed, got: {:?}", result.err());
+
+        let html2 = doc.to_string();
+
+        // Card should still be present (template preserved)
+        assert!(html2.contains("<Card>"), "Card should still render after diff: {}", html2);
+
+        // Route content should be present
+        assert!(html2.contains("Route 107"), "Route should be visible: {}", html2);
+
+        // Conditional content should also be present (rendered via templates 2,3)
+        assert!(html2.contains("12:02"), "Actual time should appear: {}", html2);
+        assert!(html2.contains("17:23"), "End time should appear: {}", html2);
+    }
+}

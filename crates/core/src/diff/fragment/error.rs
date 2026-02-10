@@ -16,6 +16,10 @@ pub enum MergeError {
     AddChildToExisting,
     #[error("There was a id mismatch when merging a stream")]
     StreamIDMismatch,
+    #[error("Keyed item at position {0} not found during merge")]
+    KeyedItemNotFound(i32),
+    #[error("Keyed item at position {0} was not resolved")]
+    KeyedItemNotResolved(i32),
     #[error("Stream Error {error}")]
     Stream {
         #[from]
@@ -42,6 +46,8 @@ pub enum RenderError {
     ChildNotFoundForStatic(i32),
     #[error("Cousin not found for {0}")]
     CousinNotFound(i32),
+    #[error("Keyed item at index {0} was not resolved")]
+    KeyedItemNotResolved(i32),
     #[error("Serde Error {0}")]
     SerdeError(Arc<serde_json::Error>),
     #[error("Parse Error {0}")]

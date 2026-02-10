@@ -22,8 +22,18 @@ impl Fragment {
         let mut out = String::new();
         match &self {
             Fragment::Regular {
-                children, statics, ..
+                children,
+                statics,
+                templates,
+                ..
             } => {
+                // Merge parent templates with local templates
+                let templates: Templates = match (parent_templates, templates) {
+                    (None, None) => None,
+                    (None, Some(t)) => Some(t.clone()),
+                    (Some(t), None) => Some(t),
+                    (Some(_parent), Some(child)) => Some(child.clone()),
+                };
                 match statics {
                     None => {}
                     Some(Statics::String(_)) => {}
@@ -37,7 +47,7 @@ impl Fragment {
                                 let val = child.render(
                                     components,
                                     cousin_statics.clone(),
-                                    parent_templates.clone(),
+                                    templates.clone(),
                                 )?;
                                 out.push_str(&val);
                             }
@@ -45,8 +55,9 @@ impl Fragment {
                         }
                     }
                     Some(Statics::TemplateRef(template_id)) => {
-                        let templates = parent_templates.ok_or(RenderError::NoTemplates)?;
-                        let template = templates
+                        let resolved_templates =
+                            templates.as_ref().ok_or(RenderError::NoTemplates)?;
+                        let template = resolved_templates
                             .get(&(template_id.to_string()))
                             .ok_or(RenderError::TemplateNotFound(*template_id))?;
                         out.push_str(&template[0]);
@@ -61,7 +72,7 @@ impl Fragment {
                             let val = child.render(
                                 components,
                                 cousin_statics.clone(),
-                                Some(templates.clone()),
+                                templates.clone(),
                             )?;
                             out.push_str(&val);
                             out.push_str(template_item);
@@ -79,7 +90,7 @@ impl Fragment {
                     (None, None) => None,
                     (None, Some(t)) => Some(t.clone()),
                     (Some(t), None) => Some(t),
-                    (Some(parent), Some(child)) => Some(parent).merge(Some(child.clone()))?,
+                    (Some(_parent), Some(child)) => Some(child.clone()),
                 };
                 match (statics, cousin_statics) {
                     (None, None) => {
@@ -158,6 +169,149 @@ impl Fragment {
                     }
                     (Some(_statics), Some(_cousin_templates)) => {
                         panic!("Either statics or cousin statics but not both");
+                    }
+                }
+            }
+            Fragment::KeyedComprehension {
+                keyed,
+                statics,
+                templates,
+                ..
+            } => {
+                let templates: Templates = match (parent_templates, templates) {
+                    (None, None) => None,
+                    (None, Some(t)) => Some(t.clone()),
+                    (Some(t), None) => Some(t),
+                    (Some(_parent), Some(child)) => Some(child.clone()),
+                };
+
+                // Render keyed items in order (0, 1, 2, ... up to key_count)
+                for i in 0..keyed.key_count {
+                    let key = i.to_string();
+                    if let Some(item) = keyed.items.get(&key) {
+                        let item_fragment = match item {
+                            KeyedItem::Fragment(frag) => frag,
+                            KeyedItem::MovedFrom(_) | KeyedItem::MovedWithDiff(_, _) => {
+                                // These should have been resolved during merge
+                                return Err(RenderError::KeyedItemNotResolved(i));
+                            }
+                        };
+
+                        match (statics, cousin_statics.as_ref()) {
+                            (None, None) => {
+                                // Render the fragment directly
+                                let val =
+                                    item_fragment.render(components, None, templates.clone())?;
+                                out.push_str(&val);
+                            }
+                            (Some(Statics::TemplateRef(template_id)), _) => {
+                                if let Some(ref this_template) = templates {
+                                    if let Some(template_statics) =
+                                        this_template.get(&template_id.to_string())
+                                    {
+                                        // Render the keyed item using the template
+                                        out.push_str(&template_statics[0]);
+
+                                        // Get children from the keyed item fragment
+                                        if let Fragment::Regular { children, .. } =
+                                            item_fragment.as_ref()
+                                        {
+                                            for j in 1..template_statics.len() {
+                                                let child_key = (j - 1).to_string();
+                                                if let Some(child) = children.get(&child_key) {
+                                                    let val = child.render(
+                                                        components,
+                                                        None,
+                                                        templates.clone(),
+                                                    )?;
+                                                    out.push_str(&val);
+                                                }
+                                                out.push_str(&template_statics[j]);
+                                            }
+                                        } else {
+                                            // For non-Regular fragments, just render them
+                                            let val = item_fragment.render(
+                                                components,
+                                                None,
+                                                templates.clone(),
+                                            )?;
+                                            out.push_str(&val);
+                                            // Push remaining template parts
+                                            for j in 1..template_statics.len() {
+                                                out.push_str(&template_statics[j]);
+                                            }
+                                        }
+                                    } else {
+                                        return Err(RenderError::TemplateNotFound(*template_id));
+                                    }
+                                } else {
+                                    return Err(RenderError::NoTemplates);
+                                }
+                            }
+                            (Some(Statics::Statics(statics_vec)), _) => {
+                                // Render the keyed item using inline statics
+                                out.push_str(&statics_vec[0]);
+
+                                if let Fragment::Regular { children, .. } = item_fragment.as_ref()
+                                {
+                                    for j in 1..statics_vec.len() {
+                                        let child_key = (j - 1).to_string();
+                                        if let Some(child) = children.get(&child_key) {
+                                            let val = child.render(
+                                                components,
+                                                None,
+                                                templates.clone(),
+                                            )?;
+                                            out.push_str(&val);
+                                        }
+                                        out.push_str(&statics_vec[j]);
+                                    }
+                                } else {
+                                    let val = item_fragment.render(
+                                        components,
+                                        None,
+                                        templates.clone(),
+                                    )?;
+                                    out.push_str(&val);
+                                    for j in 1..statics_vec.len() {
+                                        out.push_str(&statics_vec[j]);
+                                    }
+                                }
+                            }
+                            (Some(Statics::String(_)), _) => {
+                                // String statics, just render
+                            }
+                            (None, Some(cousin_statics_vec)) => {
+                                // Use cousin statics similar to Comprehension
+                                out.push_str(&cousin_statics_vec[0]);
+
+                                if let Fragment::Regular { children, .. } = item_fragment.as_ref()
+                                {
+                                    for j in 1..cousin_statics_vec.len() {
+                                        let child_key = (j - 1).to_string();
+                                        if let Some(child) = children.get(&child_key) {
+                                            let val = child.render(
+                                                components,
+                                                None,
+                                                templates.clone(),
+                                            )?;
+                                            out.push_str(&val);
+                                        }
+                                        out.push_str(&cousin_statics_vec[j]);
+                                    }
+                                } else {
+                                    let val = item_fragment.render(
+                                        components,
+                                        None,
+                                        templates.clone(),
+                                    )?;
+                                    out.push_str(&val);
+                                    for j in 1..cousin_statics_vec.len() {
+                                        out.push_str(&cousin_statics_vec[j]);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

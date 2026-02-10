@@ -29,9 +29,9 @@ impl Root {
 impl Fragment {
     pub fn is_new_fingerprint(&self) -> bool {
         match self {
-            Fragment::Regular { statics, .. } | Fragment::Comprehension { statics, .. } => {
-                statics.is_some()
-            }
+            Fragment::Regular { statics, .. }
+            | Fragment::Comprehension { statics, .. }
+            | Fragment::KeyedComprehension { statics, .. } => statics.is_some(),
         }
     }
 
@@ -45,6 +45,13 @@ impl Fragment {
                 stream: None,
                 new_render: None,
             } => dynamics.is_empty(),
+            Fragment::KeyedComprehension {
+                keyed,
+                statics: None,
+                is_root: None,
+                templates: None,
+                new_render: None,
+            } => keyed.items.is_empty(),
             _ => false,
         }
     }

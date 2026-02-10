@@ -75,6 +75,7 @@ impl Root {
         };
 
         out.resolve_components(old_components)?;
+        out.fragment.expand_statics();
         Ok(out)
     }
 
@@ -172,17 +173,35 @@ impl Child {
                 }
             }
             (
-                Fragment::Regular {
-                    statics, children, ..
-                },
-                Fragment::Regular {
+                Fragment::KeyedComprehension { statics, .. },
+                Fragment::KeyedComprehension {
                     statics: new_statics,
-                    children: new_children,
                     ..
                 },
             ) => {
                 if statics.is_none() {
                     *statics = new_statics;
+                }
+            }
+            (
+                Fragment::Regular {
+                    statics,
+                    children,
+                    templates,
+                    ..
+                },
+                Fragment::Regular {
+                    statics: new_statics,
+                    children: new_children,
+                    templates: new_templates,
+                    ..
+                },
+            ) => {
+                if statics.is_none() {
+                    *statics = new_statics;
+                }
+                if templates.is_none() {
+                    *templates = new_templates;
                 }
 
                 for (id, new_child) in new_children {
@@ -204,7 +223,8 @@ impl FragmentDiff {
     fn should_replace_current(&self) -> bool {
         match self {
             FragmentDiff::UpdateRegular { statics, .. }
-            | FragmentDiff::UpdateComprehension { statics, .. } => statics.is_some(),
+            | FragmentDiff::UpdateComprehension { statics, .. }
+            | FragmentDiff::UpdateKeyedComprehension { statics, .. } => statics.is_some(),
         }
     }
 }
@@ -257,11 +277,13 @@ impl FragmentMerge for Fragment {
                 Fragment::Regular {
                     children: current_children,
                     statics: current_statics,
+                    templates: current_templates,
                     is_root: current_reply,
                     ..
                 },
                 FragmentDiff::UpdateRegular {
                     children: children_diffs,
+                    templates: new_templates,
                     is_root: new_reply,
                     ..
                 },
@@ -269,10 +291,12 @@ impl FragmentMerge for Fragment {
                 let new_children = current_children.merge(children_diffs)?;
                 let new_reply = new_reply.or(current_reply);
                 let new_render = new_reply.map(|i| i != 0);
+                let templates = current_templates.merge(new_templates)?;
 
                 Ok(Self::Regular {
                     children: new_children,
                     statics: current_statics,
+                    templates,
                     is_root: new_reply,
                     new_render,
                 })
@@ -377,6 +401,93 @@ impl FragmentMerge for Fragment {
                     new_render,
                 })
             }
+            (
+                Fragment::KeyedComprehension {
+                    keyed: current_keyed,
+                    statics,
+                    templates: current_templates,
+                    is_root: current_reply,
+                    ..
+                },
+                FragmentDiff::UpdateKeyedComprehension {
+                    keyed: keyed_diff,
+                    templates: new_templates,
+                    is_root: new_reply,
+                    ..
+                },
+            ) => {
+                let new_reply = new_reply.or(current_reply);
+                let templates = current_templates.merge(new_templates)?;
+
+                // Start with existing items, then apply diffs
+                let mut new_items = current_keyed.items.clone();
+                for (key, item_diff) in keyed_diff.items {
+                    let new_item = match item_diff {
+                        KeyedItemDiff::MovedFrom(old_pos) => {
+                            // Copy item from old position unchanged
+                            let old_key = old_pos.to_string();
+                            current_keyed
+                                .items
+                                .get(&old_key)
+                                .cloned()
+                                .ok_or(MergeError::KeyedItemNotFound(old_pos))?
+                        }
+                        KeyedItemDiff::MovedWithDiff(old_pos, fragment_diff) => {
+                            // Copy item from old position and apply diff
+                            let old_key = old_pos.to_string();
+                            let old_item = current_keyed
+                                .items
+                                .get(&old_key)
+                                .ok_or(MergeError::KeyedItemNotFound(old_pos))?;
+                            match old_item {
+                                KeyedItem::Fragment(old_fragment) => {
+                                    let merged = (*old_fragment).clone().merge(*fragment_diff)?;
+                                    KeyedItem::Fragment(Box::new(merged))
+                                }
+                                KeyedItem::MovedFrom(_) | KeyedItem::MovedWithDiff(_, _) => {
+                                    // Shouldn't happen in a properly merged state
+                                    return Err(MergeError::KeyedItemNotResolved(old_pos));
+                                }
+                            }
+                        }
+                        KeyedItemDiff::FragmentDiff(fragment_diff) => {
+                            // Check if item already exists - if so, merge; otherwise create new
+                            if let Some(existing_item) = current_keyed.items.get(&key) {
+                                match existing_item {
+                                    KeyedItem::Fragment(old_fragment) => {
+                                        let merged = (*old_fragment).clone().merge(*fragment_diff)?;
+                                        KeyedItem::Fragment(Box::new(merged))
+                                    }
+                                    KeyedItem::MovedFrom(_) | KeyedItem::MovedWithDiff(_, _) => {
+                                        // Shouldn't happen in a properly merged state
+                                        return Err(MergeError::KeyedItemNotResolved(
+                                            key.parse().unwrap_or(-1),
+                                        ));
+                                    }
+                                }
+                            } else {
+                                // New item - convert from diff
+                                let fragment: Fragment = (*fragment_diff).try_into()?;
+                                KeyedItem::Fragment(Box::new(fragment))
+                            }
+                        }
+                    };
+                    new_items.insert(key, new_item);
+                }
+
+                let new_render = new_reply.map(|i| i != 0);
+
+                Ok(Self::KeyedComprehension {
+                    keyed: KeyedItems {
+                        items: new_items,
+                        key_count: keyed_diff.key_count,
+                    },
+                    statics,
+                    templates,
+                    is_root: new_reply,
+                    new_render,
+                })
+            }
             _ => Err(MergeError::FragmentTypeMismatch),
         }
     }
@@ -433,12 +544,7 @@ impl FragmentMerge for Templates {
             (None, None) => Ok(None),
             (None, Some(template)) => Ok(Some(template)),
             (Some(template), None) => Ok(Some(template)),
-            (Some(mut current), Some(new)) => {
-                for (key, val) in new.into_iter() {
-                    current.insert(key, val);
-                }
-                Ok(Some(current))
-            }
+            (Some(_current), Some(new)) => Ok(Some(new)),
         }
     }
 }
